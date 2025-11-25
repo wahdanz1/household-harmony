@@ -8,9 +8,10 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen relative">
+      <div className="gradient-background" />
       <DesktopNav />
-      <main className="pb-20 md:pb-8 md:pl-64">
+      <main className="pb-20 md:pb-8 md:pl-64 relative z-10">
         <div className="container max-w-6xl mx-auto px-4 py-6">
           {children}
         </div>
