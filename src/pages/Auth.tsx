@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { JoinHouseholdDialog } from "@/components/JoinHouseholdDialog";
+import { UserPlus } from "lucide-react";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -32,6 +35,7 @@ const Auth = () => {
   const [signupPassword, setSignupPassword] = useState("");
   const [signupConfirm, setSignupConfirm] = useState("");
   const [signupFullName, setSignupFullName] = useState("");
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
   
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
@@ -251,8 +255,27 @@ const Auth = () => {
               </form>
             </TabsContent>
           </Tabs>
+
+          <div className="mt-6">
+            <Separator className="my-4" />
+            <div className="text-center space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Already have an invite code?
+              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowJoinDialog(true)}
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Join Existing Household
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
+
+      <JoinHouseholdDialog open={showJoinDialog} onOpenChange={setShowJoinDialog} />
     </div>
   );
 };
