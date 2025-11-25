@@ -12,13 +12,13 @@ const MobileNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card/80 backdrop-blur-xl border-t border-white/5 z-50 md:hidden">
       <div className="grid grid-cols-6 h-16">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            className="flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors"
+            className="flex flex-col items-center justify-center gap-1 text-muted-foreground transition-all"
             activeClassName="text-primary"
           >
             <item.icon className="h-5 w-5" />

@@ -8,111 +8,71 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Scandinavian soft grey-blue base */
-    --background: 210 25% 98%;
-    --foreground: 215 20% 20%;
+    /* Dark mode only - Lovable inspired */
+    --background: 240 10% 6%;
+    --foreground: 240 6% 92%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 215 20% 20%;
+    --card: 240 8% 12%;
+    --card-foreground: 240 6% 92%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 20% 20%;
+    --popover: 240 8% 12%;
+    --popover-foreground: 240 6% 92%;
 
-    /* Muted teal primary - trustworthy and calm */
-    --primary: 185 35% 45%;
-    --primary-foreground: 0 0% 100%;
+    /* Soft coral/orange accent */
+    --primary: 20 90% 65%;
+    --primary-foreground: 240 10% 6%;
 
-    /* Soft secondary surface */
-    --secondary: 210 20% 92%;
-    --secondary-foreground: 215 20% 25%;
+    /* Darker surface */
+    --secondary: 240 6% 15%;
+    --secondary-foreground: 240 6% 92%;
 
-    --muted: 210 20% 95%;
-    --muted-foreground: 215 15% 50%;
+    --muted: 240 6% 18%;
+    --muted-foreground: 240 5% 60%;
 
-    /* Subtle accent for interactions */
-    --accent: 185 30% 88%;
-    --accent-foreground: 185 35% 30%;
+    /* Subtle purple accent */
+    --accent: 280 30% 25%;
+    --accent-foreground: 280 20% 85%;
 
-    /* Muted destructive */
-    --destructive: 0 65% 55%;
-    --destructive-foreground: 0 0% 100%;
+    /* Destructive */
+    --destructive: 0 70% 60%;
+    --destructive-foreground: 240 6% 92%;
 
-    /* Sage green for positive/savings */
-    --success: 145 35% 50%;
-    --success-foreground: 0 0% 100%;
+    /* Success green */
+    --success: 145 40% 55%;
+    --success-foreground: 240 10% 6%;
 
-    /* Soft amber for warnings */
-    --warning: 38 85% 60%;
-    --warning-foreground: 30 40% 20%;
+    /* Warning amber */
+    --warning: 38 90% 65%;
+    --warning-foreground: 240 10% 6%;
 
-    /* Subtle borders */
-    --border: 215 20% 88%;
-    --input: 215 20% 88%;
-    --ring: 185 35% 45%;
+    /* Very subtle borders */
+    --border: 240 6% 15%;
+    --input: 240 6% 18%;
+    --ring: 20 90% 65%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 240 8% 8%;
+    --sidebar-foreground: 240 6% 92%;
+    --sidebar-primary: 20 90% 65%;
+    --sidebar-primary-foreground: 240 10% 6%;
+    --sidebar-accent: 240 6% 15%;
+    --sidebar-accent-foreground: 240 6% 92%;
+    --sidebar-border: 240 6% 12%;
+    --sidebar-ring: 20 90% 65%;
   }
+}
 
-  .dark {
-    /* Deep charcoal-blue for dark mode */
-    --background: 215 25% 12%;
-    --foreground: 210 20% 92%;
-
-    --card: 215 22% 15%;
-    --card-foreground: 210 20% 92%;
-
-    --popover: 215 22% 15%;
-    --popover-foreground: 210 20% 92%;
-
-    /* Lighter teal for dark mode */
-    --primary: 185 40% 55%;
-    --primary-foreground: 215 25% 12%;
-
-    --secondary: 215 20% 20%;
-    --secondary-foreground: 210 20% 92%;
-
-    --muted: 215 20% 18%;
-    --muted-foreground: 215 15% 60%;
-
-    --accent: 185 30% 25%;
-    --accent-foreground: 185 40% 85%;
-
-    --destructive: 0 70% 60%;
-    --destructive-foreground: 210 20% 92%;
-
-    --success: 145 40% 55%;
-    --success-foreground: 215 25% 12%;
-
-    --warning: 38 90% 65%;
-    --warning-foreground: 30 40% 15%;
-
-    --border: 215 20% 22%;
-    --input: 215 20% 22%;
-    --ring: 185 40% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+/* Gradient background - Lovable inspired */
+@layer utilities {
+  .gradient-background {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: 
+      radial-gradient(ellipse at 20% 0%, hsla(280, 50%, 25%, 0.35) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, hsla(20, 80%, 30%, 0.25) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, hsl(240, 10%, 8%) 0%, hsl(240, 10%, 4%) 100%);
   }
 }
 
