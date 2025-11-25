@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      expense_categories: {
+        Row: {
+          created_at: string
+          default_amount: number
+          household_id: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          type: Database["public"]["Enums"]["expense_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_amount?: number
+          household_id: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          type: Database["public"]["Enums"]["expense_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_amount?: number
+          household_id?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          type?: Database["public"]["Enums"]["expense_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       household_invites: {
         Row: {
           created_at: string
@@ -136,6 +183,170 @@ export type Database = {
           },
         ]
       }
+      income_sources: {
+        Row: {
+          category: Database["public"]["Enums"]["income_category"]
+          created_at: string
+          default_amount: number
+          household_id: string
+          id: string
+          is_active: boolean
+          name: string
+          owner_id: string
+          type: Database["public"]["Enums"]["income_type"]
+          updated_at: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["income_category"]
+          created_at?: string
+          default_amount?: number
+          household_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          owner_id: string
+          type: Database["public"]["Enums"]["income_type"]
+          updated_at?: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["income_category"]
+          created_at?: string
+          default_amount?: number
+          household_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          owner_id?: string
+          type?: Database["public"]["Enums"]["income_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "income_sources_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "income_sources_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_expenses: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          expense_category_id: string
+          household_id: string
+          id: string
+          month: string
+          notes: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          expense_category_id: string
+          household_id: string
+          id?: string
+          month: string
+          notes?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          expense_category_id?: string
+          household_id?: string
+          id?: string
+          month?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_expenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_expenses_expense_category_id_fkey"
+            columns: ["expense_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_expenses_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_incomes: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          household_id: string
+          id: string
+          income_source_id: string
+          month: string
+          notes: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          household_id: string
+          id?: string
+          income_source_id: string
+          month: string
+          notes?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          household_id?: string
+          id?: string
+          income_source_id?: string
+          month?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_incomes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_incomes_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_incomes_income_source_id_fkey"
+            columns: ["income_source_id"]
+            isOneToOne: false
+            referencedRelation: "income_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -179,7 +390,16 @@ export type Database = {
       }
     }
     Enums: {
+      expense_type: "static" | "dynamic"
       household_role: "owner" | "member"
+      income_category:
+        | "salary"
+        | "business_income"
+        | "government_benefits"
+        | "investment_income"
+        | "gift"
+        | "other"
+      income_type: "static" | "variable"
       invite_status: "pending" | "accepted" | "expired"
     }
     CompositeTypes: {
@@ -308,7 +528,17 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      expense_type: ["static", "dynamic"],
       household_role: ["owner", "member"],
+      income_category: [
+        "salary",
+        "business_income",
+        "government_benefits",
+        "investment_income",
+        "gift",
+        "other",
+      ],
+      income_type: ["static", "variable"],
       invite_status: ["pending", "accepted", "expired"],
     },
   },
