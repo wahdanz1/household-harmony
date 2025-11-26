@@ -497,7 +497,9 @@ export type Database = {
           goal_type: string
           household_id: string
           id: string
+          image_url: string | null
           is_active: boolean
+          monthly_contribution: number | null
           name: string
           owner_id: string | null
           priority: string
@@ -513,7 +515,9 @@ export type Database = {
           goal_type?: string
           household_id: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
+          monthly_contribution?: number | null
           name: string
           owner_id?: string | null
           priority?: string
@@ -529,7 +533,9 @@ export type Database = {
           goal_type?: string
           household_id?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
+          monthly_contribution?: number | null
           name?: string
           owner_id?: string | null
           priority?: string

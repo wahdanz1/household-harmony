@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TrendingUp, Check, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,7 +40,7 @@ const Income = () => {
       { data: monthlyData },
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
-      supabase.from("income_sources").select("*, profiles(full_name)").eq("household_id", householdData.household_id).eq("is_active", true),
+      supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", householdData.household_id).eq("is_active", true),
       supabase.from("monthly_incomes").select("*").eq("household_id", householdData.household_id).eq("month", currentMonth),
     ]);
 
@@ -167,9 +168,15 @@ const Income = () => {
                           {hasEntry && <Check className="h-4 w-4 text-success" />}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {source.profiles.full_name} • Default: {source.default_amount}
+                          {source.profiles.full_name}
                         </p>
                       </div>
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={source.profiles.avatar_url || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {source.profiles.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
                       <Input
                         type="number"
                         value={amounts[source.id] || ""}

@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CalendarIcon, Upload } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -17,6 +18,8 @@ export const PersonalSettingsCard = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -25,13 +28,14 @@ export const PersonalSettingsCard = () => {
 
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, email, birthdate")
+        .select("full_name, email, birthdate, avatar_url")
         .eq("id", user.id)
         .single();
 
       if (data) {
         setFullName(data.full_name || "");
         setEmail(data.email);
+        setAvatarUrl(data.avatar_url);
         if (data.birthdate) {
           setBirthdate(new Date(data.birthdate));
         }
@@ -63,6 +67,45 @@ export const PersonalSettingsCard = () => {
     toast.success("Profile updated successfully");
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user || !e.target.files || e.target.files.length === 0) return;
+
+    const file = e.target.files[0];
+    setUploading(true);
+
+    const fileExt = file.name.split(".").pop();
+    const filePath = `${user.id}/avatar.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) {
+      toast.error("Failed to upload avatar");
+      setUploading(false);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(filePath);
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ avatar_url: publicUrl })
+      .eq("id", user.id);
+
+    setUploading(false);
+
+    if (updateError) {
+      toast.error("Failed to update profile");
+      return;
+    }
+
+    setAvatarUrl(publicUrl);
+    toast.success("Avatar updated successfully");
+  };
+
   const handleChangePassword = async () => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth`,
@@ -83,6 +126,32 @@ export const PersonalSettingsCard = () => {
         <CardDescription>Manage your personal information and account settings</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-20 w-20">
+            <AvatarImage src={avatarUrl || undefined} />
+            <AvatarFallback className="text-lg">
+              {fullName.split(" ").map(n => n[0]).join("").toUpperCase() || "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <Label htmlFor="avatar" className="cursor-pointer">
+              <div className="flex items-center gap-2 text-sm text-primary hover:underline">
+                <Upload className="h-4 w-4" />
+                {uploading ? "Uploading..." : "Upload Avatar"}
+              </div>
+            </Label>
+            <Input
+              id="avatar"
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              disabled={uploading}
+              className="hidden"
+            />
+            <p className="text-xs text-muted-foreground mt-1">JPG, PNG or WEBP</p>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="fullName">Full Name</Label>
           <Input
