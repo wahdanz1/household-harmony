@@ -99,14 +99,17 @@ export const PersonalSettingsCard = () => {
         .from("avatars")
         .getPublicUrl(filePath);
 
+      // Add cache-busting parameter to force browser to reload the image
+      const urlWithCacheBust = `${publicUrl}?t=${Date.now()}`;
+
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ avatar_url: publicUrl })
+        .update({ avatar_url: urlWithCacheBust })
         .eq("id", user.id);
 
       if (updateError) throw updateError;
 
-      setAvatarUrl(publicUrl);
+      setAvatarUrl(urlWithCacheBust);
       toast.success("Profile photo updated successfully");
     } catch (error: any) {
       console.error("Error uploading avatar:", error);

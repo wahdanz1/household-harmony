@@ -5,7 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TrendingUp, Check, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { TrendingUp, Check, AlertCircle, Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +23,11 @@ const Income = () => {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [oneTimeIncomes, setOneTimeIncomes] = useState<any[]>([]);
+  const [oneTimeDialogOpen, setOneTimeDialogOpen] = useState(false);
+  const [oneTimeName, setOneTimeName] = useState("");
+  const [oneTimeAmount, setOneTimeAmount] = useState("");
+  const [oneTimeNotes, setOneTimeNotes] = useState("");
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
@@ -46,7 +54,13 @@ const Income = () => {
 
     setHousehold(householdInfo);
     setIncomeSources(sourcesData || []);
-    setMonthlyIncomes(monthlyData || []);
+    
+    // Separate regular incomes and one-time incomes
+    const regularIncomes = (monthlyData || []).filter((m: any) => m.income_source_id !== null);
+    const oneTimeIncomesData = (monthlyData || []).filter((m: any) => m.income_source_id === null);
+    
+    setMonthlyIncomes(regularIncomes);
+    setOneTimeIncomes(oneTimeIncomesData);
 
     const initialAmounts: Record<string, string> = {};
     (sourcesData || []).forEach((source: any) => {
@@ -93,7 +107,73 @@ const Income = () => {
     setSaving(false);
   };
 
-  const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0);
+  const handleAddOneTime = async () => {
+    if (!household || !user || !oneTimeName || !oneTimeAmount) {
+      toast({
+        title: "Error",
+        description: "Name and amount are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+
+    const { error } = await supabase
+      .from("monthly_incomes")
+      .insert({
+        household_id: household.id,
+        month: currentMonth,
+        amount: parseFloat(oneTimeAmount),
+        one_time_name: oneTimeName,
+        notes: oneTimeNotes || null,
+        created_by: user.id,
+        income_source_id: null,
+      });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add one-time income",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "One-time income added",
+      });
+      setOneTimeDialogOpen(false);
+      setOneTimeName("");
+      setOneTimeAmount("");
+      setOneTimeNotes("");
+      fetchData();
+    }
+    setSaving(false);
+  };
+
+  const handleDeleteOneTime = async (id: string) => {
+    const { error } = await supabase
+      .from("monthly_incomes")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete one-time income",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "One-time income deleted",
+      });
+      fetchData();
+    }
+  };
+
+  const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) +
+    oneTimeIncomes.reduce((sum, income) => sum + parseFloat(income.amount || "0"), 0);
 
   if (loading) {
     return (
@@ -194,6 +274,109 @@ const Income = () => {
                 {saving ? "Saving..." : "Save Monthly Income"}
               </Button>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5 text-success" />
+                One-Time Income
+              </CardTitle>
+              <CardDescription>
+                Gift money, lottery wins, or other temporary income
+              </CardDescription>
+            </div>
+            <Dialog open={oneTimeDialogOpen} onOpenChange={setOneTimeDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Income
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add One-Time Income</DialogTitle>
+                  <DialogDescription>
+                    Record temporary income like gifts or windfalls
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="one-time-name">Name *</Label>
+                    <Input
+                      id="one-time-name"
+                      placeholder="e.g., Birthday gift, Lottery win"
+                      value={oneTimeName}
+                      onChange={(e) => setOneTimeName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="one-time-amount">Amount ({household?.currency || "SEK"}) *</Label>
+                    <Input
+                      id="one-time-amount"
+                      type="number"
+                      placeholder="0"
+                      value={oneTimeAmount}
+                      onChange={(e) => setOneTimeAmount(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="one-time-notes">Notes (optional)</Label>
+                    <Textarea
+                      id="one-time-notes"
+                      placeholder="Additional details..."
+                      value={oneTimeNotes}
+                      onChange={(e) => setOneTimeNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setOneTimeDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddOneTime} disabled={saving}>
+                    {saving ? "Adding..." : "Add Income"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {oneTimeIncomes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <p className="text-sm">No one-time income recorded this month</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {oneTimeIncomes.map((income) => (
+                <div
+                  key={income.id}
+                  className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background/40"
+                >
+                  <div className="flex-1">
+                    <p className="font-medium">{income.one_time_name}</p>
+                    {income.notes && (
+                      <p className="text-sm text-muted-foreground mt-1">{income.notes}</p>
+                    )}
+                  </div>
+                  <p className="font-semibold text-success">
+                    {parseFloat(income.amount).toFixed(0)} {household?.currency || "SEK"}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDeleteOneTime(income.id)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

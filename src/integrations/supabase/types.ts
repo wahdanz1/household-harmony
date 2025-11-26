@@ -355,9 +355,10 @@ export type Database = {
           created_by: string
           household_id: string
           id: string
-          income_source_id: string
+          income_source_id: string | null
           month: string
           notes: string | null
+          one_time_name: string | null
         }
         Insert: {
           amount: number
@@ -365,9 +366,10 @@ export type Database = {
           created_by: string
           household_id: string
           id?: string
-          income_source_id: string
+          income_source_id?: string | null
           month: string
           notes?: string | null
+          one_time_name?: string | null
         }
         Update: {
           amount?: number
@@ -375,9 +377,10 @@ export type Database = {
           created_by?: string
           household_id?: string
           id?: string
-          income_source_id?: string
+          income_source_id?: string | null
           month?: string
           notes?: string | null
+          one_time_name?: string | null
         }
         Relationships: [
           {
