@@ -62,6 +62,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
         created_by: user.id,
         expires_at: expiresAt.toISOString(),
         status: "pending",
+        is_active: true,
       });
 
     setIsGenerating(false);
