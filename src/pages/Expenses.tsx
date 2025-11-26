@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { format, startOfMonth } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Receipt, CreditCard, Shield } from "lucide-react";
+import { CalendarDays, CreditCard, Shield } from "lucide-react";
 import { MonthlyExpenses } from "@/components/expenses/MonthlyExpenses";
 import { SubscriptionsTab } from "@/components/expenses/SubscriptionsTab";
 import { InsuranceTab } from "@/components/expenses/InsuranceTab";
@@ -15,6 +15,8 @@ const Expenses = () => {
   const [household, setHousehold] = useState<any>(null);
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [insurances, setInsurances] = useState<any[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,16 +39,22 @@ const Expenses = () => {
       { data: categoriesData },
       { data: monthlyData },
       { data: historicalData },
+      { data: subscriptionsData },
+      { data: insurancesData },
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
       supabase.from("expense_categories").select("*").eq("household_id", householdData.household_id).eq("is_active", true).order("sort_order"),
       supabase.from("monthly_expenses").select("*").eq("household_id", householdData.household_id).eq("month", currentMonth),
       supabase.from("monthly_expenses").select("*").eq("household_id", householdData.household_id).lt("month", currentMonth),
+      supabase.from("subscriptions").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
+      supabase.from("insurances").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
     ]);
 
     setHousehold(householdInfo);
     setExpenseCategories(categoriesData || []);
     setMonthlyExpenses(monthlyData || []);
+    setSubscriptions(subscriptionsData || []);
+    setInsurances(insurancesData || []);
 
     const initialAmounts: Record<string, string> = {};
     (categoriesData || []).forEach((category: any) => {
@@ -107,7 +115,12 @@ const Expenses = () => {
     setSaving(false);
   };
 
-  const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0);
+  const subscriptionsTotal = subscriptions.reduce((sum, sub) => sum + parseFloat(sub.amount), 0);
+  const insuranceTotal = insurances.reduce((sum, ins) => {
+    const frequency = ins.payment_frequency === "yearly" ? 12 : ins.payment_frequency === "semi-annual" ? 6 : 3;
+    return sum + parseFloat(ins.total_amount) / frequency;
+  }, 0);
+  const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal;
 
   if (loading) {
     return (
@@ -137,7 +150,7 @@ const Expenses = () => {
       <Tabs defaultValue="monthly" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="monthly" className="flex items-center gap-2">
-            <Receipt className="h-4 w-4" />
+            <CalendarDays className="h-4 w-4" />
             <span className="hidden sm:inline">Monthly</span>
           </TabsTrigger>
           <TabsTrigger value="subscriptions" className="flex items-center gap-2">
@@ -157,6 +170,8 @@ const Expenses = () => {
             amounts={amounts}
             currency={household?.currency || "SEK"}
             saving={saving}
+            subscriptionsTotal={subscriptionsTotal}
+            insuranceTotal={insuranceTotal}
             onAmountsChange={setAmounts}
             onSave={handleSave}
           />

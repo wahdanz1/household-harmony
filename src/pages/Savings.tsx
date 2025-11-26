@@ -25,6 +25,8 @@ interface SavingsGoal {
   goal_type: "household" | "personal";
   owner_id: string | null;
   is_active: boolean;
+  monthly_contribution: number;
+  image_url: string | null;
 }
 
 const Savings = () => {
@@ -35,6 +37,7 @@ const Savings = () => {
   const [currency, setCurrency] = useState("SEK");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   
   // Calculator state
   const [calcTarget, setCalcTarget] = useState("");
@@ -46,10 +49,11 @@ const Savings = () => {
     name: "",
     target_amount: "",
     current_amount: "0",
-    target_date: "",
+    monthly_contribution: "",
     priority: "medium" as "high" | "medium" | "low",
     description: "",
     goal_type: "household" as "household" | "personal",
+    image_url: "",
   });
 
   useEffect(() => {
@@ -98,6 +102,34 @@ const Savings = () => {
     setLoading(false);
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user || !e.target.files || e.target.files.length === 0) return;
+
+    const file = e.target.files[0];
+    setUploadingImage(true);
+
+    const fileExt = file.name.split(".").pop();
+    const filePath = `goals/${user.id}/${Date.now()}.${fileExt}`;
+
+    const { error: uploadError, data } = await supabase.storage
+      .from("avatars")
+      .upload(filePath, file);
+
+    if (uploadError) {
+      toast({ title: "Failed to upload image", description: uploadError.message, variant: "destructive" });
+      setUploadingImage(false);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(filePath);
+
+    setFormData({ ...formData, image_url: publicUrl });
+    setUploadingImage(false);
+    toast({ title: "Image uploaded successfully" });
+  };
+
   const handleSaveGoal = async () => {
     if (!user) return;
 
@@ -114,11 +146,12 @@ const Savings = () => {
       name: formData.name,
       target_amount: parseFloat(formData.target_amount),
       current_amount: parseFloat(formData.current_amount),
-      target_date: formData.target_date || null,
+      monthly_contribution: parseFloat(formData.monthly_contribution) || 0,
       priority: formData.priority,
       description: formData.description || null,
       goal_type: formData.goal_type,
       owner_id: formData.goal_type === "personal" ? user.id : null,
+      image_url: formData.image_url || null,
       created_by: user.id,
     };
 
@@ -169,10 +202,11 @@ const Savings = () => {
       name: "",
       target_amount: "",
       current_amount: "0",
-      target_date: "",
+      monthly_contribution: "",
       priority: "medium",
       description: "",
       goal_type: "household",
+      image_url: "",
     });
     setEditingGoal(null);
     setIsAddDialogOpen(false);
@@ -184,10 +218,11 @@ const Savings = () => {
       name: goal.name,
       target_amount: goal.target_amount.toString(),
       current_amount: goal.current_amount.toString(),
-      target_date: goal.target_date || "",
+      monthly_contribution: goal.monthly_contribution?.toString() || "",
       priority: goal.priority,
       description: goal.description || "",
       goal_type: goal.goal_type,
+      image_url: goal.image_url || "",
     });
     setIsAddDialogOpen(true);
   };
@@ -313,13 +348,36 @@ const Savings = () => {
                 </div>
               </div>
               <div>
-                <Label htmlFor="target_date">Target Date (Optional)</Label>
+                <Label htmlFor="monthly_contribution">Monthly Contribution ({currency})</Label>
                 <Input
-                  id="target_date"
-                  type="date"
-                  value={formData.target_date}
-                  onChange={(e) => setFormData({ ...formData, target_date: e.target.value })}
+                  id="monthly_contribution"
+                  type="number"
+                  value={formData.monthly_contribution}
+                  onChange={(e) => setFormData({ ...formData, monthly_contribution: e.target.value })}
+                  placeholder="1000"
                 />
+                {formData.monthly_contribution && formData.target_amount && formData.current_amount && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Estimated completion: {Math.ceil((parseFloat(formData.target_amount) - parseFloat(formData.current_amount)) / (parseFloat(formData.monthly_contribution) * 2))} months
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="image">Goal Image (Optional)</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage}
+                    className="cursor-pointer"
+                  />
+                  {uploadingImage && <span className="text-sm text-muted-foreground">Uploading...</span>}
+                </div>
+                {formData.image_url && (
+                  <img src={formData.image_url} alt="Goal preview" className="mt-2 h-20 w-20 object-cover rounded" />
+                )}
               </div>
               <div>
                 <Label htmlFor="description">Description (Optional)</Label>
@@ -370,19 +428,24 @@ const Savings = () => {
                 <Card key={goal.id}>
                   <CardHeader>
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <CardTitle>{goal.name}</CardTitle>
-                          <span className={`text-xs font-medium uppercase ${priorityColors[goal.priority]}`}>
-                            {goal.priority}
-                          </span>
-                          {goal.goal_type === "personal" && (
-                            <span className="text-xs bg-muted px-2 py-1 rounded">Personal</span>
+                      <div className="flex items-center gap-4 flex-1">
+                        {goal.image_url && (
+                          <img src={goal.image_url} alt={goal.name} className="h-16 w-16 object-cover rounded" />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <CardTitle>{goal.name}</CardTitle>
+                            <span className={`text-xs font-medium uppercase ${priorityColors[goal.priority]}`}>
+                              {goal.priority}
+                            </span>
+                            {goal.goal_type === "personal" && (
+                              <span className="text-xs bg-muted px-2 py-1 rounded">Personal</span>
+                            )}
+                          </div>
+                          {goal.description && (
+                            <CardDescription className="mt-1">{goal.description}</CardDescription>
                           )}
                         </div>
-                        {goal.description && (
-                          <CardDescription className="mt-1">{goal.description}</CardDescription>
-                        )}
                       </div>
                       <div className="flex gap-2">
                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(goal)}>
@@ -411,10 +474,12 @@ const Savings = () => {
                         <p className="text-sm text-muted-foreground">Remaining</p>
                         <p className="text-lg font-semibold">{formatCurrency(remaining)}</p>
                       </div>
-                      {goal.target_date && (
+                      {goal.monthly_contribution > 0 && (
                         <div>
-                          <p className="text-sm text-muted-foreground">Target Date</p>
-                          <p className="text-lg font-semibold">{format(new Date(goal.target_date), "MMM yyyy")}</p>
+                          <p className="text-sm text-muted-foreground">Est. Completion</p>
+                          <p className="text-lg font-semibold">
+                            {Math.ceil(remaining / (goal.monthly_contribution * 2))} months
+                          </p>
                         </div>
                       )}
                     </div>

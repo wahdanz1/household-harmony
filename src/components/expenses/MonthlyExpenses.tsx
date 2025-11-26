@@ -10,6 +10,8 @@ interface MonthlyExpensesProps {
   amounts: Record<string, string>;
   currency: string;
   saving: boolean;
+  subscriptionsTotal: number;
+  insuranceTotal: number;
   onAmountsChange: (amounts: Record<string, string>) => void;
   onSave: () => void;
 }
@@ -20,6 +22,8 @@ export const MonthlyExpenses = ({
   amounts,
   currency,
   saving,
+  subscriptionsTotal,
+  insuranceTotal,
   onAmountsChange,
   onSave,
 }: MonthlyExpensesProps) => {
@@ -79,6 +83,40 @@ export const MonthlyExpenses = ({
                     </div>
                   );
                 })}
+                
+                {subscriptionsTotal > 0 && (
+                  <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-muted/40">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-muted-foreground">Subscriptions</p>
+                        <Badge variant="secondary">auto</Badge>
+                      </div>
+                    </div>
+                    <Input
+                      type="number"
+                      value={subscriptionsTotal.toFixed(0)}
+                      disabled
+                      className="w-32 bg-muted/20"
+                    />
+                  </div>
+                )}
+
+                {insuranceTotal > 0 && (
+                  <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-muted/40">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-muted-foreground">Insurance Savings</p>
+                        <Badge variant="secondary">auto</Badge>
+                      </div>
+                    </div>
+                    <Input
+                      type="number"
+                      value={insuranceTotal.toFixed(0)}
+                      disabled
+                      className="w-32 bg-muted/20"
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
