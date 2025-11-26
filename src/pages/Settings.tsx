@@ -119,7 +119,8 @@ const Settings = () => {
           <IncomeSourcesCard 
             incomeSources={incomeSources} 
             householdId={household.id} 
-            members={members} 
+            members={members}
+            currency={household.currency}
             onUpdate={fetchData} 
           />
         </TabsContent>

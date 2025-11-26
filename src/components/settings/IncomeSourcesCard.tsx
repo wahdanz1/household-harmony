@@ -27,10 +27,14 @@ interface IncomeSourcesCardProps {
   incomeSources: IncomeSource[];
   householdId: string;
   members: any[];
+  currency: string;
   onUpdate: () => void;
 }
 
-export const IncomeSourcesCard = ({ incomeSources, householdId, members, onUpdate }: IncomeSourcesCardProps) => {
+export const IncomeSourcesCard = ({ incomeSources, householdId, members, currency, onUpdate }: IncomeSourcesCardProps) => {
+  const formatCategory = (category: string) => {
+    return category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{
@@ -241,12 +245,13 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, onUpdat
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <p className="font-medium">{source.name}</p>
+                  <Badge variant="outline">{formatCategory(source.category)}</Badge>
                   <Badge variant={source.type === "static" ? "secondary" : "outline"}>
                     {source.type}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {source.profiles.full_name} • {source.default_amount} {source.category}
+                  {source.profiles.full_name} • {source.default_amount} {currency}
                 </p>
               </div>
               <div className="flex gap-2">

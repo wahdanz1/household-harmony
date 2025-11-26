@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { TrendingUp, Check, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -142,14 +143,24 @@ const Income = () => {
                   const hasEntry = monthlyIncomes.some((m) => m.income_source_id === source.id);
                   const isDifferent = amounts[source.id] !== source.default_amount.toString();
 
+                  const isSkipped = amounts[source.id] === "0";
+
                   return (
                     <div
                       key={source.id}
                       className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background/40"
                     >
+                      <Switch
+                        checked={!isSkipped}
+                        onCheckedChange={(checked) =>
+                          setAmounts({ ...amounts, [source.id]: checked ? source.default_amount.toString() : "0" })
+                        }
+                      />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium">{source.name}</p>
+                          <p className={`font-medium ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
+                            {source.name}
+                          </p>
                           <Badge variant={source.type === "static" ? "secondary" : "outline"}>
                             {source.type}
                           </Badge>
@@ -165,6 +176,7 @@ const Income = () => {
                         onChange={(e) => setAmounts({ ...amounts, [source.id]: e.target.value })}
                         className={`w-32 ${isDifferent ? "border-primary" : ""}`}
                         placeholder="0"
+                        disabled={isSkipped}
                       />
                     </div>
                   );
