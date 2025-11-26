@@ -29,3 +29,6 @@ dist-ssr
 
 # Own files
 COMMANDS.md
+
+# Vercel
+.vercel
