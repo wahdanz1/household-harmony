@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { format, startOfMonth } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarDays, CreditCard, Shield } from "lucide-react";
+import { CalendarDays, CreditCard, Shield, ShoppingBag } from "lucide-react";
 import { MonthlyExpenses } from "@/components/expenses/MonthlyExpenses";
 import { SubscriptionsTab } from "@/components/expenses/SubscriptionsTab";
 import { InsuranceTab } from "@/components/expenses/InsuranceTab";
+import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -148,7 +149,7 @@ const Expenses = () => {
       </div>
 
       <Tabs defaultValue="monthly" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="monthly" className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
             <span className="hidden sm:inline">Monthly</span>
@@ -160,6 +161,10 @@ const Expenses = () => {
           <TabsTrigger value="insurance" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Insurance</span>
+          </TabsTrigger>
+          <TabsTrigger value="shared" className="flex items-center gap-2">
+            <ShoppingBag className="h-4 w-4" />
+            <span className="hidden sm:inline">Shared</span>
           </TabsTrigger>
         </TabsList>
 
@@ -186,6 +191,13 @@ const Expenses = () => {
 
         <TabsContent value="insurance" className="mt-6">
           <InsuranceTab
+            householdId={household?.id}
+            currency={household?.currency || "SEK"}
+          />
+        </TabsContent>
+
+        <TabsContent value="shared" className="mt-6">
+          <SharedExpensesTab
             householdId={household?.id}
             currency={household?.currency || "SEK"}
           />

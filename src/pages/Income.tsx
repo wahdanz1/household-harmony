@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingUp, Check, AlertCircle, Plus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +29,10 @@ const Income = () => {
   const [oneTimeName, setOneTimeName] = useState("");
   const [oneTimeAmount, setOneTimeAmount] = useState("");
   const [oneTimeNotes, setOneTimeNotes] = useState("");
+  const [oneTimeIsShared, setOneTimeIsShared] = useState(false);
+  const [oneTimeCoParentId, setOneTimeCoParentId] = useState("");
+  const [oneTimeSharePercentage, setOneTimeSharePercentage] = useState("50");
+  const [coParents, setCoParents] = useState<any[]>([]);
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
@@ -46,14 +51,17 @@ const Income = () => {
       { data: householdInfo },
       { data: sourcesData },
       { data: monthlyData },
+      { data: coParentsData },
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
       supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", householdData.household_id).eq("is_active", true),
       supabase.from("monthly_incomes").select("*").eq("household_id", householdData.household_id).eq("month", currentMonth),
+      supabase.from("co_parents").select("*").eq("household_id", householdData.household_id),
     ]);
 
     setHousehold(householdInfo);
     setIncomeSources(sourcesData || []);
+    setCoParents(coParentsData || []);
     
     // Separate regular incomes and one-time incomes
     const regularIncomes = (monthlyData || []).filter((m: any) => m.income_source_id !== null);
@@ -127,6 +135,9 @@ const Income = () => {
         amount: parseFloat(oneTimeAmount),
         one_time_name: oneTimeName,
         notes: oneTimeNotes || null,
+        is_shared: oneTimeIsShared,
+        co_parent_id: oneTimeIsShared ? oneTimeCoParentId : null,
+        share_percentage: oneTimeIsShared ? parseFloat(oneTimeSharePercentage) : 50,
         created_by: user.id,
         income_source_id: null,
       });
@@ -146,6 +157,9 @@ const Income = () => {
       setOneTimeName("");
       setOneTimeAmount("");
       setOneTimeNotes("");
+      setOneTimeIsShared(false);
+      setOneTimeCoParentId("");
+      setOneTimeSharePercentage("50");
       fetchData();
     }
     setSaving(false);
@@ -173,7 +187,14 @@ const Income = () => {
   };
 
   const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) +
-    oneTimeIncomes.reduce((sum, income) => sum + parseFloat(income.amount || "0"), 0);
+    oneTimeIncomes.reduce((sum, income) => {
+      const amount = parseFloat(income.amount || "0");
+      // If shared, only count your portion
+      if (income.is_shared && income.share_percentage) {
+        return sum + (amount * (parseFloat(income.share_percentage.toString()) / 100));
+      }
+      return sum + amount;
+    }, 0);
 
   if (loading) {
     return (
@@ -333,6 +354,49 @@ const Income = () => {
                       onChange={(e) => setOneTimeNotes(e.target.value)}
                     />
                   </div>
+
+                  <div className="space-y-4 border-t border-border pt-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={oneTimeIsShared}
+                        onCheckedChange={setOneTimeIsShared}
+                      />
+                      <Label>Shared income (you keep {oneTimeSharePercentage}%)</Label>
+                    </div>
+
+                    {oneTimeIsShared && (
+                      <>
+                        <div className="space-y-2">
+                          <Label>Co-Parent</Label>
+                          <Select value={oneTimeCoParentId} onValueChange={setOneTimeCoParentId}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select co-parent" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {coParents.map((cp) => (
+                                <SelectItem key={cp.id} value={cp.id}>
+                                  {cp.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Your Share (%)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={oneTimeSharePercentage}
+                            onChange={(e) => setOneTimeSharePercentage(e.target.value)}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            You keep {oneTimeSharePercentage}%, send {100 - parseFloat(oneTimeSharePercentage || "0")}% to co-parent
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setOneTimeDialogOpen(false)}>
@@ -359,14 +423,24 @@ const Income = () => {
                   className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background/40"
                 >
                   <div className="flex-1">
-                    <p className="font-medium">{income.one_time_name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{income.one_time_name}</p>
+                      {income.is_shared && (
+                        <Badge variant="secondary">{income.share_percentage}% yours</Badge>
+                      )}
+                    </div>
                     {income.notes && (
                       <p className="text-sm text-muted-foreground mt-1">{income.notes}</p>
                     )}
+                    <p className="font-semibold text-success mt-1">
+                      {income.is_shared 
+                        ? (parseFloat(income.amount) * parseFloat(income.share_percentage?.toString() || "50") / 100).toFixed(0)
+                        : parseFloat(income.amount).toFixed(0)} {household?.currency || "SEK"}
+                      {income.is_shared && (
+                        <span className="text-muted-foreground text-sm font-normal"> (of {parseFloat(income.amount).toFixed(0)} total)</span>
+                      )}
+                    </p>
                   </div>
-                  <p className="font-semibold text-success">
-                    {parseFloat(income.amount).toFixed(0)} {household?.currency || "SEK"}
-                  </p>
                   <Button
                     variant="ghost"
                     size="icon"

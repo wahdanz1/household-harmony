@@ -5,6 +5,7 @@ import { format, startOfMonth } from "date-fns";
 import MonthOverview from "@/components/dashboard/MonthOverview";
 import QuickActions from "@/components/dashboard/QuickActions";
 import SavingsGoalsPreview from "@/components/dashboard/SavingsGoalsPreview";
+import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlementCard";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -12,6 +13,7 @@ const Dashboard = () => {
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
   const [currency, setCurrency] = useState("SEK");
+  const [householdId, setHouseholdId] = useState<string>("");
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
@@ -26,6 +28,8 @@ const Dashboard = () => {
         .single();
 
       if (!householdData) return;
+
+      setHouseholdId(householdData.household_id);
 
       const [
         { data: householdInfo },
@@ -85,6 +89,10 @@ const Dashboard = () => {
       />
 
       <QuickActions />
+
+      {householdId && (
+        <CoParentSettlementCard householdId={householdId} currency={currency} />
+      )}
 
       <SavingsGoalsPreview currency={currency} />
     </div>
