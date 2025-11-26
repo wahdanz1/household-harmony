@@ -123,9 +123,12 @@ export const PersonalSettingsCard = () => {
                 mode="single"
                 selected={birthdate}
                 onSelect={setBirthdate}
+                captionLayout="dropdown-buttons"
+                fromYear={1900}
+                toYear={new Date().getFullYear()}
                 disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                 initialFocus
-                className={cn("p-3 pointer-events-auto")}
+                className="p-3 pointer-events-auto"
               />
             </PopoverContent>
           </Popover>
