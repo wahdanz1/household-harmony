@@ -6,13 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Shield, Plus, Edit, Trash2, CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { Shield, Plus, Edit, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -24,7 +20,7 @@ interface Insurance {
   type: string;
   total_amount: number;
   payment_frequency: string;
-  next_payment_date: string | null;
+  invoice_month: number | null;
   notes: string | null;
   is_active: boolean;
   is_shared: boolean;
@@ -48,6 +44,11 @@ const insuranceTypes = [
   { value: "other", label: "Other" },
 ];
 
+const monthNames = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
 export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -62,7 +63,7 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
     type: "home",
     total_amount: "",
     payment_frequency: "yearly",
-    next_payment_date: new Date(),
+    invoice_month: "" as string | "",
     notes: "",
     is_active: true,
     is_shared: false,
@@ -92,7 +93,7 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
       type: "home",
       total_amount: "",
       payment_frequency: "yearly",
-      next_payment_date: new Date(),
+      invoice_month: "",
       notes: "",
       is_active: true,
       is_shared: false,
@@ -108,12 +109,12 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
     const data = {
       household_id: householdId,
       name: formData.name,
-      provider: formData.provider,
+      provider: formData.provider || null,
       type: formData.type,
       total_amount: parseFloat(formData.total_amount),
       payment_frequency: formData.payment_frequency,
-      next_payment_date: format(formData.next_payment_date, "yyyy-MM-dd"),
-      notes: formData.notes,
+      invoice_month: formData.invoice_month && formData.invoice_month !== "0" ? parseInt(formData.invoice_month) : null,
+      notes: formData.notes || null,
       is_active: formData.is_active,
       is_shared: formData.is_shared,
       co_parent_id: formData.is_shared ? formData.co_parent_id : null,
@@ -146,13 +147,27 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
   };
 
   const handleEdit = (insurance: Insurance) => {
+    // TEMPORARY: Extract month from old date strings
+    let monthValue = "";
+    if (insurance.invoice_month) {
+      const dateStr = insurance.invoice_month.toString();
+      if (dateStr.includes("-")) {
+        // Old format: "2024-12-15" -> extract month
+        const date = new Date(dateStr);
+        monthValue = (date.getMonth() + 1).toString(); // Convert to "12"
+      } else {
+        // New format: already a number
+        monthValue = dateStr;
+      }
+    }
+
     setFormData({
       name: insurance.name,
       provider: insurance.provider || "",
       type: insurance.type,
       total_amount: insurance.total_amount.toString(),
       payment_frequency: insurance.payment_frequency,
-      next_payment_date: insurance.next_payment_date ? new Date(insurance.next_payment_date) : new Date(),
+      invoice_month: monthValue,  // ✅ Now converts old dates to month numbers
       notes: insurance.notes || "",
       is_active: insurance.is_active,
       is_shared: insurance.is_shared,
@@ -190,8 +205,7 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
         else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
         else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
         else monthlyAmount = ins.total_amount;
-        
-        // If shared, only count your portion
+
         if (ins.is_shared) {
           monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
         }
@@ -327,24 +341,23 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Next Payment Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(formData.next_payment_date, "PPP")}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={formData.next_payment_date}
-                        onSelect={(date) => date && setFormData({ ...formData, next_payment_date: date })}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Label>Invoice Month (Optional)</Label>
+                  <Select value={formData.invoice_month} onValueChange={(v) => setFormData({ ...formData, invoice_month: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select month when invoice arrives" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Not set</SelectItem>
+                      {monthNames.map((month, index) => (
+                        <SelectItem key={index + 1} value={(index + 1).toString()}>
+                          {month}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Which month do you typically receive this invoice? Leave blank if unknown.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -415,11 +428,11 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
 
           <div className="space-y-2">
             {activeInsurances.map((insurance) => {
-              const monthlyAmount = 
+              const monthlyAmount =
                 insurance.payment_frequency === "yearly" ? insurance.total_amount / 12 :
-                insurance.payment_frequency === "semi_annually" ? insurance.total_amount / 6 :
-                insurance.payment_frequency === "quarterly" ? insurance.total_amount / 3 :
-                insurance.total_amount;
+                  insurance.payment_frequency === "semi_annually" ? insurance.total_amount / 6 :
+                    insurance.payment_frequency === "quarterly" ? insurance.total_amount / 3 :
+                      insurance.total_amount;
 
               return (
                 <div
@@ -441,9 +454,9 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                       {insurance.total_amount} {currency} / {insurance.payment_frequency.replace("_", " ")}
                       {` • Save ${monthlyAmount.toFixed(0)} ${currency}/month`}
                     </p>
-                    {insurance.next_payment_date && (
+                    {insurance.invoice_month && (
                       <p className="text-xs text-muted-foreground">
-                        Next payment: {format(new Date(insurance.next_payment_date), "MMM d, yyyy")}
+                        Invoice typically arrives: {monthNames[insurance.invoice_month - 1]}
                       </p>
                     )}
                   </div>
