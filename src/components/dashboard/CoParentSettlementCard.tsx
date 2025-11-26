@@ -25,6 +25,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
   const [notes, setNotes] = useState("");
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const currentMonthNumber = new Date().getMonth() + 1; // 1-12
 
   const fetchData = async () => {
     const { data: coParentsData } = await supabase
@@ -49,54 +50,65 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
 
       const incomeReceived = (sharedIncomes || []).reduce((sum, inc) => sum + parseFloat(inc.amount.toString()), 0);
       const yourShareOfIncome = (sharedIncomes || []).reduce((sum, inc) => {
-      const sharePercentage = parseFloat(inc.share_percentage.toString());
+        const sharePercentage = parseFloat(inc.share_percentage.toString());
         return sum + (parseFloat(inc.amount.toString()) * sharePercentage / 100);
       }, 0);
 
-      // Fetch shared insurances that were paid this month
+      // Fetch shared insurances that have invoice_month matching current month
       const { data: sharedInsurances } = await supabase
         .from("insurances")
-        .select("total_amount, share_percentage, next_payment_date, payment_frequency")
+        .select("total_amount, share_percentage, invoice_month")
         .eq("household_id", householdId)
         .eq("is_shared", true)
         .eq("co_parent_id", coParent.id)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .eq("invoice_month", currentMonthNumber);
 
       let insurancePaid = 0;
       let theirShareOfInsurance = 0;
 
-      // Check if any insurance was paid this month
-      const today = new Date();
       (sharedInsurances || []).forEach((ins) => {
-        if (ins.next_payment_date) {
-          const nextPayment = new Date(ins.next_payment_date);
-          if (nextPayment.getMonth() === today.getMonth() && nextPayment.getFullYear() === today.getFullYear()) {
-            insurancePaid += parseFloat(ins.total_amount.toString());
-            theirShareOfInsurance += parseFloat(ins.total_amount.toString()) * parseFloat(ins.share_percentage.toString()) / 100;
-          }
-        }
+        insurancePaid += parseFloat(ins.total_amount.toString());
+        theirShareOfInsurance += parseFloat(ins.total_amount.toString()) * parseFloat(ins.share_percentage.toString()) / 100;
       });
 
-      // Fetch shared expenses
+      // Fetch shared expenses - separate by who paid
       const { data: sharedExpenses } = await supabase
         .from("shared_expenses")
-        .select("amount")
+        .select("amount, paid_by")
         .eq("household_id", householdId)
         .eq("co_parent_id", coParent.id)
         .eq("month", currentMonth);
 
-      const sharedExpensesTotal = (sharedExpenses || []).reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0);
+      // Calculate: expenses they paid = add to what you send, expenses you paid = subtract from what you send
+      let expensesYouPaid = 0;
+      let expensesTheyPaid = 0;
 
-      // Calculate net amount
+      (sharedExpenses || []).forEach((exp) => {
+        const amount = parseFloat(exp.amount.toString());
+        if (exp.paid_by === "user") {
+          expensesYouPaid += amount;
+        } else {
+          expensesTheyPaid += amount;
+        }
+      });
+
+      // New calculation logic:
+      // 1. Start with 50% of shared income (amount owed to them)
       const amountOwedFromIncome = incomeReceived - yourShareOfIncome;
-      const netAmount = amountOwedFromIncome - theirShareOfInsurance - sharedExpensesTotal;
+
+      // 2. Add their share of insurance you paid
+      // 3. Add 50% of expenses they paid
+      // 4. Subtract 50% of expenses you paid
+      const netAmount = amountOwedFromIncome + theirShareOfInsurance + (expensesTheyPaid / 2) - (expensesYouPaid / 2);
 
       settlementData[coParent.id] = {
         incomeReceived,
         yourShareOfIncome,
         insurancePaid,
         theirShareOfInsurance,
-        sharedExpensesTotal,
+        expensesYouPaid,
+        expensesTheyPaid,
         netAmount,
       };
     }
@@ -120,7 +132,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
       your_share_of_income: settlement.yourShareOfIncome,
       insurance_paid: settlement.insurancePaid,
       their_share_of_insurance: settlement.theirShareOfInsurance,
-      shared_expenses_total: settlement.sharedExpensesTotal,
+      shared_expenses_total: settlement.expensesYouPaid + settlement.expensesTheyPaid,
       net_amount: settlement.netAmount,
       notes,
       settled_at: new Date().toISOString(),
@@ -190,16 +202,23 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                       <span>-{settlement.insurancePaid.toFixed(0)} {currency}</span>
                     </div>
                     <div className="flex justify-between pl-4">
-                      <span className="text-muted-foreground">Their 50% credit:</span>
+                      <span className="text-muted-foreground">Their {settlement.theirShareOfInsurance > 0 ? ((settlement.theirShareOfInsurance / settlement.insurancePaid) * 100).toFixed(0) : 0}% credit:</span>
                       <span className="text-success">+{settlement.theirShareOfInsurance.toFixed(0)} {currency}</span>
                     </div>
                   </>
                 )}
 
-                {settlement.sharedExpensesTotal > 0 && (
+                {settlement.expensesTheyPaid > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shared expenses:</span>
-                    <span className="text-success">+{settlement.sharedExpensesTotal.toFixed(0)} {currency}</span>
+                    <span className="text-muted-foreground">Expenses they paid (your 50%):</span>
+                    <span className="text-success">+{(settlement.expensesTheyPaid / 2).toFixed(0)} {currency}</span>
+                  </div>
+                )}
+
+                {settlement.expensesYouPaid > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Expenses you paid (their 50%):</span>
+                    <span className="text-destructive">-{(settlement.expensesYouPaid / 2).toFixed(0)} {currency}</span>
                   </div>
                 )}
 
