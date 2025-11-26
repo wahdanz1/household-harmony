@@ -1,10 +1,12 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserMinus, Crown } from "lucide-react";
+import { Users, UserMinus, Crown, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
+import { format } from "date-fns";
 
 interface Member {
   id: string;
@@ -16,17 +18,79 @@ interface Member {
   };
 }
 
+interface Invite {
+  id: string;
+  invite_code: string;
+  invited_email: string | null;
+  status: string;
+  expires_at: string;
+  created_at: string;
+}
+
 interface HouseholdMembersCardProps {
   members: Member[];
   householdId: string;
+  invites: Invite[];
   onUpdate: () => void;
 }
 
-export const HouseholdMembersCard = ({ members, householdId, onUpdate }: HouseholdMembersCardProps) => {
+export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }: HouseholdMembersCardProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const currentMember = members.find(m => m.user_id === user?.id);
   const isOwner = currentMember?.role === "owner";
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const generateInviteCode = () => {
+    return Math.random().toString().slice(2, 8).padStart(6, '0');
+  };
+
+  const handleGenerateInvite = async () => {
+    if (!user) return;
+
+    setIsGenerating(true);
+    const inviteCode = generateInviteCode();
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const { error } = await supabase
+      .from("household_invites")
+      .insert({
+        household_id: householdId,
+        invite_code: inviteCode,
+        created_by: user.id,
+        expires_at: expiresAt.toISOString(),
+        status: "pending",
+      });
+
+    setIsGenerating(false);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate invite code",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Success",
+      description: "Invite code generated!",
+    });
+    onUpdate();
+  };
+
+  const copyInviteCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    toast({
+      title: "Copied!",
+      description: "Invite code copied to clipboard",
+    });
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
 
   const handleRemoveMember = async (memberId: string) => {
     const { error } = await supabase
@@ -93,6 +157,54 @@ export const HouseholdMembersCard = ({ members, householdId, onUpdate }: Househo
             </div>
           ))}
         </div>
+
+        {isOwner && (
+          <>
+            <div className="pt-6 border-t">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-semibold">Invite Members</h3>
+                  <p className="text-sm text-muted-foreground">Generate a 6-digit code that expires in 7 days</p>
+                </div>
+                <Button onClick={handleGenerateInvite} disabled={isGenerating}>
+                  {isGenerating ? "Generating..." : "Generate Code"}
+                </Button>
+              </div>
+            </div>
+
+            {invites.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm">Active Invites</h4>
+                {invites.map((invite) => (
+                  <div key={invite.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <code className="font-mono text-lg font-bold">{invite.invite_code}</code>
+                        <Badge variant={invite.status === "pending" ? "default" : "secondary"}>
+                          {invite.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Expires: {format(new Date(invite.expires_at), "PPP")}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => copyInviteCode(invite.invite_code)}
+                    >
+                      {copiedCode === invite.invite_code ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );

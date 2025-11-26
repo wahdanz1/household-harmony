@@ -1,0 +1,145 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+export const PersonalSettingsCard = () => {
+  const { user } = useAuth();
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, email, birthdate")
+        .eq("id", user.id)
+        .single();
+
+      if (data) {
+        setFullName(data.full_name || "");
+        setEmail(data.email);
+        if (data.birthdate) {
+          setBirthdate(new Date(data.birthdate));
+        }
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    setIsSaving(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: fullName,
+        birthdate: birthdate ? format(birthdate, "yyyy-MM-dd") : null,
+      })
+      .eq("id", user.id);
+
+    setIsSaving(false);
+
+    if (error) {
+      toast.error("Failed to update profile");
+      return;
+    }
+
+    toast.success("Profile updated successfully");
+  };
+
+  const handleChangePassword = async () => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth`,
+    });
+
+    if (error) {
+      toast.error("Failed to send password reset email");
+      return;
+    }
+
+    toast.success("Password reset email sent! Check your inbox.");
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Personal Settings</CardTitle>
+        <CardDescription>Manage your personal information and account settings</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="fullName">Full Name</Label>
+          <Input
+            id="fullName"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="Enter your full name"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            value={email}
+            disabled
+            className="bg-muted"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Birthdate</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !birthdate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {birthdate ? format(birthdate, "PPP") : <span>Pick a date</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={birthdate}
+                onSelect={setBirthdate}
+                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save Changes"}
+          </Button>
+          <Button variant="outline" onClick={handleChangePassword}>
+            Change Password
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
