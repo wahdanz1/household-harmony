@@ -14,6 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
+      co_parent_settlements: {
+        Row: {
+          co_parent_id: string
+          created_at: string
+          household_id: string
+          id: string
+          income_received: number
+          insurance_paid: number
+          month: string
+          net_amount: number
+          notes: string | null
+          settled_at: string | null
+          shared_expenses_total: number
+          their_share_of_insurance: number
+          your_share_of_income: number
+        }
+        Insert: {
+          co_parent_id: string
+          created_at?: string
+          household_id: string
+          id?: string
+          income_received?: number
+          insurance_paid?: number
+          month: string
+          net_amount?: number
+          notes?: string | null
+          settled_at?: string | null
+          shared_expenses_total?: number
+          their_share_of_insurance?: number
+          your_share_of_income?: number
+        }
+        Update: {
+          co_parent_id?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          income_received?: number
+          insurance_paid?: number
+          month?: string
+          net_amount?: number
+          notes?: string | null
+          settled_at?: string | null
+          shared_expenses_total?: number
+          their_share_of_insurance?: number
+          your_share_of_income?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "co_parent_settlements_co_parent_id_fkey"
+            columns: ["co_parent_id"]
+            isOneToOne: false
+            referencedRelation: "co_parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "co_parent_settlements_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      co_parents: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "co_parents_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_categories: {
         Row: {
           created_at: string
@@ -239,51 +337,67 @@ export type Database = {
       }
       insurances: {
         Row: {
+          co_parent_id: string | null
           created_at: string
           created_by: string
           household_id: string
           id: string
           is_active: boolean
+          is_shared: boolean
           name: string
           next_payment_date: string | null
           notes: string | null
           payment_frequency: string
           provider: string | null
+          share_percentage: number
           total_amount: number
           type: string
           updated_at: string
         }
         Insert: {
+          co_parent_id?: string | null
           created_at?: string
           created_by: string
           household_id: string
           id?: string
           is_active?: boolean
+          is_shared?: boolean
           name: string
           next_payment_date?: string | null
           notes?: string | null
           payment_frequency?: string
           provider?: string | null
+          share_percentage?: number
           total_amount?: number
           type: string
           updated_at?: string
         }
         Update: {
+          co_parent_id?: string | null
           created_at?: string
           created_by?: string
           household_id?: string
           id?: string
           is_active?: boolean
+          is_shared?: boolean
           name?: string
           next_payment_date?: string | null
           notes?: string | null
           payment_frequency?: string
           provider?: string | null
+          share_percentage?: number
           total_amount?: number
           type?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "insurances_co_parent_id_fkey"
+            columns: ["co_parent_id"]
+            isOneToOne: false
+            referencedRelation: "co_parents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "insurances_household_id_fkey"
             columns: ["household_id"]
@@ -351,38 +465,54 @@ export type Database = {
       monthly_incomes: {
         Row: {
           amount: number
+          co_parent_id: string | null
           created_at: string
           created_by: string
           household_id: string
           id: string
           income_source_id: string | null
+          is_shared: boolean
           month: string
           notes: string | null
           one_time_name: string | null
+          share_percentage: number
         }
         Insert: {
           amount: number
+          co_parent_id?: string | null
           created_at?: string
           created_by: string
           household_id: string
           id?: string
           income_source_id?: string | null
+          is_shared?: boolean
           month: string
           notes?: string | null
           one_time_name?: string | null
+          share_percentage?: number
         }
         Update: {
           amount?: number
+          co_parent_id?: string | null
           created_at?: string
           created_by?: string
           household_id?: string
           id?: string
           income_source_id?: string | null
+          is_shared?: boolean
           month?: string
           notes?: string | null
           one_time_name?: string | null
+          share_percentage?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "monthly_incomes_co_parent_id_fkey"
+            columns: ["co_parent_id"]
+            isOneToOne: false
+            referencedRelation: "co_parents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "monthly_incomes_created_by_fkey"
             columns: ["created_by"]
@@ -566,6 +696,57 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_expenses: {
+        Row: {
+          amount: number
+          co_parent_id: string
+          created_at: string
+          created_by: string
+          description: string
+          household_id: string
+          id: string
+          month: string
+          notes: string | null
+        }
+        Insert: {
+          amount?: number
+          co_parent_id: string
+          created_at?: string
+          created_by: string
+          description: string
+          household_id: string
+          id?: string
+          month: string
+          notes?: string | null
+        }
+        Update: {
+          amount?: number
+          co_parent_id?: string
+          created_at?: string
+          created_by?: string
+          description?: string
+          household_id?: string
+          id?: string
+          month?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_expenses_co_parent_id_fkey"
+            columns: ["co_parent_id"]
+            isOneToOne: false
+            referencedRelation: "co_parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_expenses_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
             referencedColumns: ["id"]
           },
         ]

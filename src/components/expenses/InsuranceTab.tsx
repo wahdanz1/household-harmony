@@ -27,6 +27,9 @@ interface Insurance {
   next_payment_date: string | null;
   notes: string | null;
   is_active: boolean;
+  is_shared: boolean;
+  co_parent_id: string | null;
+  share_percentage: number;
 }
 
 interface InsuranceTabProps {
@@ -49,6 +52,7 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [insurances, setInsurances] = useState<Insurance[]>([]);
+  const [coParents, setCoParents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -61,16 +65,19 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
     next_payment_date: new Date(),
     notes: "",
     is_active: true,
+    is_shared: false,
+    co_parent_id: "",
+    share_percentage: "50",
   });
 
   const fetchInsurances = async () => {
-    const { data } = await supabase
-      .from("insurances")
-      .select("*")
-      .eq("household_id", householdId)
-      .order("name");
+    const [{ data: insurancesData }, { data: coParentsData }] = await Promise.all([
+      supabase.from("insurances").select("*").eq("household_id", householdId).order("name"),
+      supabase.from("co_parents").select("*").eq("household_id", householdId),
+    ]);
 
-    setInsurances(data || []);
+    setInsurances(insurancesData || []);
+    setCoParents(coParentsData || []);
     setLoading(false);
   };
 
@@ -88,6 +95,9 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
       next_payment_date: new Date(),
       notes: "",
       is_active: true,
+      is_shared: false,
+      co_parent_id: "",
+      share_percentage: "50",
     });
     setEditingId(null);
   };
@@ -105,6 +115,9 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
       next_payment_date: format(formData.next_payment_date, "yyyy-MM-dd"),
       notes: formData.notes,
       is_active: formData.is_active,
+      is_shared: formData.is_shared,
+      co_parent_id: formData.is_shared ? formData.co_parent_id : null,
+      share_percentage: formData.is_shared ? parseFloat(formData.share_percentage) : 50,
       created_by: user.id,
     };
 
@@ -142,6 +155,9 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
       next_payment_date: insurance.next_payment_date ? new Date(insurance.next_payment_date) : new Date(),
       notes: insurance.notes || "",
       is_active: insurance.is_active,
+      is_shared: insurance.is_shared,
+      co_parent_id: insurance.co_parent_id || "",
+      share_percentage: insurance.share_percentage.toString(),
     });
     setEditingId(insurance.id);
     setIsOpen(true);
@@ -169,10 +185,17 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
     return insurances
       .filter((i) => i.is_active)
       .reduce((total, ins) => {
-        if (ins.payment_frequency === "yearly") return total + ins.total_amount / 12;
-        if (ins.payment_frequency === "semi_annually") return total + ins.total_amount / 6;
-        if (ins.payment_frequency === "quarterly") return total + ins.total_amount / 3;
-        return total + ins.total_amount;
+        let monthlyAmount = 0;
+        if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
+        else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
+        else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
+        else monthlyAmount = ins.total_amount;
+        
+        // If shared, only count your portion
+        if (ins.is_shared) {
+          monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
+        }
+        return total + monthlyAmount;
       }, 0);
   };
 
@@ -340,6 +363,49 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                   />
                   <Label>Active</Label>
                 </div>
+
+                <div className="space-y-4 border-t border-border pt-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={formData.is_shared}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_shared: checked })}
+                    />
+                    <Label>Shared with co-parent (50/50)</Label>
+                  </div>
+
+                  {formData.is_shared && (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Co-Parent</Label>
+                        <Select value={formData.co_parent_id} onValueChange={(v) => setFormData({ ...formData, co_parent_id: v })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select co-parent" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {coParents.map((cp) => (
+                              <SelectItem key={cp.id} value={cp.id}>
+                                {cp.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Your Share (%)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={formData.share_percentage}
+                          onChange={(e) => setFormData({ ...formData, share_percentage: e.target.value })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          You pay {formData.share_percentage}%, they pay {100 - parseFloat(formData.share_percentage || "0")}%
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={handleSave}>{editingId ? "Update" : "Add"}</Button>
@@ -366,6 +432,9 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                       <Badge variant="outline">
                         {insuranceTypes.find((t) => t.value === insurance.type)?.label || insurance.type}
                       </Badge>
+                      {insurance.is_shared && (
+                        <Badge variant="secondary">{insurance.share_percentage}% shared</Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {insurance.provider && `${insurance.provider} • `}

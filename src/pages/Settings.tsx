@@ -6,6 +6,7 @@ import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard
 import { IncomeSourcesCard } from "@/components/settings/IncomeSourcesCard";
 import { ExpenseCategoriesCard } from "@/components/settings/ExpenseCategoriesCard";
 import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
+import { CoParentsCard } from "@/components/settings/CoParentsCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Home, Users, TrendingUp, TrendingDown, User } from "lucide-react";
 
@@ -103,7 +104,10 @@ const Settings = () => {
         </TabsList>
 
         <TabsContent value="general" className="mt-6">
-          <HouseholdInfoCard household={household} onUpdate={fetchData} />
+          <div className="space-y-6">
+            <HouseholdInfoCard household={household} onUpdate={fetchData} />
+            <CoParentsCard householdId={household.id} onUpdate={fetchData} />
+          </div>
         </TabsContent>
 
         <TabsContent value="members" className="mt-6">
