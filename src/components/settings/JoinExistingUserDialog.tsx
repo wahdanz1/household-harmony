@@ -54,7 +54,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
             .select("*, households(*)")
             .eq("invite_code", inviteCode.toUpperCase())
             .eq("is_active", true)
-            .single();
+            .maybeSingle();
 
         if (inviteError || !invite) {
             toast({
@@ -72,7 +72,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
             .select("*")
             .eq("household_id", invite.household_id)
             .eq("user_id", user?.id)
-            .single();
+            .maybeSingle();
 
         if (existingMember) {
             toast({
@@ -106,7 +106,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
             .from("household_members")
             .select("*, households(*)")
             .eq("user_id", user.id)
-            .single();
+            .maybeSingle();
 
         if (currentMembership?.role === "owner") {
             toast({
