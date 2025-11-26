@@ -52,7 +52,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
         const { data: invite, error: inviteError } = await supabase
             .from("household_invites")
             .select("*, households(*)")
-            .eq("code", inviteCode.toUpperCase())
+            .eq("invite_code", inviteCode.toUpperCase())
             .eq("is_active", true)
             .single();
 
