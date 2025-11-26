@@ -7,6 +7,7 @@ import { IncomeSourcesCard } from "@/components/settings/IncomeSourcesCard";
 import { ExpenseCategoriesCard } from "@/components/settings/ExpenseCategoriesCard";
 import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Home, Users, TrendingUp, TrendingDown, User } from "lucide-react";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -79,11 +80,26 @@ const Settings = () => {
 
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="income">Income Sources</TabsTrigger>
-          <TabsTrigger value="expenses">Expense Categories</TabsTrigger>
-          <TabsTrigger value="personal">Personal</TabsTrigger>
+          <TabsTrigger value="general" className="flex items-center gap-2">
+            <Home className="h-4 w-4" />
+            <span className="hidden sm:inline">General</span>
+          </TabsTrigger>
+          <TabsTrigger value="members" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">Members</span>
+          </TabsTrigger>
+          <TabsTrigger value="income" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            <span className="hidden sm:inline">Income</span>
+          </TabsTrigger>
+          <TabsTrigger value="expenses" className="flex items-center gap-2">
+            <TrendingDown className="h-4 w-4" />
+            <span className="hidden sm:inline">Expenses</span>
+          </TabsTrigger>
+          <TabsTrigger value="personal" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            <span className="hidden sm:inline">Personal</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-6">
@@ -111,7 +127,8 @@ const Settings = () => {
         <TabsContent value="expenses" className="mt-6">
           <ExpenseCategoriesCard 
             expenseCategories={expenseCategories} 
-            householdId={household.id} 
+            householdId={household.id}
+            currency={household.currency}
             onUpdate={fetchData} 
           />
         </TabsContent>

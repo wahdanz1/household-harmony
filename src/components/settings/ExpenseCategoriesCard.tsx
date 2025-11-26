@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { TrendingDown, Plus, Trash2, Edit } from "lucide-react";
+import { TrendingDown, Plus, Trash2, Edit, Home, Zap, Wifi, Smartphone, Shield, Landmark, ShoppingCart, Fuel, UtensilsCrossed, Film, ShoppingBag, Heart, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -22,13 +22,29 @@ interface ExpenseCategory {
 interface ExpenseCategoriesCardProps {
   expenseCategories: ExpenseCategory[];
   householdId: string;
+  currency: string;
   onUpdate: () => void;
 }
 
+const CATEGORY_ICONS: Record<string, any> = {
+  "Rent": Home,
+  "Electricity": Zap,
+  "Internet": Wifi,
+  "Phone": Smartphone,
+  "Insurance": Shield,
+  "Loan Payments": Landmark,
+  "Groceries": ShoppingCart,
+  "Fuel": Fuel,
+  "Dining Out": UtensilsCrossed,
+  "Entertainment": Film,
+  "Shopping": ShoppingBag,
+  "Healthcare": Heart,
+  "Personal Care": Sparkles,
+};
+
 const DEFAULT_CATEGORIES = {
   static: [
-    "Rent", "Electricity", "Internet", "Phone", "Insurance", 
-    "Subscriptions", "Loan Payments"
+    "Rent", "Electricity", "Internet", "Phone", "Insurance", "Loan Payments"
   ],
   dynamic: [
     "Groceries", "Fuel", "Dining Out", "Entertainment", 
@@ -36,7 +52,11 @@ const DEFAULT_CATEGORIES = {
   ]
 };
 
-export const ExpenseCategoriesCard = ({ expenseCategories, householdId, onUpdate }: ExpenseCategoriesCardProps) => {
+export const ExpenseCategoriesCard = ({ expenseCategories, householdId, currency, onUpdate }: ExpenseCategoriesCardProps) => {
+  const getCategoryIcon = (name: string) => {
+    const IconComponent = CATEGORY_ICONS[name];
+    return IconComponent ? <IconComponent className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />;
+  };
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{
@@ -256,11 +276,12 @@ export const ExpenseCategoriesCard = ({ expenseCategories, householdId, onUpdate
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
+                        {getCategoryIcon(category.name)}
                         <p className="font-medium">{category.name}</p>
                         <Badge variant="secondary">Static</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Default: {category.default_amount}
+                        {category.default_amount > 0 ? `${category.default_amount} ${currency}` : `No default set`}
                       </p>
                     </div>
                     <div className="flex gap-2">
@@ -296,11 +317,12 @@ export const ExpenseCategoriesCard = ({ expenseCategories, householdId, onUpdate
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
+                        {getCategoryIcon(category.name)}
                         <p className="font-medium">{category.name}</p>
                         <Badge variant="outline">Dynamic</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Uses rolling average
+                        {category.default_amount > 0 ? `Default: ${category.default_amount} ${currency} • Rolling average` : `Rolling average • No default yet`}
                       </p>
                     </div>
                     <div className="flex gap-2">

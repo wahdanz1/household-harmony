@@ -377,6 +377,59 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          amount: number
+          billing_cycle: string
+          category: string | null
+          created_at: string
+          created_by: string
+          household_id: string
+          id: string
+          is_active: boolean
+          name: string
+          next_billing_date: string | null
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          billing_cycle?: string
+          category?: string | null
+          created_at?: string
+          created_by: string
+          household_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          next_billing_date?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          billing_cycle?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string
+          household_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          next_billing_date?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
