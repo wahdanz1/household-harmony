@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { HouseholdInfoCard } from "@/components/settings/HouseholdInfoCard";
 import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard";
-import { HouseholdInvitesCard } from "@/components/settings/HouseholdInvitesCard";
 import { IncomeSourcesCard } from "@/components/settings/IncomeSourcesCard";
 import { ExpenseCategoriesCard } from "@/components/settings/ExpenseCategoriesCard";
+import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -76,13 +77,49 @@ const Settings = () => {
         <p className="text-muted-foreground mt-1">Manage your household and preferences</p>
       </div>
 
-      <div className="grid gap-6">
-        <HouseholdInfoCard household={household} onUpdate={fetchData} />
-        <HouseholdMembersCard members={members} householdId={household.id} onUpdate={fetchData} />
-        <HouseholdInvitesCard invites={invites} householdId={household.id} onUpdate={fetchData} />
-        <IncomeSourcesCard incomeSources={incomeSources} householdId={household.id} members={members} onUpdate={fetchData} />
-        <ExpenseCategoriesCard expenseCategories={expenseCategories} householdId={household.id} onUpdate={fetchData} />
-      </div>
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="members">Members</TabsTrigger>
+          <TabsTrigger value="income">Income Sources</TabsTrigger>
+          <TabsTrigger value="expenses">Expense Categories</TabsTrigger>
+          <TabsTrigger value="personal">Personal</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general" className="mt-6">
+          <HouseholdInfoCard household={household} onUpdate={fetchData} />
+        </TabsContent>
+
+        <TabsContent value="members" className="mt-6">
+          <HouseholdMembersCard 
+            members={members} 
+            householdId={household.id} 
+            invites={invites}
+            onUpdate={fetchData} 
+          />
+        </TabsContent>
+
+        <TabsContent value="income" className="mt-6">
+          <IncomeSourcesCard 
+            incomeSources={incomeSources} 
+            householdId={household.id} 
+            members={members} 
+            onUpdate={fetchData} 
+          />
+        </TabsContent>
+
+        <TabsContent value="expenses" className="mt-6">
+          <ExpenseCategoriesCard 
+            expenseCategories={expenseCategories} 
+            householdId={household.id} 
+            onUpdate={fetchData} 
+          />
+        </TabsContent>
+
+        <TabsContent value="personal" className="mt-6">
+          <PersonalSettingsCard />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
