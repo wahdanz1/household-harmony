@@ -11,30 +11,6 @@ const Dashboard = () => {
     currency: "SEK",
   });
 
-  const [savingsGoals] = useState([
-    {
-      id: "1",
-      name: "Summer Vacation 2025",
-      target: 50000,
-      current: 15000,
-      priority: "high" as const,
-    },
-    {
-      id: "2",
-      name: "Emergency Fund",
-      target: 100000,
-      current: 42000,
-      priority: "high" as const,
-    },
-    {
-      id: "3",
-      name: "New Car",
-      target: 200000,
-      current: 8000,
-      priority: "medium" as const,
-    },
-  ]);
-
   const currentMonth = new Date().toLocaleDateString('sv-SE', { 
     year: 'numeric', 
     month: 'long' 
@@ -55,7 +31,7 @@ const Dashboard = () => {
 
       <QuickActions />
 
-      <SavingsGoalsPreview goals={savingsGoals} currency={monthData.currency} />
+      <SavingsGoalsPreview currency={monthData.currency} />
     </div>
   );
 };
