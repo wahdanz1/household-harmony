@@ -27,39 +27,31 @@ export function DateInput({ value, onChange, placeholder = "YYYY-MM-DD", disable
   }, [value]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let input = e.target.value.replace(/[^\d-]/g, "");
+    // Remove all non-digit characters to get pure digits
+    const digitsOnly = e.target.value.replace(/\D/g, "");
     
-    // Progressive masking
-    if (input.length <= 4) {
-      // Just year
-      setInputValue(input);
-    } else if (input.length <= 7) {
-      // Year + month
-      const year = input.slice(0, 4);
-      const month = input.slice(4).replace(/-/g, "");
-      if (month) {
-        setInputValue(`${year}-${month}`);
-      } else {
-        setInputValue(year);
-      }
-    } else {
-      // Full date
-      const year = input.slice(0, 4);
-      const month = input.slice(4, 6).replace(/-/g, "");
-      const day = input.slice(6, 8).replace(/-/g, "");
-      
-      let formatted = year;
-      if (month) formatted += `-${month}`;
-      if (day) formatted += `-${day}`;
-      
-      setInputValue(formatted);
-      
-      // Try to parse complete date
-      if (year.length === 4 && month.length === 2 && day.length === 2) {
-        const parsed = new Date(`${year}-${month}-${day}`);
-        if (!isNaN(parsed.getTime())) {
-          onChange(parsed);
-        }
+    // Limit to 8 digits (YYYYMMDD)
+    const digits = digitsOnly.slice(0, 8);
+    
+    // Build formatted string progressively
+    let formatted = "";
+    if (digits.length > 0) {
+      formatted = digits.slice(0, 4); // Year
+    }
+    if (digits.length > 4) {
+      formatted += `-${digits.slice(4, 6)}`; // Month
+    }
+    if (digits.length > 6) {
+      formatted += `-${digits.slice(6, 8)}`; // Day
+    }
+    
+    setInputValue(formatted);
+    
+    // Parse complete date
+    if (digits.length === 8) {
+      const parsed = new Date(`${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`);
+      if (!isNaN(parsed.getTime())) {
+        onChange(parsed);
       }
     }
   };
