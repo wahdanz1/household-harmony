@@ -33,7 +33,7 @@ const Settings = () => {
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
       supabase.from("household_members").select("*, profiles(full_name, email)").eq("household_id", householdData.household_id),
-      supabase.from("household_invites").select("*").eq("household_id", householdData.household_id).eq("is_active", true).order("created_at", { ascending: false }),
+      supabase.from("household_invites").select("*").eq("household_id", householdData.household_id).order("created_at", { ascending: false }),
     ]);
 
     setHousehold(householdInfo);

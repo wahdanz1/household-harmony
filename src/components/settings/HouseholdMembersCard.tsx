@@ -62,7 +62,6 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
         created_by: user.id,
         expires_at: expiresAt.toISOString(),
         status: "pending",
-        is_active: true,
       });
 
     setIsGenerating(false);
@@ -117,7 +116,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
   const handleDeleteInvite = async (inviteId: string) => {
     const { error } = await supabase
       .from("household_invites")
-      .update({ is_active: false })
+      .delete()
       .eq("id", inviteId);
 
     if (error) {
