@@ -5,13 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CalendarIcon, Upload } from "lucide-react";
+import { Upload, User, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { DateInput } from "@/components/ui/date-input";
+import { AvatarCropDialog } from "./AvatarCropDialog";
 
 export const PersonalSettingsCard = () => {
   const { user } = useAuth();
@@ -21,6 +20,8 @@ export const PersonalSettingsCard = () => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string>("");
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -67,43 +68,52 @@ export const PersonalSettingsCard = () => {
     toast.success("Profile updated successfully");
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !e.target.files || e.target.files.length === 0) return;
+  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageToCrop(reader.result as string);
+      setCropDialogOpen(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    if (!user) return;
+
     setUploading(true);
+    try {
+      const fileExt = "jpg";
+      const filePath = `${user.id}/avatar.${fileExt}`;
 
-    const fileExt = file.name.split(".").pop();
-    const filePath = `${user.id}/avatar.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, croppedBlob, { upsert: true });
 
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
 
-    if (uploadError) {
-      toast.error("Failed to upload avatar");
+      const { data: { publicUrl } } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: publicUrl })
+        .eq("id", user.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl);
+      toast.success("Profile photo updated successfully");
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      toast.error(error.message || "Failed to upload profile photo");
+    } finally {
       setUploading(false);
-      return;
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("avatars")
-      .getPublicUrl(filePath);
-
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({ avatar_url: publicUrl })
-      .eq("id", user.id);
-
-    setUploading(false);
-
-    if (updateError) {
-      toast.error("Failed to update profile");
-      return;
-    }
-
-    setAvatarUrl(publicUrl);
-    toast.success("Avatar updated successfully");
   };
 
   const handleChangePassword = async () => {
@@ -125,93 +135,98 @@ export const PersonalSettingsCard = () => {
         <CardTitle>Personal Settings</CardTitle>
         <CardDescription>Manage your personal information and account settings</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={avatarUrl || undefined} />
-            <AvatarFallback className="text-lg">
-              {fullName.split(" ").map(n => n[0]).join("").toUpperCase() || "?"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1">
-            <Label htmlFor="avatar" className="cursor-pointer">
-              <div className="flex items-center gap-2 text-sm text-primary hover:underline">
+      <CardContent className="space-y-6">
+        <div className="flex items-center gap-6">
+          <div className="relative">
+            <Avatar className="h-24 w-24">
+              <AvatarImage src={avatarUrl || undefined} alt={fullName || "User"} />
+              <AvatarFallback>
+                <User className="h-12 w-12" />
+              </AvatarFallback>
+            </Avatar>
+            <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full cursor-pointer hover:bg-primary/90 transition-colors">
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
                 <Upload className="h-4 w-4" />
-                {uploading ? "Uploading..." : "Upload Avatar"}
-              </div>
-            </Label>
-            <Input
-              id="avatar"
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarUpload}
-              disabled={uploading}
-              className="hidden"
-            />
-            <p className="text-xs text-muted-foreground mt-1">JPG, PNG or WEBP</p>
+              )}
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarSelect}
+                className="hidden"
+                disabled={uploading}
+              />
+            </label>
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Profile Photo</p>
+            <p className="text-sm text-muted-foreground">
+              Click the upload icon to change your photo
+            </p>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="fullName">Full Name</Label>
-          <Input
-            id="fullName"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            placeholder="Enter your full name"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="fullName">Name</Label>
+            <Input
+              id="fullName"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Enter your name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              disabled
+              className="bg-muted"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Date of Birth</Label>
+            <DateInput
+              value={birthdate}
+              onChange={setBirthdate}
+              placeholder="YYYY-MM-DD"
+            />
+          </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            value={email}
-            disabled
-            className="bg-muted"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label>Birthdate</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !birthdate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {birthdate ? format(birthdate, "PPP") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={birthdate}
-                onSelect={setBirthdate}
-                captionLayout="dropdown-buttons"
-                fromYear={1900}
-                toYear={new Date().getFullYear()}
-                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        <div className="flex gap-2 pt-2">
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Changes"}
+        <div className="flex gap-3 pt-4">
+          <Button onClick={handleSave} disabled={isSaving} className="flex-1">
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Changes"
+            )}
           </Button>
-          <Button variant="outline" onClick={handleChangePassword}>
+          <Button
+            variant="outline"
+            onClick={handleChangePassword}
+            className="flex-1"
+          >
             Change Password
           </Button>
         </div>
       </CardContent>
+
+      <AvatarCropDialog
+        open={cropDialogOpen}
+        imageSrc={imageToCrop}
+        onClose={() => setCropDialogOpen(false)}
+        onCropComplete={handleCropComplete}
+      />
     </Card>
   );
 };
