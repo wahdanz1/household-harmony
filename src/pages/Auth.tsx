@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { JoinHouseholdDialog } from "@/components/JoinHouseholdDialog";
+import { JoinHouseholdWizard } from "@/components/JoinHouseholdWizard";
 import { UserPlus } from "lucide-react";
 import { z } from "zod";
 
@@ -36,7 +36,7 @@ const Auth = () => {
   const [signupConfirm, setSignupConfirm] = useState("");
   const [signupFullName, setSignupFullName] = useState("");
   const [showJoinDialog, setShowJoinDialog] = useState(false);
-  
+
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ const Auth = () => {
 
     try {
       const validation = loginSchema.safeParse({ email: loginEmail, password: loginPassword });
-      
+
       if (!validation.success) {
         toast({
           title: "Validation Error",
@@ -173,7 +173,7 @@ const Auth = () => {
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
@@ -203,7 +203,7 @@ const Auth = () => {
                 </Button>
               </form>
             </TabsContent>
-            
+
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-4">
                 <div className="space-y-2">
@@ -275,7 +275,7 @@ const Auth = () => {
         </CardContent>
       </Card>
 
-      <JoinHouseholdDialog open={showJoinDialog} onOpenChange={setShowJoinDialog} />
+      <JoinHouseholdWizard open={showJoinDialog} onOpenChange={setShowJoinDialog} />
     </div>
   );
 };

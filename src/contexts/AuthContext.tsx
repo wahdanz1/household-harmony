@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
+  signUpAndJoinHousehold: (email: string, password: string, fullName: string, householdId: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -48,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -62,12 +63,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error };
   };
 
+  const signUpAndJoinHousehold = async (email: string, password: string, fullName: string, householdId: string) => {
+    const redirectUrl = `${window.location.origin}/`;
+
+    // Create the user account
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: {
+          full_name: fullName,
+          skip_default_household: true, // Signal to not create default household
+        },
+      },
+    });
+
+    if (signUpError || !authData.user) {
+      return { error: signUpError };
+    }
+
+    // Add user to the specified household
+    const { error: memberError } = await supabase
+      .from("household_members")
+      .insert({
+        household_id: householdId,
+        user_id: authData.user.id,
+        role: "member",
+      });
+
+    if (memberError) {
+      return { error: memberError };
+    }
+
+    return { error: null };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signUpAndJoinHousehold, signOut }}>
       {children}
     </AuthContext.Provider>
   );

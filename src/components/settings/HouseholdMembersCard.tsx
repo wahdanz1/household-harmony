@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserMinus, Crown, Copy, Check } from "lucide-react";
+import { Users, UserMinus, Crown, Copy, Check, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -52,7 +52,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
     setIsGenerating(true);
     const inviteCode = generateInviteCode();
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setHours(expiresAt.getHours() + 24);
 
     const { error } = await supabase
       .from("household_invites")
@@ -113,6 +113,27 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
     }
   };
 
+  const handleDeleteInvite = async (inviteId: string) => {
+    const { error } = await supabase
+      .from("household_invites")
+      .update({ is_active: false })
+      .eq("id", inviteId);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete invite",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Invite code deleted",
+      });
+      onUpdate();
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -144,7 +165,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                 </div>
                 <p className="text-sm text-muted-foreground">{member.profiles.email}</p>
               </div>
-              
+
               {isOwner && member.role !== "owner" && member.user_id !== user?.id && (
                 <Button
                   variant="ghost"
@@ -164,7 +185,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="font-semibold">Invite Members</h3>
-                  <p className="text-sm text-muted-foreground">Generate a 6-digit code that expires in 7 days</p>
+                  <p className="text-sm text-muted-foreground">Generate a 6-digit code that expires in 24 hours</p>
                 </div>
                 <Button onClick={handleGenerateInvite} disabled={isGenerating}>
                   {isGenerating ? "Generating..." : "Generate Code"}
@@ -188,17 +209,26 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                         Expires: {format(new Date(invite.expires_at), "PPP")}
                       </p>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => copyInviteCode(invite.invite_code)}
-                    >
-                      {copiedCode === invite.invite_code ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => copyInviteCode(invite.invite_code)}
+                      >
+                        {copiedCode === invite.invite_code ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteInvite(invite.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
