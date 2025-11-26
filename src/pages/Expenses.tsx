@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { TrendingDown, Check, AlertCircle } from "lucide-react";
+import { format, startOfMonth } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Receipt, CreditCard, Shield } from "lucide-react";
+import { MonthlyExpenses } from "@/components/expenses/MonthlyExpenses";
+import { SubscriptionsTab } from "@/components/expenses/SubscriptionsTab";
+import { InsuranceTab } from "@/components/expenses/InsuranceTab";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { format, startOfMonth, subMonths } from "date-fns";
 
 const Expenses = () => {
   const { user } = useAuth();
@@ -51,14 +51,14 @@ const Expenses = () => {
     const initialAmounts: Record<string, string> = {};
     (categoriesData || []).forEach((category: any) => {
       const existing = (monthlyData || []).find((m: any) => m.expense_category_id === category.id);
-      
       if (existing) {
         initialAmounts[category.id] = existing.amount.toString();
       } else if (category.type === "dynamic") {
-        const history = (historicalData || []).filter((h: any) => h.expense_category_id === category.id);
-        if (history.length > 0) {
-          const avg = history.reduce((sum: number, h: any) => sum + parseFloat(h.amount), 0) / history.length;
-          initialAmounts[category.id] = avg.toFixed(0);
+        const previousExpenses = (historicalData || []).filter((h: any) => h.expense_category_id === category.id);
+        if (previousExpenses.length > 0) {
+          const total = previousExpenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
+          const avg = total / previousExpenses.length;
+          initialAmounts[category.id] = Math.round(avg).toString();
         } else {
           initialAmounts[category.id] = category.default_amount.toString();
         }
@@ -66,6 +66,7 @@ const Expenses = () => {
         initialAmounts[category.id] = category.default_amount.toString();
       }
     });
+
     setAmounts(initialAmounts);
     setLoading(false);
   };
@@ -93,7 +94,7 @@ const Expenses = () => {
     if (error) {
       toast({
         title: "Error",
-        description: "Failed to save expense data",
+        description: "Failed to save expenses",
         variant: "destructive",
       });
     } else {
@@ -107,8 +108,6 @@ const Expenses = () => {
   };
 
   const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0);
-  const staticCategories = expenseCategories.filter(c => c.type === "static");
-  const dynamicCategories = expenseCategories.filter(c => c.type === "dynamic");
 
   if (loading) {
     return (
@@ -135,106 +134,48 @@ const Expenses = () => {
         </div>
       </div>
 
-      {expenseCategories.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <AlertCircle className="h-12 w-12 mb-4 opacity-50" />
-            <p>No expense categories configured</p>
-            <p className="text-sm">Go to Settings to add expense categories</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {staticCategories.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingDown className="h-5 w-5 text-destructive" />
-                  Static Expenses
-                </CardTitle>
-                <CardDescription>Fixed monthly expenses</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {staticCategories.map((category) => {
-                  const hasEntry = monthlyExpenses.some((m) => m.expense_category_id === category.id);
-                  const isDifferent = amounts[category.id] !== category.default_amount.toString();
+      <Tabs defaultValue="monthly" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="monthly" className="flex items-center gap-2">
+            <Receipt className="h-4 w-4" />
+            <span className="hidden sm:inline">Monthly</span>
+          </TabsTrigger>
+          <TabsTrigger value="subscriptions" className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            <span className="hidden sm:inline">Subscriptions</span>
+          </TabsTrigger>
+          <TabsTrigger value="insurance" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Insurance</span>
+          </TabsTrigger>
+        </TabsList>
 
-                  return (
-                    <div
-                      key={category.id}
-                      className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background/40"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium">{category.name}</p>
-                          <Badge variant="secondary">Static</Badge>
-                          {hasEntry && <Check className="h-4 w-4 text-success" />}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Default: {category.default_amount}
-                        </p>
-                      </div>
-                      <Input
-                        type="number"
-                        value={amounts[category.id] || ""}
-                        onChange={(e) => setAmounts({ ...amounts, [category.id]: e.target.value })}
-                        className={`w-32 ${isDifferent ? "border-primary" : ""}`}
-                        placeholder="0"
-                      />
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
+        <TabsContent value="monthly" className="mt-6">
+          <MonthlyExpenses
+            expenseCategories={expenseCategories}
+            monthlyExpenses={monthlyExpenses}
+            amounts={amounts}
+            currency={household?.currency || "SEK"}
+            saving={saving}
+            onAmountsChange={setAmounts}
+            onSave={handleSave}
+          />
+        </TabsContent>
 
-          {dynamicCategories.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingDown className="h-5 w-5 text-destructive" />
-                  Dynamic Expenses
-                </CardTitle>
-                <CardDescription>Variable expenses with rolling averages</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {dynamicCategories.map((category) => {
-                  const hasEntry = monthlyExpenses.some((m) => m.expense_category_id === category.id);
+        <TabsContent value="subscriptions" className="mt-6">
+          <SubscriptionsTab
+            householdId={household?.id}
+            currency={household?.currency || "SEK"}
+          />
+        </TabsContent>
 
-                  return (
-                    <div
-                      key={category.id}
-                      className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background/40"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium">{category.name}</p>
-                          <Badge variant="outline">Dynamic</Badge>
-                          {hasEntry && <Check className="h-4 w-4 text-success" />}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Suggested: {amounts[category.id]} (rolling avg)
-                        </p>
-                      </div>
-                      <Input
-                        type="number"
-                        value={amounts[category.id] || ""}
-                        onChange={(e) => setAmounts({ ...amounts, [category.id]: e.target.value })}
-                        className="w-32"
-                        placeholder="0"
-                      />
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          )}
-
-          <Button onClick={handleSave} disabled={saving} className="w-full">
-            {saving ? "Saving..." : "Save Monthly Expenses"}
-          </Button>
-        </>
-      )}
+        <TabsContent value="insurance" className="mt-6">
+          <InsuranceTab
+            householdId={household?.id}
+            currency={household?.currency || "SEK"}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

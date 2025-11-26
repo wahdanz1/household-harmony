@@ -1,4 +1,4 @@
-import { Home, TrendingUp, TrendingDown, Target, CreditCard, BarChart3, Settings } from "lucide-react";
+import { Home, TrendingUp, TrendingDown, Target, BarChart3, Settings } from "lucide-react";
 import { NavLink } from "./NavLink";
 
 const MobileNav = () => {
@@ -7,14 +7,13 @@ const MobileNav = () => {
     { icon: TrendingUp, label: "Income", path: "/income" },
     { icon: TrendingDown, label: "Expenses", path: "/expenses" },
     { icon: Target, label: "Savings", path: "/savings" },
-    { icon: CreditCard, label: "Subscriptions", path: "/subscriptions" },
     { icon: BarChart3, label: "History", path: "/history" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card/80 backdrop-blur-xl border-t border-white/5 z-50 md:hidden">
-      <div className="grid grid-cols-7 h-16">
+      <div className="grid grid-cols-6 h-16">
         {navItems.map((item) => (
           <NavLink
             key={item.path}

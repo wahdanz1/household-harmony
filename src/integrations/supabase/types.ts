@@ -237,6 +237,62 @@ export type Database = {
           },
         ]
       }
+      insurances: {
+        Row: {
+          created_at: string
+          created_by: string
+          household_id: string
+          id: string
+          is_active: boolean
+          name: string
+          next_payment_date: string | null
+          notes: string | null
+          payment_frequency: string
+          provider: string | null
+          total_amount: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          household_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          next_payment_date?: string | null
+          notes?: string | null
+          payment_frequency?: string
+          provider?: string | null
+          total_amount?: number
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          household_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          next_payment_date?: string | null
+          notes?: string | null
+          payment_frequency?: string
+          provider?: string | null
+          total_amount?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insurances_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_expenses: {
         Row: {
           amount: number
