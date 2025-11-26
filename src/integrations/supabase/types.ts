@@ -433,6 +433,134 @@ export type Database = {
         }
         Relationships: []
       }
+      savings_allocations: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string
+          household_id: string
+          id: string
+          month: string
+          notes: string | null
+          savings_goal_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by: string
+          household_id: string
+          id?: string
+          month: string
+          notes?: string | null
+          savings_goal_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string
+          household_id?: string
+          id?: string
+          month?: string
+          notes?: string | null
+          savings_goal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "savings_allocations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "savings_allocations_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "savings_allocations_savings_goal_id_fkey"
+            columns: ["savings_goal_id"]
+            isOneToOne: false
+            referencedRelation: "savings_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      savings_goals: {
+        Row: {
+          created_at: string
+          created_by: string
+          current_amount: number
+          description: string | null
+          goal_type: string
+          household_id: string
+          id: string
+          is_active: boolean
+          name: string
+          owner_id: string | null
+          priority: string
+          target_amount: number
+          target_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          current_amount?: number
+          description?: string | null
+          goal_type?: string
+          household_id: string
+          id?: string
+          is_active?: boolean
+          name: string
+          owner_id?: string | null
+          priority?: string
+          target_amount: number
+          target_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          current_amount?: number
+          description?: string | null
+          goal_type?: string
+          household_id?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          owner_id?: string | null
+          priority?: string
+          target_amount?: number
+          target_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "savings_goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "savings_goals_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "savings_goals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           amount: number

@@ -1,21 +1,56 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Target } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface SavingsGoal {
   id: string;
   name: string;
-  target: number;
-  current: number;
+  target_amount: number;
+  current_amount: number;
   priority: "high" | "medium" | "low";
 }
 
 interface SavingsGoalsPreviewProps {
-  goals: SavingsGoal[];
   currency: string;
 }
 
-const SavingsGoalsPreview = ({ goals, currency }: SavingsGoalsPreviewProps) => {
+const SavingsGoalsPreview = ({ currency }: SavingsGoalsPreviewProps) => {
+  const { user } = useAuth();
+  const [goals, setGoals] = useState<SavingsGoal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchGoals();
+  }, [user]);
+
+  const fetchGoals = async () => {
+    if (!user) return;
+
+    const { data: member } = await supabase
+      .from("household_members")
+      .select("household_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!member) return;
+
+    const { data } = await supabase
+      .from("savings_goals")
+      .select("id, name, target_amount, current_amount, priority")
+      .eq("household_id", member.household_id)
+      .eq("is_active", true)
+      .order("priority", { ascending: true })
+      .limit(3);
+
+    if (data) {
+      setGoals(data as SavingsGoal[]);
+    }
+    setLoading(false);
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('sv-SE', {
       style: 'currency',
@@ -30,6 +65,22 @@ const SavingsGoalsPreview = ({ goals, currency }: SavingsGoalsPreviewProps) => {
     medium: "text-warning",
     low: "text-muted-foreground",
   };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            Savings Goals
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground text-center py-4">Loading...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -46,14 +97,14 @@ const SavingsGoalsPreview = ({ goals, currency }: SavingsGoalsPreviewProps) => {
           </p>
         ) : (
           goals.map((goal) => {
-            const progress = (goal.current / goal.target) * 100;
+            const progress = (goal.current_amount / goal.target_amount) * 100;
             return (
               <div key={goal.id} className="space-y-2">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="font-medium">{goal.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatCurrency(goal.current)} of {formatCurrency(goal.target)}
+                      {formatCurrency(goal.current_amount)} of {formatCurrency(goal.target_amount)}
                     </p>
                   </div>
                   <span className={`text-xs font-medium ${priorityColors[goal.priority]} uppercase`}>
