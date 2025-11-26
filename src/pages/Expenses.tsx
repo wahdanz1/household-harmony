@@ -21,6 +21,7 @@ const Expenses = () => {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [members, setMembers] = useState<any[]>([]);
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
@@ -42,6 +43,7 @@ const Expenses = () => {
       { data: historicalData },
       { data: subscriptionsData },
       { data: insurancesData },
+      { data: membersData },
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
       supabase.from("expense_categories").select("*").eq("household_id", householdData.household_id).eq("is_active", true).order("sort_order"),
@@ -49,6 +51,7 @@ const Expenses = () => {
       supabase.from("monthly_expenses").select("*").eq("household_id", householdData.household_id).lt("month", currentMonth),
       supabase.from("subscriptions").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
       supabase.from("insurances").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
+      supabase.from("household_members").select("*, profiles(full_name, email)").eq("household_id", householdData.household_id),
     ]);
 
     setHousehold(householdInfo);
@@ -56,6 +59,7 @@ const Expenses = () => {
     setMonthlyExpenses(monthlyData || []);
     setSubscriptions(subscriptionsData || []);
     setInsurances(insurancesData || []);
+    setMembers(membersData || []);
 
     const initialAmounts: Record<string, string> = {};
     (categoriesData || []).forEach((category: any) => {
@@ -170,6 +174,7 @@ const Expenses = () => {
 
         <TabsContent value="monthly" className="mt-6">
           <MonthlyExpenses
+            householdId={household?.id}
             expenseCategories={expenseCategories}
             monthlyExpenses={monthlyExpenses}
             amounts={amounts}
@@ -177,8 +182,10 @@ const Expenses = () => {
             saving={saving}
             subscriptionsTotal={subscriptionsTotal}
             insuranceTotal={insuranceTotal}
+            members={members}
             onAmountsChange={setAmounts}
             onSave={handleSave}
+            onCategoriesUpdate={fetchData}
           />
         </TabsContent>
 

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, Check, AlertCircle, Plus, X } from "lucide-react";
+import { TrendingUp, Check, AlertCircle, Plus, X, Edit, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -33,6 +33,24 @@ const Income = () => {
   const [oneTimeCoParentId, setOneTimeCoParentId] = useState("");
   const [oneTimeSharePercentage, setOneTimeSharePercentage] = useState("50");
   const [coParents, setCoParents] = useState<any[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
+
+  // Income source management states
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
+  const [sourceFormData, setSourceFormData] = useState<{
+    category: "salary" | "business_income" | "government_benefits" | "investment_income" | "gift" | "other";
+    name: string;
+    type: "static" | "variable";
+    default_amount: string;
+    owner_id: string;
+  }>({
+    category: "salary",
+    name: "",
+    type: "static",
+    default_amount: "0",
+    owner_id: "",
+  });
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
@@ -52,21 +70,24 @@ const Income = () => {
       { data: sourcesData },
       { data: monthlyData },
       { data: coParentsData },
+      { data: membersData },
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
       supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", householdData.household_id).eq("is_active", true),
       supabase.from("monthly_incomes").select("*").eq("household_id", householdData.household_id).eq("month", currentMonth),
       supabase.from("co_parents").select("*").eq("household_id", householdData.household_id),
+      supabase.from("household_members").select("*, profiles(full_name, email)").eq("household_id", householdData.household_id),
     ]);
 
     setHousehold(householdInfo);
     setIncomeSources(sourcesData || []);
     setCoParents(coParentsData || []);
-    
+    setMembers(membersData || []);
+
     // Separate regular incomes and one-time incomes
     const regularIncomes = (monthlyData || []).filter((m: any) => m.income_source_id !== null);
     const oneTimeIncomesData = (monthlyData || []).filter((m: any) => m.income_source_id === null);
-    
+
     setMonthlyIncomes(regularIncomes);
     setOneTimeIncomes(oneTimeIncomesData);
 
@@ -186,6 +207,96 @@ const Income = () => {
     }
   };
 
+  // Income source management functions
+  const resetSourceForm = () => {
+    setSourceFormData({
+      category: "salary",
+      name: "",
+      type: "static",
+      default_amount: "0",
+      owner_id: members[0]?.user_id || "",
+    });
+    setEditingSourceId(null);
+  };
+
+  const handleSaveSource = async () => {
+    if (!household || !user) return;
+
+    const data = {
+      household_id: household.id,
+      category: sourceFormData.category,
+      name: sourceFormData.name,
+      type: sourceFormData.type,
+      default_amount: parseFloat(sourceFormData.default_amount),
+      owner_id: sourceFormData.owner_id,
+    };
+
+    let error;
+    if (editingSourceId) {
+      ({ error } = await supabase
+        .from("income_sources")
+        .update(data)
+        .eq("id", editingSourceId));
+    } else {
+      ({ error } = await supabase
+        .from("income_sources")
+        .insert(data));
+    }
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save income source",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: editingSourceId ? "Income source updated" : "Income source added",
+      });
+      setSourceDialogOpen(false);
+      resetSourceForm();
+      fetchData();
+    }
+  };
+
+  const handleEditSource = (source: any) => {
+    setSourceFormData({
+      category: source.category,
+      name: source.name,
+      type: source.type,
+      default_amount: source.default_amount.toString(),
+      owner_id: source.owner_id,
+    });
+    setEditingSourceId(source.id);
+    setSourceDialogOpen(true);
+  };
+
+  const handleDeleteSource = async (id: string) => {
+    const { error } = await supabase
+      .from("income_sources")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete income source",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: "Income source deleted",
+      });
+      fetchData();
+    }
+  };
+
+  const formatCategory = (category: string) => {
+    return category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
   const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) +
     oneTimeIncomes.reduce((sum, income) => {
       const amount = parseFloat(income.amount || "0");
@@ -221,22 +332,117 @@ const Income = () => {
         </div>
       </div>
 
+      {/* Unified Income Management */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-success" />
-            Monthly Income Entry
-          </CardTitle>
-          <CardDescription>
-            Update amounts that differ from defaults
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-success" />
+                Income Sources & Monthly Entry
+              </CardTitle>
+              <CardDescription>
+                Manage your income sources and enter monthly amounts
+              </CardDescription>
+            </div>
+            <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
+              setSourceDialogOpen(open);
+              if (!open) resetSourceForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Source
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editingSourceId ? "Edit" : "Add"} Income Source</DialogTitle>
+                  <DialogDescription>
+                    Configure a recurring income source for your household
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Select value={sourceFormData.category} onValueChange={(v) => setSourceFormData({ ...sourceFormData, category: v as typeof sourceFormData.category })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="salary">Salary</SelectItem>
+                        <SelectItem value="business_income">Business Income</SelectItem>
+                        <SelectItem value="government_benefits">Government Benefits</SelectItem>
+                        <SelectItem value="investment_income">Investment Income</SelectItem>
+                        <SelectItem value="gift">Gift</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Name</Label>
+                    <Input
+                      value={sourceFormData.name}
+                      onChange={(e) => setSourceFormData({ ...sourceFormData, name: e.target.value })}
+                      placeholder="e.g., Dad's Salary"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Owner</Label>
+                    <Select value={sourceFormData.owner_id} onValueChange={(v) => setSourceFormData({ ...sourceFormData, owner_id: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {members.map((member) => (
+                          <SelectItem key={member.user_id} value={member.user_id}>
+                            {member.profiles.full_name || member.profiles.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select value={sourceFormData.type} onValueChange={(v) => setSourceFormData({ ...sourceFormData, type: v as typeof sourceFormData.type })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="static">Static (Fixed amount)</SelectItem>
+                        <SelectItem value="variable">Variable (Changes monthly)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Default Amount</Label>
+                    <Input
+                      type="number"
+                      value={sourceFormData.default_amount}
+                      onChange={(e) => setSourceFormData({ ...sourceFormData, default_amount: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleSaveSource}>
+                    {editingSourceId ? "Update" : "Add"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {incomeSources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <AlertCircle className="h-12 w-12 mb-4 opacity-50" />
               <p>No income sources configured</p>
-              <p className="text-sm">Go to Settings to add income sources</p>
+              <p className="text-sm">Add income sources above to get started</p>
             </div>
           ) : (
             <>
@@ -244,7 +450,6 @@ const Income = () => {
                 {incomeSources.map((source) => {
                   const hasEntry = monthlyIncomes.some((m) => m.income_source_id === source.id);
                   const isDifferent = amounts[source.id] !== source.default_amount.toString();
-
                   const isSkipped = amounts[source.id] === "0";
 
                   return (
@@ -258,34 +463,54 @@ const Income = () => {
                           setAmounts({ ...amounts, [source.id]: checked ? source.default_amount.toString() : "0" })
                         }
                       />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className={`font-medium ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
+                          <p className={`font-medium truncate ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
                             {source.name}
                           </p>
-                          <Badge variant={source.type === "static" ? "secondary" : "outline"}>
+                          <Badge variant="outline" className="shrink-0">{formatCategory(source.category)}</Badge>
+                          <Badge variant={source.type === "static" ? "secondary" : "outline"} className="shrink-0">
                             {source.type}
                           </Badge>
-                          {hasEntry && <Check className="h-4 w-4 text-success" />}
+                          {hasEntry && <Check className="h-4 w-4 text-success shrink-0" />}
                         </div>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground truncate">
                           {source.profiles.full_name}
                         </p>
                       </div>
-                      <Avatar className="h-8 w-8">
+                      <Avatar className="h-8 w-8 shrink-0">
                         <AvatarImage src={source.profiles.avatar_url || undefined} />
                         <AvatarFallback className="text-xs">
                           {source.profiles.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <Input
-                        type="number"
-                        value={amounts[source.id] || ""}
-                        onChange={(e) => setAmounts({ ...amounts, [source.id]: e.target.value })}
-                        className={`w-32 ${isDifferent ? "border-primary" : ""}`}
-                        placeholder="0"
-                        disabled={isSkipped}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={amounts[source.id] || ""}
+                          onChange={(e) => setAmounts({ ...amounts, [source.id]: e.target.value })}
+                          className={`w-40 text-lg font-semibold ${isDifferent ? "border-primary" : ""}`}
+                          placeholder="0"
+                          disabled={isSkipped}
+                        />
+                        <span className="text-sm text-muted-foreground min-w-[3rem]">{household?.currency || "SEK"}</span>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditSource(source)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteSource(source.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
@@ -433,7 +658,7 @@ const Income = () => {
                       <p className="text-sm text-muted-foreground mt-1">{income.notes}</p>
                     )}
                     <p className="font-semibold text-success mt-1">
-                      {income.is_shared 
+                      {income.is_shared
                         ? (parseFloat(income.amount) * parseFloat(income.share_percentage?.toString() || "50") / 100).toFixed(0)
                         : parseFloat(income.amount).toFixed(0)} {household?.currency || "SEK"}
                       {income.is_shared && (
