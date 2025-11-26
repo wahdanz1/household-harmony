@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { ShoppingBag, Plus, Trash2 } from "lucide-react";
 import { format, startOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,7 @@ interface SharedExpense {
   notes: string | null;
   co_parent_id: string;
   created_at: string;
+  paid_by: "user" | "co_parent";
 }
 
 interface SharedExpensesTabProps {
@@ -37,6 +39,7 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
     amount: "",
     co_parent_id: "",
     notes: "",
+    paid_by: "user" as "user" | "co_parent",
   });
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -66,6 +69,7 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
       amount: "",
       co_parent_id: coParents[0]?.id || "",
       notes: "",
+      paid_by: "user",
     });
   };
 
@@ -79,6 +83,7 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
       description: formData.description,
       amount: parseFloat(formData.amount),
       notes: formData.notes,
+      paid_by: formData.paid_by,
       created_by: user.id,
     };
 
@@ -121,7 +126,6 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
 
   const totalSharedExpenses = expenses.reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0);
 
-  // Group expenses by co-parent
   const expensesByCoParent = expenses.reduce((acc, exp) => {
     if (!acc[exp.co_parent_id]) {
       acc[exp.co_parent_id] = [];
@@ -147,7 +151,7 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
       <Card>
         <CardHeader>
           <CardTitle>Shared Expenses Summary</CardTitle>
-          <CardDescription>Track expenses you share with co-parents (these offset settlement amounts)</CardDescription>
+          <CardDescription>Track expenses you share with co-parents</CardDescription>
         </CardHeader>
         <CardContent>
           <div>
@@ -165,7 +169,7 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
             <ShoppingBag className="h-5 w-5" />
             Shared Expenses
           </CardTitle>
-          <CardDescription>Items you've purchased that are shared with co-parents</CardDescription>
+          <CardDescription>Items purchased that are shared with co-parents</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Dialog open={isOpen} onOpenChange={(open) => {
@@ -182,7 +186,7 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
               <DialogHeader>
                 <DialogTitle>Add Shared Expense</DialogTitle>
                 <DialogDescription>
-                  Add an expense you're sharing with a co-parent (e.g., kids' clothing, school supplies)
+                  Add an expense shared with a co-parent (e.g., kids' clothing, school supplies)
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -219,6 +223,18 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label>Paid by</Label>
+                  <Select value={formData.paid_by} onValueChange={(v: "user" | "co_parent") => setFormData({ ...formData, paid_by: v })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="user">You</SelectItem>
+                      <SelectItem value="co_parent">Co-parent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label>Notes (Optional)</Label>
                   <Textarea
                     value={formData.notes}
@@ -250,7 +266,12 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
                     className="flex items-start justify-between p-3 rounded-lg border border-border bg-background/40"
                   >
                     <div className="flex-1">
-                      <p className="font-medium">{expense.description}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{expense.description}</p>
+                        <Badge variant={expense.paid_by === "user" ? "destructive" : "default"}>
+                          {expense.paid_by === "user" ? "You paid" : "They paid"}
+                        </Badge>
+                      </div>
                       <p className="text-sm text-muted-foreground">
                         {expense.amount} {currency}
                         {expense.notes && ` • ${expense.notes}`}
