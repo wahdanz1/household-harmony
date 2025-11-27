@@ -96,6 +96,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: memberError };
     }
 
+    // Clean up: Delete any auto-created default household
+    // This happens when a user joins before signup - the trigger creates a default household
+    // but we want them in the invited household instead
+    const { data: ownedHouseholds } = await supabase
+      .from("households")
+      .select("id")
+      .eq("owner_id", authData.user.id);
+
+    if (ownedHouseholds && ownedHouseholds.length > 0) {
+      // Delete the auto-created household and its membership
+      for (const household of ownedHouseholds) {
+        await supabase
+          .from("household_members")
+          .delete()
+          .eq("household_id", household.id)
+          .eq("user_id", authData.user.id);
+
+        await supabase
+          .from("households")
+          .delete()
+          .eq("id", household.id);
+      }
+    }
+
     // Update invite status to accepted and deactivate
     await supabase
       .from("household_invites")
