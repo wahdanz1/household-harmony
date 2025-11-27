@@ -144,7 +144,7 @@ const Expenses = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Expense Management</h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-2">
             {format(new Date(currentMonth), "MMMM yyyy")}
           </p>
         </div>
@@ -156,11 +156,11 @@ const Expenses = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="monthly" className="w-full">
+      <Tabs defaultValue="general" className="w-full">
         <TabsList className={`grid w-full ${coParents.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-          <TabsTrigger value="monthly" className="flex items-center gap-2">
+          <TabsTrigger value="general" className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
-            <span className="hidden sm:inline">Monthly</span>
+            <span className="hidden sm:inline">General</span>
           </TabsTrigger>
           <TabsTrigger value="subscriptions" className="flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
@@ -178,7 +178,7 @@ const Expenses = () => {
           )}
         </TabsList>
 
-        <TabsContent value="monthly" className="mt-6">
+        <TabsContent value="general" className="mt-6">
           <MonthlyExpenses
             householdId={household?.id}
             expenseCategories={expenseCategories}

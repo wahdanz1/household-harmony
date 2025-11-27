@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { TrendingDown, Check, AlertCircle, Plus, Edit, Trash2, Home, Zap, Wifi, Smartphone, Shield, Landmark, ShoppingCart, Fuel, UtensilsCrossed, Film, ShoppingBag, Heart, Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AddExpenseDialog } from "./AddExpenseDialog";
@@ -71,6 +72,14 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
     default_amount: "0",
   });
 
+  // Special field states for Electricity
+  const [electricityGrid, setElectricityGrid] = useState("");
+  const [electricityMarket, setElectricityMarket] = useState("");
+
+  // Special field states for Rent
+  const [waterIncluded, setWaterIncluded] = useState(true);
+  const [waterCost, setWaterCost] = useState("");
+
   const resetCategoryForm = () => {
     setCategoryFormData({
       name: "",
@@ -78,6 +87,27 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
       default_amount: "0",
     });
     setEditingCategoryId(null);
+    setElectricityGrid("");
+    setElectricityMarket("");
+    setWaterIncluded(true);
+    setWaterCost("");
+  };
+
+  // Helper to calculate display amount (includes water cost for Rent if not included)
+  const getDisplayAmount = (category: any): string => {
+    const baseAmount = parseFloat(amounts[category.id] || "0");
+
+    // For Rent category, add water cost if not included
+    if (category.category === "rent" && category.metadata) {
+      const waterIncluded = category.metadata.water_included !== false;
+      const waterCost = parseFloat(category.metadata.water_cost || "0");
+
+      if (!waterIncluded && waterCost > 0) {
+        return (baseAmount + waterCost).toString();
+      }
+    }
+
+    return baseAmount.toString();
   };
 
   const initializeDefaults = async () => {
@@ -118,13 +148,43 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
   };
 
   const handleSaveCategory = async () => {
-    const data = {
+    // Find the category being edited to check for special fields
+    const editingCategory = expenseCategories.find(c => c.id === editingCategoryId);
+
+    // Build metadata object for Electricity and Rent
+    let metadata = null;
+    let calculatedDefaultAmount = parseFloat(categoryFormData.default_amount);
+
+    if (editingCategory?.category === "electricity") {
+      const grid = parseFloat(electricityGrid || "0");
+      const market = parseFloat(electricityMarket || "0");
+
+      metadata = {
+        electricity_grid: grid,
+        electricity_market: market,
+      };
+
+      // For Electricity, default_amount is the SUM of Grid + Market
+      calculatedDefaultAmount = grid + market;
+    } else if (editingCategory?.category === "rent") {
+      metadata = {
+        water_included: waterIncluded,
+        water_cost: waterIncluded ? 0 : parseFloat(waterCost || "0"),
+      };
+    }
+
+    const data: any = {
       household_id: householdId,
       name: categoryFormData.name,
       type: categoryFormData.type,
-      default_amount: parseFloat(categoryFormData.default_amount),
+      default_amount: calculatedDefaultAmount,
       sort_order: expenseCategories.length,
     };
+
+    // Add metadata if it exists
+    if (metadata) {
+      data.metadata = metadata;
+    }
 
     let error;
     if (editingCategoryId) {
@@ -156,11 +216,26 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
   };
 
   const handleEditCategory = (category: any) => {
+    const metadata = category.metadata || {};
+
     setCategoryFormData({
       name: category.name,
       type: category.type,
       default_amount: category.default_amount.toString(),
     });
+
+    // Load Electricity metadata
+    if (category.category === "electricity") {
+      setElectricityGrid(metadata.electricity_grid?.toString() || "");
+      setElectricityMarket(metadata.electricity_market?.toString() || "");
+    }
+
+    // Load Rent metadata
+    if (category.category === "rent") {
+      setWaterIncluded(metadata.water_included !== false);
+      setWaterCost(metadata.water_cost?.toString() || "");
+    }
+
     setEditingCategoryId(category.id);
     setCategoryDialogOpen(true);
   };
@@ -265,6 +340,57 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
                         placeholder="0"
                       />
                     </div>
+
+                    {/* Electricity Special Fields */}
+                    {editingCategoryId && expenseCategories.find(c => c.id === editingCategoryId)?.category === "electricity" && (
+                      <>
+                        <div className="space-y-2">
+                          <Label>Grid Amount</Label>
+                          <Input
+                            type="number"
+                            value={electricityGrid}
+                            onChange={(e) => setElectricityGrid(e.target.value)}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Market Amount</Label>
+                          <Input
+                            type="number"
+                            value={electricityMarket}
+                            onChange={(e) => setElectricityMarket(e.target.value)}
+                            placeholder="0"
+                          />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Total: {(parseFloat(electricityGrid || "0") + parseFloat(electricityMarket || "0")).toFixed(0)}
+                        </p>
+                      </>
+                    )}
+
+                    {/* Rent Special Fields */}
+                    {editingCategoryId && expenseCategories.find(c => c.id === editingCategoryId)?.category === "rent" && (
+                      <>
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={waterIncluded}
+                            onCheckedChange={setWaterIncluded}
+                          />
+                          <Label>Water Included</Label>
+                        </div>
+                        {!waterIncluded && (
+                          <div className="space-y-2">
+                            <Label>Water Cost</Label>
+                            <Input
+                              type="number"
+                              value={waterCost}
+                              onChange={(e) => setWaterCost(e.target.value)}
+                              placeholder="0"
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                   <DialogFooter className="flex-col sm:flex-row gap-2">
                     {editingCategoryId && (
@@ -361,11 +487,12 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
                         <div className="flex items-center gap-2">
                           <Input
                             type="number"
-                            value={amounts[category.id] || ""}
+                            value={getDisplayAmount(category)}
                             onChange={(e) =>
                               onAmountsChange({ ...amounts, [category.id]: e.target.value })
                             }
-                            className={`flex-1 text-base font-semibold ${isDifferent ? "border-primary" : ""}`}
+                            disabled={category.type === "static"}
+                            className={`flex-1 text-base font-semibold ${isDifferent ? "border-primary" : ""} ${category.type === "static" ? "bg-background cursor-not-allowed" : ""}`}
                             placeholder="0"
                           />
                           <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
@@ -410,11 +537,12 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
                         <div className="flex items-center gap-2">
                           <Input
                             type="number"
-                            value={amounts[category.id] || ""}
+                            value={getDisplayAmount(category)}
                             onChange={(e) =>
                               onAmountsChange({ ...amounts, [category.id]: e.target.value })
                             }
-                            className={`w-32 text-lg font-semibold ${isDifferent ? "border-primary" : ""}`}
+                            disabled={category.type === "static"}
+                            className={`w-32 text-lg font-semibold ${isDifferent ? "border-primary" : ""} ${category.type === "static" ? "bg-background cursor-not-allowed" : ""}`}
                             placeholder="0"
                           />
                           <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>

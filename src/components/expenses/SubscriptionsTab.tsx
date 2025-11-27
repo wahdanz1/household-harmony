@@ -34,15 +34,15 @@ interface SubscriptionsTabProps {
 }
 
 const subscriptionCategories = [
-  { value: "streaming", label: "Streaming" },
-  { value: "software", label: "Software & Apps" },
-  { value: "music", label: "Music" },
-  { value: "gaming", label: "Gaming" },
-  { value: "gym", label: "Gym & Fitness" },
-  { value: "news", label: "News & Media" },
-  { value: "storage", label: "Cloud Storage" },
-  { value: "education", label: "Education & Learning" },
-  { value: "other", label: "Other" },
+  { value: "streaming", label: "Streaming", color: "#EC4899" },
+  { value: "software", label: "Software & Apps", color: "#8B5CF6" },
+  { value: "music", label: "Music", color: "#10B981" },
+  { value: "gaming", label: "Gaming", color: "#F59E0B" },
+  { value: "gym", label: "Gym & Fitness", color: "#EF4444" },
+  { value: "news", label: "News & Media", color: "#3B82F6" },
+  { value: "storage", label: "Cloud Storage", color: "#06B6D4" },
+  { value: "education", label: "Education & Learning", color: "#A855F7" },
+  { value: "other", label: "Other", color: "#64748B" },
 ];
 
 export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProps) => {
@@ -182,16 +182,51 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Summary</CardTitle>
-          <CardDescription>Total monthly subscription costs</CardDescription>
+          <CardTitle>Subscriptions Summary</CardTitle>
+          <CardDescription>Overview of your recurring subscription costs</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-destructive">
-            {calculateMonthlyTotal().toFixed(0)} {currency}/month
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {/* Total Monthly */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Total Monthly</p>
+              <div className="text-2xl font-bold text-destructive">
+                {calculateMonthlyTotal().toFixed(0)} {currency}
+              </div>
+            </div>
+
+            {/* Yearly Cost */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Yearly Cost</p>
+              <div className="text-2xl font-bold">
+                {(calculateMonthlyTotal() * 12).toFixed(0)} {currency}
+              </div>
+            </div>
+
+            {/* Most Expensive */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Most Expensive</p>
+              <div className="text-2xl font-bold">
+                {activeSubscriptions.length > 0 ? (
+                  <>
+                    {Math.max(...activeSubscriptions.map(s => {
+                      if (s.billing_cycle === "yearly") return s.amount / 12;
+                      if (s.billing_cycle === "quarterly") return s.amount / 3;
+                      return s.amount;
+                    })).toFixed(0)} {currency}
+                  </>
+                ) : "0 " + currency}
+              </div>
+            </div>
+
+            {/* Active Count */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Active Subscriptions</p>
+              <div className="text-2xl font-bold">
+                {activeSubscriptions.length}
+              </div>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            {activeSubscriptions.length} active subscription{activeSubscriptions.length !== 1 ? "s" : ""}
-          </p>
         </CardContent>
       </Card>
 
@@ -306,7 +341,23 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                   <Label>Active</Label>
                 </div>
               </div>
-              <DialogFooter>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                {editingId && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      handleDelete(editingId);
+                      setIsOpen(false);
+                    }}
+                    className="sm:mr-auto"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setIsOpen(false)}>
+                  Cancel
+                </Button>
                 <Button onClick={handleSave}>{editingId ? "Update" : "Add"}</Button>
               </DialogFooter>
             </DialogContent>
@@ -321,11 +372,20 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-medium">{subscription.name}</p>
-                    {subscription.category && (
-                      <Badge variant="outline">
-                        {subscriptionCategories.find((c) => c.value === subscription.category)?.label || subscription.category}
-                      </Badge>
-                    )}
+                    {subscription.category && (() => {
+                      const cat = subscriptionCategories.find((c) => c.value === subscription.category);
+                      return (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full font-medium"
+                          style={{
+                            backgroundColor: `${cat?.color}20`,
+                            color: cat?.color
+                          }}
+                        >
+                          {cat?.label || subscription.category}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {subscription.amount} {currency} / {subscription.billing_cycle}
@@ -335,9 +395,6 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                 <div className="flex gap-2">
                   <Button variant="ghost" size="icon" onClick={() => handleEdit(subscription)}>
                     <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(subscription.id)}>
-                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>

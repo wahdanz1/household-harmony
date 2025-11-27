@@ -34,14 +34,14 @@ interface InsuranceTabProps {
 }
 
 const insuranceTypes = [
-  { value: "home", label: "Home Insurance" },
-  { value: "car", label: "Car Insurance" },
-  { value: "health", label: "Health Insurance" },
-  { value: "life", label: "Life Insurance" },
-  { value: "pet", label: "Pet Insurance" },
-  { value: "travel", label: "Travel Insurance" },
-  { value: "liability", label: "Liability Insurance" },
-  { value: "other", label: "Other" },
+  { value: "home", label: "Home Insurance", color: "#3B82F6" },
+  { value: "car", label: "Car Insurance", color: "#EF4444" },
+  { value: "health", label: "Health Insurance", color: "#10B981" },
+  { value: "life", label: "Life Insurance", color: "#8B5CF6" },
+  { value: "pet", label: "Pet Insurance", color: "#F59E0B" },
+  { value: "travel", label: "Travel Insurance", color: "#06B6D4" },
+  { value: "liability", label: "Liability Insurance", color: "#EC4899" },
+  { value: "other", label: "Other", color: "#64748B" },
 ];
 
 const monthNames = [
@@ -238,22 +238,49 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
           <CardTitle>Insurance Summary</CardTitle>
           <CardDescription>Save monthly to cover annual insurance payments</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="text-sm text-muted-foreground">Monthly savings needed</p>
-            <p className="text-3xl font-bold text-warning">
-              {calculateMonthlySavings().toFixed(0)} {currency}/month
-            </p>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {/* Monthly Savings */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Monthly Savings</p>
+              <div className="text-2xl font-bold text-warning">
+                {calculateMonthlySavings().toFixed(0)} {currency}
+              </div>
+            </div>
+
+            {/* Yearly Cost */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Yearly Cost</p>
+              <div className="text-2xl font-bold">
+                {calculateTotalAnnual().toFixed(0)} {currency}
+              </div>
+            </div>
+
+            {/* Most Expensive */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Most Expensive</p>
+              <div className="text-2xl font-bold">
+                {activeInsurances.length > 0 ? (
+                  <>
+                    {Math.max(...activeInsurances.map(i => {
+                      if (i.payment_frequency === "yearly") return i.total_amount / 12;
+                      if (i.payment_frequency === "semi_annually") return i.total_amount / 6;
+                      if (i.payment_frequency === "quarterly") return i.total_amount / 3;
+                      return i.total_amount;
+                    })).toFixed(0)} {currency}
+                  </>
+                ) : "0 " + currency}
+              </div>
+            </div>
+
+            {/* Active Count */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Active Policies</p>
+              <div className="text-2xl font-bold">
+                {activeInsurances.length}
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Total annual insurance cost</p>
-            <p className="text-xl font-semibold">
-              {calculateTotalAnnual().toFixed(0)} {currency}/year
-            </p>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {activeInsurances.length} active insurance{activeInsurances.length !== 1 ? "s" : ""}
-          </p>
         </CardContent>
       </Card>
 
@@ -424,7 +451,23 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                   </div>
                 )}
               </div>
-              <DialogFooter>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                {editingId && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      handleDelete(editingId);
+                      setIsOpen(false);
+                    }}
+                    className="sm:mr-auto"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setIsOpen(false)}>
+                  Cancel
+                </Button>
                 <Button onClick={handleSave}>{editingId ? "Update" : "Add"}</Button>
               </DialogFooter>
             </DialogContent>
@@ -446,17 +489,27 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{insurance.name}</p>
-                      <Badge variant="outline">
-                        {insuranceTypes.find((t) => t.value === insurance.type)?.label || insurance.type}
-                      </Badge>
+                      {(() => {
+                        const type = insuranceTypes.find((t) => t.value === insurance.type);
+                        return (
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-medium"
+                            style={{
+                              backgroundColor: `${type?.color}20`,
+                              color: type?.color
+                            }}
+                          >
+                            {type?.label || insurance.type}
+                          </span>
+                        );
+                      })()}
                       {insurance.is_shared && (
                         <Badge variant="secondary">{insurance.share_percentage}% shared</Badge>
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {insurance.provider && `${insurance.provider} • `}
-                      {insurance.total_amount} {currency} / {insurance.payment_frequency.replace("_", " ")}
-                      {` • Save ${monthlyAmount.toFixed(0)} ${currency}/month`}
+                      {monthlyAmount.toFixed(0)} {currency}/month • {insurance.payment_frequency}
+                      {insurance.provider && ` • ${insurance.provider}`}
                     </p>
                     {insurance.invoice_month && (
                       <p className="text-xs text-muted-foreground">
@@ -467,9 +520,6 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                   <div className="flex gap-2">
                     <Button variant="ghost" size="icon" onClick={() => handleEdit(insurance)}>
                       <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(insurance.id)}>
-                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
