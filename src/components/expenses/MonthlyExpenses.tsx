@@ -4,8 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TrendingDown, Check, AlertCircle, Plus, Edit, Trash2, Home, Zap, Wifi, Smartphone, Shield, Landmark, ShoppingCart, Fuel, UtensilsCrossed, Film, ShoppingBag, Heart, Sparkles } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AddExpenseDialog } from "./AddExpenseDialog";
+import { EXPENSE_CATEGORIES, getCategoryById } from "@/constants/expenseCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
@@ -20,6 +24,7 @@ interface MonthlyExpensesProps {
   subscriptionsTotal: number;
   insuranceTotal: number;
   members: any[];
+  coParents: any[];
   onAmountsChange: (amounts: Record<string, string>) => void;
   onSave: () => void;
   onCategoriesUpdate: () => void;
@@ -51,22 +56,10 @@ const DEFAULT_CATEGORIES = {
   ]
 };
 
-export const MonthlyExpenses = ({
-  householdId,
-  expenseCategories,
-  monthlyExpenses,
-  amounts,
-  currency,
-  saving,
-  subscriptionsTotal,
-  insuranceTotal,
-  members,
-  onAmountsChange,
-  onSave,
-  onCategoriesUpdate,
-}: MonthlyExpensesProps) => {
+export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpenses, amounts, currency, saving, subscriptionsTotal, insuranceTotal, members, coParents, onAmountsChange, onSave, onCategoriesUpdate }: MonthlyExpensesProps) => {
   const { toast } = useToast();
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [categoryFormData, setCategoryFormData] = useState<{
     name: string;
@@ -198,29 +191,37 @@ export const MonthlyExpenses = ({
     return IconComponent ? <IconComponent className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />;
   };
 
-  const staticCategories = expenseCategories.filter((c) => c.type === "static");
-  const dynamicCategories = expenseCategories.filter((c) => c.type === "dynamic");
+  // Sort all expenses by amount (highest to lowest)
+  const sortedCategories = [...expenseCategories].sort((a, b) => {
+    const amountA = parseFloat(amounts[a.id] || a.default_amount.toString() || "0");
+    const amountB = parseFloat(amounts[b.id] || b.default_amount.toString() || "0");
+    return amountB - amountA; // Descending order
+  });
 
   return (
     <div className="space-y-4">
       {/* Unified Expense Categories & Entry */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <TrendingDown className="h-5 w-5 text-destructive" />
-                Expense Categories & Monthly Entry
+                Monthly Expenses
               </CardTitle>
-              <CardDescription>Manage categories and enter monthly expenses</CardDescription>
+              <CardDescription>Add expense categories with defaults, and adjust actual monthly expenses if needed. Click "Save Monthly Expenses" when done!</CardDescription>
             </div>
             <div className="flex gap-2">
+              <Button size="sm" className="w-full sm:w-auto" onClick={() => setAddExpenseDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Expense
+              </Button>
               <Dialog open={categoryDialogOpen} onOpenChange={(open) => {
                 setCategoryDialogOpen(open);
                 if (!open) resetCategoryForm();
               }}>
                 <DialogTrigger asChild>
-                  <Button size="sm">
+                  <Button size="sm" className="w-full sm:w-auto">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Category
                   </Button>
@@ -265,7 +266,23 @@ export const MonthlyExpenses = ({
                       />
                     </div>
                   </div>
-                  <DialogFooter>
+                  <DialogFooter className="flex-col sm:flex-row gap-2">
+                    {editingCategoryId && (
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          handleDeleteCategory(editingCategoryId);
+                          setCategoryDialogOpen(false);
+                        }}
+                        className="sm:mr-auto"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    )}
+                    <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>
+                      Cancel
+                    </Button>
                     <Button onClick={handleSaveCategory}>
                       {editingCategoryId ? "Update" : "Add"}
                     </Button>
@@ -290,165 +307,246 @@ export const MonthlyExpenses = ({
             </div>
           ) : (
             <>
-              {staticCategories.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Static Expenses</h4>
-                  <div className="space-y-3">
-                    {staticCategories.map((category) => {
-                      const hasEntry = monthlyExpenses.some((m) => m.expense_category_id === category.id);
-                      const isDifferent = amounts[category.id] !== category.default_amount.toString();
+              <div className="space-y-3">
+                {sortedCategories.map((category) => {
+                  const hasEntry = monthlyExpenses.some((m) => m.expense_category_id === category.id);
+                  const isDifferent = amounts[category.id] !== category.default_amount.toString();
 
-                      return (
-                        <div
-                          key={category.id}
-                          className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background/40"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              {getCategoryIcon(category.name)}
-                              <p className="font-medium truncate">{category.name}</p>
-                              <Badge variant="secondary" className="shrink-0">Static</Badge>
-                              {hasEntry && <Check className="h-4 w-4 text-success shrink-0" />}
-                            </div>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {category.default_amount > 0 ? `Default: ${category.default_amount} ${currency}` : `No default set`}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              value={amounts[category.id] || ""}
-                              onChange={(e) =>
-                                onAmountsChange({ ...amounts, [category.id]: e.target.value })
-                              }
-                              className={`w-40 text-lg font-semibold ${isDifferent ? "border-primary" : ""}`}
-                              placeholder="0"
-                            />
-                            <span className="text-sm text-muted-foreground min-w-[3rem]">{currency}</span>
-                          </div>
-                          <div className="flex gap-1 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditCategory(category)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteCategory(category.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                  return (
+                    <div
+                      key={category.id}
+                      className="p-3 sm:p-4 rounded-lg border border-border bg-background/40"
+                    >
+                      {/* Mobile: Compact layout */}
+                      <div className="sm:hidden space-y-3">
+                        {/* Top row: Icon + Title + Badge + Avatar */}
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const cat = getCategoryById(category.category || 'other');
+                            const Icon = cat?.icon;
+                            return Icon ? <Icon className="h-4 w-4" style={{ color: cat.color }} /> : null;
+                          })()}
+                          <p className="font-medium flex-1">{category.name}</p>
+                          {(() => {
+                            const cat = getCategoryById(category.category || 'other');
+                            return (
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full font-medium"
+                                style={{
+                                  backgroundColor: `${cat?.color}20`,
+                                  color: cat?.color
+                                }}
+                              >
+                                {cat?.label}
+                              </span>
+                            );
+                          })()}
+                          {(() => {
+                            const creator = members.find(m => m.user_id === category.created_by);
+                            const initials = creator?.profiles?.full_name
+                              ?.split(' ')
+                              .map(n => n[0])
+                              .join('')
+                              .toUpperCase() || '?';
+                            return (
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
+                                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                              </Avatar>
+                            );
+                          })()}
                         </div>
-                      );
-                    })}
 
-                    {subscriptionsTotal > 0 && (
-                      <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-muted/40">
+                        {/* Bottom row: Amount input and edit button */}
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            value={amounts[category.id] || ""}
+                            onChange={(e) =>
+                              onAmountsChange({ ...amounts, [category.id]: e.target.value })
+                            }
+                            className={`flex-1 text-base font-semibold ${isDifferent ? "border-primary" : ""}`}
+                            placeholder="0"
+                          />
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={() => handleEditCategory(category)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Desktop: Single line layout */}
+                      <div className="hidden sm:flex items-center gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-medium text-muted-foreground truncate">Subscriptions</p>
-                            <Badge variant="secondary" className="shrink-0">auto</Badge>
+                            {(() => {
+                              const cat = getCategoryById(category.category || 'other');
+                              const Icon = cat?.icon;
+                              return Icon ? <Icon className="h-4 w-4" style={{ color: cat.color }} /> : null;
+                            })()}
+                            <p className="font-medium truncate">{category.name}</p>
+                            {(() => {
+                              const cat = getCategoryById(category.category || 'other');
+                              return (
+                                <span
+                                  className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
+                                  style={{
+                                    backgroundColor: `${cat?.color}20`,
+                                    color: cat?.color
+                                  }}
+                                >
+                                  {cat?.label}
+                                </span>
+                              );
+                            })()}
+                            {hasEntry && <Check className="h-4 w-4 text-success shrink-0" />}
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Input
                             type="number"
-                            value={subscriptionsTotal.toFixed(0)}
-                            disabled
-                            className="w-40 text-lg font-semibold bg-muted/20"
+                            value={amounts[category.id] || ""}
+                            onChange={(e) =>
+                              onAmountsChange({ ...amounts, [category.id]: e.target.value })
+                            }
+                            className={`w-32 text-lg font-semibold ${isDifferent ? "border-primary" : ""}`}
+                            placeholder="0"
                           />
-                          <span className="text-sm text-muted-foreground min-w-[3rem]">{currency}</span>
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
                         </div>
-                        <div className="w-[72px]"></div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditCategory(category)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {(() => {
+                            const creator = members.find(m => m.user_id === category.created_by);
+                            const initials = creator?.profiles?.full_name
+                              ?.split(' ')
+                              .map(n => n[0])
+                              .join('')
+                              .toUpperCase() || '?';
+                            return (
+                              <Avatar className="h-9 w-9">
+                                <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
+                                <AvatarFallback className="text-sm">{initials}</AvatarFallback>
+                              </Avatar>
+                            );
+                          })()}
+                        </div>
                       </div>
-                    )}
+                    </div>
+                  );
+                })}
 
-                    {insuranceTotal > 0 && (
-                      <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-muted/40">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-muted-foreground truncate">Insurance Savings</p>
-                            <Badge variant="secondary" className="shrink-0">auto</Badge>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            value={insuranceTotal.toFixed(0)}
-                            disabled
-                            className="w-40 text-lg font-semibold bg-muted/20"
-                          />
-                          <span className="text-sm text-muted-foreground min-w-[3rem]">{currency}</span>
-                        </div>
-                        <div className="w-[72px]"></div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {dynamicCategories.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Dynamic Expenses</h4>
-                  <div className="space-y-3">
-                    {dynamicCategories.map((category) => {
-                      const hasEntry = monthlyExpenses.some((m) => m.expense_category_id === category.id);
-                      const isDifferent = amounts[category.id] !== category.default_amount.toString();
-
-                      return (
-                        <div
-                          key={category.id}
-                          className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background/40"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              {getCategoryIcon(category.name)}
-                              <p className="font-medium truncate">{category.name}</p>
-                              <Badge variant="outline" className="shrink-0">Dynamic</Badge>
-                              {hasEntry && <Check className="h-4 w-4 text-success shrink-0" />}
+                {subscriptionsTotal > 0 && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="p-3 sm:p-4 rounded-lg border border-border bg-muted/40 cursor-help">
+                          {/* Mobile */}
+                          <div className="sm:hidden space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="font-medium text-muted-foreground">Subscriptions</p>
+                              <Badge variant="secondary" className="text-xs">auto</Badge>
                             </div>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {category.default_amount > 0 ? `Avg: ${category.default_amount} ${currency} • Rolling average` : `Rolling average • No default yet`}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                value={subscriptionsTotal.toFixed(0)}
+                                disabled
+                                className="flex-1 text-base font-semibold bg-muted/20"
+                              />
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              value={amounts[category.id] || ""}
-                              onChange={(e) =>
-                                onAmountsChange({ ...amounts, [category.id]: e.target.value })
-                              }
-                              className={`w-40 text-lg font-semibold ${isDifferent ? "border-primary" : ""}`}
-                              placeholder="0"
-                            />
-                            <span className="text-sm text-muted-foreground min-w-[3rem]">{currency}</span>
-                          </div>
-                          <div className="flex gap-1 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditCategory(category)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteCategory(category.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+
+                          {/* Desktop */}
+                          <div className="hidden sm:flex items-center gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-muted-foreground truncate">Subscriptions</p>
+                                <Badge variant="secondary" className="shrink-0 text-xs">auto</Badge>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                value={subscriptionsTotal.toFixed(0)}
+                                disabled
+                                className="w-32 text-lg font-semibold bg-muted/20"
+                              />
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
+                            </div>
+                            <div className="w-[72px]"></div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>This amount is calculated from your active subscriptions</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
+                {insuranceTotal > 0 && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="p-3 sm:p-4 rounded-lg border border-border bg-muted/40 cursor-help">
+                          {/* Mobile */}
+                          <div className="sm:hidden space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="font-medium text-muted-foreground">Insurance Savings</p>
+                              <Badge variant="secondary" className="text-xs">auto</Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                value={insuranceTotal.toFixed(0)}
+                                disabled
+                                className="flex-1 text-base font-semibold bg-muted/20"
+                              />
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
+                            </div>
+                          </div>
+
+                          {/* Desktop */}
+                          <div className="hidden sm:flex items-center gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-muted-foreground truncate">Insurance Savings</p>
+                                <Badge variant="secondary" className="shrink-0 text-xs">auto</Badge>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                value={insuranceTotal.toFixed(0)}
+                                disabled
+                                className="w-32 text-lg font-semibold bg-muted/20"
+                              />
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
+                            </div>
+                            <div className="w-[72px]"></div>
+                          </div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>This amount is calculated from your insurance policies</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
 
               <Button onClick={onSave} disabled={saving} className="w-full">
                 {saving ? "Saving..." : "Save Monthly Expenses"}
@@ -457,6 +555,14 @@ export const MonthlyExpenses = ({
           )}
         </CardContent>
       </Card>
-    </div>
+
+      <AddExpenseDialog
+        open={addExpenseDialogOpen}
+        onOpenChange={setAddExpenseDialogOpen}
+        householdId={householdId}
+        hasCoParents={coParents.length > 0}
+        onSuccess={onCategoriesUpdate}
+      />
+    </div >
   );
 };

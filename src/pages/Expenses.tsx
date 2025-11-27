@@ -22,6 +22,7 @@ const Expenses = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
+  const [coParents, setCoParents] = useState<any[]>([]);
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
@@ -44,6 +45,7 @@ const Expenses = () => {
       { data: subscriptionsData },
       { data: insurancesData },
       { data: membersData },
+      { data: coParentsData },
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
       supabase.from("expense_categories").select("*").eq("household_id", householdData.household_id).eq("is_active", true).order("sort_order"),
@@ -51,7 +53,8 @@ const Expenses = () => {
       supabase.from("monthly_expenses").select("*").eq("household_id", householdData.household_id).lt("month", currentMonth),
       supabase.from("subscriptions").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
       supabase.from("insurances").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
-      supabase.from("household_members").select("*, profiles(full_name, email)").eq("household_id", householdData.household_id),
+      supabase.from("household_members").select("*, profiles(full_name, email, avatar_url)").eq("household_id", householdData.household_id),
+      supabase.from("co_parents").select("*").eq("household_id", householdData.household_id),
     ]);
 
     setHousehold(householdInfo);
@@ -60,6 +63,7 @@ const Expenses = () => {
     setSubscriptions(subscriptionsData || []);
     setInsurances(insurancesData || []);
     setMembers(membersData || []);
+    setCoParents(coParentsData || []);
 
     const initialAmounts: Record<string, string> = {};
     (categoriesData || []).forEach((category: any) => {
@@ -153,7 +157,7 @@ const Expenses = () => {
       </div>
 
       <Tabs defaultValue="monthly" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className={`grid w-full ${coParents.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <TabsTrigger value="monthly" className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
             <span className="hidden sm:inline">Monthly</span>
@@ -166,10 +170,12 @@ const Expenses = () => {
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Insurance</span>
           </TabsTrigger>
-          <TabsTrigger value="shared" className="flex items-center gap-2">
-            <ShoppingBag className="h-4 w-4" />
-            <span className="hidden sm:inline">Shared</span>
-          </TabsTrigger>
+          {coParents.length > 0 && (
+            <TabsTrigger value="shared" className="flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4" />
+              <span className="hidden sm:inline">Shared</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="monthly" className="mt-6">
@@ -183,6 +189,7 @@ const Expenses = () => {
             subscriptionsTotal={subscriptionsTotal}
             insuranceTotal={insuranceTotal}
             members={members}
+            coParents={coParents}
             onAmountsChange={setAmounts}
             onSave={handleSave}
             onCategoriesUpdate={fetchData}
@@ -203,12 +210,14 @@ const Expenses = () => {
           />
         </TabsContent>
 
-        <TabsContent value="shared" className="mt-6">
-          <SharedExpensesTab
-            householdId={household?.id}
-            currency={household?.currency || "SEK"}
-          />
-        </TabsContent>
+        {coParents.length > 0 && (
+          <TabsContent value="shared" className="mt-6">
+            <SharedExpensesTab
+              householdId={household?.id}
+              currency={household?.currency || "SEK"}
+            />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

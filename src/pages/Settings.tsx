@@ -35,7 +35,7 @@ const Settings = () => {
       { data: invitesData },
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
-      supabase.from("household_members").select("*, profiles(full_name, email)").eq("household_id", householdData.household_id),
+      supabase.from("household_members").select("*, profiles(full_name, email, email_public)").eq("household_id", householdData.household_id),
       supabase.from("household_invites").select("*").eq("household_id", householdData.household_id).order("created_at", { ascending: false }),
     ]);
 

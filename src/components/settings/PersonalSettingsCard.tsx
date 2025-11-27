@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
 import { Upload, User, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ export const PersonalSettingsCard = () => {
   const [email, setEmail] = useState("");
   const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [emailPublic, setEmailPublic] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
@@ -29,7 +31,7 @@ export const PersonalSettingsCard = () => {
 
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, email, birthdate, avatar_url")
+        .select("full_name, email, birthdate, avatar_url, email_public")
         .eq("id", user.id)
         .single();
 
@@ -37,6 +39,7 @@ export const PersonalSettingsCard = () => {
         setFullName(data.full_name || "");
         setEmail(data.email);
         setAvatarUrl(data.avatar_url);
+        setEmailPublic(data.email_public ?? true);
         if (data.birthdate) {
           setBirthdate(new Date(data.birthdate));
         }
@@ -55,6 +58,7 @@ export const PersonalSettingsCard = () => {
       .update({
         full_name: fullName,
         birthdate: birthdate ? format(birthdate, "yyyy-MM-dd") : null,
+        email_public: emailPublic,
       })
       .eq("id", user.id);
 
@@ -201,6 +205,19 @@ export const PersonalSettingsCard = () => {
               placeholder="YYYY-MM-DD"
             />
           </div>
+        </div>
+
+        <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/40">
+          <div className="space-y-0.5">
+            <Label>Email Visibility</Label>
+            <p className="text-sm text-muted-foreground">
+              {emailPublic ? "Your email is visible to household members" : "Your email is hidden from household members"}
+            </p>
+          </div>
+          <Switch
+            checked={emailPublic}
+            onCheckedChange={setEmailPublic}
+          />
         </div>
 
         <div className="flex gap-3 pt-4">

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, Check, AlertCircle, Plus, X, Edit, Trash2 } from "lucide-react";
+import { TrendingUp, Check, AlertCircle, Plus, X, Edit, Pencil, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -319,14 +319,14 @@ const Income = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Income Management</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Income Management</h1>
           <p className="text-muted-foreground mt-1">
             {format(new Date(currentMonth), "MMMM yyyy")}
           </p>
         </div>
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Total Income</p>
-          <p className="text-3xl font-bold text-success">
+          <p className="text-2xl sm:text-3xl font-bold text-success">
             {totalIncome.toFixed(0)} {household?.currency || "SEK"}
           </p>
         </div>
@@ -335,14 +335,14 @@ const Income = () => {
       {/* Unified Income Management */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-success" />
-                Income Sources & Monthly Entry
+                Monthly Income
               </CardTitle>
               <CardDescription>
-                Manage your income sources and enter monthly amounts
+                Add your income sources with a default amount, and adjust the actual monthly income if needed. When you're done, click "Save Monthly Income"!
               </CardDescription>
             </div>
             <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
@@ -350,7 +350,7 @@ const Income = () => {
               if (!open) resetSourceForm();
             }}>
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Source
                 </Button>
@@ -455,61 +455,116 @@ const Income = () => {
                   return (
                     <div
                       key={source.id}
-                      className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background/40"
+                      className="p-3 sm:p-4 rounded-lg border border-border bg-background/40"
                     >
-                      <Switch
-                        checked={!isSkipped}
-                        onCheckedChange={(checked) =>
-                          setAmounts({ ...amounts, [source.id]: checked ? source.default_amount.toString() : "0" })
-                        }
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className={`font-medium truncate ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
-                            {source.name}
-                          </p>
-                          <Badge variant="outline" className="shrink-0">{formatCategory(source.category)}</Badge>
-                          <Badge variant={source.type === "static" ? "secondary" : "outline"} className="shrink-0">
-                            {source.type}
-                          </Badge>
-                          {hasEntry && <Check className="h-4 w-4 text-success shrink-0" />}
+                      {/* Mobile: Compact layout */}
+                      <div className="sm:hidden space-y-3">
+                        {/* Top row: Avatar + Title + Toggle */}
+                        <div className="flex items-start gap-3">
+                          <Avatar className="h-9 w-9 shrink-0 mt-0.5">
+                            <AvatarImage src={source.profiles.avatar_url || undefined} />
+                            <AvatarFallback className="text-xs">
+                              {source.profiles.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className={`font-medium ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
+                              {source.name}
+                            </p>
+                            <Badge variant="outline" className="text-xs mt-1">{formatCategory(source.category)}</Badge>
+                          </div>
+                          <Switch
+                            checked={!isSkipped}
+                            onCheckedChange={(checked) =>
+                              setAmounts({ ...amounts, [source.id]: checked ? source.default_amount.toString() : "0" })
+                            }
+                            className="scale-90"
+                          />
                         </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {source.profiles.full_name}
-                        </p>
+
+                        {/* Bottom row: Amount input and actions */}
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            value={amounts[source.id] || ""}
+                            onChange={(e) => setAmounts({ ...amounts, [source.id]: e.target.value })}
+                            className={`flex-1 text-base font-semibold ${isDifferent ? "border-primary" : ""}`}
+                            placeholder="0"
+                            disabled={isSkipped}
+                          />
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">{household?.currency || "SEK"}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={() => handleEditSource(source)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={() => handleDeleteSource(source.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarImage src={source.profiles.avatar_url || undefined} />
-                        <AvatarFallback className="text-xs">
-                          {source.profiles.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          value={amounts[source.id] || ""}
-                          onChange={(e) => setAmounts({ ...amounts, [source.id]: e.target.value })}
-                          className={`w-40 text-lg font-semibold ${isDifferent ? "border-primary" : ""}`}
-                          placeholder="0"
-                          disabled={isSkipped}
+
+                      {/* Desktop: Single line layout */}
+                      <div className="hidden sm:flex items-center gap-4">
+                        <Switch
+                          checked={!isSkipped}
+                          onCheckedChange={(checked) =>
+                            setAmounts({ ...amounts, [source.id]: checked ? source.default_amount.toString() : "0" })
+                          }
                         />
-                        <span className="text-sm text-muted-foreground min-w-[3rem]">{household?.currency || "SEK"}</span>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditSource(source)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteSource(source.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className={`font-medium ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
+                              {source.name}
+                            </p>
+                            <Badge variant="outline" className="shrink-0 text-xs">{formatCategory(source.category)}</Badge>
+                            {hasEntry && <Check className="h-4 w-4 text-success shrink-0" />}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {source.profiles.full_name}
+                          </p>
+                        </div>
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarImage src={source.profiles.avatar_url || undefined} />
+                          <AvatarFallback className="text-xs">
+                            {source.profiles.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            value={amounts[source.id] || ""}
+                            onChange={(e) => setAmounts({ ...amounts, [source.id]: e.target.value })}
+                            className={`w-32 text-lg font-semibold ${isDifferent ? "border-primary" : ""}`}
+                            placeholder="0"
+                            disabled={isSkipped}
+                          />
+                          <span className="text-sm text-muted-foreground whitespace-nowrap">{household?.currency || "SEK"}</span>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditSource(source)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteSource(source.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -526,7 +581,7 @@ const Income = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Plus className="h-5 w-5 text-success" />
@@ -538,7 +593,7 @@ const Income = () => {
             </div>
             <Dialog open={oneTimeDialogOpen} onOpenChange={setOneTimeDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Income
                 </Button>

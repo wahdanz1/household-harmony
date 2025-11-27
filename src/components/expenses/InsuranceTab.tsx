@@ -340,25 +340,27 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Invoice Month (Optional)</Label>
-                  <Select value={formData.invoice_month} onValueChange={(v) => setFormData({ ...formData, invoice_month: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select month when invoice arrives" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">Not set</SelectItem>
-                      {monthNames.map((month, index) => (
-                        <SelectItem key={index + 1} value={(index + 1).toString()}>
-                          {month}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Which month do you typically receive this invoice? Leave blank if unknown.
-                  </p>
-                </div>
+                {formData.payment_frequency === "yearly" && (
+                  <div className="space-y-2">
+                    <Label>Invoice Month (Optional)</Label>
+                    <Select value={formData.invoice_month} onValueChange={(v) => setFormData({ ...formData, invoice_month: v })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select month when invoice arrives" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">Not set</SelectItem>
+                        {monthNames.map((month, index) => (
+                          <SelectItem key={index + 1} value={(index + 1).toString()}>
+                            {month}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Which month do you typically receive this invoice? Leave blank if unknown.
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Notes</Label>
@@ -377,48 +379,50 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                   <Label>Active</Label>
                 </div>
 
-                <div className="space-y-4 border-t border-border pt-4">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={formData.is_shared}
-                      onCheckedChange={(checked) => setFormData({ ...formData, is_shared: checked })}
-                    />
-                    <Label>Shared with co-parent (50/50)</Label>
-                  </div>
+                {coParents.length > 0 && (
+                  <div className="space-y-4 border-t border-border pt-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        checked={formData.is_shared}
+                        onCheckedChange={(checked) => setFormData({ ...formData, is_shared: checked })}
+                      />
+                      <Label>Shared with co-parent (50/50)</Label>
+                    </div>
 
-                  {formData.is_shared && (
-                    <>
-                      <div className="space-y-2">
-                        <Label>Co-Parent</Label>
-                        <Select value={formData.co_parent_id} onValueChange={(v) => setFormData({ ...formData, co_parent_id: v })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select co-parent" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {coParents.map((cp) => (
-                              <SelectItem key={cp.id} value={cp.id}>
-                                {cp.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Your Share (%)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={formData.share_percentage}
-                          onChange={(e) => setFormData({ ...formData, share_percentage: e.target.value })}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          You pay {formData.share_percentage}%, they pay {100 - parseFloat(formData.share_percentage || "0")}%
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </div>
+                    {formData.is_shared && (
+                      <>
+                        <div className="space-y-2">
+                          <Label>Co-Parent</Label>
+                          <Select value={formData.co_parent_id} onValueChange={(v) => setFormData({ ...formData, co_parent_id: v })}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select co-parent" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {coParents.map((cp) => (
+                                <SelectItem key={cp.id} value={cp.id}>
+                                  {cp.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Your Share (%)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={formData.share_percentage}
+                            onChange={(e) => setFormData({ ...formData, share_percentage: e.target.value })}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            You pay {formData.share_percentage}%, they pay {100 - parseFloat(formData.share_percentage || "0")}%
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button onClick={handleSave}>{editingId ? "Update" : "Add"}</Button>

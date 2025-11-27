@@ -15,6 +15,7 @@ interface Member {
   profiles: {
     full_name: string;
     email: string;
+    email_public: boolean;
   };
 }
 
@@ -207,7 +208,9 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                     <Badge variant="outline">You</Badge>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">{member.profiles.email}</p>
+                {member.profiles.email_public && (
+                  <p className="text-sm text-muted-foreground">{member.profiles.email}</p>
+                )}
               </div>
 
               {isOwner && member.role !== "owner" && member.user_id !== user?.id && (
