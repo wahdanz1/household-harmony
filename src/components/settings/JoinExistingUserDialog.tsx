@@ -101,22 +101,13 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
 
         setLoading(true);
 
-        // Get user's current household to check if they're the owner
+        // Get user's current household membership
         const { data: currentMembership } = await supabase
             .from("household_members")
-            .select("*, households(*)")
+            .select("*")
             .eq("user_id", user.id)
             .maybeSingle();
 
-        if (currentMembership?.role === "owner") {
-            toast({
-                title: "Cannot Leave",
-                description: "You're the owner of your current household. Transfer ownership before joining another household.",
-                variant: "destructive",
-            });
-            setLoading(false);
-            return;
-        }
 
         // Remove from old household if exists
         if (currentMembership) {
@@ -145,6 +136,16 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
             setLoading(false);
             return;
         }
+
+        // Update invite status to accepted and deactivate
+        await supabase
+            .from("household_invites")
+            .update({
+                status: "accepted",
+                is_active: false
+            })
+            .eq("household_id", household.id)
+            .eq("is_active", true);
 
         toast({
             title: "Success!",

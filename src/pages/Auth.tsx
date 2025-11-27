@@ -48,6 +48,19 @@ const Auth = () => {
     }
   }, [user, navigate]);
 
+  // Check for email confirmation success
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('type=signup') || hash.includes('type=email')) {
+      toast({
+        title: "Email Confirmed!",
+        description: "Your account has been confirmed. You can now log in.",
+      });
+      // Clear the hash
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [toast]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -140,7 +153,7 @@ const Auth = () => {
       } else {
         toast({
           title: "Account Created!",
-          description: "Your account has been created successfully. You can now log in.",
+          description: "Please check your email to confirm your account before logging in.",
         });
         // Clear form
         setSignupEmail("");

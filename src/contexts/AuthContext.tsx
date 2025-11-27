@@ -96,6 +96,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: memberError };
     }
 
+    // Update invite status to accepted and deactivate
+    await supabase
+      .from("household_invites")
+      .update({
+        status: "accepted",
+        is_active: false
+      })
+      .eq("household_id", householdId)
+      .eq("is_active", true);
+
     return { error: null };
   };
 

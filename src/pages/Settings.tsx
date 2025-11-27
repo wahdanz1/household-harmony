@@ -13,6 +13,7 @@ const Settings = () => {
   const [household, setHousehold] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
+  const [userRole, setUserRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
@@ -20,11 +21,13 @@ const Settings = () => {
 
     const { data: householdData } = await supabase
       .from("household_members")
-      .select("household_id")
+      .select("household_id, role")
       .eq("user_id", user.id)
       .single();
 
     if (!householdData) return;
+
+    setUserRole(householdData.role);
 
     const [
       { data: householdInfo },
@@ -87,7 +90,7 @@ const Settings = () => {
 
         <TabsContent value="general" className="mt-6">
           <div className="space-y-6">
-            <HouseholdInfoCard household={household} onUpdate={fetchData} />
+            <HouseholdInfoCard household={household} userRole={userRole} onUpdate={fetchData} />
             <CoParentsCard householdId={household.id} onUpdate={fetchData} />
           </div>
         </TabsContent>

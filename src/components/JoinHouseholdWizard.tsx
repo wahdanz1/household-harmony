@@ -130,8 +130,8 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
         }
 
         toast({
-            title: "Welcome!",
-            description: `You've successfully joined ${household.name}`,
+            title: "Account Created!",
+            description: `You've joined ${household.name}! Please check your email to confirm your account before logging in.`,
         });
 
         resetWizard();

@@ -93,24 +93,68 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    const { error } = await supabase
+    // Get the member's user_id before deleting
+    const memberToRemove = members.find(m => m.id === memberId);
+    if (!memberToRemove) return;
+
+    const { error: deleteError } = await supabase
       .from("household_members")
       .delete()
       .eq("id", memberId);
 
-    if (error) {
+    if (deleteError) {
       toast({
         title: "Error",
         description: "Failed to remove member",
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Success",
-        description: "Member removed from household",
-      });
-      onUpdate();
+      return;
     }
+
+    // Find their original household (where they are the owner)
+    const { data: originalHousehold } = await supabase
+      .from("households")
+      .select("id")
+      .eq("owner_id", memberToRemove.user_id)
+      .maybeSingle();
+
+    let targetHouseholdId: string;
+
+    // If no original household, create a new one
+    if (!originalHousehold) {
+      const { data: newHousehold } = await supabase
+        .from("households")
+        .insert({
+          name: `${memberToRemove.profiles.full_name}'s Household`,
+          owner_id: memberToRemove.user_id,
+          currency: "SEK",
+        })
+        .select("id")
+        .single();
+
+      targetHouseholdId = newHousehold?.id || "";
+    } else {
+      targetHouseholdId = originalHousehold.id;
+    }
+
+    // Add them back to their household as owner (upsert to avoid conflicts)
+    if (targetHouseholdId) {
+      await supabase
+        .from("household_members")
+        .upsert({
+          household_id: targetHouseholdId,
+          user_id: memberToRemove.user_id,
+          role: "owner",
+        }, {
+          onConflict: "household_id,user_id"
+        });
+    }
+
+    toast({
+      title: "Success",
+      description: "Member removed and returned to their household",
+    });
+    onUpdate();
   };
 
   const handleDeleteInvite = async (inviteId: string) => {
