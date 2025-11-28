@@ -1,5 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Users, UserMinus, Crown, Copy, Check, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +45,8 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
   const isOwner = currentMember?.role === "owner";
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
 
   const generateInviteCode = () => {
     return Math.random().toString().slice(2, 8).padStart(6, '0');
@@ -49,6 +54,17 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
 
   const handleGenerateInvite = async () => {
     if (!user) return;
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!inviteEmail || !emailRegex.test(inviteEmail)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsGenerating(true);
     const inviteCode = generateInviteCode();
@@ -60,6 +76,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
       .insert({
         household_id: householdId,
         invite_code: inviteCode,
+        invited_email: inviteEmail,
         created_by: user.id,
         expires_at: expiresAt.toISOString(),
         status: "pending",
@@ -78,8 +95,10 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
 
     toast({
       title: "Success",
-      description: "Invite code generated!",
+      description: `Invite created for ${inviteEmail}`,
     });
+    setShowEmailDialog(false);
+    setInviteEmail("");
     onUpdate();
   };
 
@@ -234,8 +253,8 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                   <h3 className="font-semibold">Invite Members</h3>
                   <p className="text-sm text-muted-foreground">Generate a 6-digit code that expires in 24 hours</p>
                 </div>
-                <Button onClick={handleGenerateInvite} disabled={isGenerating}>
-                  {isGenerating ? "Generating..." : "Generate Code"}
+                <Button onClick={() => setShowEmailDialog(true)}>
+                  Generate Code
                 </Button>
               </div>
             </div>
@@ -283,6 +302,43 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
           </>
         )}
       </CardContent>
+
+      {/* Email Input Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite a Member</DialogTitle>
+            <DialogDescription>
+              Enter the email address of the person you want to invite to your household.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="member-invite-email">Email Address</Label>
+              <Input
+                id="member-invite-email"
+                type="email"
+                placeholder="member@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isGenerating) {
+                    handleGenerateInvite();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmailDialog(false)} disabled={isGenerating}>
+              Cancel
+            </Button>
+            <Button onClick={handleGenerateInvite} disabled={isGenerating}>
+              {isGenerating ? "Creating..." : "Generate Invite"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

@@ -81,8 +81,15 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             .select("*, profiles(full_name, avatar_url)")
             .eq("household_id", invite.household_id);
 
-        setHousehold(invite.households);
+        // Store household with invited_email from invite
+        setHousehold({ ...invite.households, invited_email: invite.invited_email });
         setMembers(membersData || []);
+
+        // Pre-fill email if invite is email-locked
+        if (invite.invited_email) {
+            setEmail(invite.invited_email);
+        }
+
         setStep(2);
         setLoading(false);
     };
@@ -92,6 +99,16 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             toast({
                 title: "Missing Information",
                 description: "Please fill in all fields",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Validate email matches invite if invite is email-locked
+        if (household?.invited_email && email.toLowerCase() !== household.invited_email.toLowerCase()) {
+            toast({
+                title: "Email Mismatch",
+                description: `This invite is for ${household.invited_email}. Please use the correct email address.`,
                 variant: "destructive",
             });
             return;

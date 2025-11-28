@@ -1,6 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { UserPlus, Copy, Check, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -35,11 +37,24 @@ const generateInviteCode = (): string => {
 export const HouseholdInvitesCard = ({ invites, householdId, onUpdate }: HouseholdInvitesCardProps) => {
   const [copied, setCopied] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
   const { toast } = useToast();
 
   const handleCreateInvite = async () => {
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!inviteEmail || !emailRegex.test(inviteEmail)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setCreating(true);
-    
+
     const inviteCode = generateInviteCode();
     const expiresAt = format(addDays(new Date(), 7), "yyyy-MM-dd'T'HH:mm:ss");
 
@@ -59,6 +74,7 @@ export const HouseholdInvitesCard = ({ invites, householdId, onUpdate }: Househo
       .insert({
         household_id: householdId,
         invite_code: inviteCode,
+        invited_email: inviteEmail,
         expires_at: expiresAt,
         status: "pending",
         created_by: user.id,
@@ -73,8 +89,10 @@ export const HouseholdInvitesCard = ({ invites, householdId, onUpdate }: Househo
     } else {
       toast({
         title: "Success",
-        description: "Invite code created! Share it with others to join.",
+        description: `Invite created for ${inviteEmail}`,
       });
+      setShowEmailDialog(false);
+      setInviteEmail("");
       onUpdate();
     }
     setCreating(false);
@@ -127,9 +145,9 @@ export const HouseholdInvitesCard = ({ invites, householdId, onUpdate }: Househo
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Button onClick={handleCreateInvite} disabled={creating} className="w-full">
+        <Button onClick={() => setShowEmailDialog(true)} className="w-full">
           <UserPlus className="h-4 w-4 mr-2" />
-          {creating ? "Creating..." : "Generate Invite Code"}
+          Generate Invite Code
         </Button>
 
         {activeInvites.length > 0 ? (
@@ -157,6 +175,11 @@ export const HouseholdInvitesCard = ({ invites, householdId, onUpdate }: Househo
                       )}
                     </Button>
                   </div>
+                  {invite.invited_email && (
+                    <p className="text-sm text-muted-foreground mb-1">
+                      For: <Badge variant="secondary">{invite.invited_email}</Badge>
+                    </p>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     Expires: {format(new Date(invite.expires_at), "MMM d, yyyy 'at' h:mm a")}
                   </p>
@@ -177,6 +200,43 @@ export const HouseholdInvitesCard = ({ invites, householdId, onUpdate }: Househo
           </p>
         )}
       </CardContent>
+
+      {/* Email Input Dialog */}
+      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite a Member</DialogTitle>
+            <DialogDescription>
+              Enter the email address of the person you want to invite to your household.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Email Address</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                placeholder="member@example.com"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !creating) {
+                    handleCreateInvite();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEmailDialog(false)} disabled={creating}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateInvite} disabled={creating}>
+              {creating ? "Creating..." : "Generate Invite"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
