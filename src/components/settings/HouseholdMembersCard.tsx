@@ -273,9 +273,9 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                         </Badge>
                       </div>
                       {invite.invited_email && (
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <div className="text-sm text-muted-foreground mt-1">
                           For: <Badge variant="secondary">{invite.invited_email}</Badge>
-                        </p>
+                        </div>
                       )}
                       <p className="text-sm text-muted-foreground mt-1">
                         Expires: {format(new Date(invite.expires_at), "PPP")}

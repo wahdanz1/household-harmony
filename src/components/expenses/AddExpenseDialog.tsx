@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { CalendarDays, CreditCard, Shield, Users } from "lucide-react";
+import { CalendarDays, CreditCard, Shield, Users, Zap } from "lucide-react";
 import { RegularExpenseForm } from "./forms/RegularExpenseForm";
+import { SubscriptionForm } from "./forms/SubscriptionForm";
+import { InsuranceForm } from "./forms/InsuranceForm";
+import { SharedExpenseForm } from "./forms/SharedExpenseForm";
+import { TemporaryExpenseForm } from "./forms/TemporaryExpenseForm";
 import { cn } from "@/lib/utils";
 
 interface AddExpenseDialogProps {
@@ -13,7 +16,7 @@ interface AddExpenseDialogProps {
     onSuccess: () => void;
 }
 
-type ExpenseType = "regular" | "subscription" | "insurance" | "shared" | null;
+type ExpenseType = "regular" | "subscription" | "insurance" | "temporary" | "shared" | null;
 
 const expenseTypes = [
     {
@@ -41,6 +44,14 @@ const expenseTypes = [
         iconColor: "text-green-500",
     },
     {
+        id: "temporary" as const,
+        label: "Temporary",
+        description: "One-time expenses",
+        icon: Zap,
+        color: "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/20",
+        iconColor: "text-amber-500",
+    },
+    {
         id: "shared" as const,
         label: "Shared",
         description: "Co-parent expenses",
@@ -56,6 +67,10 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
     const handleClose = () => {
         setSelectedType(null);
         onOpenChange(false);
+    };
+
+    const handleBack = () => {
+        setSelectedType(null);
     };
 
     const handleSuccess = () => {
@@ -77,8 +92,8 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
 
                 {!selectedType ? (
                     <div className={cn(
-                        "grid gap-4",
-                        hasCoParents ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-3"
+                        "grid gap-3",
+                        hasCoParents ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
                     )}>
                         {availableTypes.map((type) => {
                             const Icon = type.icon;
@@ -87,18 +102,18 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
                                     key={type.id}
                                     onClick={() => setSelectedType(type.id)}
                                     className={cn(
-                                        "p-6 rounded-lg border-2 transition-all cursor-pointer text-left",
+                                        "p-4 rounded-lg border-2 transition-all cursor-pointer text-left",
                                         "hover:scale-105 active:scale-95",
                                         type.color
                                     )}
                                 >
-                                    <div className="flex flex-col items-center text-center gap-3">
-                                        <div className={cn("p-3 rounded-full bg-background/50", type.iconColor)}>
-                                            <Icon className="h-8 w-8" />
+                                    <div className="flex flex-col items-center text-center gap-2">
+                                        <div className={cn("p-2 rounded-full bg-background/50", type.iconColor)}>
+                                            <Icon className="h-6 w-6" />
                                         </div>
                                         <div>
-                                            <h3 className="font-semibold text-lg">{type.label}</h3>
-                                            <p className="text-sm text-muted-foreground mt-1">{type.description}</p>
+                                            <h3 className="font-semibold">{type.label}</h3>
+                                            <p className="text-xs text-muted-foreground mt-0.5">{type.description}</p>
                                         </div>
                                     </div>
                                 </button>
@@ -111,47 +126,36 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
                             <RegularExpenseForm
                                 householdId={householdId}
                                 onSuccess={handleSuccess}
-                                onCancel={handleClose}
+                                onCancel={handleBack}
                             />
                         )}
                         {selectedType === "subscription" && (
-                            <div className="text-center py-8 space-y-4">
-                                <p className="text-muted-foreground">
-                                    Subscription forms are available in the <strong>Subscriptions tab</strong>.
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                    For now, please use the Subscriptions tab to add recurring subscription services.
-                                </p>
-                                <Button onClick={handleClose} variant="outline">
-                                    Close
-                                </Button>
-                            </div>
+                            <SubscriptionForm
+                                householdId={householdId}
+                                onSuccess={handleSuccess}
+                                onCancel={handleBack}
+                            />
                         )}
                         {selectedType === "insurance" && (
-                            <div className="text-center py-8 space-y-4">
-                                <p className="text-muted-foreground">
-                                    Insurance forms are available in the <strong>Insurance tab</strong>.
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                    For now, please use the Insurance tab to add insurance policies.
-                                </p>
-                                <Button onClick={handleClose} variant="outline">
-                                    Close
-                                </Button>
-                            </div>
+                            <InsuranceForm
+                                householdId={householdId}
+                                onSuccess={handleSuccess}
+                                onCancel={handleBack}
+                            />
+                        )}
+                        {selectedType === "temporary" && (
+                            <TemporaryExpenseForm
+                                householdId={householdId}
+                                onSuccess={handleSuccess}
+                                onCancel={handleBack}
+                            />
                         )}
                         {selectedType === "shared" && (
-                            <div className="text-center py-8 space-y-4">
-                                <p className="text-muted-foreground">
-                                    Shared expense forms are available in the <strong>Shared tab</strong>.
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                    For now, please use the Shared tab to add co-parent shared expenses.
-                                </p>
-                                <Button onClick={handleClose} variant="outline">
-                                    Close
-                                </Button>
-                            </div>
+                            <SharedExpenseForm
+                                householdId={householdId}
+                                onSuccess={handleSuccess}
+                                onCancel={handleBack}
+                            />
                         )}
                     </div>
                 )}

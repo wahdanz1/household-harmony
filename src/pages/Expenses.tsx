@@ -23,6 +23,7 @@ const Expenses = () => {
   const [saving, setSaving] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [coParents, setCoParents] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState("general");
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
@@ -125,10 +126,20 @@ const Expenses = () => {
   };
 
   const subscriptionsTotal = subscriptions.reduce((sum, sub) => sum + parseFloat(sub.amount), 0);
-  const insuranceTotal = insurances.reduce((sum, ins) => {
-    const frequency = ins.payment_frequency === "yearly" ? 12 : ins.payment_frequency === "semi-annual" ? 6 : 3;
-    return sum + parseFloat(ins.total_amount) / frequency;
-  }, 0);
+  const insuranceTotal = insurances
+    .filter((ins) => ins.is_active)
+    .reduce((sum, ins) => {
+      let monthlyAmount = 0;
+      if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
+      else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
+      else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
+      else monthlyAmount = ins.total_amount; // monthly
+
+      if (ins.is_shared) {
+        monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
+      }
+      return sum + monthlyAmount;
+    }, 0);
   const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal;
 
   if (loading) {
@@ -156,7 +167,7 @@ const Expenses = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="general" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className={`grid w-full ${coParents.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <TabsTrigger value="general" className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
@@ -193,6 +204,8 @@ const Expenses = () => {
             onAmountsChange={setAmounts}
             onSave={handleSave}
             onCategoriesUpdate={fetchData}
+            onNavigateToSubscriptions={() => setActiveTab("subscriptions")}
+            onNavigateToInsurance={() => setActiveTab("insurance")}
           />
         </TabsContent>
 

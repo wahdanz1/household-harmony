@@ -186,7 +186,7 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
           <CardDescription>Overview of your recurring subscription costs</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2">
             {/* Total Monthly */}
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">Total Monthly</p>

@@ -239,10 +239,10 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
           <CardDescription>Save monthly to cover annual insurance payments</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {/* Monthly Savings */}
+          <div className="grid gap-4 grid-cols-2">
+            {/* Monthly Cost */}
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Monthly Savings</p>
+              <p className="text-sm text-muted-foreground">Monthly Cost</p>
               <div className="text-2xl font-bold text-warning">
                 {calculateMonthlySavings().toFixed(0)} {currency}
               </div>
@@ -256,18 +256,13 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
               </div>
             </div>
 
-            {/* Most Expensive */}
+            {/* Average Monthly */}
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Most Expensive</p>
+              <p className="text-sm text-muted-foreground">Average Monthly</p>
               <div className="text-2xl font-bold">
                 {activeInsurances.length > 0 ? (
                   <>
-                    {Math.max(...activeInsurances.map(i => {
-                      if (i.payment_frequency === "yearly") return i.total_amount / 12;
-                      if (i.payment_frequency === "semi_annually") return i.total_amount / 6;
-                      if (i.payment_frequency === "quarterly") return i.total_amount / 3;
-                      return i.total_amount;
-                    })).toFixed(0)} {currency}
+                    {(calculateMonthlySavings() / activeInsurances.length).toFixed(0)} {currency}
                   </>
                 ) : "0 " + currency}
               </div>
