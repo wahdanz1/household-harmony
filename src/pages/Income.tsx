@@ -484,11 +484,11 @@ const Income = () => {
 
                         {/* Bottom row: Amount input and actions */}
                         <div className="flex items-center gap-2">
-                          <Input
+                          <input
                             type="number"
                             value={amounts[source.id] || ""}
                             onChange={(e) => setAmounts({ ...amounts, [source.id]: e.target.value })}
-                            className={`flex-1 text-base font-semibold ${isDifferent ? "border-primary" : ""}`}
+                            className={`flex-1 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
                             placeholder="0"
                             disabled={isSkipped}
                           />
@@ -539,11 +539,11 @@ const Income = () => {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex items-center gap-2">
-                          <Input
+                          <input
                             type="number"
                             value={amounts[source.id] || ""}
                             onChange={(e) => setAmounts({ ...amounts, [source.id]: e.target.value })}
-                            className={`w-32 text-lg font-semibold ${isDifferent ? "border-primary" : ""}`}
+                            className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
                             placeholder="0"
                             disabled={isSkipped}
                           />

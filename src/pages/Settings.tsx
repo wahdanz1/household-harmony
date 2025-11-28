@@ -90,7 +90,7 @@ const Settings = () => {
 
         <TabsContent value="general" className="mt-6">
           <div className="space-y-6">
-            <HouseholdInfoCard household={household} userRole={userRole} onUpdate={fetchData} />
+            <HouseholdInfoCard household={household} userRole={userRole} members={members} onUpdate={fetchData} />
             <CoParentsCard householdId={household.id} onUpdate={fetchData} />
           </div>
         </TabsContent>

@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Check, Users, ArrowRight, ArrowLeft } from "lucide-react";
+import { PLACEHOLDERS } from "@/constants/ui";
+import { isEmailAllowed } from "@/config/emailWhitelist";
 
 interface JoinHouseholdWizardProps {
     open: boolean;
@@ -109,6 +111,16 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             toast({
                 title: "Email Mismatch",
                 description: `This invite is for ${household.invited_email}. Please use the correct email address.`,
+                variant: "destructive",
+            });
+            return;
+        }
+
+        // Check email whitelist
+        if (!isEmailAllowed(email)) {
+            toast({
+                title: "Access Restricted",
+                description: "This application is currently in private beta. Your email is not on the approved list.",
                 variant: "destructive",
             });
             return;
@@ -266,7 +278,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                                 <Input
                                     id="email"
                                     type="email"
-                                    placeholder="john@example.com"
+                                    placeholder={PLACEHOLDERS.EMAIL}
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                 />

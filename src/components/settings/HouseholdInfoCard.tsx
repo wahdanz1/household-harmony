@@ -19,10 +19,11 @@ interface HouseholdInfoCardProps {
     owner_id: string;
   };
   userRole: string;
+  members: any[];
   onUpdate: () => void;
 }
 
-export const HouseholdInfoCard = ({ household, userRole, onUpdate }: HouseholdInfoCardProps) => {
+export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: HouseholdInfoCardProps) => {
   const { user } = useAuth();
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
@@ -33,6 +34,8 @@ export const HouseholdInfoCard = ({ household, userRole, onUpdate }: HouseholdIn
   const { toast } = useToast();
 
   const isOwner = userRole === "owner";
+  const hasOtherMembers = members.length > 1; // More than just the owner
+  const shouldShowJoinButton = !isOwner || !hasOtherMembers; // Show if not owner, or owner with no other members
 
   const handleSaveName = async () => {
     setIsSaving(true);
@@ -189,10 +192,12 @@ export const HouseholdInfoCard = ({ household, userRole, onUpdate }: HouseholdIn
 
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setShowJoinDialog(true)}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Join Another Household
-          </Button>
+          {shouldShowJoinButton && (
+            <Button variant="outline" onClick={() => setShowJoinDialog(true)}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Join Another Household
+            </Button>
+          )}
 
           {!isOwner && (
             <Button variant="outline" onClick={() => setShowLeaveDialog(true)}>

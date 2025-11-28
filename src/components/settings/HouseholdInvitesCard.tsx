@@ -9,6 +9,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays } from "date-fns";
+import { PLACEHOLDERS } from "@/constants/ui";
 
 interface Invite {
   id: string;
@@ -216,7 +217,7 @@ export const HouseholdInvitesCard = ({ invites, householdId, onUpdate }: Househo
               <Input
                 id="invite-email"
                 type="email"
-                placeholder="member@example.com"
+                placeholder={PLACEHOLDERS.EMAIL}
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 onKeyDown={(e) => {

@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { JoinHouseholdWizard } from "@/components/JoinHouseholdWizard";
 import { UserPlus } from "lucide-react";
 import { z } from "zod";
+import { PLACEHOLDERS } from "@/constants/ui";
+import { isEmailAllowed } from "@/config/emailWhitelist";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -134,6 +136,17 @@ const Auth = () => {
         return;
       }
 
+      // Check email whitelist
+      if (!isEmailAllowed(signupEmail)) {
+        toast({
+          title: "Access Restricted",
+          description: "This application is currently in private beta. Your email is not on the approved list.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await signUp(signupEmail, signupPassword, signupFullName);
 
       if (error) {
@@ -194,7 +207,7 @@ const Auth = () => {
                   <Input
                     id="login-email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder={PLACEHOLDERS.EMAIL}
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     required
@@ -234,7 +247,7 @@ const Auth = () => {
                   <Input
                     id="signup-email"
                     type="email"
-                    placeholder="you@example.com"
+                    placeholder={PLACEHOLDERS.EMAIL}
                     value={signupEmail}
                     onChange={(e) => setSignupEmail(e.target.value)}
                     required

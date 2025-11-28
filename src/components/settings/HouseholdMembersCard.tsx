@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import { format } from "date-fns";
+import { PLACEHOLDERS } from "@/constants/ui";
 
 interface Member {
   id: string;
@@ -254,7 +255,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                   <p className="text-sm text-muted-foreground">Generate a 6-digit code that expires in 24 hours</p>
                 </div>
                 <Button onClick={() => setShowEmailDialog(true)}>
-                  Generate Code
+                  Invite Member
                 </Button>
               </div>
             </div>
@@ -271,6 +272,11 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                           {invite.status}
                         </Badge>
                       </div>
+                      {invite.invited_email && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          For: <Badge variant="secondary">{invite.invited_email}</Badge>
+                        </p>
+                      )}
                       <p className="text-sm text-muted-foreground mt-1">
                         Expires: {format(new Date(invite.expires_at), "PPP")}
                       </p>
@@ -318,7 +324,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
               <Input
                 id="member-invite-email"
                 type="email"
-                placeholder="member@example.com"
+                placeholder={PLACEHOLDERS.EMAIL}
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 onKeyDown={(e) => {

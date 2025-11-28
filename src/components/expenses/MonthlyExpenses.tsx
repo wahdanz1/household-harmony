@@ -485,14 +485,14 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
 
                         {/* Bottom row: Amount input and edit button */}
                         <div className="flex items-center gap-2">
-                          <Input
+                          <input
                             type="number"
                             value={getDisplayAmount(category)}
                             onChange={(e) =>
                               onAmountsChange({ ...amounts, [category.id]: e.target.value })
                             }
                             disabled={category.type === "static"}
-                            className={`flex-1 text-base font-semibold ${isDifferent ? "border-primary" : ""} ${category.type === "static" ? "bg-background cursor-not-allowed" : ""}`}
+                            className={`flex-1 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${category.type === "static" ? "opacity-50 cursor-not-allowed" : ""}`}
                             placeholder="0"
                           />
                           <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
@@ -535,14 +535,14 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Input
+                          <input
                             type="number"
                             value={getDisplayAmount(category)}
                             onChange={(e) =>
                               onAmountsChange({ ...amounts, [category.id]: e.target.value })
                             }
                             disabled={category.type === "static"}
-                            className={`w-32 text-lg font-semibold ${isDifferent ? "border-primary" : ""} ${category.type === "static" ? "bg-background cursor-not-allowed" : ""}`}
+                            className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${category.type === "static" ? "opacity-50 cursor-not-allowed" : ""}`}
                             placeholder="0"
                           />
                           <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
@@ -587,11 +587,11 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
                               <Badge variant="secondary" className="text-xs">auto</Badge>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input
+                              <input
                                 type="number"
                                 value={subscriptionsTotal.toFixed(0)}
                                 disabled
-                                className="flex-1 text-base font-semibold bg-muted/20"
+                                className="flex-1 text-right text-lg font-semibold bg-transparent border-0 border-b-2 border-border rounded-none px-2 py-1 opacity-50 cursor-not-allowed"
                               />
                               <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
                             </div>
@@ -606,15 +606,17 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input
+                              <input
                                 type="number"
                                 value={subscriptionsTotal.toFixed(0)}
                                 disabled
-                                className="w-32 text-lg font-semibold bg-muted/20"
+                                className="w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 border-border rounded-none px-2 py-1 opacity-50 cursor-not-allowed"
                               />
                               <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
                             </div>
-                            <div className="w-[72px]"></div>
+                            <div className="flex gap-1 shrink-0">
+                              <div className="w-[72px]"></div>
+                            </div>
                           </div>
                         </div>
                       </TooltipTrigger>
@@ -637,11 +639,11 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
                               <Badge variant="secondary" className="text-xs">auto</Badge>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input
+                              <input
                                 type="number"
                                 value={insuranceTotal.toFixed(0)}
                                 disabled
-                                className="flex-1 text-base font-semibold bg-muted/20"
+                                className="flex-1 text-right text-lg font-semibold bg-transparent border-0 border-b-2 border-border rounded-none px-2 py-1 opacity-50 cursor-not-allowed"
                               />
                               <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
                             </div>
@@ -656,15 +658,17 @@ export const MonthlyExpenses = ({ householdId, expenseCategories, monthlyExpense
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Input
+                              <input
                                 type="number"
                                 value={insuranceTotal.toFixed(0)}
                                 disabled
-                                className="w-32 text-lg font-semibold bg-muted/20"
+                                className="w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 border-border rounded-none px-2 py-1 opacity-50 cursor-not-allowed"
                               />
                               <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
                             </div>
-                            <div className="w-[72px]"></div>
+                            <div className="flex gap-1 shrink-0">
+                              <div className="w-[72px]"></div>
+                            </div>
                           </div>
                         </div>
                       </TooltipTrigger>
