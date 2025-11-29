@@ -197,7 +197,7 @@ export const MonthlyExpenses = ({
                       amount="0"
                       currency={currency}
                       members={members}
-                      hasEntry={false}
+                      hasEntry={true}
                       isDifferent={false}
                       creditExpenses={[expense]}
                       onAmountChange={() => { }}
