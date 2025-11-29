@@ -85,6 +85,9 @@ export const CreditTab = ({ householdId, currency }: CreditTabProps) => {
     });
     const [loading, setLoading] = useState(true);
 
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{ type: 'card' | 'expense', id: string, name: string } | null>(null);
+
     const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
     useEffect(() => {
@@ -266,6 +269,26 @@ export const CreditTab = ({ householdId, currency }: CreditTabProps) => {
         }
     };
 
+    const confirmDelete = (type: 'card' | 'expense', id: string, name: string) => {
+        setItemToDelete({ type, id, name });
+        setDeleteConfirmOpen(true);
+    };
+
+    const handleConfirmedDelete = async () => {
+        if (!itemToDelete) return;
+        const table = itemToDelete.type === 'card' ? 'credit_cards' : 'credit_card_expenses';
+        const { error } = await supabase.from(table).delete().eq("id", itemToDelete.id);
+
+        if (error) {
+            toast({ title: "Error", description: `Failed to delete ${itemToDelete.type === 'card' ? 'credit card' : 'expense'}`, variant: "destructive" });
+        } else {
+            toast({ title: "Success", description: `${itemToDelete.type === 'card' ? 'Credit card' : 'Expense'} deleted` });
+            fetchData();
+        }
+        setDeleteConfirmOpen(false);
+        setItemToDelete(null);
+    };
+
     const calculateCardTotal = (cardId: string) => {
         return expenses
             .filter(e => e.credit_card_id === cardId)
@@ -367,7 +390,7 @@ export const CreditTab = ({ householdId, currency }: CreditTabProps) => {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            onClick={() => handleDeleteCard(card.id)}
+                                            onClick={() => confirmDelete('card', card.id, card.name)}
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -556,7 +579,7 @@ export const CreditTab = ({ householdId, currency }: CreditTabProps) => {
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        onClick={() => handleDelete(expense.id)}
+                                                        onClick={() => confirmDelete('expense', expense.id, expense.description)}
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
@@ -570,6 +593,22 @@ export const CreditTab = ({ householdId, currency }: CreditTabProps) => {
                     </Card>
                 </>
             )}
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete "{itemToDelete?.name}". This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmedDelete}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };
