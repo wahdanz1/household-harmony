@@ -145,7 +145,8 @@ const Expenses = () => {
       }
       return sum + monthlyAmount;
     }, 0);
-  const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal;
+  const creditCardTotal = creditCardExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal + creditCardTotal;
 
   if (loading) {
     return (

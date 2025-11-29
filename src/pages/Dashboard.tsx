@@ -37,24 +37,41 @@ const Dashboard = () => {
         { data: monthlyExpenses },
         { data: subscriptions },
         { data: insurances },
+        { data: creditCardExpenses },
+        { data: sharedExpenses },
       ] = await Promise.all([
         supabase.from("households").select("currency").eq("id", householdData.household_id).single(),
         supabase.from("monthly_incomes").select("amount").eq("household_id", householdData.household_id).eq("month", currentMonth),
         supabase.from("monthly_expenses").select("amount").eq("household_id", householdData.household_id).eq("month", currentMonth),
         supabase.from("subscriptions").select("amount").eq("household_id", householdData.household_id).eq("is_active", true),
-        supabase.from("insurances").select("total_amount, payment_frequency").eq("household_id", householdData.household_id).eq("is_active", true),
+        supabase.from("insurances").select("total_amount, payment_frequency, is_shared, share_percentage").eq("household_id", householdData.household_id).eq("is_active", true),
+        supabase.from("credit_card_expenses").select("amount").eq("household_id", householdData.household_id).eq("month", currentMonth),
+        supabase.from("shared_expenses").select("amount, is_paid_by_me").eq("household_id", householdData.household_id).eq("month", currentMonth),
       ]);
 
       const totalIncome = (monthlyIncomes || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
       const totalMonthlyExpenses = (monthlyExpenses || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
       const totalSubscriptions = (subscriptions || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
       const totalInsurance = (insurances || []).reduce((sum: number, ins: any) => {
-        const frequency = ins.payment_frequency === "yearly" ? 12 : ins.payment_frequency === "semi-annual" ? 6 : 3;
-        return sum + parseFloat(ins.total_amount) / frequency;
+        let monthlyAmount = 0;
+        if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
+        else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
+        else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
+        else monthlyAmount = ins.total_amount; // monthly
+
+        if (ins.is_shared) {
+          monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
+        }
+        return sum + monthlyAmount;
+      }, 0);
+      const totalCreditCard = (creditCardExpenses || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
+      const totalShared = (sharedExpenses || []).reduce((sum: number, item: any) => {
+        // Only add if paid by me (positive), subtract if received (negative)
+        return sum + (item.is_paid_by_me ? parseFloat(item.amount) : -parseFloat(item.amount));
       }, 0);
 
       setIncome(totalIncome);
-      setExpenses(totalMonthlyExpenses + totalSubscriptions + totalInsurance);
+      setExpenses(totalMonthlyExpenses + totalSubscriptions + totalInsurance + totalCreditCard + totalShared);
       setCurrency(householdInfo?.currency || "SEK");
       setLoading(false);
     };
@@ -62,9 +79,9 @@ const Dashboard = () => {
     fetchData();
   }, [user, currentMonth]);
 
-  const displayMonth = new Date().toLocaleDateString('sv-SE', { 
-    year: 'numeric', 
-    month: 'long' 
+  const displayMonth = new Date().toLocaleDateString('sv-SE', {
+    year: 'numeric',
+    month: 'long'
   });
 
   if (loading) {
@@ -82,7 +99,7 @@ const Dashboard = () => {
         <p className="text-muted-foreground mt-1 capitalize">{displayMonth}</p>
       </div>
 
-      <MonthOverview 
+      <MonthOverview
         income={income}
         expenses={expenses}
         currency={currency}
