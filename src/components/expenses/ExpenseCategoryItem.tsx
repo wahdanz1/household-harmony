@@ -11,6 +11,7 @@ interface ExpenseCategoryItemProps {
     members: any[];
     hasEntry: boolean;
     isDifferent: boolean;
+    creditExpenses?: any[];
     onAmountChange: (categoryId: string, value: string) => void;
     onEdit: (category: any) => void;
 }
@@ -22,6 +23,7 @@ export const ExpenseCategoryItem = ({
     members,
     hasEntry,
     isDifferent,
+    creditExpenses = [],
     onAmountChange,
     onEdit,
 }: ExpenseCategoryItemProps) => {
@@ -69,6 +71,12 @@ export const ExpenseCategoryItem = ({
                     >
                         {cat?.label}
                     </span>
+                    {/* Credit badge for credit expenses */}
+                    {category.type === 'credit' && (
+                        <Badge variant="secondary" className="text-xs">
+                            Credit
+                        </Badge>
+                    )}
                     <Avatar className="h-6 w-6">
                         <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
                         <AvatarFallback className="text-xs">{initials}</AvatarFallback>
@@ -79,10 +87,10 @@ export const ExpenseCategoryItem = ({
                 <div className="flex items-center gap-2">
                     <input
                         type="number"
-                        value={getDisplayAmount()}
+                        value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
                         onChange={(e) => onAmountChange(category.id, e.target.value)}
-                        disabled={category.type === "static"}
-                        className={`flex-1 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${category.type === "static" ? "opacity-50 cursor-not-allowed" : ""}`}
+                        disabled={category.type === "static" || category.type === "credit"}
+                        className={`flex-1 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""}`}
                         placeholder="0"
                     />
                     <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
@@ -112,16 +120,22 @@ export const ExpenseCategoryItem = ({
                         >
                             {cat?.label}
                         </span>
+                        {/* Credit badge for credit expenses */}
+                        {category.type === 'credit' && (
+                            <Badge variant="secondary" className="text-xs">
+                                Credit
+                            </Badge>
+                        )}
                         {hasEntry && <Check className="h-4 w-4 text-success shrink-0" />}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <input
                         type="number"
-                        value={getDisplayAmount()}
+                        value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
                         onChange={(e) => onAmountChange(category.id, e.target.value)}
-                        disabled={category.type === "static"}
-                        className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${category.type === "static" ? "opacity-50 cursor-not-allowed" : ""}`}
+                        disabled={category.type === "static" || category.type === "credit"}
+                        className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""}`}
                         placeholder="0"
                     />
                     <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
@@ -140,6 +154,24 @@ export const ExpenseCategoryItem = ({
                     </Avatar>
                 </div>
             </div>
+
+            {/* Credit Card Expenses for this category - only show for non-credit items */}
+            {category.type !== 'credit' && creditExpenses.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border space-y-2">
+                    {creditExpenses.map((expense) => (
+                        <div key={expense.id} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2 flex-1">
+                                <Badge variant="secondary" className="text-xs">
+                                    Credit
+                                </Badge>
+                                <span className="text-muted-foreground">{expense.description}</span>
+                                <span className="text-xs text-muted-foreground">• {expense.credit_cards?.name}</span>
+                            </div>
+                            <span className="font-medium">{expense.amount.toFixed(0)} {currency}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

@@ -24,6 +24,7 @@ const Expenses = () => {
   const [saving, setSaving] = useState(false);
   const [members, setMembers] = useState<any[]>([]);
   const [coParents, setCoParents] = useState<any[]>([]);
+  const [creditCardExpenses, setCreditCardExpenses] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("general");
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -48,6 +49,7 @@ const Expenses = () => {
       { data: insurancesData },
       { data: membersData },
       { data: coParentsData },
+      { data: creditCardExpensesData },
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
       supabase.from("expense_categories").select("*").eq("household_id", householdData.household_id).eq("is_active", true).order("sort_order"),
@@ -57,6 +59,7 @@ const Expenses = () => {
       supabase.from("insurances").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
       supabase.from("household_members").select("*, profiles(full_name, email, avatar_url)").eq("household_id", householdData.household_id),
       supabase.from("co_parents").select("*").eq("household_id", householdData.household_id),
+      supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", householdData.household_id).eq("month", currentMonth),
     ]);
 
     setHousehold(householdInfo);
@@ -66,6 +69,7 @@ const Expenses = () => {
     setInsurances(insurancesData || []);
     setMembers(membersData || []);
     setCoParents(coParentsData || []);
+    setCreditCardExpenses(creditCardExpensesData || []);
 
     const initialAmounts: Record<string, string> = {};
     (categoriesData || []).forEach((category: any) => {
@@ -201,6 +205,7 @@ const Expenses = () => {
             householdId={household?.id}
             expenseCategories={expenseCategories}
             monthlyExpenses={monthlyExpenses}
+            creditCardExpenses={creditCardExpenses}
             amounts={amounts}
             currency={household?.currency || "SEK"}
             saving={saving}

@@ -1,4 +1,4 @@
-import { Home, Wifi, Smartphone, Zap, ShoppingCart, UtensilsCrossed, Film, ShoppingBag, Fuel, Wrench, CreditCard, Heart, Sparkles, LucideIcon } from "lucide-react";
+import { Home, Wifi, Smartphone, Zap, ShoppingCart, UtensilsCrossed, Film, ShoppingBag, Fuel, Wrench, CreditCard, Heart, Sparkles, Plane, LucideIcon } from "lucide-react";
 
 export interface ExpenseCategory {
     id: string;
@@ -17,6 +17,7 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
     { id: 'entertainment', label: 'Entertainment', icon: Film, color: '#8B5CF6' },
     { id: 'shopping', label: 'Shopping', icon: ShoppingBag, color: '#F97316' },
     { id: 'fuel', label: 'Fuel', icon: Fuel, color: '#14B8A6' },
+    { id: 'travel', label: 'Travel', icon: Plane, color: '#06B6D4' },
     { id: 'car_repairs', label: 'Car Repairs', icon: Wrench, color: '#6366F1' },
     { id: 'credit_card', label: 'Credit Card', icon: CreditCard, color: '#A855F7' },
     { id: 'healthcare', label: 'Healthcare', icon: Heart, color: '#EF4444' },

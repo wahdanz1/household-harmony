@@ -181,7 +181,7 @@ export const CreditExpensesList = ({ householdId, currency, currentMonth, credit
                     <div className="flex items-center justify-between">
                         <div>
                             <CardTitle>Credit Card Expenses</CardTitle>
-                            <CardDescription>Track expenses paid with credit cards</CardDescription>
+                            <CardDescription className="mt-1.5">Track expenses paid with credit cards</CardDescription>
                         </div>
                         <Dialog open={isOpen} onOpenChange={(open) => {
                             setIsOpen(open);

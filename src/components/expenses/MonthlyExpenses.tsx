@@ -12,6 +12,7 @@ interface MonthlyExpensesProps {
   householdId: string;
   expenseCategories: any[];
   monthlyExpenses: any[];
+  creditCardExpenses: any[];
   amounts: Record<string, string>;
   currency: string;
   saving: boolean;
@@ -30,6 +31,7 @@ export const MonthlyExpenses = ({
   householdId,
   expenseCategories,
   monthlyExpenses,
+  creditCardExpenses,
   amounts,
   currency,
   saving,
@@ -84,7 +86,7 @@ export const MonthlyExpenses = ({
                 <TrendingDown className="h-5 w-5 text-destructive" />
                 Monthly Expenses
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="mt-1.5">
                 Add expense categories with defaults, and adjust actual monthly expenses if needed. Click "Save Monthly Expenses" when done!
               </CardDescription>
             </div>
@@ -116,6 +118,29 @@ export const MonthlyExpenses = ({
                   const hasEntry = monthlyExpenses.some((m) => m.expense_category_id === category.id);
                   const isDifferent = amounts[category.id] !== category.default_amount.toString();
 
+                  // Find matching credit card expenses for this category
+                  // Match based on category name/type
+                  const matchingCreditExpenses = creditCardExpenses.filter(expense => {
+                    const creditCategory = expense.category.toLowerCase();
+                    const categoryName = category.name.toLowerCase();
+                    const categoryType = category.category?.toLowerCase() || '';
+
+                    // Direct category type match
+                    if (creditCategory === categoryType) return true;
+
+                    // Name-based matching for common categories
+                    if (creditCategory === 'groceries' && (categoryName.includes('food') || categoryName.includes('mat') || categoryName.includes('groceries') || categoryType === 'groceries')) return true;
+                    if (creditCategory === 'fuel' && (categoryName.includes('gas') || categoryName.includes('fuel') || categoryName.includes('bensin') || categoryType === 'fuel')) return true;
+                    if (creditCategory === 'travel' && (categoryName.includes('travel') || categoryName.includes('trip') || categoryName.includes('resa') || categoryType === 'travel')) return true;
+                    if (creditCategory === 'shopping' && (categoryName.includes('shopping') || categoryName.includes('kläder') || categoryType === 'shopping')) return true;
+                    if (creditCategory === 'dining_out' && (categoryName.includes('dining') || categoryName.includes('restaurant') || categoryType === 'dining')) return true;
+                    if (creditCategory === 'entertainment' && (categoryName.includes('entertainment') || categoryName.includes('nöje') || categoryType === 'entertainment')) return true;
+                    if (creditCategory === 'health' && (categoryName.includes('health') || categoryName.includes('hälsa') || categoryType === 'health')) return true;
+                    if (creditCategory === 'car_repairs' && (categoryName.includes('car') || categoryName.includes('bil') || categoryType === 'car')) return true;
+
+                    return false;
+                  });
+
                   return (
                     <ExpenseCategoryItem
                       key={category.id}
@@ -125,6 +150,7 @@ export const MonthlyExpenses = ({
                       members={members}
                       hasEntry={hasEntry}
                       isDifferent={isDifferent}
+                      creditExpenses={matchingCreditExpenses}
                       onAmountChange={(categoryId, value) =>
                         onAmountsChange({ ...amounts, [categoryId]: value })
                       }
@@ -133,10 +159,59 @@ export const MonthlyExpenses = ({
                   );
                 })}
 
+                {/* Show unmatched credit card expenses as separate items */}
+                {creditCardExpenses.map((expense) => {
+                  // Check if this expense was already matched to an existing category
+                  const isMatched = sortedCategories.some(category => {
+                    const creditCategory = expense.category.toLowerCase();
+                    const categoryName = category.name.toLowerCase();
+                    const categoryType = category.category?.toLowerCase() || '';
+
+                    if (creditCategory === categoryType) return true;
+                    if (creditCategory === 'groceries' && (categoryName.includes('food') || categoryName.includes('mat') || categoryName.includes('groceries') || categoryType === 'groceries')) return true;
+                    if (creditCategory === 'fuel' && (categoryName.includes('gas') || categoryName.includes('fuel') || categoryName.includes('bensin') || categoryType === 'fuel')) return true;
+                    if (creditCategory === 'travel' && (categoryName.includes('travel') || categoryName.includes('trip') || categoryName.includes('resa') || categoryType === 'travel')) return true;
+                    if (creditCategory === 'shopping' && (categoryName.includes('shopping') || categoryName.includes('kläder') || categoryType === 'shopping')) return true;
+                    if (creditCategory === 'dining_out' && (categoryName.includes('dining') || categoryName.includes('restaurant') || categoryType === 'dining')) return true;
+                    if (creditCategory === 'entertainment' && (categoryName.includes('entertainment') || categoryName.includes('nöje') || categoryType === 'entertainment')) return true;
+                    if (creditCategory === 'health' && (categoryName.includes('health') || categoryName.includes('hälsa') || categoryType === 'health')) return true;
+                    if (creditCategory === 'car_repairs' && (categoryName.includes('car') || categoryName.includes('bil') || categoryType === 'car')) return true;
+
+                    return false;
+                  });
+
+                  // Only show if not matched to existing category
+                  if (isMatched) return null;
+
+                  return (
+                    <ExpenseCategoryItem
+                      key={`credit-${expense.id}`}
+                      category={{
+                        id: `credit-${expense.category}`,
+                        name: expense.description,
+                        category: expense.category,
+                        type: 'credit',
+                        default_amount: 0,
+                        created_by: expense.created_by,
+                      }}
+                      amount="0"
+                      currency={currency}
+                      members={members}
+                      hasEntry={false}
+                      isDifferent={false}
+                      creditExpenses={[expense]}
+                      onAmountChange={() => { }}
+                      onEdit={() => { }}
+                    />
+                  );
+                })}
+
                 <ExpenseSummaryBlocks
                   subscriptionsTotal={subscriptionsTotal}
                   insuranceTotal={insuranceTotal}
                   currency={currency}
+                  hasSubscriptionsEntry={monthlyExpenses.some(e => e.subscription_id !== null)}
+                  hasInsuranceEntry={monthlyExpenses.some(e => e.insurance_id !== null)}
                   onNavigateToSubscriptions={onNavigateToSubscriptions}
                   onNavigateToInsurance={onNavigateToInsurance}
                 />

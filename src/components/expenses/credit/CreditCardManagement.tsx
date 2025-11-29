@@ -135,7 +135,7 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, onUpd
                                 <CreditCard className="h-5 w-5" />
                                 Manage Credit Cards
                             </CardTitle>
-                            <CardDescription>Add and manage your credit cards with monthly limits</CardDescription>
+                            <CardDescription className="mt-1.5">Add and manage your credit cards with monthly limits</CardDescription>
                         </div>
                         <Dialog open={cardDialogOpen} onOpenChange={(open) => {
                             setCardDialogOpen(open);
