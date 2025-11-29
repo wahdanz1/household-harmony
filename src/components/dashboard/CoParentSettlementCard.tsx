@@ -224,9 +224,9 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
 
                 <div className="border-t-2 border-border pt-2 mt-2">
                   <div className="flex justify-between text-lg font-bold">
-                    <span>Net to send:</span>
+                    <span>{settlement.netAmount >= 0 ? "Amount to send:" : "Amount to receive:"}</span>
                     <span className={settlement.netAmount >= 0 ? "text-warning" : "text-success"}>
-                      {settlement.netAmount >= 0 ? settlement.netAmount.toFixed(0) : `+${Math.abs(settlement.netAmount).toFixed(0)}`} {currency}
+                      {settlement.netAmount >= 0 ? settlement.netAmount.toFixed(0) : Math.abs(settlement.netAmount).toFixed(0)} {currency}
                     </span>
                   </div>
                 </div>

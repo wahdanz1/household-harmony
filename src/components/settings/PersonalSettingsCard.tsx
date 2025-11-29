@@ -187,7 +187,18 @@ export const PersonalSettingsCard = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="email">Email</Label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {emailPublic ? "Visible" : "Hidden"}
+                </span>
+                <Switch
+                  checked={emailPublic}
+                  onCheckedChange={setEmailPublic}
+                />
+              </div>
+            </div>
             <Input
               id="email"
               type="email"
@@ -205,19 +216,6 @@ export const PersonalSettingsCard = () => {
               placeholder="YYYY-MM-DD"
             />
           </div>
-        </div>
-
-        <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/40">
-          <div className="space-y-0.5">
-            <Label>Email Visibility</Label>
-            <p className="text-sm text-muted-foreground">
-              {emailPublic ? "Your email is visible to household members" : "Your email is hidden from household members"}
-            </p>
-          </div>
-          <Switch
-            checked={emailPublic}
-            onCheckedChange={setEmailPublic}
-          />
         </div>
 
         <div className="flex gap-3 pt-4">

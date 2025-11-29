@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 
 interface IncomeSourceDialogProps {
     open: boolean;
@@ -13,8 +14,12 @@ interface IncomeSourceDialogProps {
         type: "static" | "variable";
         default_amount: string;
         owner_id: string;
+        is_shared: boolean;
+        co_parent_id: string;
+        share_percentage: string;
     };
     members: any[];
+    coParents: any[];
     onOpenChange: (open: boolean) => void;
     onFormDataChange: (data: any) => void;
     onSave: () => void;
@@ -25,6 +30,7 @@ export const IncomeSourceDialog = ({
     editingSourceId,
     sourceFormData,
     members,
+    coParents,
     onOpenChange,
     onFormDataChange,
     onSave,
@@ -112,6 +118,56 @@ export const IncomeSourceDialog = ({
                             placeholder="0"
                         />
                     </div>
+
+                    {coParents.length > 0 && (
+                        <>
+                            <div className="flex items-center justify-between space-x-2 pt-2">
+                                <div className="space-y-0.5">
+                                    <Label>Shared Income</Label>
+                                    <p className="text-sm text-muted-foreground">Split this income with a co-parent</p>
+                                </div>
+                                <Switch
+                                    checked={sourceFormData.is_shared}
+                                    onCheckedChange={(checked) => onFormDataChange({ ...sourceFormData, is_shared: checked })}
+                                />
+                            </div>
+
+                            {sourceFormData.is_shared && (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label>Co-parent</Label>
+                                        <Select
+                                            value={sourceFormData.co_parent_id}
+                                            onValueChange={(v) => onFormDataChange({ ...sourceFormData, co_parent_id: v })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select co-parent" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {coParents.map((coParent) => (
+                                                    <SelectItem key={coParent.id} value={coParent.id}>
+                                                        {coParent.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Your Share (%)</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={sourceFormData.share_percentage}
+                                            onChange={(e) => onFormDataChange({ ...sourceFormData, share_percentage: e.target.value })}
+                                            placeholder="50"
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    )}
                 </div>
                 <DialogFooter>
                     <Button onClick={onSave}>

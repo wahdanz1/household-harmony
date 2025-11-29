@@ -10,7 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { CreditCard, Plus, Edit, Trash2, CalendarIcon } from "lucide-react";
+import { CreditCard, Plus, Edit, Trash2, CalendarIcon, Tv, Code, Music, Gamepad2, Dumbbell, Newspaper, Cloud, GraduationCap, MoreHorizontal } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,16 +34,22 @@ interface SubscriptionsTabProps {
 }
 
 const subscriptionCategories = [
-  { value: "streaming", label: "Streaming", color: "#EC4899" },
-  { value: "software", label: "Software & Apps", color: "#8B5CF6" },
-  { value: "music", label: "Music", color: "#10B981" },
-  { value: "gaming", label: "Gaming", color: "#F59E0B" },
-  { value: "gym", label: "Gym & Fitness", color: "#EF4444" },
-  { value: "news", label: "News & Media", color: "#3B82F6" },
-  { value: "storage", label: "Cloud Storage", color: "#06B6D4" },
-  { value: "education", label: "Education & Learning", color: "#A855F7" },
-  { value: "other", label: "Other", color: "#64748B" },
+  { value: "streaming", label: "Streaming", color: "#EC4899", icon: Tv },
+  { value: "software", label: "Software & Apps", color: "#8B5CF6", icon: Code },
+  { value: "music", label: "Music", color: "#10B981", icon: Music },
+  { value: "gaming", label: "Gaming", color: "#F59E0B", icon: Gamepad2 },
+  { value: "gym", label: "Gym & Fitness", color: "#EF4444", icon: Dumbbell },
+  { value: "news", label: "News & Media", color: "#3B82F6", icon: Newspaper },
+  { value: "storage", label: "Cloud Storage", color: "#06B6D4", icon: Cloud },
+  { value: "education", label: "Education & Learning", color: "#A855F7", icon: GraduationCap },
+  { value: "other", label: "Other", color: "#64748B", icon: MoreHorizontal },
 ];
+
+const getCategoryIcon = (categoryValue: string | null) => {
+  const category = subscriptionCategories.find(c => c.value === categoryValue);
+  const IconComponent = category?.icon || MoreHorizontal;
+  return <IconComponent className="h-4 w-4" />;
+};
 
 export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProps) => {
   const { user } = useAuth();
@@ -272,7 +278,10 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                     <SelectContent>
                       {subscriptionCategories.map((cat) => (
                         <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
+                          <div className="flex items-center gap-2">
+                            <cat.icon className="h-4 w-4" />
+                            {cat.label}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -371,6 +380,7 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
+                    {getCategoryIcon(subscription.category)}
                     <p className="font-medium">{subscription.name}</p>
                     {subscription.category && (() => {
                       const cat = subscriptionCategories.find((c) => c.value === subscription.category);

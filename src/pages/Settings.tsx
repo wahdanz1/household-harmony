@@ -5,6 +5,7 @@ import { HouseholdInfoCard } from "@/components/settings/HouseholdInfoCard";
 import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard";
 import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
 import { CoParentsCard } from "@/components/settings/CoParentsCard";
+import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Home, Users, User } from "lucide-react";
 
@@ -91,7 +92,12 @@ const Settings = () => {
         <TabsContent value="general" className="mt-6">
           <div className="space-y-6">
             <HouseholdInfoCard household={household} userRole={userRole} members={members} onUpdate={fetchData} />
-            <CoParentsCard householdId={household.id} onUpdate={fetchData} />
+            <ExtraFeaturesCard
+              householdId={household.id}
+              enableCreditCards={household.enable_credit_cards || false}
+              enableSharedExpenses={household.enable_shared_expenses ?? true}
+              onUpdate={fetchData}
+            />
           </div>
         </TabsContent>
 

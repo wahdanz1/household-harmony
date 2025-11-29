@@ -8,6 +8,9 @@ interface SourceFormData {
     type: "static" | "variable";
     default_amount: string;
     owner_id: string;
+    is_shared: boolean;
+    co_parent_id: string;
+    share_percentage: string;
 }
 
 export const useIncomeSources = (
@@ -24,6 +27,9 @@ export const useIncomeSources = (
         type: "static",
         default_amount: "0",
         owner_id: members[0]?.user_id || "",
+        is_shared: false,
+        co_parent_id: "",
+        share_percentage: "50",
     });
 
     const resetSourceForm = () => {
@@ -33,6 +39,9 @@ export const useIncomeSources = (
             type: "static",
             default_amount: "0",
             owner_id: members[0]?.user_id || "",
+            is_shared: false,
+            co_parent_id: "",
+            share_percentage: "50",
         });
         setEditingSourceId(null);
     };
@@ -44,6 +53,9 @@ export const useIncomeSources = (
             type: source.type,
             default_amount: source.default_amount.toString(),
             owner_id: source.owner_id,
+            is_shared: source.is_shared || false,
+            co_parent_id: source.co_parent_id || "",
+            share_percentage: source.share_percentage?.toString() || "50",
         });
         setEditingSourceId(source.id);
         setSourceDialogOpen(true);
@@ -57,6 +69,9 @@ export const useIncomeSources = (
             type: sourceFormData.type,
             default_amount: parseFloat(sourceFormData.default_amount),
             owner_id: sourceFormData.owner_id,
+            is_shared: sourceFormData.is_shared,
+            co_parent_id: sourceFormData.is_shared ? sourceFormData.co_parent_id : null,
+            share_percentage: sourceFormData.is_shared ? parseFloat(sourceFormData.share_percentage) : null,
         };
 
         let error;

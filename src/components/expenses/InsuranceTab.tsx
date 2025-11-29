@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Shield, Plus, Edit, Trash2 } from "lucide-react";
+import { Shield, Plus, Edit, Trash2, Home, Car, Heart, User, PawPrint, Plane, Scale, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -34,15 +34,21 @@ interface InsuranceTabProps {
 }
 
 const insuranceTypes = [
-  { value: "home", label: "Home Insurance", color: "#3B82F6" },
-  { value: "car", label: "Car Insurance", color: "#EF4444" },
-  { value: "health", label: "Health Insurance", color: "#10B981" },
-  { value: "life", label: "Life Insurance", color: "#8B5CF6" },
-  { value: "pet", label: "Pet Insurance", color: "#F59E0B" },
-  { value: "travel", label: "Travel Insurance", color: "#06B6D4" },
-  { value: "liability", label: "Liability Insurance", color: "#EC4899" },
-  { value: "other", label: "Other", color: "#64748B" },
+  { value: "home", label: "Home Insurance", color: "#3B82F6", icon: Home },
+  { value: "car", label: "Car Insurance", color: "#EF4444", icon: Car },
+  { value: "health", label: "Health Insurance", color: "#10B981", icon: Heart },
+  { value: "life", label: "Life Insurance", color: "#8B5CF6", icon: User },
+  { value: "pet", label: "Pet Insurance", color: "#F59E0B", icon: PawPrint },
+  { value: "travel", label: "Travel Insurance", color: "#06B6D4", icon: Plane },
+  { value: "liability", label: "Liability Insurance", color: "#EC4899", icon: Scale },
+  { value: "other", label: "Other", color: "#64748B", icon: MoreHorizontal },
 ];
+
+const getTypeIcon = (typeValue: string) => {
+  const type = insuranceTypes.find(t => t.value === typeValue);
+  const IconComponent = type?.icon || Shield;
+  return <IconComponent className="h-4 w-4" />;
+};
 
 const monthNames = [
   "January", "February", "March", "April", "May", "June",
@@ -321,7 +327,10 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                     <SelectContent>
                       {insuranceTypes.map((type) => (
                         <SelectItem key={type.value} value={type.value}>
-                          {type.label}
+                          <div className="flex items-center gap-2">
+                            <type.icon className="h-4 w-4" />
+                            {type.label}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -483,6 +492,7 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
+                      {getTypeIcon(insurance.type)}
                       <p className="font-medium">{insurance.name}</p>
                       {(() => {
                         const type = insuranceTypes.find((t) => t.value === insurance.type);

@@ -6,6 +6,7 @@ import { MonthlyExpenses } from "@/components/expenses/MonthlyExpenses";
 import { SubscriptionsTab } from "@/components/expenses/SubscriptionsTab";
 import { InsuranceTab } from "@/components/expenses/InsuranceTab";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
+import { CreditTab } from "@/components/expenses/CreditTab";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -168,7 +169,7 @@ const Expenses = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className={`grid w-full ${coParents.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${household?.enable_credit_cards ? (coParents.length > 0 ? 5 : 4) : (coParents.length > 0 ? 4 : 3)}, minmax(0, 1fr))` }}>
           <TabsTrigger value="general" className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
             <span className="hidden sm:inline">General</span>
@@ -181,6 +182,12 @@ const Expenses = () => {
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Insurance</span>
           </TabsTrigger>
+          {household?.enable_credit_cards && (
+            <TabsTrigger value="credit" className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              <span className="hidden sm:inline">Credit</span>
+            </TabsTrigger>
+          )}
           {coParents.length > 0 && (
             <TabsTrigger value="shared" className="flex items-center gap-2">
               <ShoppingBag className="h-4 w-4" />
@@ -222,6 +229,15 @@ const Expenses = () => {
             currency={household?.currency || "SEK"}
           />
         </TabsContent>
+
+        {household?.enable_credit_cards && (
+          <TabsContent value="credit" className="mt-6">
+            <CreditTab
+              householdId={household?.id}
+              currency={household?.currency || "SEK"}
+            />
+          </TabsContent>
+        )}
 
         {coParents.length > 0 && (
           <TabsContent value="shared" className="mt-6">

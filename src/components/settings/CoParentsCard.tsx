@@ -18,9 +18,10 @@ interface CoParent {
 interface CoParentsCardProps {
   householdId: string;
   onUpdate: () => void;
+  compact?: boolean;
 }
 
-export const CoParentsCard = ({ householdId, onUpdate }: CoParentsCardProps) => {
+export const CoParentsCard = ({ householdId, onUpdate, compact = false }: CoParentsCardProps) => {
   const { toast } = useToast();
   const [coParents, setCoParents] = useState<CoParent[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -109,6 +110,85 @@ export const CoParentsCard = ({ householdId, onUpdate }: CoParentsCardProps) => 
     }
   };
 
+  const content = (
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) resetForm();
+      }}>
+        <DialogTrigger asChild>
+          <Button className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Co-Parent
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Edit" : "Add"} Co-Parent</DialogTitle>
+            <DialogDescription>
+              Add someone you share expenses with (ex-partner, co-guardian, etc.)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Kids' Mom"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (Optional)</Label>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Any additional context"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={handleSave}>{editingId ? "Update" : "Add"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {coParents.length > 0 ? (
+        <div className="space-y-2">
+          {coParents.map((coParent) => (
+            <div
+              key={coParent.id}
+              className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/40"
+            >
+              <div>
+                <p className="font-medium">{coParent.name}</p>
+                {coParent.notes && (
+                  <p className="text-sm text-muted-foreground">{coParent.notes}</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" size="icon" onClick={() => handleEdit(coParent)}>
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => handleDelete(coParent.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-center text-muted-foreground py-4">
+          No co-parents added yet
+        </p>
+      )}
+    </>
+  );
+
+  if (compact) {
+    return <div className="space-y-4">{content}</div>;
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -121,76 +201,7 @@ export const CoParentsCard = ({ householdId, onUpdate }: CoParentsCardProps) => 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Dialog open={isOpen} onOpenChange={(open) => {
-          setIsOpen(open);
-          if (!open) resetForm();
-        }}>
-          <DialogTrigger asChild>
-            <Button className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Co-Parent
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingId ? "Edit" : "Add"} Co-Parent</DialogTitle>
-              <DialogDescription>
-                Add someone you share expenses with (ex-partner, co-guardian, etc.)
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Kids' Mom"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Notes (Optional)</Label>
-                <Textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Any additional context"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleSave}>{editingId ? "Update" : "Add"}</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {coParents.length > 0 ? (
-          <div className="space-y-2">
-            {coParents.map((coParent) => (
-              <div
-                key={coParent.id}
-                className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/40"
-              >
-                <div>
-                  <p className="font-medium">{coParent.name}</p>
-                  {coParent.notes && (
-                    <p className="text-sm text-muted-foreground">{coParent.notes}</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(coParent)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(coParent.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-center text-muted-foreground py-4">
-            No co-parents added yet
-          </p>
-        )}
+        {content}
       </CardContent>
     </Card>
   );

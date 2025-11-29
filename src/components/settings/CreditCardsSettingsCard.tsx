@@ -1,0 +1,262 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { CreditCard, Plus, Edit, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface CreditCardData {
+    id: string;
+    name: string;
+    monthly_limit: number;
+    is_active: boolean;
+}
+
+interface CreditCardsSettingsCardProps {
+    householdId: string;
+    enableCreditCards: boolean;
+    currency: string;
+    onUpdate: () => void;
+}
+
+export const CreditCardsSettingsCard = ({ householdId, enableCreditCards, currency, onUpdate }: CreditCardsSettingsCardProps) => {
+    const { toast } = useToast();
+    const [creditCards, setCreditCards] = useState<CreditCardData[]>([]);
+    const [isOpen, setIsOpen] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [formData, setFormData] = useState({
+        name: "",
+        monthly_limit: "0",
+    });
+
+    useEffect(() => {
+        if (enableCreditCards) {
+            fetchCreditCards();
+        }
+    }, [householdId, enableCreditCards]);
+
+    const fetchCreditCards = async () => {
+        const { data } = await supabase
+            .from("credit_cards")
+            .select("*")
+            .eq("household_id", householdId)
+            .order("created_at", { ascending: true });
+
+        setCreditCards(data || []);
+    };
+
+    const handleToggleEnable = async (enabled: boolean) => {
+        const { error } = await supabase
+            .from("households")
+            .update({ enable_credit_cards: enabled })
+            .eq("id", householdId);
+
+        if (error) {
+            toast({
+                title: "Error",
+                description: "Failed to update credit card settings",
+                variant: "destructive",
+            });
+        } else {
+            toast({
+                title: "Success",
+                description: enabled ? "Credit cards enabled" : "Credit cards disabled",
+            });
+            onUpdate();
+        }
+    };
+
+    const resetForm = () => {
+        setFormData({
+            name: "",
+            monthly_limit: "0",
+        });
+        setEditingId(null);
+    };
+
+    const handleEdit = (card: CreditCardData) => {
+        setFormData({
+            name: card.name,
+            monthly_limit: card.monthly_limit.toString(),
+        });
+        setEditingId(card.id);
+        setIsOpen(true);
+    };
+
+    const handleSave = async () => {
+        const data = {
+            household_id: householdId,
+            name: formData.name,
+            monthly_limit: parseFloat(formData.monthly_limit),
+        };
+
+        let error;
+        if (editingId) {
+            ({ error } = await supabase
+                .from("credit_cards")
+                .update(data)
+                .eq("id", editingId));
+        } else {
+            ({ error } = await supabase
+                .from("credit_cards")
+                .insert(data));
+        }
+
+        if (error) {
+            toast({
+                title: "Error",
+                description: "Failed to save credit card",
+                variant: "destructive",
+            });
+        } else {
+            toast({
+                title: "Success",
+                description: editingId ? "Credit card updated" : "Credit card added",
+            });
+            setIsOpen(false);
+            resetForm();
+            fetchCreditCards();
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        const { error } = await supabase
+            .from("credit_cards")
+            .delete()
+            .eq("id", id);
+
+        if (error) {
+            toast({
+                title: "Error",
+                description: "Failed to delete credit card",
+                variant: "destructive",
+            });
+        } else {
+            toast({
+                title: "Success",
+                description: "Credit card deleted",
+            });
+            fetchCreditCards();
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Credit Cards
+                </CardTitle>
+                <CardDescription>Manage credit cards with monthly spending limits</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/40">
+                    <div className="space-y-0.5">
+                        <Label>Enable Credit Card Tracking</Label>
+                        <p className="text-sm text-muted-foreground">
+                            Track credit card expenses with monthly limits
+                        </p>
+                    </div>
+                    <Switch
+                        checked={enableCreditCards}
+                        onCheckedChange={handleToggleEnable}
+                    />
+                </div>
+
+                {enableCreditCards && (
+                    <>
+                        <Dialog open={isOpen} onOpenChange={(open) => {
+                            setIsOpen(open);
+                            if (!open) resetForm();
+                        }}>
+                            <DialogTrigger asChild>
+                                <Button className="w-full">
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Credit Card
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>{editingId ? "Edit" : "Add"} Credit Card</DialogTitle>
+                                    <DialogDescription>
+                                        Configure a credit card with a monthly spending limit
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label>Card Name</Label>
+                                        <Input
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            placeholder="e.g., Norwegian Bank, Visa Gold"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Monthly Limit</Label>
+                                        <Input
+                                            type="number"
+                                            value={formData.monthly_limit}
+                                            onChange={(e) => setFormData({ ...formData, monthly_limit: e.target.value })}
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button onClick={handleSave}>
+                                        {editingId ? "Update" : "Add"}
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+
+                        <div className="space-y-2">
+                            {creditCards.length === 0 ? (
+                                <p className="text-center text-muted-foreground py-8">
+                                    No credit cards yet. Add one to get started!
+                                </p>
+                            ) : (
+                                creditCards.map((card) => (
+                                    <div
+                                        key={card.id}
+                                        className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/40"
+                                    >
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <CreditCard className="h-4 w-4" />
+                                                <p className="font-medium">{card.name}</p>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">
+                                                Monthly Limit: {card.monthly_limit.toFixed(0)} {currency}
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleEdit(card)}
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => handleDelete(card.id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
