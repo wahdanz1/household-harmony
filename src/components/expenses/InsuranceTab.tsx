@@ -47,7 +47,8 @@ const insuranceTypes = [
 const getTypeIcon = (typeValue: string) => {
   const type = insuranceTypes.find(t => t.value === typeValue);
   const IconComponent = type?.icon || Shield;
-  return <IconComponent className="h-4 w-4" />;
+  const color = type?.color || "#64748B";
+  return <IconComponent className="h-4 w-4" style={{ color }} />;
 };
 
 const monthNames = [
@@ -488,45 +489,34 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
               return (
                 <div
                   key={insurance.id}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/40"
+                  className="flex items-center gap-2 p-3 rounded-lg border border-border bg-background/40"
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      {getTypeIcon(insurance.type)}
-                      <p className="font-medium">{insurance.name}</p>
-                      {(() => {
-                        const type = insuranceTypes.find((t) => t.value === insurance.type);
-                        return (
-                          <span
-                            className="text-xs px-2 py-0.5 rounded-full font-medium"
-                            style={{
-                              backgroundColor: `${type?.color}20`,
-                              color: type?.color
-                            }}
-                          >
-                            {type?.label || insurance.type}
-                          </span>
-                        );
-                      })()}
-                      {insurance.is_shared && (
-                        <Badge variant="secondary">{insurance.share_percentage}% shared</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {monthlyAmount.toFixed(0)} {currency}/month • {insurance.payment_frequency}
-                      {insurance.provider && ` • ${insurance.provider}`}
-                    </p>
-                    {insurance.invoice_month && (
-                      <p className="text-xs text-muted-foreground">
-                        Invoice typically arrives: {monthNames[insurance.invoice_month - 1]}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(insurance)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  {getTypeIcon(insurance.type)}
+                  <p className="font-medium truncate">{insurance.name}</p>
+                  {(() => {
+                    const type = insuranceTypes.find((t) => t.value === insurance.type);
+                    return (
+                      <span
+                        className="hidden sm:inline text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
+                        style={{
+                          backgroundColor: `${type?.color}20`,
+                          color: type?.color
+                        }}
+                      >
+                        {type?.label || insurance.type}
+                      </span>
+                    );
+                  })()}
+                  {insurance.is_shared && (
+                    <Badge variant="secondary" className="hidden sm:inline shrink-0">{insurance.share_percentage}% shared</Badge>
+                  )}
+                  <div className="flex-1" /> {/* Spacer */}
+                  <p className="text-sm text-muted-foreground whitespace-nowrap">
+                    {monthlyAmount.toFixed(0)} {currency}/month
+                  </p>
+                  <Button variant="ghost" size="icon" onClick={() => handleEdit(insurance)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
                 </div>
               );
             })}

@@ -48,7 +48,8 @@ const subscriptionCategories = [
 const getCategoryIcon = (categoryValue: string | null) => {
   const category = subscriptionCategories.find(c => c.value === categoryValue);
   const IconComponent = category?.icon || MoreHorizontal;
-  return <IconComponent className="h-4 w-4" />;
+  const color = category?.color || "#64748B";
+  return <IconComponent className="h-4 w-4" style={{ color }} />;
 };
 
 export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProps) => {
@@ -376,37 +377,31 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
             {activeSubscriptions.map((subscription) => (
               <div
                 key={subscription.id}
-                className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/40"
+                className="flex items-center gap-2 p-3 rounded-lg border border-border bg-background/40"
               >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    {getCategoryIcon(subscription.category)}
-                    <p className="font-medium">{subscription.name}</p>
-                    {subscription.category && (() => {
-                      const cat = subscriptionCategories.find((c) => c.value === subscription.category);
-                      return (
-                        <span
-                          className="text-xs px-2 py-0.5 rounded-full font-medium"
-                          style={{
-                            backgroundColor: `${cat?.color}20`,
-                            color: cat?.color
-                          }}
-                        >
-                          {cat?.label || subscription.category}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {subscription.amount} {currency} / {subscription.billing_cycle}
-                    {subscription.next_billing_date && ` • Next: ${format(new Date(subscription.next_billing_date), "MMM d, yyyy")}`}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(subscription)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </div>
+                {getCategoryIcon(subscription.category)}
+                <p className="font-medium truncate">{subscription.name}</p>
+                {subscription.category && (() => {
+                  const cat = subscriptionCategories.find((c) => c.value === subscription.category);
+                  return (
+                    <span
+                      className="hidden sm:inline text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
+                      style={{
+                        backgroundColor: `${cat?.color}20`,
+                        color: cat?.color
+                      }}
+                    >
+                      {cat?.label || subscription.category}
+                    </span>
+                  );
+                })()}
+                <div className="flex-1" /> {/* Spacer */}
+                <p className="text-sm text-muted-foreground whitespace-nowrap">
+                  {subscription.amount} {currency} / {subscription.billing_cycle}
+                </p>
+                <Button variant="ghost" size="icon" onClick={() => handleEdit(subscription)}>
+                  <Edit className="h-4 w-4" />
+                </Button>
               </div>
             ))}
             {activeSubscriptions.length === 0 && (
