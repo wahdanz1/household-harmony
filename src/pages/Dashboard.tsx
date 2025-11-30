@@ -46,7 +46,7 @@ const Dashboard = () => {
         supabase.from("subscriptions").select("amount").eq("household_id", householdData.household_id).eq("is_active", true),
         supabase.from("insurances").select("total_amount, payment_frequency, is_shared, share_percentage").eq("household_id", householdData.household_id).eq("is_active", true),
         supabase.from("credit_card_expenses").select("amount").eq("household_id", householdData.household_id).eq("month", currentMonth),
-        supabase.from("shared_expenses").select("amount, is_paid_by_me").eq("household_id", householdData.household_id).eq("month", currentMonth),
+        supabase.from("shared_expenses").select("amount, paid_by").eq("household_id", householdData.household_id).eq("month", currentMonth),
       ]);
 
       const totalIncome = (monthlyIncomes || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
@@ -66,8 +66,8 @@ const Dashboard = () => {
       }, 0);
       const totalCreditCard = (creditCardExpenses || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
       const totalShared = (sharedExpenses || []).reduce((sum: number, item: any) => {
-        // Only add if paid by me (positive), subtract if received (negative)
-        return sum + (item.is_paid_by_me ? parseFloat(item.amount) : -parseFloat(item.amount));
+        // If paid by user, add to expenses; if paid by co-parent, subtract (they paid for you)
+        return sum + (item.paid_by === "user" ? parseFloat(item.amount) : -parseFloat(item.amount));
       }, 0);
 
       setIncome(totalIncome);
