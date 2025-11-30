@@ -28,32 +28,21 @@ export const IncomeSourceItem = ({
         <div className="p-3 sm:p-4 rounded-lg border border-border bg-background/40">
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
-                {/* Top row: Avatar + Title + Toggle */}
-                <div className="flex items-start gap-3">
-                    <Avatar className="h-9 w-9 shrink-0 mt-0.5">
+                {/* Top row: Avatar + Title + Badge */}
+                <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6 shrink-0">
                         <AvatarImage src={source.profiles.avatar_url || undefined} />
                         <AvatarFallback className="text-xs">
                             {source.profiles.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
                         </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
-                        <p className={`font-medium ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
-                            {source.name}
-                        </p>
-                        <Badge variant="outline" className="text-xs mt-1">
-                            {source.category.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                        </Badge>
-                    </div>
-                    <Switch
-                        checked={!isSkipped}
-                        onCheckedChange={(checked) =>
-                            onAmountChange(source.id, checked ? source.default_amount.toString() : "0")
-                        }
-                        className="scale-90"
-                    />
+                    <p className="font-medium flex-1">{source.name}</p>
+                    <Badge variant="outline" className="text-xs">
+                        {source.category.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                    </Badge>
                 </div>
 
-                {/* Bottom row: Amount input and actions */}
+                {/* Bottom row: Amount input and edit button */}
                 <div className="flex items-center gap-2">
                     <div className="flex-1" /> {/* Spacer */}
                     <input
@@ -72,14 +61,6 @@ export const IncomeSourceItem = ({
                         onClick={() => onEdit(source)}
                     >
                         <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9"
-                        onClick={() => onDelete(source.id)}
-                    >
-                        <Trash2 className="h-4 w-4" />
                     </Button>
                 </div>
             </div>
@@ -105,12 +86,6 @@ export const IncomeSourceItem = ({
                         {source.profiles.full_name}
                     </p>
                 </div>
-                <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarImage src={source.profiles.avatar_url || undefined} />
-                    <AvatarFallback className="text-xs">
-                        {source.profiles.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
-                    </AvatarFallback>
-                </Avatar>
                 <div className="flex items-center gap-2">
                     <input
                         type="number"
@@ -130,13 +105,12 @@ export const IncomeSourceItem = ({
                     >
                         <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onDelete(source.id)}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Avatar className="h-9 w-9">
+                        <AvatarImage src={source.profiles.avatar_url || undefined} />
+                        <AvatarFallback className="text-sm">
+                            {source.profiles.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                        </AvatarFallback>
+                    </Avatar>
                 </div>
             </div>
         </div>

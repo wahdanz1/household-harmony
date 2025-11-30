@@ -236,7 +236,7 @@ const Income = () => {
                 <TrendingUp className="h-5 w-5 text-success" />
                 Monthly Income
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="mt-1.5">
                 Add your income sources with a default amount, and adjust the actual monthly income if needed. When you're done, click "Save Monthly Income"!
               </CardDescription>
             </div>
