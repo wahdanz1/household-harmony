@@ -58,26 +58,17 @@ export const ExpenseCategoryItem = ({
         <div className="p-3 sm:p-4 rounded-lg border border-border bg-background/40">
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
-                {/* Top row: Icon + Badge + Title + Avatar */}
+                {/* Top row: Icon + Title + Avatar */}
                 <div className="flex items-center gap-2">
                     {Icon && <Icon className="h-4 w-4" style={{ color: cat.color }} />}
-                    <span
-                        className="text-xs px-2 py-0.5 rounded-full font-medium"
-                        style={{
-                            backgroundColor: `${cat?.color}20`,
-                            color: cat?.color
-                        }}
-                    >
-                        {cat?.label}
-                    </span>
-                    <p className="font-medium flex-1">{category.name}</p>
+                    <p className="font-medium flex-1 truncate">{category.name}</p>
                     {/* Credit badge for credit expenses */}
                     {category.type === 'credit' && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className="text-xs shrink-0">
                             Credit
                         </Badge>
                     )}
-                    <Avatar className="h-5 w-5">
+                    <Avatar className="h-5 w-5 shrink-0">
                         <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
                         <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                     </Avatar>
@@ -85,13 +76,12 @@ export const ExpenseCategoryItem = ({
 
                 {/* Bottom row: Amount input and edit button */}
                 <div className="flex items-center gap-2">
-                    <div className="flex-1" /> {/* Spacer */}
                     <input
                         type="number"
                         value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
                         onChange={(e) => onAmountChange(category.id, e.target.value)}
                         disabled={category.type === "static" || category.type === "credit"}
-                        className={`w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""}`}
+                        className={`flex-1 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""} `}
                         placeholder="0"
                     />
                     <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
@@ -141,7 +131,7 @@ export const ExpenseCategoryItem = ({
                     />
                     <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
                 </div>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0">
                     <Button
                         variant="ghost"
                         size="icon"
@@ -149,7 +139,7 @@ export const ExpenseCategoryItem = ({
                     >
                         <Edit className="h-4 w-4" />
                     </Button>
-                    <Avatar className="h-7 w-7">
+                    <Avatar className="h-7 w-7 shrink-0">
                         <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
                         <AvatarFallback className="text-sm">{initials}</AvatarFallback>
                     </Avatar>
