@@ -70,7 +70,7 @@ export const OneTimeIncomeCard = ({
                             <Plus className="h-5 w-5 text-success" />
                             One-Time Income
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="mt-1.5">
                             Gift money, lottery wins, or other temporary income
                         </CardDescription>
                     </div>

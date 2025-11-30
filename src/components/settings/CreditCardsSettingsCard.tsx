@@ -151,7 +151,7 @@ export const CreditCardsSettingsCard = ({ householdId, enableCreditCards, curren
                     <CreditCard className="h-5 w-5" />
                     Credit Cards
                 </CardTitle>
-                <CardDescription>Manage credit cards with monthly spending limits</CardDescription>
+                <CardDescription className="mt-1.5">Manage credit cards with monthly spending limits</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/40">

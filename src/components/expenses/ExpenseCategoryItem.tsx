@@ -58,10 +58,9 @@ export const ExpenseCategoryItem = ({
         <div className="p-3 sm:p-4 rounded-lg border border-border bg-background/40">
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
-                {/* Top row: Icon + Title + Badge + Avatar */}
+                {/* Top row: Icon + Badge + Title + Avatar */}
                 <div className="flex items-center gap-2">
                     {Icon && <Icon className="h-4 w-4" style={{ color: cat.color }} />}
-                    <p className="font-medium flex-1">{category.name}</p>
                     <span
                         className="text-xs px-2 py-0.5 rounded-full font-medium"
                         style={{
@@ -71,13 +70,14 @@ export const ExpenseCategoryItem = ({
                     >
                         {cat?.label}
                     </span>
+                    <p className="font-medium flex-1">{category.name}</p>
                     {/* Credit badge for credit expenses */}
                     {category.type === 'credit' && (
                         <Badge variant="secondary" className="text-xs">
                             Credit
                         </Badge>
                     )}
-                    <Avatar className="h-6 w-6">
+                    <Avatar className="h-5 w-5">
                         <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
                         <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                     </Avatar>
@@ -149,7 +149,7 @@ export const ExpenseCategoryItem = ({
                     >
                         <Edit className="h-4 w-4" />
                     </Button>
-                    <Avatar className="h-9 w-9">
+                    <Avatar className="h-7 w-7">
                         <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
                         <AvatarFallback className="text-sm">{initials}</AvatarFallback>
                     </Avatar>

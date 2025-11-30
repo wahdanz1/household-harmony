@@ -242,7 +242,7 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
       <Card>
         <CardHeader>
           <CardTitle>Insurance Summary</CardTitle>
-          <CardDescription>Save monthly to cover annual insurance payments</CardDescription>
+          <CardDescription className="mt-1.5">Save monthly to cover annual insurance payments</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 grid-cols-2">

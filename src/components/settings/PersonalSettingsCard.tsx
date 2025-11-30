@@ -140,7 +140,7 @@ export const PersonalSettingsCard = () => {
     <Card>
       <CardHeader>
         <CardTitle>Personal Settings</CardTitle>
-        <CardDescription>Manage your personal information and account settings</CardDescription>
+        <CardDescription className="mt-1.5">Manage your personal information and account settings</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center gap-6">

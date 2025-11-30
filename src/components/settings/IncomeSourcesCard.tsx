@@ -142,7 +142,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
           <TrendingUp className="h-5 w-5 text-success" />
           Income Sources
         </CardTitle>
-        <CardDescription>Define your household's income sources</CardDescription>
+        <CardDescription className="mt-1.5">Define your household's income sources</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Dialog open={isOpen} onOpenChange={(open) => {
@@ -165,7 +165,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Select value={formData.category} onValueChange={(v) => setFormData({...formData, category: v as typeof formData.category})}>
+                <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v as typeof formData.category })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -184,14 +184,14 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
                 <Label>Name</Label>
                 <Input
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., Dad's Salary"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label>Owner</Label>
-                <Select value={formData.owner_id} onValueChange={(v) => setFormData({...formData, owner_id: v})}>
+                <Select value={formData.owner_id} onValueChange={(v) => setFormData({ ...formData, owner_id: v })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -207,7 +207,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
 
               <div className="space-y-2">
                 <Label>Type</Label>
-                <Select value={formData.type} onValueChange={(v) => setFormData({...formData, type: v as typeof formData.type})}>
+                <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v as typeof formData.type })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -223,7 +223,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
                 <Input
                   type="number"
                   value={formData.default_amount}
-                  onChange={(e) => setFormData({...formData, default_amount: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, default_amount: e.target.value })}
                   placeholder="0"
                 />
               </div>

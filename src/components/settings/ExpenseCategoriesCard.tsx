@@ -47,7 +47,7 @@ const DEFAULT_CATEGORIES = {
     "Rent", "Electricity", "Internet", "Phone", "Insurance", "Loan Payments"
   ],
   dynamic: [
-    "Groceries", "Fuel", "Dining Out", "Entertainment", 
+    "Groceries", "Fuel", "Dining Out", "Entertainment",
     "Shopping", "Healthcare", "Personal Care"
   ]
 };
@@ -195,7 +195,7 @@ export const ExpenseCategoriesCard = ({ expenseCategories, householdId, currency
           <TrendingDown className="h-5 w-5 text-destructive" />
           Expense Categories
         </CardTitle>
-        <CardDescription>Organize your household expenses</CardDescription>
+        <CardDescription className="mt-1.5">Organize your household expenses</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex gap-2">
@@ -221,14 +221,14 @@ export const ExpenseCategoriesCard = ({ expenseCategories, householdId, currency
                   <Label>Name</Label>
                   <Input
                     value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g., Rent, Groceries"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label>Type</Label>
-                  <Select value={formData.type} onValueChange={(v) => setFormData({...formData, type: v as typeof formData.type})}>
+                  <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v as typeof formData.type })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -244,7 +244,7 @@ export const ExpenseCategoriesCard = ({ expenseCategories, householdId, currency
                   <Input
                     type="number"
                     value={formData.default_amount}
-                    onChange={(e) => setFormData({...formData, default_amount: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, default_amount: e.target.value })}
                     placeholder="0"
                   />
                 </div>
@@ -256,7 +256,7 @@ export const ExpenseCategoriesCard = ({ expenseCategories, householdId, currency
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          
+
           {expenseCategories.length === 0 && (
             <Button variant="outline" onClick={initializeDefaults}>
               Load Defaults

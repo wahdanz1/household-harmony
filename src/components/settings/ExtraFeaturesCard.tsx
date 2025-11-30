@@ -61,7 +61,7 @@ export const ExtraFeaturesCard = ({ householdId, enableCreditCards, enableShared
         <Card>
             <CardHeader>
                 <CardTitle>Extra Features</CardTitle>
-                <CardDescription>Enable optional features for your household</CardDescription>
+                <CardDescription className="mt-1.5">Enable optional features for your household</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid gap-6 md:grid-cols-2">
