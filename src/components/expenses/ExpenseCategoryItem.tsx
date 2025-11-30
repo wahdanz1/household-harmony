@@ -85,6 +85,7 @@ export const ExpenseCategoryItem = ({
 
                 {/* Bottom row: Amount input and edit button */}
                 <div className="flex items-center gap-2">
+                    <div className="flex-1" /> {/* Spacer */}
                     <input
                         type="number"
                         value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
