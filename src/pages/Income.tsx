@@ -98,9 +98,6 @@ const Income = () => {
       household_id: household.id,
       month: currentMonth,
       amount: parseFloat(amounts[source.id] || "0"),
-      is_shared: source.is_shared || false,
-      co_parent_id: source.co_parent_id || null,
-      share_percentage: source.share_percentage || null,
       created_by: user.id,
     }));
 

@@ -90,7 +90,7 @@ export const ExpenseCategoryItem = ({
                         value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
                         onChange={(e) => onAmountChange(category.id, e.target.value)}
                         disabled={category.type === "static" || category.type === "credit"}
-                        className={`flex-1 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""}`}
+                        className={`w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""}`}
                         placeholder="0"
                     />
                     <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>

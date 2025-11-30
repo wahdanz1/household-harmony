@@ -59,7 +59,7 @@ export const IncomeSourceItem = ({
                         type="number"
                         value={amount || ""}
                         onChange={(e) => onAmountChange(source.id, e.target.value)}
-                        className={`flex-1 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
+                        className={`w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
                         placeholder="0"
                         disabled={isSkipped}
                     />
