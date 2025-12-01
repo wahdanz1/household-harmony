@@ -27,18 +27,17 @@ export interface ActiveHouseholdResult {
  * Logic:
  * - Users can have TWO memberships: "owner" (their household) and "member" (joined household)
  * - Active household is determined by role: "member" takes precedence over "owner"
- * - Query orders by role ASC, so "member" comes before "owner" alphabetically
+ * - Uses explicit role prioritization (not alphabetical sorting which is unreliable)
  * 
  * @param userId - The user's ID
  * @returns Object containing active membership, household, and all memberships
  */
 export async function getActiveHousehold(userId: string): Promise<ActiveHouseholdResult> {
-    // Fetch all memberships for the user, ordered by role (member before owner)
+    // Fetch all memberships for the user
     const { data: memberships, error: membershipError } = await supabase
         .from("household_members")
         .select("*")
-        .eq("user_id", userId)
-        .order("role", { ascending: true }); // "member" < "owner" alphabetically
+        .eq("user_id", userId);
 
     if (membershipError) {
         console.error("Error fetching memberships:", membershipError);
@@ -49,8 +48,19 @@ export async function getActiveHousehold(userId: string): Promise<ActiveHousehol
         return { membership: null, household: null, allMemberships: [] };
     }
 
-    // First membership is the active one (member role if exists, otherwise owner)
-    const activeMembership = memberships[0] as HouseholdMembership;
+    // DEBUG: Log all memberships to see what we're getting
+    console.log("[getActiveHousehold] All memberships for user:", userId);
+    console.log("[getActiveHousehold] Memberships:", memberships.map(m => ({ role: m.role, household_id: m.household_id })));
+
+    // Explicitly prioritize member role over owner role (don't rely on alphabetical sorting)
+    const activeMembership = memberships.find(m => m.role === "member") || memberships.find(m => m.role === "owner");
+
+    if (!activeMembership) {
+        console.error("[getActiveHousehold] No valid membership found");
+        return { membership: null, household: null, allMemberships: memberships as HouseholdMembership[] };
+    }
+
+    console.log("[getActiveHousehold] Selected active membership:", { role: activeMembership.role, household_id: activeMembership.household_id });
 
     // Fetch the household details
     const { data: household, error: householdError } = await supabase
