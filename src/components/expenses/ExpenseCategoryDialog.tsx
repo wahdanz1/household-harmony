@@ -142,26 +142,28 @@ export const ExpenseCategoryDialog = ({
                         </>
                     )}
                 </div>
-                <DialogFooter className="flex-col sm:flex-row gap-2">
-                    {editingCategoryId && (
-                        <Button
-                            variant="destructive"
-                            onClick={() => {
-                                onDelete(editingCategoryId);
-                                onOpenChange(false);
-                            }}
-                            className="sm:mr-auto"
-                        >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                        </Button>
-                    )}
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        Cancel
-                    </Button>
-                    <Button onClick={onSave}>
+                <DialogFooter className="flex-col gap-2">
+                    <Button onClick={onSave} className="w-full">
                         {editingCategoryId ? "Update" : "Add"}
                     </Button>
+                    {editingCategoryId && (
+                        <div className="flex gap-2 w-full">
+                            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={() => {
+                                    onDelete(editingCategoryId);
+                                    onOpenChange(false);
+                                }}
+                                className="flex-1"
+                            >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                            </Button>
+                        </div>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>

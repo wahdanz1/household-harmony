@@ -319,14 +319,6 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
                                                     >
                                                         <Edit className="h-4 w-4" />
                                                     </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-9 w-9 shrink-0"
-                                                        onClick={() => confirmDelete(expense.id, expense.description)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
                                                 </div>
                                             </div>
                                         </div>
@@ -359,13 +351,6 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
                                                     onClick={() => handleEdit(expense)}
                                                 >
                                                     <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => confirmDelete(expense.id, expense.description)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>
                                         </div>
