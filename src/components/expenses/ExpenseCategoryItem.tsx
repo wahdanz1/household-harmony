@@ -55,7 +55,7 @@ export const ExpenseCategoryItem = ({
     const Icon = cat?.icon;
 
     return (
-        <div className="p-3 sm:p-4 rounded-lg border border-border bg-background/40">
+        <div className="p-2 sm:p-4 rounded-lg border border-border bg-background/40">
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
                 {/* Top row: Icon + Title + Avatar */}
@@ -76,19 +76,21 @@ export const ExpenseCategoryItem = ({
 
                 {/* Bottom row: Amount input and edit button */}
                 <div className="flex items-center gap-2">
-                    <input
-                        type="number"
-                        value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
-                        onChange={(e) => onAmountChange(category.id, e.target.value)}
-                        disabled={category.type === "static" || category.type === "credit"}
-                        className={`flex-1 text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""} `}
-                        placeholder="0"
-                    />
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
+                    <div className="flex-1">
+                        <input
+                            type="number"
+                            value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
+                            onChange={(e) => onAmountChange(category.id, e.target.value)}
+                            disabled={category.type === "static" || category.type === "credit"}
+                            className={`w-full text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""} `}
+                            placeholder="0"
+                        />
+                    </div>
+                    <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">{currency}</span>
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-9 w-9"
+                        className="h-9 w-9 shrink-0"
                         onClick={() => onEdit(category)}
                     >
                         <Edit className="h-4 w-4" />
@@ -101,7 +103,7 @@ export const ExpenseCategoryItem = ({
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         {Icon && <Icon className="h-4 w-4" style={{ color: cat.color }} />}
-                        <p className="font-medium truncate">{category.name}</p>
+                        <p className="font-medium flex-1 truncate">{category.name}</p>
                         <span
                             className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
                             style={{

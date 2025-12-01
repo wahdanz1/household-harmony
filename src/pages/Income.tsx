@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, AlertCircle, Plus } from "lucide-react";
+import { TrendingUp, AlertCircle, Plus, Check } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +24,8 @@ const Income = () => {
   const [oneTimeIncomes, setOneTimeIncomes] = useState<any[]>([]);
   const [coParents, setCoParents] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
+  const [hasSaved, setHasSaved] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
@@ -63,6 +65,26 @@ const Income = () => {
 
     setMonthlyIncomes(regularIncomes);
     setOneTimeIncomes(oneTimeIncomesData);
+
+    // Check if there are saved incomes to determine button state
+    if (regularIncomes.length > 0) {
+      setHasSaved(true);
+      // Get the most recent updated_at timestamp
+      const mostRecent = regularIncomes.reduce((latest: any, current: any) => {
+        const latestDate = new Date(latest.updated_at);
+        const currentDate = new Date(current.updated_at);
+        return currentDate > latestDate ? current : latest;
+      });
+      const savedDate = new Date(mostRecent.updated_at);
+      // Only set if it's a valid date
+      if (!isNaN(savedDate.getTime())) {
+        setLastSavedTime(savedDate);
+      }
+    } else {
+      // Reset when no saved incomes
+      setHasSaved(false);
+      setLastSavedTime(null);
+    }
 
     const initialAmounts: Record<string, string> = {};
     (sourcesData || []).forEach((source: any) => {
@@ -116,6 +138,8 @@ const Income = () => {
         title: "Success",
         description: "Monthly income saved",
       });
+      setHasSaved(true);
+      setLastSavedTime(new Date());
       fetchData();
     }
     setSaving(false);
@@ -287,12 +311,22 @@ const Income = () => {
                     }
                     onEdit={handleEditSource}
                     onDelete={handleDeleteSource}
+                    showCheckmark={hasSaved && amounts[source.id] === monthlyIncomes.find((m: any) => m.income_source_id === source.id)?.amount.toString()}
                   />
                 ))}
               </div>
 
-              <Button onClick={handleSave} disabled={saving} className="w-full">
-                {saving ? "Saving..." : "Save Monthly Income"}
+              {lastSavedTime && !isNaN(lastSavedTime.getTime()) && (
+                <p className="text-xs text-center text-muted-foreground mb-2">
+                  Monthly income saved {format(lastSavedTime, "MMM d, yyyy 'at' HH:mm")}
+                </p>
+              )}
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className={`w-full ${hasSaved ? 'bg-green-600/70 hover:bg-green-600/80' : ''}`}
+              >
+                {saving ? "Saving..." : hasSaved ? "Update Monthly Income" : "Save Monthly Income"}
               </Button>
             </>
           )}

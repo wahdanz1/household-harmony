@@ -492,7 +492,7 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                   className="flex items-center gap-2 p-3 rounded-lg border border-border bg-background/40"
                 >
                   {getTypeIcon(insurance.type)}
-                  <p className="font-medium truncate">{insurance.name}</p>
+                  <p className="font-medium flex-1 truncate">{insurance.name}</p>
                   {(() => {
                     const type = insuranceTypes.find((t) => t.value === insurance.type);
                     return (

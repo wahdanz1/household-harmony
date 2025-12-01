@@ -12,7 +12,7 @@ const Layout = ({ children }: LayoutProps) => {
       <div className="gradient-background" />
       <DesktopNav />
       <main className="pb-20 md:pb-8 md:pl-64 relative z-10">
-        <div className="container max-w-6xl mx-auto px-4 py-6">
+        <div className="container max-w-6xl mx-auto px-3 md:px-4 py-6">
           {children}
         </div>
       </main>

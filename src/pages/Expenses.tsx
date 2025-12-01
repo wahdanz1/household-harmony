@@ -26,6 +26,8 @@ const Expenses = () => {
   const [coParents, setCoParents] = useState<any[]>([]);
   const [creditCardExpenses, setCreditCardExpenses] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("general");
+  const [hasSaved, setHasSaved] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
 
   const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
@@ -70,6 +72,16 @@ const Expenses = () => {
     setMembers(membersData || []);
     setCoParents(coParentsData || []);
     setCreditCardExpenses(creditCardExpensesData || []);
+
+    // Check if there are saved expenses to determine button state
+    if ((monthlyData || []).length > 0) {
+      setHasSaved(true);
+      // Get the most recent updated_at timestamp
+      const mostRecent = (monthlyData || []).reduce((latest: any, current: any) => {
+        return new Date(current.updated_at) > new Date(latest.updated_at) ? current : latest;
+      });
+      setLastSavedTime(new Date(mostRecent.updated_at));
+    }
 
     const initialAmounts: Record<string, string> = {};
     (categoriesData || []).forEach((category: any) => {
@@ -125,6 +137,8 @@ const Expenses = () => {
         title: "Success",
         description: "Monthly expenses saved",
       });
+      setHasSaved(true);
+      setLastSavedTime(new Date());
       fetchData();
     }
     setSaving(false);

@@ -380,7 +380,7 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                 className="flex items-center gap-2 p-3 rounded-lg border border-border bg-background/40"
               >
                 {getCategoryIcon(subscription.category)}
-                <p className="font-medium truncate">{subscription.name}</p>
+                <p className="font-medium flex-1 truncate">{subscription.name}</p>
                 {subscription.category && (() => {
                   const cat = subscriptionCategories.find((c) => c.value === subscription.category);
                   return (
