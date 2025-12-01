@@ -39,9 +39,9 @@ export const IncomeSourceItem = ({
                     {Icon && <Icon className="h-4 w-4" style={{ color: cat?.color }} />}
                     <p className="font-medium flex-1 truncate">{source.name}</p>
                     <Avatar className="h-5 w-5 shrink-0">
-                        <AvatarImage src={source.profiles.avatar_url || undefined} />
+                        <AvatarImage src={source.profiles?.avatar_url || undefined} />
                         <AvatarFallback className="text-xs">
-                            {source.profiles.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                            {source.profiles?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "?"}
                         </AvatarFallback>
                     </Avatar>
                 </div>
@@ -122,9 +122,9 @@ export const IncomeSourceItem = ({
                         <Edit className="h-4 w-4" />
                     </Button>
                     <Avatar className="h-7 w-7 shrink-0">
-                        <AvatarImage src={source.profiles.avatar_url || undefined} />
+                        <AvatarImage src={source.profiles?.avatar_url || undefined} />
                         <AvatarFallback className="text-sm">
-                            {source.profiles.full_name.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                            {source.profiles?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "?"}
                         </AvatarFallback>
                     </Avatar>
                 </div>

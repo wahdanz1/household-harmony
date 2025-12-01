@@ -175,7 +175,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="font-medium">{member.profiles.full_name || "Unknown"}</p>
+                  <p className="font-medium">{member.profiles?.full_name || "Unknown"}</p>
                   {member.role === "owner" && (
                     <Badge variant="secondary" className="flex items-center gap-1">
                       <Crown className="h-3 w-3" />
@@ -186,8 +186,8 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                     <Badge variant="outline">You</Badge>
                   )}
                 </div>
-                {member.profiles.email_public && (
-                  <p className="text-sm text-muted-foreground">{member.profiles.email}</p>
+                {member.profiles?.email_public && (
+                  <p className="text-sm text-muted-foreground">{member.profiles?.email}</p>
                 )}
               </div>
 
