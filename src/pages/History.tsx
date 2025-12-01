@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { History as HistoryIcon, TrendingUp, TrendingDown, Target, CreditCard, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getActiveHousehold } from "@/utils/householdHelpers";
 import { format, startOfMonth, subMonths } from "date-fns";
 
 interface Transaction {
@@ -52,13 +53,9 @@ const History = () => {
   const fetchData = async () => {
     if (!user) return;
 
-    const { data: householdData } = await supabase
-      .from("household_members")
-      .select("household_id")
-      .eq("user_id", user.id)
-      .single();
+    const { membership } = await getActiveHousehold(user.id);
 
-    if (!householdData) return;
+    if (!membership) return;
 
     const [
       { data: householdInfo },
@@ -72,39 +69,39 @@ const History = () => {
       { data: savingsGoals },
       { data: householdMembers },
     ] = await Promise.all([
-      supabase.from("households").select("currency").eq("id", householdData.household_id).single(),
+      supabase.from("households").select("currency").eq("id", membership.household_id).single(),
       supabase
         .from("monthly_incomes")
         .select("*, income_sources(name), profiles(full_name, avatar_url)")
-        .eq("household_id", householdData.household_id)
+        .eq("household_id", membership.household_id)
         .order("month", { ascending: false }),
       supabase
         .from("monthly_expenses")
         .select("*, expense_categories(name), profiles(full_name, avatar_url)")
-        .eq("household_id", householdData.household_id)
+        .eq("household_id", membership.household_id)
         .order("month", { ascending: false }),
       supabase
         .from("savings_allocations")
         .select("*, savings_goals(name), profiles(full_name, avatar_url)")
-        .eq("household_id", householdData.household_id)
+        .eq("household_id", membership.household_id)
         .order("month", { ascending: false }),
       supabase
         .from("subscriptions")
         .select("*")
-        .eq("household_id", householdData.household_id)
+        .eq("household_id", membership.household_id)
         .order("created_at", { ascending: false }),
       supabase
         .from("insurances")
         .select("*")
-        .eq("household_id", householdData.household_id)
+        .eq("household_id", membership.household_id)
         .order("created_at", { ascending: false }),
-      supabase.from("income_sources").select("name").eq("household_id", householdData.household_id).eq("is_active", true),
-      supabase.from("expense_categories").select("name").eq("household_id", householdData.household_id).eq("is_active", true),
-      supabase.from("savings_goals").select("name").eq("household_id", householdData.household_id).eq("is_active", true),
+      supabase.from("income_sources").select("name").eq("household_id", membership.household_id).eq("is_active", true),
+      supabase.from("expense_categories").select("name").eq("household_id", membership.household_id).eq("is_active", true),
+      supabase.from("savings_goals").select("name").eq("household_id", membership.household_id).eq("is_active", true),
       supabase
         .from("household_members")
         .select("user_id, profiles(full_name, avatar_url)")
-        .eq("household_id", householdData.household_id),
+        .eq("household_id", membership.household_id),
     ]);
 
     setCurrency(householdInfo?.currency || "SEK");
@@ -441,8 +438,8 @@ const History = () => {
                             transaction.type === "income"
                               ? "text-success"
                               : transaction.type === "savings"
-                              ? "text-primary"
-                              : "text-destructive"
+                                ? "text-primary"
+                                : "text-destructive"
                           }
                         >
                           {transaction.type === "income" ? "+" : "-"}

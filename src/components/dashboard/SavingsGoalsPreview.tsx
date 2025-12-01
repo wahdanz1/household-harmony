@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getActiveHousehold } from "@/utils/householdHelpers";
 
 interface SavingsGoal {
   id: string;
@@ -29,18 +30,14 @@ const SavingsGoalsPreview = ({ currency }: SavingsGoalsPreviewProps) => {
   const fetchGoals = async () => {
     if (!user) return;
 
-    const { data: member } = await supabase
-      .from("household_members")
-      .select("household_id")
-      .eq("user_id", user.id)
-      .single();
+    const { membership } = await getActiveHousehold(user.id);
 
-    if (!member) return;
+    if (!membership) return;
 
     const { data } = await supabase
       .from("savings_goals")
       .select("id, name, target_amount, current_amount, priority")
-      .eq("household_id", member.household_id)
+      .eq("household_id", membership.household_id)
       .eq("is_active", true)
       .order("priority", { ascending: true })
       .limit(3);

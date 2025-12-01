@@ -5,6 +5,7 @@ import { TrendingUp, AlertCircle, Plus, Check } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getActiveHousehold } from "@/utils/householdHelpers";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { IncomeSourceItem } from "@/components/income/IncomeSourceItem";
@@ -34,13 +35,9 @@ const Income = () => {
   const fetchData = async () => {
     if (!user) return;
 
-    const { data: householdData } = await supabase
-      .from("household_members")
-      .select("household_id")
-      .eq("user_id", user.id)
-      .single();
+    const { membership } = await getActiveHousehold(user.id);
 
-    if (!householdData) return;
+    if (!membership) return;
 
     const [
       { data: householdInfo },
@@ -49,11 +46,11 @@ const Income = () => {
       { data: coParentsData },
       { data: membersData },
     ] = await Promise.all([
-      supabase.from("households").select("*").eq("id", householdData.household_id).single(),
-      supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", householdData.household_id).eq("is_active", true),
-      supabase.from("monthly_incomes").select("*").eq("household_id", householdData.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
-      supabase.from("co_parents").select("*").eq("household_id", householdData.household_id),
-      supabase.from("household_members").select("*, profiles(full_name, email)").eq("household_id", householdData.household_id),
+      supabase.from("households").select("*").eq("id", membership.household_id).single(),
+      supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", membership.household_id).eq("is_active", true).order("created_at", { ascending: true }),
+      supabase.from("monthly_incomes").select("*").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
+      supabase.from("co_parents").select("*").eq("household_id", membership.household_id),
+      supabase.from("household_members").select("*, profiles(full_name, email)").eq("household_id", membership.household_id),
     ]);
 
     setHousehold(householdInfo);

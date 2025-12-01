@@ -70,73 +70,18 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
     if (!user) return;
     setIsLeaving(true);
 
-    // Find user's original household (where they are the owner)
-    const { data: originalHousehold, error: findError } = await supabase
-      .from("households")
-      .select("id")
-      .eq("owner_id", user.id)
-      .maybeSingle();
-
-    let targetHouseholdId: string;
-
-    // If no original household exists (user joined during signup), create a new one
-    if (!originalHousehold) {
-      const newHouseholdName = generateHouseholdName();
-      const { data: newHousehold, error: createError } = await supabase
-        .from("households")
-        .insert({
-          name: newHouseholdName,
-          owner_id: user.id,
-          currency: household.currency, // Keep same currency
-        })
-        .select("id")
-        .single();
-
-      if (createError || !newHousehold) {
-        toast({
-          title: "Error",
-          description: "Failed to create your new household",
-          variant: "destructive",
-        });
-        setIsLeaving(false);
-        return;
-      }
-
-      targetHouseholdId = newHousehold.id;
-    } else {
-      targetHouseholdId = originalHousehold.id;
-    }
-
-    // Remove from current household
-    const { error: removeError } = await supabase
+    // Simply delete the member role (owner role remains, user returns to it automatically)
+    const { error: deleteError } = await supabase
       .from("household_members")
       .delete()
       .eq("user_id", user.id)
-      .eq("household_id", household.id);
+      .eq("household_id", household.id)
+      .eq("role", "member"); // Only delete member role, keep owner role
 
-    if (removeError) {
+    if (deleteError) {
       toast({
         title: "Error",
         description: "Failed to leave household",
-        variant: "destructive",
-      });
-      setIsLeaving(false);
-      return;
-    }
-
-    // Add to target household (original or new) as owner
-    const { error: addError } = await supabase
-      .from("household_members")
-      .insert({
-        household_id: targetHouseholdId,
-        user_id: user.id,
-        role: "owner",
-      });
-
-    if (addError) {
-      toast({
-        title: "Error",
-        description: "Failed to join your household",
         variant: "destructive",
       });
       setIsLeaving(false);
