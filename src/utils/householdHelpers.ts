@@ -48,10 +48,6 @@ export async function getActiveHousehold(userId: string): Promise<ActiveHousehol
         return { membership: null, household: null, allMemberships: [] };
     }
 
-    // DEBUG: Log all memberships to see what we're getting
-    console.log("[getActiveHousehold] All memberships for user:", userId);
-    console.log("[getActiveHousehold] Memberships:", memberships.map(m => ({ role: m.role, household_id: m.household_id })));
-
     // Explicitly prioritize member role over owner role (don't rely on alphabetical sorting)
     const activeMembership = memberships.find(m => m.role === "member") || memberships.find(m => m.role === "owner");
 
@@ -59,8 +55,6 @@ export async function getActiveHousehold(userId: string): Promise<ActiveHousehol
         console.error("[getActiveHousehold] No valid membership found");
         return { membership: null, household: null, allMemberships: memberships as HouseholdMembership[] };
     }
-
-    console.log("[getActiveHousehold] Selected active membership:", { role: activeMembership.role, household_id: activeMembership.household_id });
 
     // Fetch the household details
     const { data: household, error: householdError } = await supabase
