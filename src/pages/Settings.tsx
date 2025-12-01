@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getActiveHousehold } from "@/utils/householdHelpers";
 import { HouseholdInfoCard } from "@/components/settings/HouseholdInfoCard";
 import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard";
 import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
@@ -20,27 +21,23 @@ const Settings = () => {
   const fetchData = async () => {
     if (!user) return;
 
-    const { data: householdData } = await supabase
-      .from("household_members")
-      .select("household_id, role")
-      .eq("user_id", user.id)
-      .single();
+    // Use new helper to get active household
+    const { membership, household: householdInfo } = await getActiveHousehold(user.id);
 
-    if (!householdData) return;
+    if (!membership || !householdInfo) return;
 
-    setUserRole(householdData.role);
+    setUserRole(membership.role);
+    setHousehold(householdInfo);
 
+    // Fetch members and invites for the active household
     const [
-      { data: householdInfo },
       { data: membersData },
       { data: invitesData },
     ] = await Promise.all([
-      supabase.from("households").select("*").eq("id", householdData.household_id).single(),
-      supabase.from("household_members").select("*, profiles(full_name, email, email_public)").eq("household_id", householdData.household_id),
-      supabase.from("household_invites").select("*").eq("household_id", householdData.household_id).order("created_at", { ascending: false }),
+      supabase.from("household_members").select("*, profiles(full_name, email, email_public)").eq("household_id", membership.household_id),
+      supabase.from("household_invites").select("*").eq("household_id", membership.household_id).order("created_at", { ascending: false }),
     ]);
 
-    setHousehold(householdInfo);
     setMembers(membersData || []);
     setInvites(invitesData || []);
     setLoading(false);

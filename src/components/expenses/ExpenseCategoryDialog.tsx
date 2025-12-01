@@ -1,10 +1,5 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
-import { Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ExpenseCategoryForm, ExpenseCategoryFormData } from "./forms/ExpenseCategoryForm";
 
 interface ExpenseCategoryDialogProps {
     open: boolean;
@@ -25,7 +20,7 @@ interface ExpenseCategoryDialogProps {
     onElectricityMarketChange: (value: string) => void;
     onWaterIncludedChange: (value: boolean) => void;
     onWaterCostChange: (value: string) => void;
-    onSave: () => void;
+    onSave: (data: any) => void;
     onDelete: (id: string) => void;
 }
 
@@ -39,11 +34,6 @@ export const ExpenseCategoryDialog = ({
     waterIncluded,
     waterCost,
     onOpenChange,
-    onFormDataChange,
-    onElectricityGridChange,
-    onElectricityMarketChange,
-    onWaterIncludedChange,
-    onWaterCostChange,
     onSave,
     onDelete,
 }: ExpenseCategoryDialogProps) => {
@@ -53,116 +43,34 @@ export const ExpenseCategoryDialog = ({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{editingCategoryId ? "Edit" : "Add"} Expense Category</DialogTitle>
+                    <DialogTitle>Edit Expense Category</DialogTitle>
                     <DialogDescription>
-                        Create a new expense category for tracking
+                        Update the details for this expense category
                     </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Name</Label>
-                        <Input
-                            value={categoryFormData.name}
-                            onChange={(e) => onFormDataChange({ ...categoryFormData, name: e.target.value })}
-                            placeholder="e.g., Rent, Groceries"
-                        />
-                    </div>
 
-                    <div className="space-y-2">
-                        <Label>Type</Label>
-                        <Select value={categoryFormData.type} onValueChange={(v) => onFormDataChange({ ...categoryFormData, type: v as typeof categoryFormData.type })}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="static">Static (Fixed monthly)</SelectItem>
-                                <SelectItem value="dynamic">Dynamic (Rolling average)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Default Amount</Label>
-                        <Input
-                            type="number"
-                            value={categoryFormData.default_amount}
-                            onChange={(e) => onFormDataChange({ ...categoryFormData, default_amount: e.target.value })}
-                            placeholder="0"
-                        />
-                    </div>
-
-                    {/* Electricity Special Fields */}
-                    {editingCategoryId && editingCategory?.category === "electricity" && (
-                        <>
-                            <div className="space-y-2">
-                                <Label>Grid Amount</Label>
-                                <Input
-                                    type="number"
-                                    value={electricityGrid}
-                                    onChange={(e) => onElectricityGridChange(e.target.value)}
-                                    placeholder="0"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Market Amount</Label>
-                                <Input
-                                    type="number"
-                                    value={electricityMarket}
-                                    onChange={(e) => onElectricityMarketChange(e.target.value)}
-                                    placeholder="0"
-                                />
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                Total: {(parseFloat(electricityGrid || "0") + parseFloat(electricityMarket || "0")).toFixed(0)}
-                            </p>
-                        </>
-                    )}
-
-                    {/* Rent Special Fields */}
-                    {editingCategoryId && editingCategory?.category === "rent" && (
-                        <>
-                            <div className="flex items-center space-x-2">
-                                <Switch
-                                    checked={waterIncluded}
-                                    onCheckedChange={onWaterIncludedChange}
-                                />
-                                <Label>Water Included</Label>
-                            </div>
-                            {!waterIncluded && (
-                                <div className="space-y-2">
-                                    <Label>Water Cost</Label>
-                                    <Input
-                                        type="number"
-                                        value={waterCost}
-                                        onChange={(e) => onWaterCostChange(e.target.value)}
-                                        placeholder="0"
-                                    />
-                                </div>
-                            )}
-                        </>
-                    )}
-                </div>
-                <DialogFooter className="flex-col sm:flex-row gap-2">
-                    {editingCategoryId && (
-                        <Button
-                            variant="destructive"
-                            onClick={() => {
-                                onDelete(editingCategoryId);
-                                onOpenChange(false);
-                            }}
-                            className="sm:mr-auto"
-                        >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                        </Button>
-                    )}
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        Cancel
-                    </Button>
-                    <Button onClick={onSave}>
-                        {editingCategoryId ? "Update" : "Add"}
-                    </Button>
-                </DialogFooter>
+                <ExpenseCategoryForm
+                    defaultValues={{
+                        category: editingCategory?.category,
+                        name: categoryFormData.name,
+                        type: categoryFormData.type,
+                        default_amount: categoryFormData.default_amount,
+                        electricityGrid,
+                        electricityMarket,
+                        waterIncluded,
+                        waterCost,
+                    }}
+                    onSubmit={onSave}
+                    onCancel={() => onOpenChange(false)}
+                    submitLabel="Update"
+                    isEditing={true}
+                    onDelete={() => {
+                        if (editingCategoryId) {
+                            onDelete(editingCategoryId);
+                            onOpenChange(false);
+                        }
+                    }}
+                />
             </DialogContent>
         </Dialog>
     );

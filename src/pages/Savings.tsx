@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Target, Plus, Calculator, TrendingUp, Edit, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getActiveHousehold } from "@/utils/householdHelpers";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -38,7 +39,7 @@ const Savings = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
-  
+
   // Calculator state
   const [calcTarget, setCalcTarget] = useState("");
   const [calcMonthly, setCalcMonthly] = useState("");
@@ -63,33 +64,25 @@ const Savings = () => {
 
   const fetchHouseholdCurrency = async () => {
     if (!user) return;
-    
-    const { data: member } = await supabase
-      .from("household_members")
-      .select("household_id, households(currency)")
-      .eq("user_id", user.id)
-      .single();
 
-    if (member?.households) {
-      setCurrency((member.households as any).currency);
+    const { membership, household } = await getActiveHousehold(user.id);
+
+    if (household) {
+      setCurrency(household.currency);
     }
   };
 
   const fetchGoals = async () => {
     if (!user) return;
 
-    const { data: member } = await supabase
-      .from("household_members")
-      .select("household_id")
-      .eq("user_id", user.id)
-      .single();
+    const { membership } = await getActiveHousehold(user.id);
 
-    if (!member) return;
+    if (!membership) return;
 
     const { data, error } = await supabase
       .from("savings_goals")
       .select("*")
-      .eq("household_id", member.household_id)
+      .eq("household_id", membership.household_id)
       .eq("is_active", true)
       .order("priority", { ascending: true })
       .order("created_at", { ascending: false });
@@ -133,16 +126,12 @@ const Savings = () => {
   const handleSaveGoal = async () => {
     if (!user) return;
 
-    const { data: member } = await supabase
-      .from("household_members")
-      .select("household_id")
-      .eq("user_id", user.id)
-      .single();
+    const { membership } = await getActiveHousehold(user.id);
 
-    if (!member) return;
+    if (!membership) return;
 
     const goalData = {
-      household_id: member.household_id,
+      household_id: membership.household_id,
       name: formData.name,
       target_amount: parseFloat(formData.target_amount),
       current_amount: parseFloat(formData.current_amount),
@@ -423,7 +412,7 @@ const Savings = () => {
             goals.map((goal) => {
               const progress = (goal.current_amount / goal.target_amount) * 100;
               const remaining = goal.target_amount - goal.current_amount;
-              
+
               return (
                 <Card key={goal.id}>
                   <CardHeader>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getActiveHousehold } from "@/utils/householdHelpers";
 import { format, startOfMonth } from "date-fns";
 import MonthOverview from "@/components/dashboard/MonthOverview";
 import QuickActions from "@/components/dashboard/QuickActions";
@@ -21,15 +22,11 @@ const Dashboard = () => {
     const fetchData = async () => {
       if (!user) return;
 
-      const { data: householdData } = await supabase
-        .from("household_members")
-        .select("household_id")
-        .eq("user_id", user.id)
-        .single();
+      const { membership } = await getActiveHousehold(user.id);
 
-      if (!householdData) return;
+      if (!membership) return;
 
-      setHouseholdId(householdData.household_id);
+      setHouseholdId(membership.household_id);
 
       const [
         { data: householdInfo },
@@ -40,13 +37,13 @@ const Dashboard = () => {
         { data: creditCardExpenses },
         { data: sharedExpenses },
       ] = await Promise.all([
-        supabase.from("households").select("currency").eq("id", householdData.household_id).single(),
-        supabase.from("monthly_incomes").select("amount").eq("household_id", householdData.household_id).eq("month", currentMonth),
-        supabase.from("monthly_expenses").select("amount").eq("household_id", householdData.household_id).eq("month", currentMonth),
-        supabase.from("subscriptions").select("amount").eq("household_id", householdData.household_id).eq("is_active", true),
-        supabase.from("insurances").select("total_amount, payment_frequency, is_shared, share_percentage").eq("household_id", householdData.household_id).eq("is_active", true),
-        supabase.from("credit_card_expenses").select("amount").eq("household_id", householdData.household_id).eq("month", currentMonth),
-        supabase.from("shared_expenses").select("amount, paid_by").eq("household_id", householdData.household_id).eq("month", currentMonth),
+        supabase.from("households").select("currency").eq("id", membership.household_id).single(),
+        supabase.from("monthly_incomes").select("amount").eq("household_id", membership.household_id).eq("month", currentMonth),
+        supabase.from("monthly_expenses").select("amount").eq("household_id", membership.household_id).eq("month", currentMonth),
+        supabase.from("subscriptions").select("amount").eq("household_id", membership.household_id).eq("is_active", true),
+        supabase.from("insurances").select("total_amount, payment_frequency, is_shared, share_percentage").eq("household_id", membership.household_id).eq("is_active", true),
+        supabase.from("credit_card_expenses").select("amount").eq("household_id", membership.household_id).eq("month", currentMonth),
+        supabase.from("shared_expenses").select("amount, paid_by").eq("household_id", membership.household_id).eq("month", currentMonth),
       ]);
 
       const totalIncome = (monthlyIncomes || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);

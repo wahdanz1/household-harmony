@@ -101,14 +101,16 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
 
         setLoading(true);
 
-        // Use the database function to handle voluntary leave
-        const { error: joinError } = await supabase.rpc('join_household_voluntary', {
-            p_user_id: user.id,
-            p_new_household_id: household.id,
-            p_new_role: 'member'
-        });
+        // Simply add new member role (owner role remains intact)
+        const { error: insertError } = await supabase
+            .from('household_members')
+            .insert({
+                household_id: household.id,
+                user_id: user.id,
+                role: 'member'
+            });
 
-        if (joinError) {
+        if (insertError) {
             toast({
                 title: "Error",
                 description: "Failed to join household",

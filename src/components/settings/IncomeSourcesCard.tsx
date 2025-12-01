@@ -198,7 +198,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
                   <SelectContent>
                     {members.map((member) => (
                       <SelectItem key={member.user_id} value={member.user_id}>
-                        {member.profiles.full_name || member.profiles.email}
+                        {member.profiles?.full_name || member.profiles?.email || "Unknown"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -251,7 +251,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {source.profiles.full_name} • {source.default_amount} {currency}
+                  {source.profiles?.full_name || "Unknown"} • {source.default_amount} {currency}
                 </p>
               </div>
               <div className="flex gap-2">

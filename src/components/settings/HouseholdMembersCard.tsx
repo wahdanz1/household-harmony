@@ -114,10 +114,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    // Get the member's user_id before deleting
-    const memberToRemove = members.find(m => m.id === memberId);
-    if (!memberToRemove) return;
-
+    // Simply delete the member role (their owner role remains, they return to it automatically)
     const { error: deleteError } = await supabase
       .from("household_members")
       .delete()
@@ -130,45 +127,6 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
         variant: "destructive",
       });
       return;
-    }
-
-    // Find their original household (where they are the owner)
-    const { data: originalHousehold } = await supabase
-      .from("households")
-      .select("id")
-      .eq("owner_id", memberToRemove.user_id)
-      .maybeSingle();
-
-    let targetHouseholdId: string;
-
-    // If no original household, create a new one
-    if (!originalHousehold) {
-      const { data: newHousehold } = await supabase
-        .from("households")
-        .insert({
-          name: `${memberToRemove.profiles.full_name}'s Household`,
-          owner_id: memberToRemove.user_id,
-          currency: "SEK",
-        })
-        .select("id")
-        .single();
-
-      targetHouseholdId = newHousehold?.id || "";
-    } else {
-      targetHouseholdId = originalHousehold.id;
-    }
-
-    // Add them back to their household as owner (upsert to avoid conflicts)
-    if (targetHouseholdId) {
-      await supabase
-        .from("household_members")
-        .upsert({
-          household_id: targetHouseholdId,
-          user_id: memberToRemove.user_id,
-          role: "owner",
-        }, {
-          onConflict: "household_id,user_id"
-        });
     }
 
     toast({
@@ -217,7 +175,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="font-medium">{member.profiles.full_name || "Unknown"}</p>
+                  <p className="font-medium">{member.profiles?.full_name || "Unknown"}</p>
                   {member.role === "owner" && (
                     <Badge variant="secondary" className="flex items-center gap-1">
                       <Crown className="h-3 w-3" />
@@ -228,8 +186,8 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                     <Badge variant="outline">You</Badge>
                   )}
                 </div>
-                {member.profiles.email_public && (
-                  <p className="text-sm text-muted-foreground">{member.profiles.email}</p>
+                {member.profiles?.email_public && (
+                  <p className="text-sm text-muted-foreground">{member.profiles?.email}</p>
                 )}
               </div>
 

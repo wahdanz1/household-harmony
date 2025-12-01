@@ -68,17 +68,24 @@ export const useExpenseCategories = (
         setCategoryDialogOpen(true);
     };
 
-    const handleSaveCategory = async () => {
-        // Find the category being edited to check for special fields
+    const handleSaveCategory = async (submittedData?: any) => {
+        // Use submitted data if provided, otherwise fall back to state
+        const dataName = submittedData?.name || categoryFormData.name;
+        const dataType = submittedData?.type || categoryFormData.type;
+        const dataDefaultAmount = submittedData?.default_amount || categoryFormData.default_amount;
+        const dataCategory = submittedData?.category; // New form provides category
+
+        // Find the category being edited to check for special fields (fallback)
         const editingCategory = expenseCategories.find(c => c.id === editingCategoryId);
+        const categoryType = dataCategory || editingCategory?.category;
 
         // Build metadata object for Electricity and Rent
         let metadata = null;
-        let calculatedDefaultAmount = parseFloat(categoryFormData.default_amount);
+        let calculatedDefaultAmount = parseFloat(dataDefaultAmount);
 
-        if (editingCategory?.category === "electricity") {
-            const grid = parseFloat(electricityGrid || "0");
-            const market = parseFloat(electricityMarket || "0");
+        if (categoryType === "electricity") {
+            const grid = parseFloat(submittedData?.electricityGrid || electricityGrid || "0");
+            const market = parseFloat(submittedData?.electricityMarket || electricityMarket || "0");
 
             metadata = {
                 electricity_grid: grid,
@@ -87,20 +94,29 @@ export const useExpenseCategories = (
 
             // For Electricity, default_amount is the SUM of Grid + Market
             calculatedDefaultAmount = grid + market;
-        } else if (editingCategory?.category === "rent") {
+        } else if (categoryType === "rent") {
+            const isWaterIncluded = submittedData !== undefined ? submittedData.waterIncluded : waterIncluded;
+            const cost = parseFloat(submittedData?.waterCost || waterCost || "0");
+
             metadata = {
-                water_included: waterIncluded,
-                water_cost: waterIncluded ? 0 : parseFloat(waterCost || "0"),
+                water_included: isWaterIncluded,
+                water_cost: isWaterIncluded ? 0 : cost,
             };
         }
 
         const data: any = {
             household_id: householdId,
-            name: categoryFormData.name,
-            type: categoryFormData.type,
+            name: dataName,
+            type: dataType,
             default_amount: calculatedDefaultAmount,
             sort_order: expenseCategories.length,
         };
+
+        // If we have a category type (from new form or existing), include it
+        // This allows changing the category of an existing expense
+        if (categoryType) {
+            data.category = categoryType;
+        }
 
         // Add metadata if it exists
         if (metadata) {

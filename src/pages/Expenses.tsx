@@ -9,6 +9,7 @@ import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { getActiveHousehold } from "@/utils/householdHelpers";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
 
@@ -36,13 +37,9 @@ const Expenses = () => {
   const fetchData = async () => {
     if (!user) return;
 
-    const { data: householdData } = await supabase
-      .from("household_members")
-      .select("household_id")
-      .eq("user_id", user.id)
-      .single();
+    const { membership } = await getActiveHousehold(user.id);
 
-    if (!householdData) return;
+    if (!membership) return;
 
     const [
       { data: householdInfo },
@@ -55,15 +52,15 @@ const Expenses = () => {
       { data: coParentsData },
       { data: creditCardExpensesData },
     ] = await Promise.all([
-      supabase.from("households").select("*").eq("id", householdData.household_id).single(),
-      supabase.from("expense_categories").select("*").eq("household_id", householdData.household_id).eq("is_active", true).order("sort_order"),
-      supabase.from("monthly_expenses").select("*").eq("household_id", householdData.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
-      supabase.from("monthly_expenses").select("*").eq("household_id", householdData.household_id).lt("month_start", format(monthStart, "yyyy-MM-dd")),
-      supabase.from("subscriptions").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
-      supabase.from("insurances").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
-      supabase.from("household_members").select("*, profiles(full_name, email, avatar_url)").eq("household_id", householdData.household_id),
-      supabase.from("co_parents").select("*").eq("household_id", householdData.household_id),
-      supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", householdData.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
+      supabase.from("households").select("*").eq("id", membership.household_id).single(),
+      supabase.from("expense_categories").select("*").eq("household_id", membership.household_id).eq("is_active", true).order("sort_order"),
+      supabase.from("monthly_expenses").select("*").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
+      supabase.from("monthly_expenses").select("*").eq("household_id", membership.household_id).lt("month_start", format(monthStart, "yyyy-MM-dd")),
+      supabase.from("subscriptions").select("*").eq("household_id", membership.household_id).eq("is_active", true),
+      supabase.from("insurances").select("*").eq("household_id", membership.household_id).eq("is_active", true),
+      supabase.from("household_members").select("*, profiles(full_name, email, avatar_url)").eq("household_id", membership.household_id),
+      supabase.from("co_parents").select("*").eq("household_id", membership.household_id),
+      supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
     ]);
 
     setHousehold(householdInfo);

@@ -351,24 +351,28 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                   <Label>Active</Label>
                 </div>
               </div>
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                {editingId && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      handleDelete(editingId);
-                      setIsOpen(false);
-                    }}
-                    className="sm:mr-auto"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </Button>
-                )}
-                <Button variant="outline" onClick={() => setIsOpen(false)}>
-                  Cancel
+              <DialogFooter className="flex-col gap-2">
+                <Button onClick={handleSave} className="w-full">
+                  {editingId ? "Update" : "Add"}
                 </Button>
-                <Button onClick={handleSave}>{editingId ? "Update" : "Add"}</Button>
+                {editingId && (
+                  <div className="flex gap-2 w-full">
+                    <Button variant="outline" onClick={() => setIsOpen(false)} className="flex-1">
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        handleDelete(editingId);
+                        setIsOpen(false);
+                      }}
+                      className="flex-1"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
+                )}
               </DialogFooter>
             </DialogContent>
           </Dialog>
