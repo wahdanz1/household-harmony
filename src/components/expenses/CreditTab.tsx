@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format, startOfMonth } from "date-fns";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { CreditCardManagement } from "./credit/CreditCardManagement";
 import { CreditCardSummaryCards } from "./credit/CreditCardSummaryCards";
@@ -26,14 +26,14 @@ interface CreditCard {
 interface CreditTabProps {
     householdId: string;
     currency: string;
+    monthStart: Date;
+    monthEnd: Date;
 }
 
-export const CreditTab = ({ householdId, currency }: CreditTabProps) => {
+export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: CreditTabProps) => {
     const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
     const [expenses, setExpenses] = useState<CreditCardExpense[]>([]);
     const [loading, setLoading] = useState(true);
-
-    const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
     useEffect(() => {
         fetchData();
@@ -45,7 +45,7 @@ export const CreditTab = ({ householdId, currency }: CreditTabProps) => {
             { data: expensesData },
         ] = await Promise.all([
             supabase.from("credit_cards").select("*").eq("household_id", householdId).eq("is_active", true),
-            supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", householdId).eq("month", currentMonth),
+            supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", householdId).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
         ]);
 
         setCreditCards(cardsData || []);
@@ -86,7 +86,8 @@ export const CreditTab = ({ householdId, currency }: CreditTabProps) => {
                     <CreditExpensesList
                         householdId={householdId}
                         currency={currency}
-                        currentMonth={currentMonth}
+                        monthStart={monthStart}
+                        monthEnd={monthEnd}
                         creditCards={creditCards}
                         expenses={expenses}
                         onUpdate={fetchData}

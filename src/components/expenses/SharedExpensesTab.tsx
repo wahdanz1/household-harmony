@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format, startOfMonth } from "date-fns";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { CoParentManagement } from "./shared/CoParentManagement";
 import { SharedExpensesList } from "./shared/SharedExpensesList";
@@ -23,13 +23,13 @@ interface CoParent {
 interface SharedExpensesTabProps {
   householdId: string;
   currency: string;
+  monthStart: Date;
+  monthEnd: Date;
 }
 
-export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabProps) => {
+export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd }: SharedExpensesTabProps) => {
   const [coParents, setCoParents] = useState<CoParent[]>([]);
   const [expenses, setExpenses] = useState<SharedExpense[]>([]);
-
-  const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
 
   const fetchData = async () => {
     const [{ data: coParentsData }, { data: expensesData }] = await Promise.all([
@@ -38,7 +38,8 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
         .from("shared_expenses")
         .select("*, co_parents(name)")
         .eq("household_id", householdId)
-        .eq("month", currentMonth)
+        .gte("month_end", format(monthStart, "yyyy-MM-dd"))
+        .lte("month_start", format(monthEnd, "yyyy-MM-dd"))
         .order("created_at", { ascending: false }),
     ]);
 
@@ -73,7 +74,8 @@ export const SharedExpensesTab = ({ householdId, currency }: SharedExpensesTabPr
         <SharedExpensesList
           householdId={householdId}
           currency={currency}
-          currentMonth={currentMonth}
+          monthStart={monthStart}
+          monthEnd={monthEnd}
           coParents={coParents}
           expenses={expenses}
           totalSharedExpenses={totalSharedExpenses}

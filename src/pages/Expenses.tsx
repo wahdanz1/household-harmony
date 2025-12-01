@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { format, startOfMonth } from "date-fns";
+import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarDays, CreditCard, Shield, ShoppingBag } from "lucide-react";
 import { MonthlyExpenses } from "@/components/expenses/MonthlyExpenses";
@@ -10,6 +10,7 @@ import { CreditTab } from "@/components/expenses/CreditTab";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
 
 const Expenses = () => {
   const { user } = useAuth();
@@ -29,7 +30,8 @@ const Expenses = () => {
   const [hasSaved, setHasSaved] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
 
-  const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const currentMonth = getCurrentFinancialMonth();
+  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth);
 
   const fetchData = async () => {
     if (!user) return;
@@ -55,13 +57,13 @@ const Expenses = () => {
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
       supabase.from("expense_categories").select("*").eq("household_id", householdData.household_id).eq("is_active", true).order("sort_order"),
-      supabase.from("monthly_expenses").select("*").eq("household_id", householdData.household_id).eq("month", currentMonth),
-      supabase.from("monthly_expenses").select("*").eq("household_id", householdData.household_id).lt("month", currentMonth),
+      supabase.from("monthly_expenses").select("*").eq("household_id", householdData.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
+      supabase.from("monthly_expenses").select("*").eq("household_id", householdData.household_id).lt("month_start", format(monthStart, "yyyy-MM-dd")),
       supabase.from("subscriptions").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
       supabase.from("insurances").select("*").eq("household_id", householdData.household_id).eq("is_active", true),
       supabase.from("household_members").select("*, profiles(full_name, email, avatar_url)").eq("household_id", householdData.household_id),
       supabase.from("co_parents").select("*").eq("household_id", householdData.household_id),
-      supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", householdData.household_id).eq("month", currentMonth),
+      supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", householdData.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
     ]);
 
     setHousehold(householdInfo);
@@ -118,6 +120,8 @@ const Expenses = () => {
       expense_category_id: category.id,
       household_id: household.id,
       month: currentMonth,
+      month_start: format(monthStart, "yyyy-MM-dd"),
+      month_end: format(monthEnd, "yyyy-MM-dd"),
       amount: parseFloat(amounts[category.id] || "0"),
       created_by: user.id,
     }));
@@ -176,7 +180,7 @@ const Expenses = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Expense Management</h1>
           <p className="text-muted-foreground mt-2">
-            {format(new Date(currentMonth), "MMMM yyyy")}
+            {formatFinancialMonth(currentMonth)}
           </p>
         </div>
         <div className="text-right">
@@ -255,6 +259,8 @@ const Expenses = () => {
             <CreditTab
               householdId={household?.id}
               currency={household?.currency || "SEK"}
+              monthStart={monthStart}
+              monthEnd={monthEnd}
             />
           </TabsContent>
         )}
@@ -264,6 +270,8 @@ const Expenses = () => {
             <SharedExpensesTab
               householdId={household?.id}
               currency={household?.currency || "SEK"}
+              monthStart={monthStart}
+              monthEnd={monthEnd}
             />
           </TabsContent>
         )}

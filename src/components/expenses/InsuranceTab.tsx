@@ -489,34 +489,55 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
               return (
                 <div
                   key={insurance.id}
-                  className="flex items-center gap-2 p-3 rounded-lg border border-border bg-background/40"
+                  className="p-2 sm:p-3 rounded-lg border border-border bg-background/40"
                 >
-                  {getTypeIcon(insurance.type)}
-                  <p className="font-medium flex-1 truncate">{insurance.name}</p>
-                  {(() => {
-                    const type = insuranceTypes.find((t) => t.value === insurance.type);
-                    return (
-                      <span
-                        className="hidden sm:inline text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-                        style={{
-                          backgroundColor: `${type?.color}20`,
-                          color: type?.color
-                        }}
-                      >
-                        {type?.label || insurance.type}
-                      </span>
-                    );
-                  })()}
-                  {insurance.is_shared && (
-                    <Badge variant="secondary" className="hidden sm:inline shrink-0">{insurance.share_percentage}% shared</Badge>
-                  )}
-                  <div className="flex-1" /> {/* Spacer */}
-                  <p className="text-sm text-muted-foreground whitespace-nowrap">
-                    {monthlyAmount.toFixed(0)} {currency}/month
-                  </p>
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(insurance)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  {/* Mobile: Two-line layout */}
+                  <div className="sm:hidden space-y-3">
+                    {/* Top row: Icon + Title */}
+                    <div className="flex items-center gap-2">
+                      {getTypeIcon(insurance.type)}
+                      <p className="font-medium flex-1 truncate">{insurance.name}</p>
+                    </div>
+                    {/* Bottom row: Amount and edit button */}
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        {monthlyAmount.toFixed(0)} {currency}/month
+                      </p>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => handleEdit(insurance)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Desktop: Single line layout */}
+                  <div className="hidden sm:flex items-center gap-2">
+                    {getTypeIcon(insurance.type)}
+                    <p className="font-medium truncate">{insurance.name}</p>
+                    {(() => {
+                      const type = insuranceTypes.find((t) => t.value === insurance.type);
+                      return (
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
+                          style={{
+                            backgroundColor: `${type?.color}20`,
+                            color: type?.color
+                          }}
+                        >
+                          {type?.label || insurance.type}
+                        </span>
+                      );
+                    })()}
+                    {insurance.is_shared && (
+                      <Badge variant="secondary" className="shrink-0">{insurance.share_percentage}% shared</Badge>
+                    )}
+                    <div className="flex-1" /> {/* Spacer */}
+                    <p className="text-sm text-muted-foreground whitespace-nowrap">
+                      {monthlyAmount.toFixed(0)} {currency}/month
+                    </p>
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(insurance)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               );
             })}

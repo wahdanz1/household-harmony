@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Edit, Trash2, ShoppingCart, Fuel, ShoppingBag, UtensilsCrossed, Film, Wrench, Plane, Heart, MoreHorizontal } from "lucide-react";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -41,7 +42,8 @@ interface CreditCard {
 interface CreditExpensesListProps {
     householdId: string;
     currency: string;
-    currentMonth: string;
+    monthStart: Date;
+    monthEnd: Date;
     creditCards: CreditCard[];
     expenses: CreditCardExpense[];
     onUpdate: () => void;
@@ -65,7 +67,7 @@ const getCategoryIcon = (categoryValue: string) => {
     return <IconComponent className="h-4 w-4" />;
 };
 
-export const CreditExpensesList = ({ householdId, currency, currentMonth, creditCards, expenses, onUpdate }: CreditExpensesListProps) => {
+export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd, creditCards, expenses, onUpdate }: CreditExpensesListProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
@@ -109,7 +111,9 @@ export const CreditExpensesList = ({ householdId, currency, currentMonth, credit
         const data = {
             household_id: householdId,
             credit_card_id: formData.credit_card_id,
-            month: currentMonth,
+            month: format(monthStart, "yyyy-MM-dd"),
+            month_start: format(monthStart, "yyyy-MM-dd"),
+            month_end: format(monthEnd, "yyyy-MM-dd"),
             category: formData.category,
             description: formData.description,
             amount: parseFloat(formData.amount),

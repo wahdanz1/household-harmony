@@ -6,11 +6,12 @@ import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { format, startOfMonth } from "date-fns";
+import { format } from "date-fns";
 import { IncomeSourceItem } from "@/components/income/IncomeSourceItem";
 import { IncomeSourceDialog } from "@/components/income/IncomeSourceDialog";
 import { OneTimeIncomeCard } from "@/components/income/OneTimeIncomeCard";
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
+import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
 
 const Income = () => {
   const { user } = useAuth();
@@ -27,7 +28,8 @@ const Income = () => {
   const [hasSaved, setHasSaved] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
 
-  const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const currentMonth = getCurrentFinancialMonth();
+  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth);
 
   const fetchData = async () => {
     if (!user) return;
@@ -49,7 +51,7 @@ const Income = () => {
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", householdData.household_id).single(),
       supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", householdData.household_id).eq("is_active", true),
-      supabase.from("monthly_incomes").select("*").eq("household_id", householdData.household_id).eq("month", currentMonth),
+      supabase.from("monthly_incomes").select("*").eq("household_id", householdData.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
       supabase.from("co_parents").select("*").eq("household_id", householdData.household_id),
       supabase.from("household_members").select("*, profiles(full_name, email)").eq("household_id", householdData.household_id),
     ]);
@@ -119,6 +121,8 @@ const Income = () => {
       income_source_id: source.id,
       household_id: household.id,
       month: currentMonth,
+      month_start: format(monthStart, "yyyy-MM-dd"),
+      month_end: format(monthEnd, "yyyy-MM-dd"),
       amount: parseFloat(amounts[source.id] || "0"),
       created_by: user.id,
     }));
@@ -240,7 +244,7 @@ const Income = () => {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Income Management</h1>
           <p className="text-muted-foreground mt-2">
-            {format(new Date(currentMonth), "MMMM yyyy")}
+            {formatFinancialMonth(currentMonth)}
           </p>
         </div>
         <div className="text-right">

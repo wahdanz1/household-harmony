@@ -41,7 +41,8 @@ interface CoParent {
 interface SharedExpensesListProps {
     householdId: string;
     currency: string;
-    currentMonth: string;
+    monthStart: Date;
+    monthEnd: Date;
     coParents: CoParent[];
     expenses: SharedExpense[];
     totalSharedExpenses: number;
@@ -52,7 +53,8 @@ interface SharedExpensesListProps {
 export const SharedExpensesList = ({
     householdId,
     currency,
-    currentMonth,
+    monthStart,
+    monthEnd,
     coParents,
     expenses,
     totalSharedExpenses,
@@ -88,7 +90,9 @@ export const SharedExpensesList = ({
         const data = {
             household_id: householdId,
             co_parent_id: formData.co_parent_id,
-            month: currentMonth,
+            month: format(monthStart, "yyyy-MM-dd"),
+            month_start: format(monthStart, "yyyy-MM-dd"),
+            month_end: format(monthEnd, "yyyy-MM-dd"),
             description: formData.description,
             amount: parseFloat(formData.amount),
             notes: formData.notes,

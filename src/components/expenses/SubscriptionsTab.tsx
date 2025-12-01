@@ -377,31 +377,52 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
             {activeSubscriptions.map((subscription) => (
               <div
                 key={subscription.id}
-                className="flex items-center gap-2 p-3 rounded-lg border border-border bg-background/40"
+                className="p-2 sm:p-3 rounded-lg border border-border bg-background/40"
               >
-                {getCategoryIcon(subscription.category)}
-                <p className="font-medium flex-1 truncate">{subscription.name}</p>
-                {subscription.category && (() => {
-                  const cat = subscriptionCategories.find((c) => c.value === subscription.category);
-                  return (
-                    <span
-                      className="hidden sm:inline text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-                      style={{
-                        backgroundColor: `${cat?.color}20`,
-                        color: cat?.color
-                      }}
-                    >
-                      {cat?.label || subscription.category}
-                    </span>
-                  );
-                })()}
-                <div className="flex-1" /> {/* Spacer */}
-                <p className="text-sm text-muted-foreground whitespace-nowrap">
-                  {subscription.amount} {currency} / {subscription.billing_cycle}
-                </p>
-                <Button variant="ghost" size="icon" onClick={() => handleEdit(subscription)}>
-                  <Edit className="h-4 w-4" />
-                </Button>
+                {/* Mobile: Two-line layout */}
+                <div className="sm:hidden space-y-3">
+                  {/* Top row: Icon + Title */}
+                  <div className="flex items-center gap-2">
+                    {getCategoryIcon(subscription.category)}
+                    <p className="font-medium flex-1 truncate">{subscription.name}</p>
+                  </div>
+                  {/* Bottom row: Amount and edit button */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      {subscription.amount} {currency} / {subscription.billing_cycle}
+                    </p>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => handleEdit(subscription)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Desktop: Single line layout */}
+                <div className="hidden sm:flex items-center gap-2">
+                  {getCategoryIcon(subscription.category)}
+                  <p className="font-medium truncate">{subscription.name}</p>
+                  {subscription.category && (() => {
+                    const cat = subscriptionCategories.find((c) => c.value === subscription.category);
+                    return (
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
+                        style={{
+                          backgroundColor: `${cat?.color}20`,
+                          color: cat?.color
+                        }}
+                      >
+                        {cat?.label || subscription.category}
+                      </span>
+                    );
+                  })()}
+                  <div className="flex-1" /> {/* Spacer */}
+                  <p className="text-sm text-muted-foreground whitespace-nowrap">
+                    {subscription.amount} {currency} / {subscription.billing_cycle}
+                  </p>
+                  <Button variant="ghost" size="icon" onClick={() => handleEdit(subscription)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
             {activeSubscriptions.length === 0 && (

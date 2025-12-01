@@ -103,9 +103,9 @@ export const ExpenseCategoryItem = ({
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         {Icon && <Icon className="h-4 w-4" style={{ color: cat.color }} />}
-                        <p className="font-medium flex-1 truncate">{category.name}</p>
+                        <p className="font-medium truncate">{category.name}</p>
                         <span
-                            className="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
+                            className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
                             style={{
                                 backgroundColor: `${cat?.color}20`,
                                 color: cat?.color
