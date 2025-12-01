@@ -23,6 +23,7 @@ interface IncomeSourceDialogProps {
     onOpenChange: (open: boolean) => void;
     onFormDataChange: (data: any) => void;
     onSave: () => void;
+    onDelete?: () => void;
 }
 
 export const IncomeSourceDialog = ({
@@ -34,6 +35,7 @@ export const IncomeSourceDialog = ({
     onOpenChange,
     onFormDataChange,
     onSave,
+    onDelete,
 }: IncomeSourceDialogProps) => {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -169,10 +171,22 @@ export const IncomeSourceDialog = ({
                         </>
                     )}
                 </div>
-                <DialogFooter>
-                    <Button onClick={onSave}>
+                <DialogFooter className="flex-col gap-2">
+                    <Button onClick={onSave} className="w-full">
                         {editingSourceId ? "Update" : "Add"}
                     </Button>
+                    {editingSourceId && (
+                        <div className="flex gap-2 w-full">
+                            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+                                Cancel
+                            </Button>
+                            {onDelete && (
+                                <Button variant="destructive" onClick={onDelete} className="flex-1">
+                                    Delete
+                                </Button>
+                            )}
+                        </div>
+                    )}
                 </DialogFooter>
             </DialogContent>
         </Dialog>

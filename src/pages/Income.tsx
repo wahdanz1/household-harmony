@@ -290,6 +290,7 @@ const Income = () => {
                 }}
                 onFormDataChange={setSourceFormData}
                 onSave={handleSaveSource}
+                onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
               />
             </Dialog>
           </div>

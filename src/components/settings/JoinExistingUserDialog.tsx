@@ -101,31 +101,12 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
 
         setLoading(true);
 
-        // Get user's current household membership
-        const { data: currentMembership } = await supabase
-            .from("household_members")
-            .select("*")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-
-        // Remove from old household if exists
-        if (currentMembership) {
-            await supabase
-                .from("household_members")
-                .delete()
-                .eq("user_id", user.id)
-                .eq("household_id", currentMembership.household_id);
-        }
-
-        // Add to new household
-        const { error: joinError } = await supabase
-            .from("household_members")
-            .insert({
-                household_id: household.id,
-                user_id: user.id,
-                role: "member",
-            });
+        // Use the database function to handle voluntary leave
+        const { error: joinError } = await supabase.rpc('join_household_voluntary', {
+            p_user_id: user.id,
+            p_new_household_id: household.id,
+            p_new_role: 'member'
+        });
 
         if (joinError) {
             toast({

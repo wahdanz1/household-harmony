@@ -50,21 +50,21 @@ interface CreditExpensesListProps {
 }
 
 const creditCategories = [
-    { value: "groceries", label: "Groceries", icon: ShoppingCart },
-    { value: "fuel", label: "Fuel", icon: Fuel },
-    { value: "shopping", label: "Shopping", icon: ShoppingBag },
-    { value: "dining_out", label: "Dining Out", icon: UtensilsCrossed },
-    { value: "entertainment", label: "Entertainment", icon: Film },
-    { value: "car_repairs", label: "Car Repairs", icon: Wrench },
-    { value: "travel", label: "Travel", icon: Plane },
-    { value: "health", label: "Health & Wellness", icon: Heart },
-    { value: "other", label: "Other", icon: MoreHorizontal },
+    { value: "groceries", label: "Groceries", icon: ShoppingCart, color: "#EF4444" },
+    { value: "fuel", label: "Fuel", icon: Fuel, color: "#14B8A6" },
+    { value: "shopping", label: "Shopping", icon: ShoppingBag, color: "#F97316" },
+    { value: "dining_out", label: "Dining Out", icon: UtensilsCrossed, color: "#EC4899" },
+    { value: "entertainment", label: "Entertainment", icon: Film, color: "#8B5CF6" },
+    { value: "car_repairs", label: "Car Repairs", icon: Wrench, color: "#6366F1" },
+    { value: "travel", label: "Travel", icon: Plane, color: "#06B6D4" },
+    { value: "health", label: "Health & Wellness", icon: Heart, color: "#EF4444" },
+    { value: "other", label: "Other", icon: MoreHorizontal, color: "#64748B" },
 ];
 
-const getCategoryIcon = (categoryValue: string) => {
+const getCategoryIcon = (categoryValue: string, color?: string) => {
     const category = creditCategories.find(c => c.value === categoryValue);
     const IconComponent = category?.icon || MoreHorizontal;
-    return <IconComponent className="h-4 w-4" />;
+    return <IconComponent className="h-4 w-4" style={{ color: color || category?.color }} />;
 };
 
 export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd, creditCards, expenses, onUpdate }: CreditExpensesListProps) => {
@@ -266,10 +266,20 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
                                         />
                                     </div>
                                 </div>
-                                <DialogFooter>
-                                    <Button onClick={handleSave}>
+                                <DialogFooter className="flex-col gap-2">
+                                    <Button onClick={handleSave} className="w-full">
                                         {editingId ? "Update" : "Add"}
                                     </Button>
+                                    {editingId && (
+                                        <div className="flex gap-2 w-full">
+                                            <Button variant="outline" onClick={() => setIsOpen(false)} className="flex-1">
+                                                Cancel
+                                            </Button>
+                                            <Button variant="destructive" onClick={() => confirmDelete(editingId, formData.description)} className="flex-1">
+                                                Delete
+                                            </Button>
+                                        </div>
+                                    )}
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
@@ -282,41 +292,86 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
                         </p>
                     ) : (
                         <div className="space-y-2">
-                            {expenses.map((expense) => (
-                                <div
-                                    key={expense.id}
-                                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/40"
-                                >
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                            {getCategoryIcon(expense.category)}
-                                            <p className="font-medium">{expense.description}</p>
+                            {expenses.map((expense) => {
+                                const category = creditCategories.find(c => c.value === expense.category);
+                                return (
+                                    <div
+                                        key={expense.id}
+                                        className="p-3 rounded-lg border border-border bg-background/40"
+                                    >
+                                        {/* Mobile: Two-line layout */}
+                                        <div className="sm:hidden space-y-3">
+                                            {/* Top row: Icon + Title */}
+                                            <div className="flex items-center gap-2">
+                                                {getCategoryIcon(expense.category)}
+                                                <p className="font-medium flex-1 truncate">{expense.description}</p>
+                                            </div>
+                                            {/* Bottom row: Card name, Amount and buttons */}
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-sm text-muted-foreground">{expense.credit_cards.name}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium">{expense.amount.toFixed(0)} {currency}</p>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-9 w-9 shrink-0"
+                                                        onClick={() => handleEdit(expense)}
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-9 w-9 shrink-0"
+                                                        onClick={() => confirmDelete(expense.id, expense.description)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">
-                                            {creditCategories.find(c => c.value === expense.category)?.label} • {expense.credit_cards.name}
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <p className="font-medium">{expense.amount.toFixed(0)} {currency}</p>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => handleEdit(expense)}
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => confirmDelete(expense.id, expense.description)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+
+                                        {/* Desktop: Single line layout */}
+                                        <div className="hidden sm:flex items-center gap-4">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    {getCategoryIcon(expense.category)}
+                                                    <p className="font-medium truncate">{expense.description}</p>
+                                                    {category && (
+                                                        <span
+                                                            className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
+                                                            style={{
+                                                                backgroundColor: `${category.color}20`,
+                                                                color: category.color
+                                                            }}
+                                                        >
+                                                            {category.label}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-muted-foreground mt-1">{expense.credit_cards.name}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-medium whitespace-nowrap">{expense.amount.toFixed(0)} {currency}</p>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleEdit(expense)}
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => confirmDelete(expense.id, expense.description)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </CardContent>

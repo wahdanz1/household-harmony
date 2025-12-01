@@ -55,7 +55,7 @@ export const ExpenseCategoryItem = ({
     const Icon = cat?.icon;
 
     return (
-        <div className="p-2 sm:p-4 rounded-lg border border-border bg-background/40">
+        <div className="p-3 sm:p-4 rounded-lg border border-border bg-background/40">
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
                 {/* Top row: Icon + Title + Avatar */}
