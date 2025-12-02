@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ExpenseCategoryForm, ExpenseCategoryFormData } from "./forms/ExpenseCategoryForm";
+import { RegularExpenseForm, RegularExpenseFormData } from "./forms/RegularExpenseForm";
 
-interface ExpenseCategoryDialogProps {
+interface RegularExpenseDialogProps {
     open: boolean;
     editingCategoryId: string | null;
     categoryFormData: {
@@ -24,7 +24,7 @@ interface ExpenseCategoryDialogProps {
     onDelete: (id: string) => void;
 }
 
-export const ExpenseCategoryDialog = ({
+export const RegularExpenseDialog = ({
     open,
     editingCategoryId,
     categoryFormData,
@@ -36,7 +36,7 @@ export const ExpenseCategoryDialog = ({
     onOpenChange,
     onSave,
     onDelete,
-}: ExpenseCategoryDialogProps) => {
+}: RegularExpenseDialogProps) => {
     const editingCategory = expenseCategories.find(c => c.id === editingCategoryId);
 
     return (
@@ -49,7 +49,7 @@ export const ExpenseCategoryDialog = ({
                     </DialogDescription>
                 </DialogHeader>
 
-                <ExpenseCategoryForm
+                <RegularExpenseForm
                     defaultValues={{
                         category: editingCategory?.category,
                         name: categoryFormData.name,

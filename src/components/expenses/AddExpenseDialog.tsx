@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CalendarDays, CreditCard, Shield, Users, Zap } from "lucide-react";
-import { RegularExpenseForm } from "./forms/RegularExpenseForm";
+import { AddRegularExpenseForm } from "./forms/AddRegularExpenseForm";
 import { SubscriptionForm } from "./forms/SubscriptionForm";
 import { InsuranceForm } from "./forms/InsuranceForm";
 import { SharedExpenseForm } from "./forms/SharedExpenseForm";
@@ -123,7 +123,7 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
                 ) : (
                     <div className="mt-4">
                         {selectedType === "regular" && (
-                            <RegularExpenseForm
+                            <AddRegularExpenseForm
                                 householdId={householdId}
                                 onSuccess={handleSuccess}
                                 onCancel={handleBack}

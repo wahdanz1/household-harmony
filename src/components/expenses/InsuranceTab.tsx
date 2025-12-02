@@ -12,6 +12,7 @@ import { Shield, Plus, Edit, Trash2, Home, Car, Heart, User, PawPrint, Plane, Sc
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { DataListItem } from "@/components/ui/data-list-item";
 
 interface Insurance {
   id: string;
@@ -491,9 +492,9 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                       insurance.total_amount;
 
               return (
-                <div
+                <DataListItem
                   key={insurance.id}
-                  className="p-2 sm:p-3 rounded-lg border border-border bg-background/40"
+                  onClick={() => handleEdit(insurance)}
                 >
                   {/* Mobile: Two-line layout */}
                   <div className="sm:hidden space-y-3">
@@ -501,13 +502,21 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                     <div className="flex items-center gap-2">
                       {getTypeIcon(insurance.type)}
                       <p className="font-medium flex-1 truncate">{insurance.name}</p>
+                      {insurance.is_shared && (
+                        <Badge variant="secondary" className="text-xs shrink-0">
+                          Shared
+                        </Badge>
+                      )}
                     </div>
                     {/* Bottom row: Amount and edit button */}
                     <div className="flex items-center justify-between">
                       <p className="text-sm text-muted-foreground">
-                        {monthlyAmount.toFixed(0)} {currency}/month
+                        {monthlyAmount.toFixed(0)} {currency} / monthly
                       </p>
-                      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => handleEdit(insurance)}>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(insurance);
+                      }}>
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
@@ -532,17 +541,22 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                       );
                     })()}
                     {insurance.is_shared && (
-                      <Badge variant="secondary" className="shrink-0">{insurance.share_percentage}% shared</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        Shared
+                      </Badge>
                     )}
                     <div className="flex-1" /> {/* Spacer */}
                     <p className="text-sm text-muted-foreground whitespace-nowrap">
-                      {monthlyAmount.toFixed(0)} {currency}/month
+                      {monthlyAmount.toFixed(0)} {currency} / monthly
                     </p>
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(insurance)}>
+                    <Button variant="ghost" size="icon" onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(insurance);
+                    }}>
                       <Edit className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
+                </DataListItem>
               );
             })}
             {activeInsurances.length === 0 && (

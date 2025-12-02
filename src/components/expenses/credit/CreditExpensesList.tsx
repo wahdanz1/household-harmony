@@ -21,6 +21,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { DataListItem } from "@/components/ui/data-list-item";
 
 interface CreditCardExpense {
     id: string;
@@ -295,9 +296,9 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
                             {expenses.map((expense) => {
                                 const category = creditCategories.find(c => c.value === expense.category);
                                 return (
-                                    <div
+                                    <DataListItem
                                         key={expense.id}
-                                        className="p-3 rounded-lg border border-border bg-background/40"
+                                        onClick={() => handleEdit(expense)}
                                     >
                                         {/* Mobile: Two-line layout */}
                                         <div className="sm:hidden space-y-3">
@@ -315,7 +316,10 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-9 w-9 shrink-0"
-                                                        onClick={() => handleEdit(expense)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleEdit(expense);
+                                                        }}
                                                     >
                                                         <Edit className="h-4 w-4" />
                                                     </Button>
@@ -348,13 +352,16 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    onClick={() => handleEdit(expense)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(expense);
+                                                    }}
                                                 >
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
                                             </div>
                                         </div>
-                                    </div>
+                                    </DataListItem>
                                 );
                             })}
                         </div>

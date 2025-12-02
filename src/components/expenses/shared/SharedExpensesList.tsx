@@ -22,6 +22,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { DataListItem } from "@/components/ui/data-list-item";
 
 interface SharedExpense {
     id: string;
@@ -286,30 +287,34 @@ export const SharedExpensesList = ({
                                     {coParent.name} - {total.toFixed(0)} {currency}
                                 </h3>
                                 {coParentExpenses.map((expense) => (
-                                    <div
+                                    <DataListItem
                                         key={expense.id}
-                                        className="flex items-start justify-between p-3 rounded-lg border border-border bg-background/40 cursor-pointer hover:bg-background/60 transition-colors"
                                         onClick={() => handleEdit(expense)}
                                     >
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <p className="font-medium">{expense.description}</p>
-                                                <Badge variant={expense.paid_by === "user" ? "destructive" : "default"}>
-                                                    {expense.paid_by === "user" ? "You paid" : "They paid"}
-                                                </Badge>
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium">{expense.description}</p>
+                                                    <Badge variant={expense.paid_by === "user" ? "destructive" : "default"}>
+                                                        {expense.paid_by === "user" ? "You paid" : "They paid"}
+                                                    </Badge>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {expense.amount} {currency}
+                                                    {expense.notes && ` • ${expense.notes}`}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {format(new Date(expense.created_at), "MMM d, yyyy")}
+                                                </p>
                                             </div>
-                                            <p className="text-sm text-muted-foreground">
-                                                {expense.amount} {currency}
-                                                {expense.notes && ` • ${expense.notes}`}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {format(new Date(expense.created_at), "MMM d, yyyy")}
-                                            </p>
+                                            <Button variant="ghost" size="icon" className="shrink-0" onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(expense);
+                                            }}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="shrink-0">
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                    </div>
+                                    </DataListItem>
                                 ))}
                             </div>
                         );

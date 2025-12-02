@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Pencil, Trash2, Edit, Check } from "lucide-react";
 import { getIncomeCategoryById } from "@/constants/incomeCategories";
+import { DataListItem } from "@/components/ui/data-list-item";
 
 interface IncomeSourceItemProps {
     source: any;
@@ -31,7 +32,7 @@ export const IncomeSourceItem = ({
     const Icon = cat?.icon;
 
     return (
-        <div className="p-2 sm:p-4 rounded-lg border border-border bg-background/40">
+        <DataListItem onClick={() => onEdit(source)}>
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
                 {/* Top row: Icon + Title + Avatar */}
@@ -53,6 +54,7 @@ export const IncomeSourceItem = ({
                             type="number"
                             value={amount || ""}
                             onChange={(e) => onAmountChange(source.id, e.target.value)}
+                            onClick={(e) => e.stopPropagation()} // Prevent opening edit dialog
                             className={`w-full text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isSkipped ? "border-border" : (isDifferent ? "border-primary" : "border-border")} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
                             placeholder="0"
                             disabled={isSkipped}
@@ -63,7 +65,10 @@ export const IncomeSourceItem = ({
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9 shrink-0"
-                        onClick={() => onEdit(source)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(source);
+                        }}
                     >
                         <Edit className="h-4 w-4" />
                     </Button>
@@ -77,6 +82,7 @@ export const IncomeSourceItem = ({
                     onCheckedChange={(checked) =>
                         onAmountChange(source.id, checked ? source.default_amount.toString() : "0")
                     }
+                    onClick={(e) => e.stopPropagation()}
                 />
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -95,6 +101,7 @@ export const IncomeSourceItem = ({
                                 {cat.label}
                             </span>
                         )}
+                        {showCheckmark && <Check className="h-4 w-4 text-green-500 shrink-0" />}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -102,6 +109,7 @@ export const IncomeSourceItem = ({
                         type="number"
                         value={amount || ""}
                         onChange={(e) => onAmountChange(source.id, e.target.value)}
+                        onClick={(e) => e.stopPropagation()} // Prevent opening edit dialog
                         className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${isSkipped ? "border-border" : (isDifferent ? "border-primary" : "border-border")} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
                         placeholder="0"
                         disabled={isSkipped}
@@ -109,15 +117,13 @@ export const IncomeSourceItem = ({
                     <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
-                    {showCheckmark && (
-                        <div className="flex items-center justify-center h-9 w-9">
-                            <Check className="h-4 w-4 text-green-500" />
-                        </div>
-                    )}
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onEdit(source)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(source);
+                        }}
                     >
                         <Edit className="h-4 w-4" />
                     </Button>
@@ -129,6 +135,6 @@ export const IncomeSourceItem = ({
                     </Avatar>
                 </div>
             </div>
-        </div>
+        </DataListItem>
     );
 };

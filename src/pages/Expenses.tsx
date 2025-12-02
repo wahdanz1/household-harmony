@@ -53,7 +53,7 @@ const Expenses = () => {
       { data: creditCardExpensesData },
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", membership.household_id).single(),
-      supabase.from("expense_categories").select("*").eq("household_id", membership.household_id).eq("is_active", true).order("sort_order"),
+      supabase.from("regular_expenses").select("*").eq("household_id", membership.household_id).eq("is_active", true).order("sort_order"),
       supabase.from("monthly_expenses").select("*").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
       supabase.from("monthly_expenses").select("*").eq("household_id", membership.household_id).lt("month_start", format(monthStart, "yyyy-MM-dd")),
       supabase.from("subscriptions").select("*").eq("household_id", membership.household_id).eq("is_active", true),

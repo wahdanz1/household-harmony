@@ -3,20 +3,21 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Edit, Check } from "lucide-react";
 import { getCategoryById } from "@/constants/expenseCategories";
+import { DataListItem } from "@/components/ui/data-list-item";
 
-interface ExpenseCategoryItemProps {
+interface RegularExpenseItemProps {
     category: any;
     amount: string;
     currency: string;
     members: any[];
     hasEntry: boolean;
-    isDifferent: boolean;
+    isDifferent?: boolean;
     creditExpenses?: any[];
-    onAmountChange: (categoryId: string, value: string) => void;
+    onAmountChange?: (categoryId: string, value: string) => void;
     onEdit: (category: any) => void;
 }
 
-export const ExpenseCategoryItem = ({
+export const RegularExpenseItem = ({
     category,
     amount,
     currency,
@@ -24,11 +25,10 @@ export const ExpenseCategoryItem = ({
     hasEntry,
     isDifferent,
     creditExpenses = [],
-    onAmountChange,
-    onEdit,
-}: ExpenseCategoryItemProps) => {
-    // Helper to calculate display amount (includes water cost for Rent if not included)
-    const getDisplayAmount = (): string => {
+    onAmountChange = () => { },
+    onEdit
+}: RegularExpenseItemProps) => {
+    const getDisplayAmount = () => {
         const baseAmount = parseFloat(amount || "0");
 
         // For Rent category, add water cost if not included
@@ -55,7 +55,7 @@ export const ExpenseCategoryItem = ({
     const Icon = cat?.icon;
 
     return (
-        <div className="p-3 sm:p-4 rounded-lg border border-border bg-background/40">
+        <DataListItem onClick={() => onEdit(category)}>
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
                 {/* Top row: Icon + Title + Avatar */}
@@ -82,6 +82,7 @@ export const ExpenseCategoryItem = ({
                             value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
                             onChange={(e) => onAmountChange(category.id, e.target.value)}
                             disabled={category.type === "static" || category.type === "credit"}
+                            onClick={(e) => e.stopPropagation()}
                             className={`w-full text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""} `}
                             placeholder="0"
                         />
@@ -91,7 +92,10 @@ export const ExpenseCategoryItem = ({
                         variant="ghost"
                         size="icon"
                         className="h-9 w-9 shrink-0"
-                        onClick={() => onEdit(category)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(category);
+                        }}
                     >
                         <Edit className="h-4 w-4" />
                     </Button>
@@ -128,6 +132,7 @@ export const ExpenseCategoryItem = ({
                         value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
                         onChange={(e) => onAmountChange(category.id, e.target.value)}
                         disabled={category.type === "static" || category.type === "credit"}
+                        onClick={(e) => e.stopPropagation()}
                         className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""}`}
                         placeholder="0"
                     />
@@ -137,7 +142,10 @@ export const ExpenseCategoryItem = ({
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onEdit(category)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(category);
+                        }}
                     >
                         <Edit className="h-4 w-4" />
                     </Button>
@@ -165,6 +173,6 @@ export const ExpenseCategoryItem = ({
                     ))}
                 </div>
             )}
-        </div>
+        </DataListItem>
     );
 };

@@ -2,10 +2,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { TrendingDown, AlertCircle, Plus } from "lucide-react";
 import { AddExpenseDialog } from "./AddExpenseDialog";
-import { ExpenseCategoryItem } from "./ExpenseCategoryItem";
+import { RegularExpenseItem } from "./RegularExpenseItem";
 import { ExpenseSummaryBlocks } from "./ExpenseSummaryBlocks";
-import { ExpenseCategoryDialog } from "./ExpenseCategoryDialog";
-import { useExpenseCategories } from "./hooks/useExpenseCategories";
+import { RegularExpenseDialog } from "./RegularExpenseDialog";
+import { useRegularExpenses } from "./hooks/useRegularExpenses";
 import { format } from "date-fns";
 import { useState } from "react";
 
@@ -67,7 +67,7 @@ export const MonthlyExpenses = ({
     handleDeleteCategory,
     initializeDefaults,
     resetCategoryForm,
-  } = useExpenseCategories(householdId, expenseCategories, onCategoriesUpdate);
+  } = useRegularExpenses(householdId, expenseCategories, onCategoriesUpdate);
 
   // Sort all expenses by amount (highest to lowest)
   const sortedCategories = [...expenseCategories].sort((a, b) => {
@@ -143,7 +143,7 @@ export const MonthlyExpenses = ({
                   });
 
                   return (
-                    <ExpenseCategoryItem
+                    <RegularExpenseItem
                       key={category.id}
                       category={category}
                       amount={amounts[category.id] || category.default_amount.toString()}
@@ -185,7 +185,7 @@ export const MonthlyExpenses = ({
                   if (isMatched) return null;
 
                   return (
-                    <ExpenseCategoryItem
+                    <RegularExpenseItem
                       key={`credit-${expense.id}`}
                       category={{
                         id: `credit-${expense.category}`,
@@ -199,9 +199,6 @@ export const MonthlyExpenses = ({
                       currency={currency}
                       members={members}
                       hasEntry={true}
-                      isDifferent={false}
-                      creditExpenses={[expense]}
-                      onAmountChange={() => { }}
                       onEdit={() => { }}
                     />
                   );
@@ -251,7 +248,7 @@ export const MonthlyExpenses = ({
         </CardContent>
       </Card>
 
-      <ExpenseCategoryDialog
+      <RegularExpenseDialog
         open={categoryDialogOpen}
         editingCategoryId={editingCategoryId}
         categoryFormData={categoryFormData}
@@ -260,10 +257,7 @@ export const MonthlyExpenses = ({
         electricityMarket={electricityMarket}
         waterIncluded={waterIncluded}
         waterCost={waterCost}
-        onOpenChange={(open) => {
-          setCategoryDialogOpen(open);
-          if (!open) resetCategoryForm();
-        }}
+        onOpenChange={setCategoryDialogOpen}
         onFormDataChange={setCategoryFormData}
         onElectricityGridChange={setElectricityGrid}
         onElectricityMarketChange={setElectricityMarket}

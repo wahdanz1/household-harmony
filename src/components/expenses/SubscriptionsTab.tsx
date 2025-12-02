@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { DataListItem } from "@/components/ui/data-list-item";
 
 interface Subscription {
   id: string;
@@ -379,9 +380,9 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
 
           <div className="space-y-2">
             {activeSubscriptions.map((subscription) => (
-              <div
+              <DataListItem
                 key={subscription.id}
-                className="p-2 sm:p-3 rounded-lg border border-border bg-background/40"
+                onClick={() => handleEdit(subscription)}
               >
                 {/* Mobile: Two-line layout */}
                 <div className="sm:hidden space-y-3">
@@ -395,7 +396,10 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                     <p className="text-sm text-muted-foreground">
                       {subscription.amount} {currency} / {subscription.billing_cycle}
                     </p>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => handleEdit(subscription)}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(subscription);
+                    }}>
                       <Edit className="h-4 w-4" />
                     </Button>
                   </div>
@@ -423,11 +427,14 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                   <p className="text-sm text-muted-foreground whitespace-nowrap">
                     {subscription.amount} {currency} / {subscription.billing_cycle}
                   </p>
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(subscription)}>
+                  <Button variant="ghost" size="icon" onClick={(e) => {
+                    e.stopPropagation();
+                    handleEdit(subscription);
+                  }}>
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>
-              </div>
+              </DataListItem>
             ))}
             {activeSubscriptions.length === 0 && (
               <p className="text-center text-muted-foreground py-8">No active subscriptions yet. Add one above!</p>

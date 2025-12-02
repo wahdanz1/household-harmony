@@ -8,7 +8,7 @@ interface CategoryFormData {
     default_amount: string;
 }
 
-export const useExpenseCategories = (
+export const useRegularExpenses = (
     householdId: string,
     expenseCategories: any[],
     onUpdate: () => void
@@ -126,12 +126,12 @@ export const useExpenseCategories = (
         let error;
         if (editingCategoryId) {
             ({ error } = await supabase
-                .from("expense_categories")
+                .from("regular_expenses")
                 .update(data)
                 .eq("id", editingCategoryId));
         } else {
             ({ error } = await supabase
-                .from("expense_categories")
+                .from("regular_expenses")
                 .insert(data));
         }
 
@@ -154,7 +154,7 @@ export const useExpenseCategories = (
 
     const handleDeleteCategory = async (id: string) => {
         const { error } = await supabase
-            .from("expense_categories")
+            .from("regular_expenses")
             .delete()
             .eq("id", id);
 
@@ -202,7 +202,7 @@ export const useExpenseCategories = (
         ];
 
         const { error } = await supabase
-            .from("expense_categories")
+            .from("regular_expenses")
             .insert(categories);
 
         if (error) {
