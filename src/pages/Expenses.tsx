@@ -84,7 +84,7 @@ const Expenses = () => {
 
     const initialAmounts: Record<string, string> = {};
     (categoriesData || []).forEach((category: any) => {
-      const existing = (monthlyData || []).find((m: any) => m.expense_category_id === category.id);
+      const existing = (monthlyData || []).find((m: any) => m.regular_expense_id === category.id);
 
       // For static expenses, always use the current default amount from the category definition
       // This ensures that if the user updates the static amount in settings, it reflects immediately
@@ -93,7 +93,7 @@ const Expenses = () => {
       } else if (existing) {
         initialAmounts[category.id] = existing.amount.toString();
       } else if (category.type === "dynamic") {
-        const previousExpenses = (historicalData || []).filter((h: any) => h.expense_category_id === category.id);
+        const previousExpenses = (historicalData || []).filter((h: any) => h.regular_expense_id === category.id);
         if (previousExpenses.length > 0) {
           const total = previousExpenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
           const avg = total / previousExpenses.length;
@@ -119,7 +119,7 @@ const Expenses = () => {
     setSaving(true);
 
     const entries = expenseCategories.map((category) => ({
-      expense_category_id: category.id,
+      regular_expense_id: category.id,
       household_id: household.id,
       month: currentMonth,
       month_start: format(monthStart, "yyyy-MM-dd"),
@@ -130,7 +130,7 @@ const Expenses = () => {
 
     const { error } = await supabase
       .from("monthly_expenses")
-      .upsert(entries as any, { onConflict: "expense_category_id,month" });
+      .upsert(entries as any, { onConflict: "regular_expense_id,month" });
 
     if (error) {
       toast({

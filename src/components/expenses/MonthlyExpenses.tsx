@@ -163,7 +163,7 @@ export const MonthlyExpenses = ({
                   return combinedItems.map((item: any) => {
                     if (item.type === 'category') {
                       const category = item.data;
-                      const hasEntry = monthlyExpenses.some((m) => m.expense_category_id === category.id);
+                      const hasEntry = monthlyExpenses.some((m) => m.regular_expense_id === category.id);
                       const isDifferent = amounts[category.id] !== category.default_amount.toString();
 
                       // Find matching credit card expenses

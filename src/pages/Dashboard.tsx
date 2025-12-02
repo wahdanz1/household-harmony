@@ -77,7 +77,7 @@ const Dashboard = () => {
       };
 
       const uniqueIncomes = deduplicateItems(monthlyIncomes || [], "income_source_id");
-      const uniqueExpenses = deduplicateItems(monthlyExpenses || [], "expense_category_id");
+      const uniqueExpenses = deduplicateItems(monthlyExpenses || [], "regular_expense_id");
 
       const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
       const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
