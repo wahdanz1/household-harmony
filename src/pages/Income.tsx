@@ -70,11 +70,14 @@ const Income = () => {
       setHasSaved(true);
       // Get the most recent updated_at timestamp
       const mostRecent = regularIncomes.reduce((latest: any, current: any) => {
-        const latestDate = new Date(latest.updated_at);
-        const currentDate = new Date(current.updated_at);
+        const latestDate = new Date(latest.updated_at || latest.created_at || 0);
+        const currentDate = new Date(current.updated_at || current.created_at || 0);
         return currentDate > latestDate ? current : latest;
       });
-      const savedDate = new Date(mostRecent.updated_at);
+
+      const dateToUse = mostRecent.updated_at || mostRecent.created_at;
+      const savedDate = new Date(dateToUse);
+
       // Only set if it's a valid date
       if (!isNaN(savedDate.getTime())) {
         setLastSavedTime(savedDate);
@@ -326,7 +329,7 @@ const Income = () => {
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className={`w-full ${hasSaved ? 'bg-green-600/70 hover:bg-green-600/80' : ''}`}
+                className={`w-full ${hasSaved ? 'bg-green-900/40 hover:bg-green-900/60 text-green-100 border border-green-800/50' : ''}`}
               >
                 {saving ? "Saving..." : hasSaved ? "Update Monthly Income" : "Save Monthly Income"}
               </Button>

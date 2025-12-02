@@ -43,7 +43,7 @@ export const ExpenseCategoryDialog = ({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Edit Expense Category</DialogTitle>
+                    <DialogTitle>Edit Expense Item</DialogTitle>
                     <DialogDescription>
                         Update the details for this expense category
                     </DialogDescription>

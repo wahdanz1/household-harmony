@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,63 +116,63 @@ export const CoParentManagement = ({ householdId, coParents, onUpdate }: CoParen
 
     return (
         <>
-            <Card>
-                <CardHeader>
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle className="flex items-center gap-2">
-                                <Users className="h-5 w-5" />
-                                Manage Co-Parents
-                            </CardTitle>
-                            <CardDescription className="mt-1.5">Add and manage people you share expenses with</CardDescription>
-                        </div>
-                        <Dialog open={coParentDialogOpen} onOpenChange={(open) => {
-                            setCoParentDialogOpen(open);
-                            if (!open) resetCoParentForm();
-                        }}>
-                            <DialogTrigger asChild>
-                                <Button>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Co-Parent
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>{editingCoParentId ? "Edit" : "Add"} Co-Parent</DialogTitle>
-                                    <DialogDescription>
-                                        Add someone you share expenses with (ex-partner, co-guardian, etc.)
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label>Name</Label>
-                                        <Input
-                                            value={coParentFormData.name}
-                                            onChange={(e) => setCoParentFormData({ ...coParentFormData, name: e.target.value })}
-                                            placeholder="e.g., Kids' Mom"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Notes (Optional)</Label>
-                                        <Textarea
-                                            value={coParentFormData.notes}
-                                            onChange={(e) => setCoParentFormData({ ...coParentFormData, notes: e.target.value })}
-                                            placeholder="Any additional context"
-                                        />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button onClick={handleSaveCoParent}>
-                                        {editingCoParentId ? "Update" : "Add"}
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
+
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="font-semibold flex items-center gap-2">
+                            <Users className="h-5 w-5" />
+                            Manage Co-Parents
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1.5">Add and manage people you share expenses with</p>
                     </div>
-                </CardHeader>
-                <CardContent>
+                    <Dialog open={coParentDialogOpen} onOpenChange={(open) => {
+                        setCoParentDialogOpen(open);
+                        if (!open) resetCoParentForm();
+                    }}>
+                        <DialogTrigger asChild>
+                            <Button size="sm">
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>{editingCoParentId ? "Edit" : "Add"} Co-Parent</DialogTitle>
+                                <DialogDescription>
+                                    Add someone you share expenses with (ex-partner, co-guardian, etc.)
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label>Name</Label>
+                                    <Input
+                                        value={coParentFormData.name}
+                                        onChange={(e) => setCoParentFormData({ ...coParentFormData, name: e.target.value })}
+                                        placeholder="e.g., Kids' Mom"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Notes (Optional)</Label>
+                                    <Textarea
+                                        value={coParentFormData.notes}
+                                        onChange={(e) => setCoParentFormData({ ...coParentFormData, notes: e.target.value })}
+                                        placeholder="Any additional context"
+                                    />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleSaveCoParent}>
+                                    {editingCoParentId ? "Update" : "Add"}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+
+                <div>
                     {coParents.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-8">
+                        <p className="text-center text-muted-foreground py-8 border rounded-lg border-dashed">
                             No co-parents yet. Add one to get started!
                         </p>
                     ) : (
@@ -205,8 +204,8 @@ export const CoParentManagement = ({ householdId, coParents, onUpdate }: CoParen
                             ))}
                         </div>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+            </div>
 
             {/* Delete Confirmation Dialog */}
             <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
@@ -214,7 +213,9 @@ export const CoParentManagement = ({ householdId, coParents, onUpdate }: CoParen
                     <AlertDialogHeader>
                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will permanently delete "{coParentToDelete?.name}". This action cannot be undone.
+                            This will permanently delete "{coParentToDelete?.name}".
+                            <br /><br />
+                            <strong>Note:</strong> Shared expenses and insurance policies linked to this co-parent will be kept but unlinked (set to non-shared).
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

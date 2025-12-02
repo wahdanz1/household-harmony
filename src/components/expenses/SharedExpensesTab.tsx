@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CoParentManagement } from "./shared/CoParentManagement";
 import { SharedExpensesList } from "./shared/SharedExpensesList";
 
@@ -63,12 +64,33 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
 
   return (
     <div className="space-y-6">
-      {/* Co-Parent Management */}
-      <CoParentManagement
-        householdId={householdId}
-        coParents={coParents}
-        onUpdate={fetchData}
-      />
+      {/* Combined Summary and Management Card */}
+      <Card>
+        <CardContent className="p-6">
+          <div className="grid gap-8 md:grid-cols-2">
+            {/* Summary Section */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg">Shared Expenses Summary</h3>
+                <p className="text-sm text-muted-foreground">Track expenses you share with co-parents</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total this month</p>
+                <p className="text-3xl font-bold text-warning">
+                  {totalSharedExpenses.toFixed(0)} {currency}
+                </p>
+              </div>
+            </div>
+
+            {/* Co-Parent Management Section */}
+            <CoParentManagement
+              householdId={householdId}
+              coParents={coParents}
+              onUpdate={fetchData}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {coParents.length === 0 ? null : (
         <SharedExpensesList

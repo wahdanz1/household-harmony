@@ -6,6 +6,7 @@ import { ExpenseCategoryItem } from "./ExpenseCategoryItem";
 import { ExpenseSummaryBlocks } from "./ExpenseSummaryBlocks";
 import { ExpenseCategoryDialog } from "./ExpenseCategoryDialog";
 import { useExpenseCategories } from "./hooks/useExpenseCategories";
+import { format } from "date-fns";
 import { useState } from "react";
 
 interface MonthlyExpensesProps {
@@ -217,8 +218,33 @@ export const MonthlyExpenses = ({
                 />
               </div>
 
-              <Button onClick={onSave} disabled={saving} className="w-full">
-                {saving ? "Saving..." : "Save Monthly Expenses"}
+              {monthlyExpenses.length > 0 && (
+                <p className="text-xs text-center text-muted-foreground mb-2">
+                  Monthly expenses saved {(() => {
+                    try {
+                      const mostRecent = monthlyExpenses.reduce((latest, current) => {
+                        const latestDate = new Date(latest.updated_at || latest.created_at || 0);
+                        const currentDate = new Date(current.updated_at || current.created_at || 0);
+                        return currentDate > latestDate ? current : latest;
+                      }, monthlyExpenses[0]);
+
+                      const dateToUse = mostRecent.updated_at || mostRecent.created_at;
+                      if (!dateToUse) return "";
+
+                      return format(new Date(dateToUse), "MMM d, yyyy 'at' HH:mm");
+                    } catch (e) {
+                      console.error("Error formatting date:", e);
+                      return "";
+                    }
+                  })()}
+                </p>
+              )}
+              <Button
+                onClick={onSave}
+                disabled={saving}
+                className={`w-full ${monthlyExpenses.length > 0 ? 'bg-green-900/40 hover:bg-green-900/60 text-green-100 border border-green-800/50' : ''}`}
+              >
+                {saving ? "Saving..." : monthlyExpenses.length > 0 ? "Update Monthly Expenses" : "Save Monthly Expenses"}
               </Button>
             </>
           )}
