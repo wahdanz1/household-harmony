@@ -13,7 +13,6 @@ interface IncomeSourceItemProps {
     onAmountChange: (sourceId: string, value: string) => void;
     onEdit: (source: any) => void;
     onDelete: (sourceId: string) => void;
-    showCheckmark?: boolean;
 }
 
 export const IncomeSourceItem = ({
@@ -23,16 +22,27 @@ export const IncomeSourceItem = ({
     onAmountChange,
     onEdit,
     onDelete,
-    showCheckmark = false,
-}: IncomeSourceItemProps) => {
+    status = 'none',
+}: IncomeSourceItemProps & { status?: 'saved' | 'modified' | 'none' }) => {
     const isSkipped = amount === "0";
     const isDifferent = amount !== source.default_amount.toString();
 
     const cat = getIncomeCategoryById(source.category);
     const Icon = cat?.icon;
 
+    const getStatusBorderClass = () => {
+        switch (status) {
+            case 'saved':
+                return 'border-l-4 border-l-green-500 pl-2';
+            case 'modified':
+                return 'border-l-4 border-l-lime-400 pl-2';
+            default:
+                return 'pl-3'; // Default padding to align with bordered items
+        }
+    };
+
     return (
-        <DataListItem onClick={() => onEdit(source)}>
+        <DataListItem onClick={() => onEdit(source)} className={getStatusBorderClass()}>
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
                 {/* Top row: Icon + Title + Avatar */}
@@ -101,7 +111,6 @@ export const IncomeSourceItem = ({
                                 {cat.label}
                             </span>
                         )}
-                        {showCheckmark && <Check className="h-4 w-4 text-green-500 shrink-0" />}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">

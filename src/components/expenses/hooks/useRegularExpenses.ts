@@ -144,7 +144,7 @@ export const useRegularExpenses = (
         } else {
             toast({
                 title: "Success",
-                description: editingCategoryId ? "Category updated" : "Category added",
+                description: editingCategoryId ? "Expense updated" : "Expense added",
             });
             setCategoryDialogOpen(false);
             resetCategoryForm();

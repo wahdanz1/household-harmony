@@ -26,6 +26,8 @@ interface MonthlyExpensesProps {
   onCategoriesUpdate: () => void;
   onNavigateToSubscriptions?: () => void;
   onNavigateToInsurance?: () => void;
+  onNavigateToCredit?: () => void;
+  subscriptionSeverity?: 'default' | 'warning' | 'danger';
 }
 
 export const MonthlyExpenses = ({
@@ -45,6 +47,8 @@ export const MonthlyExpenses = ({
   onCategoriesUpdate,
   onNavigateToSubscriptions,
   onNavigateToInsurance,
+  onNavigateToCredit,
+  subscriptionSeverity,
 }: MonthlyExpensesProps) => {
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
 
@@ -115,94 +119,125 @@ export const MonthlyExpenses = ({
           ) : (
             <>
               <div className="space-y-3">
-                {sortedCategories.map((category) => {
-                  const hasEntry = monthlyExpenses.some((m) => m.expense_category_id === category.id);
-                  const isDifferent = amounts[category.id] !== category.default_amount.toString();
 
-                  // Find matching credit card expenses for this category
-                  // Match based on category name/type
-                  const matchingCreditExpenses = creditCardExpenses.filter(expense => {
-                    const creditCategory = expense.category.toLowerCase();
-                    const categoryName = category.name.toLowerCase();
-                    const categoryType = category.category?.toLowerCase() || '';
+                {(() => {
+                  // Combine categories and unmatched credit expenses for unified sorting
+                  const combinedItems = [
+                    ...expenseCategories.map(category => {
+                      const amount = parseFloat(amounts[category.id] || category.default_amount.toString() || "0");
+                      return { type: 'category', data: category, amount, id: category.id };
+                    }),
+                    ...creditCardExpenses.map(expense => {
+                      // Check if matched (logic from before)
+                      const isMatched = expenseCategories.some((category: any) => {
+                        const creditCategory = expense.category.toLowerCase();
+                        const categoryName = category.name.toLowerCase();
+                        const categoryType = category.category?.toLowerCase() || '';
 
-                    // Direct category type match
-                    if (creditCategory === categoryType) return true;
+                        if (creditCategory === categoryType) return true;
+                        if (creditCategory === 'groceries' && (categoryName.includes('food') || categoryName.includes('mat') || categoryName.includes('groceries') || categoryType === 'groceries')) return true;
+                        if (creditCategory === 'fuel' && (categoryName.includes('gas') || categoryName.includes('fuel') || categoryName.includes('bensin') || categoryType === 'fuel')) return true;
+                        if (creditCategory === 'travel' && (categoryName.includes('travel') || categoryName.includes('trip') || categoryName.includes('resa') || categoryType === 'travel')) return true;
+                        if (creditCategory === 'shopping' && (categoryName.includes('shopping') || categoryName.includes('kläder') || categoryType === 'shopping')) return true;
+                        if ((creditCategory === 'dining' || creditCategory === 'dining_out') && (categoryName.includes('dining') || categoryName.includes('restaurant') || categoryType === 'dining' || categoryType === 'dining_out')) return true;
+                        if (creditCategory === 'entertainment' && (categoryName.includes('entertainment') || categoryName.includes('nöje') || categoryType === 'entertainment')) return true;
+                        if ((creditCategory === 'health' || creditCategory === 'healthcare') && (categoryName.includes('health') || categoryName.includes('hälsa') || categoryType === 'health' || categoryType === 'healthcare')) return true;
+                        if (creditCategory === 'car_repairs' && (categoryName.includes('car') || categoryName.includes('bil') || categoryType === 'car')) return true;
+                        return false;
+                      });
 
-                    // Name-based matching for common categories
-                    if (creditCategory === 'groceries' && (categoryName.includes('food') || categoryName.includes('mat') || categoryName.includes('groceries') || categoryType === 'groceries')) return true;
-                    if (creditCategory === 'fuel' && (categoryName.includes('gas') || categoryName.includes('fuel') || categoryName.includes('bensin') || categoryType === 'fuel')) return true;
-                    if (creditCategory === 'travel' && (categoryName.includes('travel') || categoryName.includes('trip') || categoryName.includes('resa') || categoryType === 'travel')) return true;
-                    if (creditCategory === 'shopping' && (categoryName.includes('shopping') || categoryName.includes('kläder') || categoryType === 'shopping')) return true;
-                    if (creditCategory === 'dining_out' && (categoryName.includes('dining') || categoryName.includes('restaurant') || categoryType === 'dining')) return true;
-                    if (creditCategory === 'entertainment' && (categoryName.includes('entertainment') || categoryName.includes('nöje') || categoryType === 'entertainment')) return true;
-                    if (creditCategory === 'health' && (categoryName.includes('health') || categoryName.includes('hälsa') || categoryType === 'health')) return true;
-                    if (creditCategory === 'car_repairs' && (categoryName.includes('car') || categoryName.includes('bil') || categoryType === 'car')) return true;
+                      if (isMatched) return null; // Skip matched ones, they are inside categories
 
-                    return false;
-                  });
-
-                  return (
-                    <RegularExpenseItem
-                      key={category.id}
-                      category={category}
-                      amount={amounts[category.id] || category.default_amount.toString()}
-                      currency={currency}
-                      members={members}
-                      hasEntry={hasEntry}
-                      isDifferent={isDifferent}
-                      creditExpenses={matchingCreditExpenses}
-                      onAmountChange={(categoryId, value) =>
-                        onAmountsChange({ ...amounts, [categoryId]: value })
-                      }
-                      onEdit={handleEditCategory}
-                    />
-                  );
-                })}
-
-                {/* Show unmatched credit card expenses as separate items */}
-                {creditCardExpenses.map((expense) => {
-                  // Check if this expense was already matched to an existing category
-                  const isMatched = sortedCategories.some(category => {
-                    const creditCategory = expense.category.toLowerCase();
-                    const categoryName = category.name.toLowerCase();
-                    const categoryType = category.category?.toLowerCase() || '';
-
-                    if (creditCategory === categoryType) return true;
-                    if (creditCategory === 'groceries' && (categoryName.includes('food') || categoryName.includes('mat') || categoryName.includes('groceries') || categoryType === 'groceries')) return true;
-                    if (creditCategory === 'fuel' && (categoryName.includes('gas') || categoryName.includes('fuel') || categoryName.includes('bensin') || categoryType === 'fuel')) return true;
-                    if (creditCategory === 'travel' && (categoryName.includes('travel') || categoryName.includes('trip') || categoryName.includes('resa') || categoryType === 'travel')) return true;
-                    if (creditCategory === 'shopping' && (categoryName.includes('shopping') || categoryName.includes('kläder') || categoryType === 'shopping')) return true;
-                    if (creditCategory === 'dining_out' && (categoryName.includes('dining') || categoryName.includes('restaurant') || categoryType === 'dining')) return true;
-                    if (creditCategory === 'entertainment' && (categoryName.includes('entertainment') || categoryName.includes('nöje') || categoryType === 'entertainment')) return true;
-                    if (creditCategory === 'health' && (categoryName.includes('health') || categoryName.includes('hälsa') || categoryType === 'health')) return true;
-                    if (creditCategory === 'car_repairs' && (categoryName.includes('car') || categoryName.includes('bil') || categoryType === 'car')) return true;
-
-                    return false;
-                  });
-
-                  // Only show if not matched to existing category
-                  if (isMatched) return null;
-
-                  return (
-                    <RegularExpenseItem
-                      key={`credit-${expense.id}`}
-                      category={{
-                        id: `credit-${expense.category}`,
-                        name: expense.description,
-                        category: expense.category,
+                      return {
                         type: 'credit',
-                        default_amount: 0,
-                        created_by: expense.created_by,
-                      }}
-                      amount="0"
-                      currency={currency}
-                      members={members}
-                      hasEntry={true}
-                      onEdit={() => { }}
-                    />
-                  );
-                })}
+                        data: expense,
+                        amount: expense.amount,
+                        id: `credit-${expense.id}`
+                      };
+                    }).filter(Boolean)
+                  ];
+
+                  // Sort by amount descending
+                  combinedItems.sort((a: any, b: any) => b.amount - a.amount);
+
+                  return combinedItems.map((item: any) => {
+                    if (item.type === 'category') {
+                      const category = item.data;
+                      const hasEntry = monthlyExpenses.some((m) => m.expense_category_id === category.id);
+                      const isDifferent = amounts[category.id] !== category.default_amount.toString();
+
+                      // Find matching credit card expenses
+                      const matchingCreditExpenses = creditCardExpenses.filter(expense => {
+                        const creditCategory = expense.category.toLowerCase();
+                        const categoryName = category.name.toLowerCase();
+                        const categoryType = category.category?.toLowerCase() || '';
+
+                        if (creditCategory === categoryType) return true;
+                        if (creditCategory === 'groceries' && (categoryName.includes('food') || categoryName.includes('mat') || categoryName.includes('groceries') || categoryType === 'groceries')) return true;
+                        if (creditCategory === 'fuel' && (categoryName.includes('gas') || categoryName.includes('fuel') || categoryName.includes('bensin') || categoryType === 'fuel')) return true;
+                        if (creditCategory === 'travel' && (categoryName.includes('travel') || categoryName.includes('trip') || categoryName.includes('resa') || categoryType === 'travel')) return true;
+                        if (creditCategory === 'shopping' && (categoryName.includes('shopping') || categoryName.includes('kläder') || categoryType === 'shopping')) return true;
+                        if ((creditCategory === 'dining' || creditCategory === 'dining_out') && (categoryName.includes('dining') || categoryName.includes('restaurant') || categoryType === 'dining' || categoryType === 'dining_out')) return true;
+                        if (creditCategory === 'entertainment' && (categoryName.includes('entertainment') || categoryName.includes('nöje') || categoryType === 'entertainment')) return true;
+                        if ((creditCategory === 'health' || creditCategory === 'healthcare') && (categoryName.includes('health') || categoryName.includes('hälsa') || categoryType === 'health' || categoryType === 'healthcare')) return true;
+                        if (creditCategory === 'car_repairs' && (categoryName.includes('car') || categoryName.includes('bil') || categoryType === 'car')) return true;
+                        return false;
+                      });
+
+                      // Calculate status
+                      let status: 'saved' | 'modified' | 'none' = 'none';
+                      if (hasEntry) {
+                        status = isDifferent ? 'modified' : 'saved';
+                      }
+
+                      return (
+                        <RegularExpenseItem
+                          key={category.id}
+                          category={category}
+                          amount={amounts[category.id] || category.default_amount.toString()}
+                          currency={currency}
+                          members={members}
+                          hasEntry={hasEntry}
+                          isDifferent={isDifferent}
+                          creditExpenses={matchingCreditExpenses}
+                          onAmountChange={(categoryId, value) =>
+                            onAmountsChange({ ...amounts, [categoryId]: value })
+                          }
+                          onEdit={handleEditCategory}
+                          onNavigateToCredit={onNavigateToCredit}
+                          status={status}
+                        />
+                      );
+                    } else {
+                      const expense = item.data;
+                      return (
+                        <RegularExpenseItem
+                          key={`credit-${expense.id}`}
+                          category={{
+                            id: `credit-${expense.category}`,
+                            name: expense.description,
+                            category: expense.category,
+                            type: 'credit',
+                            default_amount: 0,
+                            created_by: expense.created_by,
+                          }}
+                          amount="0"
+                          currency={currency}
+                          members={members}
+                          hasEntry={true}
+                          creditExpenses={[expense]}
+                          onEdit={() => {
+                            if (onNavigateToCredit) {
+                              onNavigateToCredit();
+                            }
+                          }}
+                          onNavigateToCredit={onNavigateToCredit}
+                          status="saved"
+                        />
+                      );
+                    }
+                  });
+                })()}
 
                 <ExpenseSummaryBlocks
                   subscriptionsTotal={subscriptionsTotal}
@@ -212,6 +247,7 @@ export const MonthlyExpenses = ({
                   hasInsuranceEntry={monthlyExpenses.some(e => e.insurance_id !== null)}
                   onNavigateToSubscriptions={onNavigateToSubscriptions}
                   onNavigateToInsurance={onNavigateToInsurance}
+                  subscriptionSeverity={subscriptionSeverity}
                 />
               </div>
 

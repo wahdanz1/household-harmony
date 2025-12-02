@@ -117,7 +117,8 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
         }
 
         // Check email whitelist
-        if (!isEmailAllowed(email)) {
+        const isAllowed = await isEmailAllowed(email);
+        if (!isAllowed) {
             toast({
                 title: "Access Restricted",
                 description: "This application is currently in private beta. Your email is not on the approved list.",

@@ -129,7 +129,7 @@ const Income = () => {
 
     const { error } = await supabase
       .from("monthly_incomes")
-      .upsert(entries, { onConflict: "income_source_id,month" });
+      .upsert(entries as any, { onConflict: "income_source_id,month" });
 
     if (error) {
       toast({
@@ -181,7 +181,7 @@ const Income = () => {
         share_percentage: data.isShared ? parseFloat(data.sharePercentage) : 50,
         created_by: user.id,
         income_source_id: null,
-      });
+      } as any);
 
     if (error) {
       toast({
@@ -305,20 +305,31 @@ const Income = () => {
           ) : (
             <>
               <div className="space-y-3">
-                {incomeSources.map((source) => (
-                  <IncomeSourceItem
-                    key={source.id}
-                    source={source}
-                    amount={amounts[source.id] || source.default_amount.toString()}
-                    currency={household?.currency || "SEK"}
-                    onAmountChange={(sourceId, value) =>
-                      setAmounts({ ...amounts, [sourceId]: value })
-                    }
-                    onEdit={handleEditSource}
-                    onDelete={handleDeleteSource}
-                    showCheckmark={hasSaved && amounts[source.id] === monthlyIncomes.find((m: any) => m.income_source_id === source.id)?.amount.toString()}
-                  />
-                ))}
+                {incomeSources.map((source) => {
+                  const savedEntry = monthlyIncomes.find((m: any) => m.income_source_id === source.id);
+                  const currentAmount = amounts[source.id];
+                  const savedAmount = savedEntry ? savedEntry.amount.toString() : null;
+
+                  let status: 'saved' | 'modified' | 'none' = 'none';
+                  if (savedEntry) {
+                    status = currentAmount !== savedAmount ? 'modified' : 'saved';
+                  }
+
+                  return (
+                    <IncomeSourceItem
+                      key={source.id}
+                      source={source}
+                      amount={amounts[source.id] || source.default_amount.toString()}
+                      currency={household?.currency || "SEK"}
+                      onAmountChange={(sourceId, value) =>
+                        setAmounts({ ...amounts, [sourceId]: value })
+                      }
+                      onEdit={handleEditSource}
+                      onDelete={handleDeleteSource}
+                      status={status}
+                    />
+                  );
+                })}
               </div>
 
               {lastSavedTime && !isNaN(lastSavedTime.getTime()) && (

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Edit, Check } from "lucide-react";
+import { Edit, Check, ExternalLink } from "lucide-react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { DataListItem } from "@/components/ui/data-list-item";
 
@@ -15,6 +15,7 @@ interface RegularExpenseItemProps {
     creditExpenses?: any[];
     onAmountChange?: (categoryId: string, value: string) => void;
     onEdit: (category: any) => void;
+    onNavigateToCredit?: () => void;
 }
 
 export const RegularExpenseItem = ({
@@ -26,8 +27,10 @@ export const RegularExpenseItem = ({
     isDifferent,
     creditExpenses = [],
     onAmountChange = () => { },
-    onEdit
-}: RegularExpenseItemProps) => {
+    onEdit,
+    onNavigateToCredit,
+    status = 'none'
+}: RegularExpenseItemProps & { status?: 'saved' | 'modified' | 'none' }) => {
     const getDisplayAmount = () => {
         const baseAmount = parseFloat(amount || "0");
 
@@ -39,6 +42,17 @@ export const RegularExpenseItem = ({
             if (!waterIncluded && waterCost > 0) {
                 return (baseAmount + waterCost).toString();
             }
+        }
+
+        // Only add credit card expenses if this is a pure credit category (unmatched)
+        // For regular categories, we want to show the base amount only, 
+        // and list credit expenses separately below
+        if (category.type === 'credit') {
+            const creditTotal = creditExpenses.reduce((sum, expense) => {
+                const val = typeof expense.amount === 'string' ? parseFloat(expense.amount) : expense.amount;
+                return sum + (isNaN(val) ? 0 : val);
+            }, 0);
+            return (baseAmount + creditTotal).toString();
         }
 
         return baseAmount.toString();
@@ -54,8 +68,19 @@ export const RegularExpenseItem = ({
     const cat = getCategoryById(category.category || 'other');
     const Icon = cat?.icon;
 
+    const getStatusBorderClass = () => {
+        switch (status) {
+            case 'saved':
+                return 'border-l-4 border-l-green-500 pl-2';
+            case 'modified':
+                return 'border-l-4 border-l-lime-400 pl-2';
+            default:
+                return 'pl-3'; // Default padding to align with bordered items
+        }
+    };
+
     return (
-        <DataListItem onClick={() => onEdit(category)}>
+        <DataListItem onClick={() => onEdit(category)} className={getStatusBorderClass()}>
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
                 {/* Top row: Icon + Title + Avatar */}
@@ -68,10 +93,12 @@ export const RegularExpenseItem = ({
                             Credit
                         </Badge>
                     )}
-                    <Avatar className="h-5 w-5 shrink-0">
-                        <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
-                        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                    </Avatar>
+                    {category.type !== 'credit' && (
+                        <Avatar className="h-5 w-5 shrink-0">
+                            <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
+                            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                        </Avatar>
+                    )}
                 </div>
 
                 {/* Bottom row: Amount input and edit button */}
@@ -79,7 +106,7 @@ export const RegularExpenseItem = ({
                     <div className="flex-1">
                         <input
                             type="number"
-                            value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
+                            value={getDisplayAmount()}
                             onChange={(e) => onAmountChange(category.id, e.target.value)}
                             disabled={category.type === "static" || category.type === "credit"}
                             onClick={(e) => e.stopPropagation()}
@@ -97,7 +124,7 @@ export const RegularExpenseItem = ({
                             onEdit(category);
                         }}
                     >
-                        <Edit className="h-4 w-4" />
+                        {category.type === 'credit' ? <ExternalLink className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
                     </Button>
                 </div>
             </div>
@@ -123,13 +150,12 @@ export const RegularExpenseItem = ({
                                 Credit
                             </Badge>
                         )}
-                        {hasEntry && <Check className="h-4 w-4 text-success shrink-0" />}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <input
                         type="number"
-                        value={category.type === 'credit' && creditExpenses.length > 0 ? creditExpenses[0].amount : getDisplayAmount()}
+                        value={getDisplayAmount()}
                         onChange={(e) => onAmountChange(category.id, e.target.value)}
                         disabled={category.type === "static" || category.type === "credit"}
                         onClick={(e) => e.stopPropagation()}
@@ -147,28 +173,49 @@ export const RegularExpenseItem = ({
                             onEdit(category);
                         }}
                     >
-                        <Edit className="h-4 w-4" />
+                        {category.type === 'credit' ? <ExternalLink className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
                     </Button>
-                    <Avatar className="h-7 w-7 shrink-0">
-                        <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
-                        <AvatarFallback className="text-sm">{initials}</AvatarFallback>
-                    </Avatar>
+                    {category.type !== 'credit' && (
+                        <Avatar className="h-7 w-7 shrink-0">
+                            <AvatarImage src={creator?.profiles?.avatar_url || undefined} />
+                            <AvatarFallback className="text-sm">{initials}</AvatarFallback>
+                        </Avatar>
+                    )}
                 </div>
             </div>
 
             {/* Credit Card Expenses for this category - only show for non-credit items */}
             {category.type !== 'credit' && creditExpenses.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border space-y-2">
+                <div className="mt-2 pl-4 border-l-2 border-border space-y-2">
                     {creditExpenses.map((expense) => (
-                        <div key={expense.id} className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2 flex-1">
-                                <Badge variant="secondary" className="text-xs">
+                        <div key={expense.id} className="flex items-center justify-between text-sm py-1 gap-2">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-normal text-muted-foreground border-muted-foreground/30">
                                     Credit
                                 </Badge>
-                                <span className="text-muted-foreground">{expense.description}</span>
-                                <span className="text-xs text-muted-foreground">• {expense.credit_cards?.name}</span>
+                                <span className="text-muted-foreground truncate">{expense.description}</span>
+                                <span className="text-xs text-muted-foreground/60 whitespace-nowrap">• {expense.credit_cards?.name}</span>
                             </div>
-                            <span className="font-medium">{expense.amount.toFixed(0)} {currency}</span>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    value={expense.amount}
+                                    disabled
+                                    className="w-24 sm:w-32 text-right text-lg sm:text-xl font-semibold bg-transparent border-0 border-b-2 border-border rounded-none px-2 py-1 opacity-50 cursor-not-allowed"
+                                />
+                                <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onNavigateToCredit?.();
+                                }}
+                                className="h-9 w-9 shrink-0"
+                            >
+                                <ExternalLink className="h-4 w-4" />
+                            </Button>
                         </div>
                     ))}
                 </div>

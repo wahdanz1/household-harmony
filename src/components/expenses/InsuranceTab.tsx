@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,25 +7,25 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Shield, Plus, Edit, Trash2, Home, Car, Heart, User, PawPrint, Plane, Scale, MoreHorizontal } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { Shield, Plus, Edit, Trash2, MoreHorizontal } from "lucide-react";
 import { DataListItem } from "@/components/ui/data-list-item";
+import { useTabCrud } from "@/components/expenses/hooks/useTabCrud";
+import { SummaryStatsCard } from "@/components/expenses/SummaryStatsCard";
+import { insuranceTypes, monthNames } from "@/constants/insuranceTypes";
+import { getCategoryIcon, getCategoryBadgeStyle } from "@/utils/categoryHelpers";
 
-interface Insurance {
-  id: string;
+interface InsuranceFormData {
   name: string;
-  provider: string | null;
+  provider: string;
   type: string;
-  total_amount: number;
+  total_amount: string;
   payment_frequency: string;
-  invoice_month: number | null;
-  notes: string | null;
+  invoice_month: string;
+  notes: string;
   is_active: boolean;
   is_shared: boolean;
-  co_parent_id: string | null;
-  share_percentage: number;
+  co_parent_id: string;
+  share_percentage: string;
 }
 
 interface InsuranceTabProps {
@@ -34,68 +33,26 @@ interface InsuranceTabProps {
   currency: string;
 }
 
-const insuranceTypes = [
-  { value: "home", label: "Home Insurance", color: "#3B82F6", icon: Home },
-  { value: "car", label: "Car Insurance", color: "#EF4444", icon: Car },
-  { value: "health", label: "Health Insurance", color: "#10B981", icon: Heart },
-  { value: "life", label: "Life Insurance", color: "#8B5CF6", icon: User },
-  { value: "pet", label: "Pet Insurance", color: "#F59E0B", icon: PawPrint },
-  { value: "travel", label: "Travel Insurance", color: "#06B6D4", icon: Plane },
-  { value: "liability", label: "Liability Insurance", color: "#EC4899", icon: Scale },
-  { value: "other", label: "Other", color: "#64748B", icon: MoreHorizontal },
-];
-
-const getTypeIcon = (typeValue: string) => {
-  const type = insuranceTypes.find(t => t.value === typeValue);
-  const IconComponent = type?.icon || Shield;
-  const color = type?.color || "#64748B";
-  return <IconComponent className="h-4 w-4" style={{ color }} />;
-};
-
-const monthNames = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
-
 export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [insurances, setInsurances] = useState<Insurance[]>([]);
-  const [coParents, setCoParents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isOpen, setIsOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    provider: "",
-    type: "home",
-    total_amount: "",
-    payment_frequency: "yearly",
-    invoice_month: "" as string | "",
-    notes: "",
-    is_active: true,
-    is_shared: false,
-    co_parent_id: "",
-    share_percentage: "50",
-  });
-
-  const fetchInsurances = async () => {
-    const [{ data: insurancesData }, { data: coParentsData }] = await Promise.all([
-      supabase.from("insurances").select("*").eq("household_id", householdId).order("name"),
-      supabase.from("co_parents").select("*").eq("household_id", householdId),
-    ]);
-
-    setInsurances(insurancesData || []);
-    setCoParents(coParentsData || []);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchInsurances();
-  }, [householdId]);
-
-  const resetForm = () => {
-    setFormData({
+  const {
+    items: insurances,
+    additionalData,
+    loading,
+    isOpen,
+    setIsOpen,
+    editingId,
+    formData,
+    setFormData,
+    handleSave,
+    handleEdit: handleEditBase,
+    handleDelete,
+    resetForm,
+    activeItems: activeInsurances,
+    inactiveItems: inactiveInsurances,
+  } = useTabCrud<InsuranceFormData>({
+    tableName: "insurances",
+    householdId,
+    defaultFormData: {
       name: "",
       provider: "",
       type: "home",
@@ -107,101 +64,70 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
       is_shared: false,
       co_parent_id: "",
       share_percentage: "50",
-    });
-    setEditingId(null);
-  };
-
-  const handleSave = async () => {
-    if (!user) return;
-
-    const data = {
+    },
+    additionalFetchTables: [
+      {
+        name: "co_parents",
+        columns: "*",
+      },
+    ],
+    toastMessages: {
+      add: "Insurance added",
+      update: "Insurance updated",
+      delete: "Insurance deleted",
+      saveError: "Failed to save insurance",
+      deleteError: "Failed to delete insurance",
+    },
+    transformDataBeforeSave: (data, userId, householdId) => ({
       household_id: householdId,
-      name: formData.name,
-      provider: formData.provider || null,
-      type: formData.type,
-      total_amount: parseFloat(formData.total_amount),
-      payment_frequency: formData.payment_frequency,
-      invoice_month: formData.invoice_month && formData.invoice_month !== "0" ? parseInt(formData.invoice_month) : null,
-      notes: formData.notes || null,
-      is_active: formData.is_active,
-      is_shared: formData.is_shared,
-      co_parent_id: formData.is_shared ? formData.co_parent_id : null,
-      share_percentage: formData.is_shared ? parseFloat(formData.share_percentage) : 50,
-      created_by: user.id,
-    };
-
-    let error;
-    if (editingId) {
-      ({ error } = await supabase.from("insurances").update(data).eq("id", editingId));
-    } else {
-      ({ error } = await supabase.from("insurances").insert(data));
-    }
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save insurance",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: editingId ? "Insurance updated" : "Insurance added",
-      });
-      setIsOpen(false);
-      resetForm();
-      fetchInsurances();
-    }
-  };
-
-  const handleEdit = (insurance: Insurance) => {
-    // TEMPORARY: Extract month from old date strings
-    let monthValue = "";
-    if (insurance.invoice_month) {
-      const dateStr = insurance.invoice_month.toString();
-      if (dateStr.includes("-")) {
-        // Old format: "2024-12-15" -> extract month
-        const date = new Date(dateStr);
-        monthValue = (date.getMonth() + 1).toString(); // Convert to "12"
-      } else {
-        // New format: already a number
-        monthValue = dateStr;
+      name: data.name,
+      provider: data.provider || null,
+      type: data.type,
+      total_amount: parseFloat(data.total_amount),
+      payment_frequency: data.payment_frequency,
+      invoice_month: data.invoice_month && data.invoice_month !== "0" ? parseInt(data.invoice_month) : null,
+      notes: data.notes || null,
+      is_active: data.is_active,
+      is_shared: data.is_shared,
+      co_parent_id: data.is_shared ? data.co_parent_id : null,
+      share_percentage: data.is_shared ? parseFloat(data.share_percentage) : 50,
+      created_by: userId,
+    }),
+    transformDataOnEdit: (insurance) => {
+      // TEMPORARY: Extract month from old date strings
+      let monthValue = "";
+      if (insurance.invoice_month) {
+        const dateStr = insurance.invoice_month.toString();
+        if (dateStr.includes("-")) {
+          // Old format: "2024-12-15" -> extract month
+          const date = new Date(dateStr);
+          monthValue = (date.getMonth() + 1).toString(); // Convert to "12"
+        } else {
+          // New format: already a number
+          monthValue = dateStr;
+        }
       }
-    }
 
-    setFormData({
-      name: insurance.name,
-      provider: insurance.provider || "",
-      type: insurance.type,
-      total_amount: insurance.total_amount.toString(),
-      payment_frequency: insurance.payment_frequency,
-      invoice_month: monthValue,  // ✅ Now converts old dates to month numbers
-      notes: insurance.notes || "",
-      is_active: insurance.is_active,
-      is_shared: insurance.is_shared,
-      co_parent_id: insurance.co_parent_id || "",
-      share_percentage: insurance.share_percentage.toString(),
-    });
-    setEditingId(insurance.id);
-    setIsOpen(true);
-  };
+      return {
+        name: insurance.name,
+        provider: insurance.provider || "",
+        type: insurance.type,
+        total_amount: insurance.total_amount.toString(),
+        payment_frequency: insurance.payment_frequency,
+        invoice_month: monthValue,
+        notes: insurance.notes || "",
+        is_active: insurance.is_active,
+        is_shared: insurance.is_shared,
+        co_parent_id: insurance.co_parent_id || "",
+        share_percentage: insurance.share_percentage.toString(),
+      };
+    },
+  });
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("insurances").delete().eq("id", id);
+  const coParents = additionalData.co_parents || [];
 
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete insurance",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "Insurance deleted",
-      });
-      fetchInsurances();
-    }
+  const handleEdit = (insurance: any) => {
+    handleEditBase(insurance);
   };
 
   const calculateMonthlySavings = () => {
@@ -232,60 +158,40 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
       }, 0);
   };
 
-  const activeInsurances = insurances.filter((i) => i.is_active);
-  const inactiveInsurances = insurances.filter((i) => !i.is_active);
-
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
   }
 
+  const monthlySavings = calculateMonthlySavings();
+  const totalAnnual = calculateTotalAnnual();
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Insurance Summary</CardTitle>
-          <CardDescription className="mt-1.5">Save monthly to cover annual insurance payments</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 grid-cols-2">
-            {/* Monthly Cost */}
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Monthly Cost</p>
-              <div className="text-2xl font-bold text-warning">
-                {calculateMonthlySavings().toFixed(0)} {currency}
-              </div>
-            </div>
-
-            {/* Yearly Cost */}
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Yearly Cost</p>
-              <div className="text-2xl font-bold">
-                {calculateTotalAnnual().toFixed(0)} {currency}
-              </div>
-            </div>
-
-            {/* Average Monthly */}
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Average Monthly</p>
-              <div className="text-2xl font-bold">
-                {activeInsurances.length > 0 ? (
-                  <>
-                    {(calculateMonthlySavings() / activeInsurances.length).toFixed(0)} {currency}
-                  </>
-                ) : "0 " + currency}
-              </div>
-            </div>
-
-            {/* Active Count */}
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Active Policies</p>
-              <div className="text-2xl font-bold">
-                {activeInsurances.length}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <SummaryStatsCard
+        title="Insurance Summary"
+        description="Save monthly to cover annual insurance payments"
+        stats={[
+          {
+            label: "Monthly Cost",
+            value: `${monthlySavings.toFixed(0)} ${currency}`,
+            className: "text-warning",
+          },
+          {
+            label: "Yearly Cost",
+            value: `${totalAnnual.toFixed(0)} ${currency}`,
+          },
+          {
+            label: "Average Monthly",
+            value: activeInsurances.length > 0
+              ? `${(monthlySavings / activeInsurances.length).toFixed(0)} ${currency}`
+              : `0 ${currency}`,
+          },
+          {
+            label: "Active Policies",
+            value: activeInsurances.length,
+          },
+        ]}
+      />
 
       <Card>
         <CardHeader>
@@ -500,7 +406,7 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
                   <div className="sm:hidden space-y-3">
                     {/* Top row: Icon + Title */}
                     <div className="flex items-center gap-2">
-                      {getTypeIcon(insurance.type)}
+                      {getCategoryIcon(insurance.type, insuranceTypes, Shield)}
                       <p className="font-medium flex-1 truncate">{insurance.name}</p>
                       {insurance.is_shared && (
                         <Badge variant="secondary" className="text-xs shrink-0">
@@ -524,17 +430,15 @@ export const InsuranceTab = ({ householdId, currency }: InsuranceTabProps) => {
 
                   {/* Desktop: Single line layout */}
                   <div className="hidden sm:flex items-center gap-2">
-                    {getTypeIcon(insurance.type)}
+                    {getCategoryIcon(insurance.type, insuranceTypes, Shield)}
                     <p className="font-medium truncate">{insurance.name}</p>
                     {(() => {
+                      const badgeStyle = getCategoryBadgeStyle(insurance.type, insuranceTypes);
                       const type = insuranceTypes.find((t) => t.value === insurance.type);
                       return (
                         <span
                           className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-                          style={{
-                            backgroundColor: `${type?.color}20`,
-                            color: type?.color
-                          }}
+                          style={badgeStyle}
                         >
                           {type?.label || insurance.type}
                         </span>

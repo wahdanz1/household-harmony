@@ -226,9 +226,15 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <code className="font-mono text-lg font-bold">{invite.invite_code}</code>
-                        <Badge variant={invite.status === "pending" ? "default" : "secondary"}>
-                          {invite.status}
-                        </Badge>
+                        {(() => {
+                          const isExpired = new Date(invite.expires_at) < new Date();
+                          const status = isExpired && invite.status === "pending" ? "expired" : invite.status;
+                          return (
+                            <Badge variant={status === "pending" ? "default" : status === "expired" ? "destructive" : "secondary"}>
+                              {status}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                       {invite.invited_email && (
                         <div className="text-sm text-muted-foreground mt-1">

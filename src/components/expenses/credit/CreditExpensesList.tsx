@@ -16,12 +16,14 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit, Trash2, ShoppingCart, Fuel, ShoppingBag, UtensilsCrossed, Film, Wrench, Plane, Heart, MoreHorizontal } from "lucide-react";
+import { Plus, Edit, MoreHorizontal } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { DataListItem } from "@/components/ui/data-list-item";
+import { creditCategories } from "@/constants/creditCategories";
+import { getCategoryIcon, getCategoryBadgeStyle } from "@/utils/categoryHelpers";
 
 interface CreditCardExpense {
     id: string;
@@ -49,24 +51,6 @@ interface CreditExpensesListProps {
     expenses: CreditCardExpense[];
     onUpdate: () => void;
 }
-
-const creditCategories = [
-    { value: "groceries", label: "Groceries", icon: ShoppingCart, color: "#EF4444" },
-    { value: "fuel", label: "Fuel", icon: Fuel, color: "#14B8A6" },
-    { value: "shopping", label: "Shopping", icon: ShoppingBag, color: "#F97316" },
-    { value: "dining_out", label: "Dining Out", icon: UtensilsCrossed, color: "#EC4899" },
-    { value: "entertainment", label: "Entertainment", icon: Film, color: "#8B5CF6" },
-    { value: "car_repairs", label: "Car Repairs", icon: Wrench, color: "#6366F1" },
-    { value: "travel", label: "Travel", icon: Plane, color: "#06B6D4" },
-    { value: "health", label: "Health & Wellness", icon: Heart, color: "#EF4444" },
-    { value: "other", label: "Other", icon: MoreHorizontal, color: "#64748B" },
-];
-
-const getCategoryIcon = (categoryValue: string, color?: string) => {
-    const category = creditCategories.find(c => c.value === categoryValue);
-    const IconComponent = category?.icon || MoreHorizontal;
-    return <IconComponent className="h-4 w-4" style={{ color: color || category?.color }} />;
-};
 
 export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd, creditCards, expenses, onUpdate }: CreditExpensesListProps) => {
     const { user } = useAuth();
@@ -294,6 +278,7 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
                     ) : (
                         <div className="space-y-2">
                             {expenses.map((expense) => {
+                                const badgeStyle = getCategoryBadgeStyle(expense.category, creditCategories);
                                 const category = creditCategories.find(c => c.value === expense.category);
                                 return (
                                     <DataListItem
@@ -304,7 +289,7 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
                                         <div className="sm:hidden space-y-3">
                                             {/* Top row: Icon + Title */}
                                             <div className="flex items-center gap-2">
-                                                {getCategoryIcon(expense.category)}
+                                                {getCategoryIcon(expense.category, creditCategories, MoreHorizontal)}
                                                 <p className="font-medium flex-1 truncate">{expense.description}</p>
                                             </div>
                                             {/* Bottom row: Card name, Amount and buttons */}
@@ -331,15 +316,12 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
                                         <div className="hidden sm:flex items-center gap-4">
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
-                                                    {getCategoryIcon(expense.category)}
+                                                    {getCategoryIcon(expense.category, creditCategories, MoreHorizontal)}
                                                     <p className="font-medium truncate">{expense.description}</p>
                                                     {category && (
                                                         <span
                                                             className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-                                                            style={{
-                                                                backgroundColor: `${category.color}20`,
-                                                                color: category.color
-                                                            }}
+                                                            style={badgeStyle}
                                                         >
                                                             {category.label}
                                                         </span>

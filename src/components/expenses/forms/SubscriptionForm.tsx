@@ -35,7 +35,17 @@ const subscriptionCategories = [
 export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: SubscriptionFormProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        name: string;
+        amount: string;
+        billing_cycle: string;
+        next_billing_date: Date;
+        category: string;
+        notes: string;
+        is_active: boolean;
+        billing_day?: number;
+        billing_month?: number;
+    }>({
         name: "",
         amount: "",
         billing_cycle: "monthly",
@@ -61,6 +71,8 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
             notes: formData.notes,
             is_active: formData.is_active,
             created_by: user.id,
+            billing_day: formData.billing_cycle === "yearly" ? formData.billing_day : null,
+            billing_month: formData.billing_cycle === "yearly" ? formData.billing_month : null,
         };
 
         const { error } = await supabase.from("subscriptions").insert(data);
@@ -132,26 +144,44 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
                 </Select>
             </div>
 
-            <div className="space-y-2">
-                <Label>Next Billing Date</Label>
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal">
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {format(formData.next_billing_date, "PPP")}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            mode="single"
-                            selected={formData.next_billing_date}
-                            onSelect={(date) => date && setFormData({ ...formData, next_billing_date: date })}
-                            initialFocus
-                            className={cn("p-3 pointer-events-auto")}
+            {formData.billing_cycle === "yearly" && (
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Billing Month</Label>
+                        <Select
+                            value={formData.billing_month?.toString()}
+                            onValueChange={(v) => setFormData({ ...formData, billing_month: parseInt(v) })}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Month" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                                    <SelectItem key={month} value={month.toString()}>
+                                        {format(new Date(2024, month - 1, 1), "MMMM")}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Billing Day</Label>
+                        <Input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={formData.billing_day || ""}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                if (!isNaN(val) && val >= 1 && val <= 31) {
+                                    setFormData({ ...formData, billing_day: val });
+                                }
+                            }}
+                            placeholder="Day (1-31)"
                         />
-                    </PopoverContent>
-                </Popover>
-            </div>
+                    </div>
+                </div>
+            )}
 
             <div className="space-y-2">
                 <Label>Notes</Label>
