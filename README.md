@@ -1,73 +1,68 @@
-# Welcome to your Lovable project
+# Household Harmony - Monorepo
 
-## Project info
+**Swedish Household Budgeting App** with Tax Intelligence & Smart Defaults
 
-**URL**: https://lovable.dev/projects/d2fb203d-f1ea-40bf-ae16-eaa87222fe13
+## 📁 Structure
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/d2fb203d-f1ea-40bf-ae16-eaa87222fe13) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+household-harmony/
+├── frontend/          # React + Vite frontend → Deploy to Vercel
+├── backend/           # FastAPI backend → Deploy to Railway
+└── supabase/         # Database migrations (shared)
 ```
 
-**Edit a file directly in GitHub**
+## 🚀 Quick Start
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Frontend Development
+```bash
+cd frontend
+npm install
+npm run dev          # http://localhost:8080
+```
 
-**Use GitHub Codespaces**
+### Backend Development
+```bash
+cd backend
+uv sync
+uv run uvicorn app.main:app --reload --port 8000
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 📦 Deployment
 
-## What technologies are used for this project?
+### Vercel (Frontend)
+- **Root Directory:** `frontend`
+- **Build Command:** `npm run build`
+- **Output Directory:** `dist`
+- **Framework:** Vite
+- **Deploy:** Connect GitHub repo, Vercel auto-detects config
 
-This project is built with:
+### Railway (Backend)
+- **Root Directory:** `backend`
+- **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- **Builder:** NIXPACKS
+- **Deploy:** Connect GitHub repo, Railway uses `railway.json`
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🔐 Environment Variables
 
-## How can I deploy this project?
+### Frontend (`.env.local`)
+```env
+VITE_SUPABASE_URL=https://pksyokumflsyvjcmtjmv.supabase.co
+VITE_SUPABASE_ANON_KEY=your-key
+VITE_SUPABASE_PROJECT_ID=pksyokumflsyvjcmtjmv
+VITE_BACKEND_URL=https://your-backend.railway.app
+```
 
-Simply open [Lovable](https://lovable.dev/projects/d2fb203d-f1ea-40bf-ae16-eaa87222fe13) and click on Share -> Publish.
+### Backend (`.env`)
+```env
+SUPABASE_URL=https://pksyokumflsyvjcmtjmv.supabase.co
+SUPABASE_KEY=your-key
+JWT_SECRET=your-secret
+ENVIRONMENT=production
+ALLOWED_ORIGINS=https://household-harmony.vercel.app
+```
 
-## Can I connect a custom domain to my Lovable project?
+## 🛠️ Tech Stack
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui
+- **Backend:** FastAPI, Python 3.11+, uv
+- **Database:** Supabase (PostgreSQL)
