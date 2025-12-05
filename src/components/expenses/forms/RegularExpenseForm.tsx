@@ -42,6 +42,12 @@ export const RegularExpenseForm = ({
     const { toast } = useToast();
     const [formData, setFormData] = useState<RegularExpenseFormData>(defaultValues);
 
+    // Derived values for conditional rendering
+    const selectedCategory = EXPENSE_CATEGORIES.find(cat => cat.id === formData.category);
+    const CategoryIcon = selectedCategory?.icon;
+    const isElectricity = formData.category === "electricity";
+    const isRent = formData.category === "rent";
+
     useEffect(() => {
         setFormData((prev) => ({
             ...prev,
