@@ -17,11 +17,12 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { ShoppingBag, Plus, Trash2 } from "lucide-react";
+import { ShoppingBag, Plus, Trash2, Edit } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { DataListItem } from "@/components/ui/data-list-item";
 
 interface SharedExpense {
     id: string;
@@ -74,6 +75,8 @@ export const SharedExpensesList = ({
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [expenseToDelete, setExpenseToDelete] = useState<{ id: string, name: string } | null>(null);
 
+    const [editingExpense, setEditingExpense] = useState<SharedExpense | null>(null);
+
     const resetForm = () => {
         setFormData({
             description: "",
@@ -82,6 +85,19 @@ export const SharedExpensesList = ({
             notes: "",
             paid_by: "user",
         });
+        setEditingExpense(null);
+    };
+
+    const handleEdit = (expense: SharedExpense) => {
+        setEditingExpense(expense);
+        setFormData({
+            description: expense.description,
+            amount: expense.amount.toString(),
+            co_parent_id: expense.co_parent_id,
+            notes: expense.notes || "",
+            paid_by: expense.paid_by,
+        });
+        setIsOpen(true);
     };
 
     const handleSave = async () => {
@@ -100,18 +116,28 @@ export const SharedExpensesList = ({
             created_by: user.id,
         };
 
-        const { error } = await supabase.from("shared_expenses").insert(data);
+        let error;
+        if (editingExpense) {
+            ({ error } = await supabase
+                .from("shared_expenses")
+                .update(data)
+                .eq("id", editingExpense.id));
+        } else {
+            ({ error } = await supabase
+                .from("shared_expenses")
+                .insert(data));
+        }
 
         if (error) {
             toast({
                 title: "Error",
-                description: "Failed to add shared expense",
+                description: `Failed to ${editingExpense ? "update" : "add"} shared expense`,
                 variant: "destructive",
             });
         } else {
             toast({
                 title: "Success",
-                description: "Shared expense added",
+                description: `Shared expense ${editingExpense ? "updated" : "added"}`,
             });
             setIsOpen(false);
             resetForm();
@@ -119,9 +145,11 @@ export const SharedExpensesList = ({
         }
     };
 
-    const confirmDelete = (id: string, description: string) => {
-        setExpenseToDelete({ id, name: description });
-        setDeleteConfirmOpen(true);
+    const confirmDelete = () => {
+        if (editingExpense) {
+            setExpenseToDelete({ id: editingExpense.id, name: editingExpense.description });
+            setDeleteConfirmOpen(true);
+        }
     };
 
     const handleConfirmedDelete = async () => {
@@ -141,6 +169,7 @@ export const SharedExpensesList = ({
                 description: "Shared expense deleted",
             });
             onUpdate();
+            setIsOpen(false); // Close the edit dialog as well
         }
 
         setDeleteConfirmOpen(false);
@@ -149,21 +178,6 @@ export const SharedExpensesList = ({
 
     return (
         <>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Shared Expenses Summary</CardTitle>
-                    <CardDescription className="mt-1.5">Track expenses you share with co-parents</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div>
-                        <p className="text-sm text-muted-foreground">Total this month</p>
-                        <p className="text-3xl font-bold text-warning">
-                            {totalSharedExpenses.toFixed(0)} {currency}
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
-
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -185,9 +199,9 @@ export const SharedExpensesList = ({
                         </DialogTrigger>
                         <DialogContent>
                             <DialogHeader>
-                                <DialogTitle>Add Shared Expense</DialogTitle>
+                                <DialogTitle>{editingExpense ? "Edit" : "Add"} Shared Expense</DialogTitle>
                                 <DialogDescription>
-                                    Add an expense shared with a co-parent (e.g., kids' clothing, school supplies)
+                                    {editingExpense ? "Update the details of this expense" : "Add an expense shared with a co-parent"}
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4">
@@ -244,8 +258,19 @@ export const SharedExpensesList = ({
                                     />
                                 </div>
                             </div>
-                            <DialogFooter>
-                                <Button onClick={handleSave}>Add Expense</Button>
+                            <DialogFooter className="flex flex-col gap-2 sm:flex-col sm:space-x-0">
+                                <Button onClick={handleSave} className="w-full">
+                                    {editingExpense ? "Update Expense" : "Add Expense"}
+                                </Button>
+                                <div className="flex gap-2 w-full">
+                                    <Button variant="outline" className="flex-1" onClick={() => setIsOpen(false)}>Cancel</Button>
+                                    {editingExpense && (
+                                        <Button variant="destructive" type="button" className="flex-1" onClick={confirmDelete}>
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Delete
+                                        </Button>
+                                    )}
+                                </div>
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
@@ -262,33 +287,34 @@ export const SharedExpensesList = ({
                                     {coParent.name} - {total.toFixed(0)} {currency}
                                 </h3>
                                 {coParentExpenses.map((expense) => (
-                                    <div
+                                    <DataListItem
                                         key={expense.id}
-                                        className="flex items-start justify-between p-3 rounded-lg border border-border bg-background/40"
+                                        onClick={() => handleEdit(expense)}
                                     >
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <p className="font-medium">{expense.description}</p>
-                                                <Badge variant={expense.paid_by === "user" ? "destructive" : "default"}>
-                                                    {expense.paid_by === "user" ? "You paid" : "They paid"}
-                                                </Badge>
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium">{expense.description}</p>
+                                                    <Badge variant={expense.paid_by === "user" ? "destructive" : "default"}>
+                                                        {expense.paid_by === "user" ? "You paid" : "They paid"}
+                                                    </Badge>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {expense.amount} {currency}
+                                                    {expense.notes && ` • ${expense.notes}`}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {format(new Date(expense.created_at), "MMM d, yyyy")}
+                                                </p>
                                             </div>
-                                            <p className="text-sm text-muted-foreground">
-                                                {expense.amount} {currency}
-                                                {expense.notes && ` • ${expense.notes}`}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {format(new Date(expense.created_at), "MMM d, yyyy")}
-                                            </p>
+                                            <Button variant="ghost" size="icon" className="shrink-0" onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(expense);
+                                            }}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
                                         </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => confirmDelete(expense.id, expense.description)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
+                                    </DataListItem>
                                 ))}
                             </div>
                         );

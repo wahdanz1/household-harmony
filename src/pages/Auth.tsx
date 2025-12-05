@@ -137,7 +137,8 @@ const Auth = () => {
       }
 
       // Check email whitelist
-      if (!isEmailAllowed(signupEmail)) {
+      const isAllowed = await isEmailAllowed(signupEmail);
+      if (!isAllowed) {
         toast({
           title: "Access Restricted",
           description: "This application is currently in private beta. Your email is not on the approved list.",

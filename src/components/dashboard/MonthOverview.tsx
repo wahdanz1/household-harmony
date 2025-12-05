@@ -9,7 +9,18 @@ interface MonthOverviewProps {
 
 const MonthOverview = ({ income, expenses, currency }: MonthOverviewProps) => {
   const netResult = income - expenses;
-  const isPositive = netResult >= 0;
+  const percentageLeft = income > 0 ? (netResult / income) * 100 : 0;
+
+  let statusColor = "success";
+  let statusText = "Surplus";
+
+  if (netResult < 0) {
+    statusColor = "destructive";
+    statusText = "Deficit";
+  } else if (percentageLeft < 10) {
+    statusColor = "warning";
+    statusText = "Low Balance";
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('sv-SE', {
@@ -48,17 +59,17 @@ const MonthOverview = ({ income, expenses, currency }: MonthOverviewProps) => {
         </CardContent>
       </Card>
 
-      <Card className={`border-${isPositive ? 'primary' : 'warning'}/20 bg-${isPositive ? 'primary' : 'warning'}/5`}>
+      <Card className={`border-${statusColor}/20 bg-${statusColor}/5`}>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Available to Save</CardTitle>
-          <Wallet className={`h-4 w-4 text-${isPositive ? 'primary' : 'warning'}`} />
+          <Wallet className={`h-4 w-4 text-${statusColor}`} />
         </CardHeader>
         <CardContent>
-          <div className={`text-2xl font-bold number-display text-${isPositive ? 'primary' : 'warning'}`}>
+          <div className={`text-2xl font-bold number-display text-${statusColor}`}>
             {formatCurrency(netResult)}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            {isPositive ? 'Surplus' : 'Deficit'}
+            {statusText}
           </p>
         </CardContent>
       </Card>

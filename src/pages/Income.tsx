@@ -70,11 +70,14 @@ const Income = () => {
       setHasSaved(true);
       // Get the most recent updated_at timestamp
       const mostRecent = regularIncomes.reduce((latest: any, current: any) => {
-        const latestDate = new Date(latest.updated_at);
-        const currentDate = new Date(current.updated_at);
+        const latestDate = new Date(latest.updated_at || latest.created_at || 0);
+        const currentDate = new Date(current.updated_at || current.created_at || 0);
         return currentDate > latestDate ? current : latest;
       });
-      const savedDate = new Date(mostRecent.updated_at);
+
+      const dateToUse = mostRecent.updated_at || mostRecent.created_at;
+      const savedDate = new Date(dateToUse);
+
       // Only set if it's a valid date
       if (!isNaN(savedDate.getTime())) {
         setLastSavedTime(savedDate);
@@ -126,7 +129,7 @@ const Income = () => {
 
     const { error } = await supabase
       .from("monthly_incomes")
-      .upsert(entries, { onConflict: "income_source_id,month" });
+      .upsert(entries as any, { onConflict: "income_source_id,month" });
 
     if (error) {
       toast({
@@ -178,7 +181,7 @@ const Income = () => {
         share_percentage: data.isShared ? parseFloat(data.sharePercentage) : 50,
         created_by: user.id,
         income_source_id: null,
-      });
+      } as any);
 
     if (error) {
       toast({
@@ -302,20 +305,31 @@ const Income = () => {
           ) : (
             <>
               <div className="space-y-3">
-                {incomeSources.map((source) => (
-                  <IncomeSourceItem
-                    key={source.id}
-                    source={source}
-                    amount={amounts[source.id] || source.default_amount.toString()}
-                    currency={household?.currency || "SEK"}
-                    onAmountChange={(sourceId, value) =>
-                      setAmounts({ ...amounts, [sourceId]: value })
-                    }
-                    onEdit={handleEditSource}
-                    onDelete={handleDeleteSource}
-                    showCheckmark={hasSaved && amounts[source.id] === monthlyIncomes.find((m: any) => m.income_source_id === source.id)?.amount.toString()}
-                  />
-                ))}
+                {incomeSources.map((source) => {
+                  const savedEntry = monthlyIncomes.find((m: any) => m.income_source_id === source.id);
+                  const currentAmount = amounts[source.id];
+                  const savedAmount = savedEntry ? savedEntry.amount.toString() : null;
+
+                  let status: 'saved' | 'modified' | 'none' = 'none';
+                  if (savedEntry) {
+                    status = currentAmount !== savedAmount ? 'modified' : 'saved';
+                  }
+
+                  return (
+                    <IncomeSourceItem
+                      key={source.id}
+                      source={source}
+                      amount={amounts[source.id] || source.default_amount.toString()}
+                      currency={household?.currency || "SEK"}
+                      onAmountChange={(sourceId, value) =>
+                        setAmounts({ ...amounts, [sourceId]: value })
+                      }
+                      onEdit={handleEditSource}
+                      onDelete={handleDeleteSource}
+                      status={status}
+                    />
+                  );
+                })}
               </div>
 
               {lastSavedTime && !isNaN(lastSavedTime.getTime()) && (
@@ -326,7 +340,7 @@ const Income = () => {
               <Button
                 onClick={handleSave}
                 disabled={saving}
-                className={`w-full ${hasSaved ? 'bg-green-600/70 hover:bg-green-600/80' : ''}`}
+                className={`w-full ${hasSaved ? 'bg-green-900/40 hover:bg-green-900/60 text-green-100 border border-green-800/50' : ''}`}
               >
                 {saving ? "Saving..." : hasSaved ? "Update Monthly Income" : "Save Monthly Income"}
               </Button>

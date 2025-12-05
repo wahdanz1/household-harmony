@@ -1,4 +1,5 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Info, ExternalLink, CreditCard, Shield, Check } from "lucide-react";
 import { useState } from "react";
@@ -21,37 +22,46 @@ export const ExpenseSummaryBlocks = ({
     hasInsuranceEntry = false,
     onNavigateToSubscriptions,
     onNavigateToInsurance,
-}: ExpenseSummaryBlocksProps) => {
+    subscriptionSeverity = 'default',
+}: ExpenseSummaryBlocksProps & { subscriptionSeverity?: 'default' | 'warning' | 'danger' }) => {
     const [showSubscriptionsTooltip, setShowSubscriptionsTooltip] = useState(false);
     const [showInsuranceTooltip, setShowInsuranceTooltip] = useState(false);
+
+    const getSeverityStyles = () => {
+        switch (subscriptionSeverity) {
+            case 'danger':
+                return 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900';
+            case 'warning':
+                return 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-900';
+            default:
+                return 'bg-muted/40 border-border';
+        }
+    };
 
     return (
         <>
             {subscriptionsTotal > 0 && (
-                <div className="p-3 sm:p-4 rounded-lg border border-border bg-muted/40">
+                <div className={`p-3 sm:p-4 rounded-lg border ${getSeverityStyles()}`}>
                     {/* Mobile */}
                     <div className="sm:hidden space-y-2">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                                 <p className="font-medium text-muted-foreground">Subscriptions</p>
-                                <TooltipProvider>
-                                    <Tooltip open={showSubscriptionsTooltip}>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-5 w-5 p-0"
-                                                onClick={() => setShowSubscriptionsTooltip(!showSubscriptionsTooltip)}
-                                            >
-                                                <Info className="h-4 w-4 text-muted-foreground" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>This amount is calculated from your active subscriptions</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 p-0"
+                                        >
+                                            <Info className="h-4 w-4 text-muted-foreground" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-2 text-sm">
+                                        <p>This amount is calculated from your active subscriptions</p>
+                                    </PopoverContent>
+                                </Popover>
                                 {hasSubscriptionsEntry && <Check className="h-4 w-4 text-success" />}
                             </div>
                         </div>
@@ -72,23 +82,20 @@ export const ExpenseSummaryBlocks = ({
                             <div className="flex items-center gap-2">
                                 <CreditCard className="h-4 w-4 text-muted-foreground shrink-0" />
                                 <p className="font-medium text-muted-foreground truncate">Subscriptions</p>
-                                <TooltipProvider>
-                                    <Tooltip open={showSubscriptionsTooltip}>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-5 w-5 p-0"
-                                                onClick={() => setShowSubscriptionsTooltip(!showSubscriptionsTooltip)}
-                                            >
-                                                <Info className="h-4 w-4 text-muted-foreground" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>This amount is calculated from your active subscriptions</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 p-0"
+                                        >
+                                            <Info className="h-4 w-4 text-muted-foreground" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-2 text-sm">
+                                        <p>This amount is calculated from your active subscriptions</p>
+                                    </PopoverContent>
+                                </Popover>
                                 {hasSubscriptionsEntry && <Check className="h-4 w-4 text-success shrink-0" />}
                             </div>
                         </div>
@@ -125,23 +132,20 @@ export const ExpenseSummaryBlocks = ({
                             <div className="flex items-center gap-2">
                                 <Shield className="h-4 w-4 text-muted-foreground" />
                                 <p className="font-medium text-muted-foreground">Monthly Insurance Cost</p>
-                                <TooltipProvider>
-                                    <Tooltip open={showInsuranceTooltip}>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-5 w-5 p-0"
-                                                onClick={() => setShowInsuranceTooltip(!showInsuranceTooltip)}
-                                            >
-                                                <Info className="h-4 w-4 text-muted-foreground" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>This amount is calculated from your insurance policies</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 p-0"
+                                        >
+                                            <Info className="h-4 w-4 text-muted-foreground" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-2 text-sm">
+                                        <p>This amount is calculated from your insurance policies</p>
+                                    </PopoverContent>
+                                </Popover>
                                 {hasInsuranceEntry && <Check className="h-4 w-4 text-success" />}
                             </div>
                         </div>
@@ -162,23 +166,20 @@ export const ExpenseSummaryBlocks = ({
                             <div className="flex items-center gap-2">
                                 <Shield className="h-4 w-4 text-muted-foreground shrink-0" />
                                 <p className="font-medium text-muted-foreground truncate">Monthly Insurance Cost</p>
-                                <TooltipProvider>
-                                    <Tooltip open={showInsuranceTooltip}>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-5 w-5 p-0"
-                                                onClick={() => setShowInsuranceTooltip(!showInsuranceTooltip)}
-                                            >
-                                                <Info className="h-4 w-4 text-muted-foreground" />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>This amount is calculated from your insurance policies</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-5 w-5 p-0"
+                                        >
+                                            <Info className="h-4 w-4 text-muted-foreground" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-2 text-sm">
+                                        <p>This amount is calculated from your insurance policies</p>
+                                    </PopoverContent>
+                                </Popover>
                                 {hasInsuranceEntry && <Check className="h-4 w-4 text-success shrink-0" />}
                             </div>
                         </div>

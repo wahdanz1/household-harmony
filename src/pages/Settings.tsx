@@ -5,7 +5,6 @@ import { getActiveHousehold } from "@/utils/householdHelpers";
 import { HouseholdInfoCard } from "@/components/settings/HouseholdInfoCard";
 import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard";
 import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
-import { CoParentsCard } from "@/components/settings/CoParentsCard";
 import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Home, Users, User } from "lucide-react";

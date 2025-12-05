@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
-import { format, startOfMonth } from "date-fns";
+import { format } from "date-fns";
+import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
 import MonthOverview from "@/components/dashboard/MonthOverview";
 import QuickActions from "@/components/dashboard/QuickActions";
 import SavingsGoalsPreview from "@/components/dashboard/SavingsGoalsPreview";
@@ -16,7 +17,8 @@ const Dashboard = () => {
   const [currency, setCurrency] = useState("SEK");
   const [householdId, setHouseholdId] = useState<string>("");
 
-  const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
+  const currentMonth = getCurrentFinancialMonth();
+  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -38,16 +40,47 @@ const Dashboard = () => {
         { data: sharedExpenses },
       ] = await Promise.all([
         supabase.from("households").select("currency").eq("id", membership.household_id).single(),
-        supabase.from("monthly_incomes").select("amount").eq("household_id", membership.household_id).eq("month", currentMonth),
-        supabase.from("monthly_expenses").select("amount").eq("household_id", membership.household_id).eq("month", currentMonth),
+        supabase.from("monthly_incomes").select("*").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
+        supabase.from("monthly_expenses").select("*").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
         supabase.from("subscriptions").select("amount").eq("household_id", membership.household_id).eq("is_active", true),
         supabase.from("insurances").select("total_amount, payment_frequency, is_shared, share_percentage").eq("household_id", membership.household_id).eq("is_active", true),
-        supabase.from("credit_card_expenses").select("amount").eq("household_id", membership.household_id).eq("month", currentMonth),
-        supabase.from("shared_expenses").select("amount, paid_by").eq("household_id", membership.household_id).eq("month", currentMonth),
+        supabase.from("credit_card_expenses").select("amount").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
+        supabase.from("shared_expenses").select("amount, paid_by").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
       ]);
 
-      const totalIncome = (monthlyIncomes || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
-      const totalMonthlyExpenses = (monthlyExpenses || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
+      // Helper to deduplicate recurring items (which might have duplicate rows for Calendar vs Financial months)
+      const deduplicateItems = (items: any[], sourceIdField: string) => {
+        const uniqueItems: Record<string, any> = {};
+        const oneTimeItems: any[] = [];
+
+        (items || []).forEach(item => {
+          const sourceId = item[sourceIdField];
+          if (sourceId) {
+            // It's a recurring item
+            if (uniqueItems[sourceId]) {
+              // If we already have this source, keep the newer one
+              const existingDate = new Date(uniqueItems[sourceId].updated_at || uniqueItems[sourceId].created_at);
+              const newDate = new Date(item.updated_at || item.created_at);
+              if (newDate > existingDate) {
+                uniqueItems[sourceId] = item;
+              }
+            } else {
+              uniqueItems[sourceId] = item;
+            }
+          } else {
+            // It's a one-time item, keep it
+            oneTimeItems.push(item);
+          }
+        });
+
+        return [...Object.values(uniqueItems), ...oneTimeItems];
+      };
+
+      const uniqueIncomes = deduplicateItems(monthlyIncomes || [], "income_source_id");
+      const uniqueExpenses = deduplicateItems(monthlyExpenses || [], "regular_expense_id");
+
+      const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
+      const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
       const totalSubscriptions = (subscriptions || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
       const totalInsurance = (insurances || []).reduce((sum: number, ins: any) => {
         let monthlyAmount = 0;
@@ -74,12 +107,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [user, currentMonth]);
-
-  const displayMonth = new Date().toLocaleDateString('sv-SE', {
-    year: 'numeric',
-    month: 'long'
-  });
+  }, [user, currentMonth]); // Re-fetch if financial month changes
 
   if (loading) {
     return (
@@ -93,7 +121,7 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1 capitalize">{displayMonth}</p>
+        <p className="text-muted-foreground mt-1 capitalize">{formatFinancialMonth(currentMonth)}</p>
       </div>
 
       <MonthOverview

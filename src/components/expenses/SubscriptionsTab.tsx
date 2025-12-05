@@ -1,31 +1,32 @@
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { CreditCard, Plus, Edit, Trash2, CalendarIcon, Tv, Code, Music, Gamepad2, Dumbbell, Newspaper, Cloud, GraduationCap, MoreHorizontal } from "lucide-react";
+import { CreditCard, Plus, Edit, Trash2, CalendarIcon, MoreHorizontal } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { DataListItem } from "@/components/ui/data-list-item";
+import { useTabCrud } from "@/components/expenses/hooks/useTabCrud";
+import { SummaryStatsCard } from "@/components/expenses/SummaryStatsCard";
+import { subscriptionCategories } from "@/constants/subscriptionCategories";
+import { getCategoryIcon, getCategoryBadgeStyle } from "@/utils/categoryHelpers";
 
-interface Subscription {
-  id: string;
+interface SubscriptionFormData {
   name: string;
-  amount: number;
+  amount: string;
   billing_cycle: string;
-  next_billing_date: string | null;
-  category: string | null;
-  notes: string | null;
+  next_billing_date: Date;
+  category: string;
+  notes: string;
   is_active: boolean;
+  billing_day?: number;
+  billing_month?: number;
 }
 
 interface SubscriptionsTabProps {
@@ -33,59 +34,25 @@ interface SubscriptionsTabProps {
   currency: string;
 }
 
-const subscriptionCategories = [
-  { value: "streaming", label: "Streaming", color: "#EC4899", icon: Tv },
-  { value: "software", label: "Software & Apps", color: "#8B5CF6", icon: Code },
-  { value: "music", label: "Music", color: "#10B981", icon: Music },
-  { value: "gaming", label: "Gaming", color: "#F59E0B", icon: Gamepad2 },
-  { value: "gym", label: "Gym & Fitness", color: "#EF4444", icon: Dumbbell },
-  { value: "news", label: "News & Media", color: "#3B82F6", icon: Newspaper },
-  { value: "storage", label: "Cloud Storage", color: "#06B6D4", icon: Cloud },
-  { value: "education", label: "Education & Learning", color: "#A855F7", icon: GraduationCap },
-  { value: "other", label: "Other", color: "#64748B", icon: MoreHorizontal },
-];
-
-const getCategoryIcon = (categoryValue: string | null) => {
-  const category = subscriptionCategories.find(c => c.value === categoryValue);
-  const IconComponent = category?.icon || MoreHorizontal;
-  const color = category?.color || "#64748B";
-  return <IconComponent className="h-4 w-4" style={{ color }} />;
-};
-
 export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProps) => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isOpen, setIsOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    amount: "",
-    billing_cycle: "monthly",
-    next_billing_date: new Date(),
-    category: "other",
-    notes: "",
-    is_active: true,
-  });
-
-  const fetchSubscriptions = async () => {
-    const { data } = await supabase
-      .from("subscriptions")
-      .select("*")
-      .eq("household_id", householdId)
-      .order("name");
-
-    setSubscriptions(data || []);
-    setLoading(false);
-  };
-
-  useState(() => {
-    fetchSubscriptions();
-  });
-
-  const resetForm = () => {
-    setFormData({
+  const {
+    items: subscriptions,
+    loading,
+    isOpen,
+    setIsOpen,
+    editingId,
+    formData,
+    setFormData,
+    handleSave,
+    handleEdit: handleEditBase,
+    handleDelete,
+    resetForm,
+    activeItems: activeSubscriptions,
+    inactiveItems: inactiveSubscriptions,
+  } = useTabCrud<SubscriptionFormData>({
+    tableName: "subscriptions",
+    householdId,
+    defaultFormData: {
       name: "",
       amount: "",
       billing_cycle: "monthly",
@@ -93,51 +60,30 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
       category: "other",
       notes: "",
       is_active: true,
-    });
-    setEditingId(null);
-  };
-
-  const handleSave = async () => {
-    if (!user) return;
-
-    const data = {
+      billing_day: undefined,
+      billing_month: undefined,
+    },
+    toastMessages: {
+      add: "Subscription added",
+      update: "Subscription updated",
+      delete: "Subscription deleted",
+      saveError: "Failed to save subscription",
+      deleteError: "Failed to delete subscription",
+    },
+    transformDataBeforeSave: (data, userId, householdId) => ({
       household_id: householdId,
-      name: formData.name,
-      amount: parseFloat(formData.amount),
-      billing_cycle: formData.billing_cycle,
-      next_billing_date: format(formData.next_billing_date, "yyyy-MM-dd"),
-      category: formData.category,
-      notes: formData.notes,
-      is_active: formData.is_active,
-      created_by: user.id,
-    };
-
-    let error;
-    if (editingId) {
-      ({ error } = await supabase.from("subscriptions").update(data).eq("id", editingId));
-    } else {
-      ({ error } = await supabase.from("subscriptions").insert(data));
-    }
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save subscription",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: editingId ? "Subscription updated" : "Subscription added",
-      });
-      setIsOpen(false);
-      resetForm();
-      fetchSubscriptions();
-    }
-  };
-
-  const handleEdit = (subscription: Subscription) => {
-    setFormData({
+      name: data.name,
+      amount: parseFloat(data.amount),
+      billing_cycle: data.billing_cycle,
+      next_billing_date: format(data.next_billing_date, "yyyy-MM-dd"),
+      category: data.category,
+      notes: data.notes,
+      is_active: data.is_active,
+      created_by: userId,
+      billing_day: data.billing_cycle === "yearly" ? data.billing_day : null,
+      billing_month: data.billing_cycle === "yearly" ? data.billing_month : null,
+    }),
+    transformDataOnEdit: (subscription) => ({
       name: subscription.name,
       amount: subscription.amount.toString(),
       billing_cycle: subscription.billing_cycle,
@@ -145,97 +91,64 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
       category: subscription.category || "other",
       notes: subscription.notes || "",
       is_active: subscription.is_active,
-    });
-    setEditingId(subscription.id);
-    setIsOpen(true);
-  };
+      billing_day: subscription.billing_day,
+      billing_month: subscription.billing_month,
+    }),
+  });
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("subscriptions").delete().eq("id", id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete subscription",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "Subscription deleted",
-      });
-      fetchSubscriptions();
-    }
+  const handleEdit = (subscription: any) => {
+    handleEditBase(subscription);
   };
 
   const calculateMonthlyTotal = () => {
     return subscriptions
       .filter((s) => s.is_active)
       .reduce((total, sub) => {
-        if (sub.billing_cycle === "yearly") return total + sub.amount / 12;
-        if (sub.billing_cycle === "quarterly") return total + sub.amount / 3;
-        return total + sub.amount;
+        const amount = parseFloat(sub.amount.toString());
+        if (sub.billing_cycle === "yearly") return total + amount / 12;
+        if (sub.billing_cycle === "quarterly") return total + amount / 3;
+        return total + amount;
       }, 0);
   };
-
-  const activeSubscriptions = subscriptions.filter((s) => s.is_active);
-  const inactiveSubscriptions = subscriptions.filter((s) => !s.is_active);
 
   if (loading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
   }
 
+  const monthlyTotal = calculateMonthlyTotal();
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Subscriptions Summary</CardTitle>
-          <CardDescription className="mt-1.5">Overview of your recurring subscription costs</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 grid-cols-2">
-            {/* Total Monthly */}
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Total Monthly</p>
-              <div className="text-2xl font-bold text-destructive">
-                {calculateMonthlyTotal().toFixed(0)} {currency}
-              </div>
-            </div>
-
-            {/* Yearly Cost */}
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Yearly Cost</p>
-              <div className="text-2xl font-bold">
-                {(calculateMonthlyTotal() * 12).toFixed(0)} {currency}
-              </div>
-            </div>
-
-            {/* Most Expensive */}
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Most Expensive</p>
-              <div className="text-2xl font-bold">
-                {activeSubscriptions.length > 0 ? (
-                  <>
-                    {Math.max(...activeSubscriptions.map(s => {
-                      if (s.billing_cycle === "yearly") return s.amount / 12;
-                      if (s.billing_cycle === "quarterly") return s.amount / 3;
-                      return s.amount;
-                    })).toFixed(0)} {currency}
-                  </>
-                ) : "0 " + currency}
-              </div>
-            </div>
-
-            {/* Active Count */}
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Active Subscriptions</p>
-              <div className="text-2xl font-bold">
-                {activeSubscriptions.length}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <SummaryStatsCard
+        title="Subscriptions Summary"
+        description="Overview of your recurring subscription costs"
+        stats={[
+          {
+            label: "Total Monthly",
+            value: `${monthlyTotal.toFixed(0)} ${currency}`,
+            className: "text-destructive",
+          },
+          {
+            label: "Yearly Cost",
+            value: `${(monthlyTotal * 12).toFixed(0)} ${currency}`,
+          },
+          {
+            label: "Most Expensive",
+            value: activeSubscriptions.length > 0
+              ? `${Math.max(...activeSubscriptions.map(s => {
+                const amount = parseFloat(s.amount.toString());
+                if (s.billing_cycle === "yearly") return amount / 12;
+                if (s.billing_cycle === "quarterly") return amount / 3;
+                return amount;
+              })).toFixed(0)} ${currency}`
+              : `0 ${currency}`,
+          },
+          {
+            label: "Active Subscriptions",
+            value: activeSubscriptions.length,
+          },
+        ]}
+      />
 
       <Card>
         <CardHeader>
@@ -313,6 +226,45 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                   </Select>
                 </div>
 
+                {formData.billing_cycle === "yearly" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Billing Month</Label>
+                      <Select
+                        value={formData.billing_month?.toString()}
+                        onValueChange={(v) => setFormData({ ...formData, billing_month: parseInt(v) })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+                            <SelectItem key={month} value={month.toString()}>
+                              {format(new Date(2024, month - 1, 1), "MMMM")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Billing Day</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={formData.billing_day || ""}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val) && val >= 1 && val <= 31) {
+                            setFormData({ ...formData, billing_day: val });
+                          }
+                        }}
+                        placeholder="Day (1-31)"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label>Next Billing Date</Label>
                   <Popover>
@@ -379,15 +331,15 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
 
           <div className="space-y-2">
             {activeSubscriptions.map((subscription) => (
-              <div
+              <DataListItem
                 key={subscription.id}
-                className="p-2 sm:p-3 rounded-lg border border-border bg-background/40"
+                onClick={() => handleEdit(subscription)}
               >
                 {/* Mobile: Two-line layout */}
                 <div className="sm:hidden space-y-3">
                   {/* Top row: Icon + Title */}
                   <div className="flex items-center gap-2">
-                    {getCategoryIcon(subscription.category)}
+                    {getCategoryIcon(subscription.category, subscriptionCategories, MoreHorizontal)}
                     <p className="font-medium flex-1 truncate">{subscription.name}</p>
                   </div>
                   {/* Bottom row: Amount and edit button */}
@@ -395,7 +347,10 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                     <p className="text-sm text-muted-foreground">
                       {subscription.amount} {currency} / {subscription.billing_cycle}
                     </p>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => handleEdit(subscription)}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(subscription);
+                    }}>
                       <Edit className="h-4 w-4" />
                     </Button>
                   </div>
@@ -403,17 +358,15 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
 
                 {/* Desktop: Single line layout */}
                 <div className="hidden sm:flex items-center gap-2">
-                  {getCategoryIcon(subscription.category)}
+                  {getCategoryIcon(subscription.category, subscriptionCategories, MoreHorizontal)}
                   <p className="font-medium truncate">{subscription.name}</p>
                   {subscription.category && (() => {
+                    const badgeStyle = getCategoryBadgeStyle(subscription.category, subscriptionCategories);
                     const cat = subscriptionCategories.find((c) => c.value === subscription.category);
                     return (
                       <span
                         className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
-                        style={{
-                          backgroundColor: `${cat?.color}20`,
-                          color: cat?.color
-                        }}
+                        style={badgeStyle}
                       >
                         {cat?.label || subscription.category}
                       </span>
@@ -423,11 +376,14 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                   <p className="text-sm text-muted-foreground whitespace-nowrap">
                     {subscription.amount} {currency} / {subscription.billing_cycle}
                   </p>
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(subscription)}>
+                  <Button variant="ghost" size="icon" onClick={(e) => {
+                    e.stopPropagation();
+                    handleEdit(subscription);
+                  }}>
                     <Edit className="h-4 w-4" />
                   </Button>
                 </div>
-              </div>
+              </DataListItem>
             ))}
             {activeSubscriptions.length === 0 && (
               <p className="text-center text-muted-foreground py-8">No active subscriptions yet. Add one above!</p>

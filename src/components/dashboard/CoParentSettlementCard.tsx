@@ -9,6 +9,7 @@ import { format, startOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 
 interface CoParentSettlementCardProps {
   householdId: string;
@@ -24,8 +25,9 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
   const [selectedCoParent, setSelectedCoParent] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
 
-  const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
-  const currentMonthNumber = new Date().getMonth() + 1; // 1-12
+  const currentMonth = getCurrentFinancialMonth();
+  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth);
+  const currentMonthNumber = new Date().getMonth() + 1; // Keep this for insurance invoice_month for now
 
   const fetchData = async () => {
     const { data: coParentsData } = await supabase
@@ -39,12 +41,13 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
     const settlementData: Record<string, any> = {};
 
     for (const coParent of coParentsData || []) {
-      // Fetch shared income for this month
+      // Fetch shared income for this month (using overlap logic)
       const { data: sharedIncomes } = await supabase
         .from("monthly_incomes")
         .select("amount, share_percentage")
         .eq("household_id", householdId)
-        .eq("month", currentMonth)
+        .gte("month_end", format(monthStart, "yyyy-MM-dd"))
+        .lte("month_start", format(monthEnd, "yyyy-MM-dd"))
         .eq("is_shared", true)
         .eq("co_parent_id", coParent.id);
 
@@ -55,6 +58,8 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
       }, 0);
 
       // Fetch shared insurances that have invoice_month matching current month
+      // Insurance is typically monthly based on calendar month, so keeping invoice_month logic for now
+      // unless user specifies otherwise.
       const { data: sharedInsurances } = await supabase
         .from("insurances")
         .select("total_amount, share_percentage, invoice_month")
@@ -72,13 +77,14 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
         theirShareOfInsurance += parseFloat(ins.total_amount.toString()) * parseFloat(ins.share_percentage.toString()) / 100;
       });
 
-      // Fetch shared expenses - separate by who paid
+      // Fetch shared expenses - separate by who paid (using overlap logic)
       const { data: sharedExpenses } = await supabase
         .from("shared_expenses")
         .select("amount, paid_by")
         .eq("household_id", householdId)
         .eq("co_parent_id", coParent.id)
-        .eq("month", currentMonth);
+        .gte("month_end", format(monthStart, "yyyy-MM-dd"))
+        .lte("month_start", format(monthEnd, "yyyy-MM-dd"));
 
       // Calculate: expenses they paid = add to what you send, expenses you paid = subtract from what you send
       let expensesYouPaid = 0;

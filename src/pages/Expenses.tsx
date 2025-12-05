@@ -53,7 +53,7 @@ const Expenses = () => {
       { data: creditCardExpensesData },
     ] = await Promise.all([
       supabase.from("households").select("*").eq("id", membership.household_id).single(),
-      supabase.from("expense_categories").select("*").eq("household_id", membership.household_id).eq("is_active", true).order("sort_order"),
+      supabase.from("regular_expenses").select("*").eq("household_id", membership.household_id).eq("is_active", true).order("sort_order"),
       supabase.from("monthly_expenses").select("*").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
       supabase.from("monthly_expenses").select("*").eq("household_id", membership.household_id).lt("month_start", format(monthStart, "yyyy-MM-dd")),
       supabase.from("subscriptions").select("*").eq("household_id", membership.household_id).eq("is_active", true),
@@ -84,11 +84,16 @@ const Expenses = () => {
 
     const initialAmounts: Record<string, string> = {};
     (categoriesData || []).forEach((category: any) => {
-      const existing = (monthlyData || []).find((m: any) => m.expense_category_id === category.id);
-      if (existing) {
+      const existing = (monthlyData || []).find((m: any) => m.regular_expense_id === category.id);
+
+      // For static expenses, always use the current default amount from the category definition
+      // This ensures that if the user updates the static amount in settings, it reflects immediately
+      if (category.type === "static") {
+        initialAmounts[category.id] = category.default_amount.toString();
+      } else if (existing) {
         initialAmounts[category.id] = existing.amount.toString();
       } else if (category.type === "dynamic") {
-        const previousExpenses = (historicalData || []).filter((h: any) => h.expense_category_id === category.id);
+        const previousExpenses = (historicalData || []).filter((h: any) => h.regular_expense_id === category.id);
         if (previousExpenses.length > 0) {
           const total = previousExpenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
           const avg = total / previousExpenses.length;
@@ -114,7 +119,7 @@ const Expenses = () => {
     setSaving(true);
 
     const entries = expenseCategories.map((category) => ({
-      expense_category_id: category.id,
+      regular_expense_id: category.id,
       household_id: household.id,
       month: currentMonth,
       month_start: format(monthStart, "yyyy-MM-dd"),
@@ -125,7 +130,7 @@ const Expenses = () => {
 
     const { error } = await supabase
       .from("monthly_expenses")
-      .upsert(entries, { onConflict: "expense_category_id,month" });
+      .upsert(entries as any, { onConflict: "regular_expense_id,month" });
 
     if (error) {
       toast({
@@ -145,7 +150,75 @@ const Expenses = () => {
     setSaving(false);
   };
 
-  const subscriptionsTotal = subscriptions.reduce((sum, sub) => sum + parseFloat(sub.amount), 0);
+  const subscriptionsTotal = subscriptions.reduce((sum, sub) => {
+    const amount = parseFloat(sub.amount);
+
+    // Always include monthly
+    if (sub.billing_cycle === "monthly") return sum + amount;
+
+    // For yearly, only include if billing date is within current financial month
+    if (sub.billing_cycle === "yearly") {
+      if (!sub.billing_month || !sub.billing_day) return sum + amount; // Fallback
+
+      // Check if the billing date falls within the current financial month range
+      // We check both the start year and end year of the range to handle year transitions
+      const dateInStartYear = new Date(monthStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
+      const dateInEndYear = new Date(monthEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
+
+      const isDue = (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
+        (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
+
+      return isDue ? sum + amount : sum;
+    }
+
+    // Default for quarterly or others (include for now as requested)
+    return sum + amount;
+  }, 0);
+
+  // Calculate subscription severity
+  const subscriptionSeverity = subscriptions.reduce((severity, sub) => {
+    if (severity === 'danger') return 'danger'; // Already max severity
+
+    // Check for yearly subscriptions due this month
+    if (sub.billing_cycle === 'yearly') {
+      if (!sub.billing_month || !sub.billing_day) return severity;
+
+      const dateInStartYear = new Date(monthStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
+      const dateInEndYear = new Date(monthEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
+
+      const isDue = (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
+        (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
+
+      if (isDue) return 'danger';
+    }
+
+    // Check for quarterly subscriptions due this month (if not already danger)
+    if (sub.billing_cycle === 'quarterly' && severity !== 'danger') {
+      if (!sub.billing_month || !sub.billing_day) return 'warning'; // Fallback if no dates
+
+      // Check if the billing date falls within the current financial month range
+      // We check for the billing month and 3, 6, 9 months after
+      const billingMonths = [
+        sub.billing_month - 1,
+        (sub.billing_month - 1 + 3) % 12,
+        (sub.billing_month - 1 + 6) % 12,
+        (sub.billing_month - 1 + 9) % 12
+      ];
+
+      const isDue = billingMonths.some(monthIndex => {
+        // We check both the start year and end year of the range to handle year transitions
+        const dateInStartYear = new Date(monthStart.getFullYear(), monthIndex, sub.billing_day);
+        const dateInEndYear = new Date(monthEnd.getFullYear(), monthIndex, sub.billing_day);
+
+        return (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
+          (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
+      });
+
+      if (isDue) return 'warning';
+    }
+
+    return severity;
+  }, 'default' as 'default' | 'warning' | 'danger');
   const insuranceTotal = insurances
     .filter((ins) => ins.is_active)
     .reduce((sum, ins) => {
@@ -227,6 +300,7 @@ const Expenses = () => {
             saving={saving}
             subscriptionsTotal={subscriptionsTotal}
             insuranceTotal={insuranceTotal}
+            subscriptionSeverity={subscriptionSeverity}
             members={members}
             coParents={coParents}
             onAmountsChange={setAmounts}
@@ -234,6 +308,7 @@ const Expenses = () => {
             onCategoriesUpdate={fetchData}
             onNavigateToSubscriptions={() => setActiveTab("subscriptions")}
             onNavigateToInsurance={() => setActiveTab("insurance")}
+            onNavigateToCredit={() => setActiveTab("credit")}
           />
         </TabsContent>
 
