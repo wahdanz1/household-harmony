@@ -403,6 +403,17 @@ const Income = () => {
             </div>
           ) : (
             <>
+              {/* Color Legend */}
+              <div className="flex items-center gap-4 text-xs text-muted-foreground pb-2 border-b border-border mb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
+                  <span>Saved</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-lime-400"></span>
+                  <span>Unsaved changes</span>
+                </div>
+              </div>
               <div className="space-y-3">
                 {incomeSources.map((source) => {
                   const savedEntry = monthlyIncomes.find((m: any) => m.income_source_id === source.id);

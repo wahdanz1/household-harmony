@@ -29,19 +29,7 @@ export const IncomeSourceItem = ({
     const cat = getIncomeCategoryById(source.category);
     const Icon = cat?.icon;
 
-    // Left border: overall save status
-    const getStatusBorderClass = () => {
-        switch (status) {
-            case 'saved':
-                return 'border-l-4 border-l-green-500 pl-2';
-            case 'modified':
-                return 'border-l-4 border-l-lime-400 pl-2';
-            default:
-                return 'pl-3'; // Default padding to align with bordered items
-        }
-    };
-
-    // Bottom underline on input: same logic for consistency
+    // Bottom underline on input: shows save status
     const getInputUnderlineClass = () => {
         if (isSkipped) return 'border-border';
         switch (status) {
@@ -54,14 +42,32 @@ export const IncomeSourceItem = ({
         }
     };
 
+    // Vertical toggle component (used in both mobile and desktop)
+    const VerticalToggle = () => (
+        <div
+            className="flex items-center justify-center h-full"
+            onClick={(e) => e.stopPropagation()}
+        >
+            <Switch
+                checked={!isSkipped}
+                onCheckedChange={(checked) =>
+                    onAmountChange(source.id, checked ? source.default_amount.toString() : "0")
+                }
+                className="rotate-90 data-[state=unchecked]:bg-muted"
+            />
+        </div>
+    );
+
     return (
-        <DataListItem onClick={() => onEdit(source)} className={getStatusBorderClass()}>
+        <DataListItem onClick={() => onEdit(source)}>
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
                 {/* Top row: Icon + Title + Avatar */}
                 <div className="flex items-center gap-2">
                     {Icon && <Icon className="h-4 w-4" style={{ color: cat?.color }} />}
-                    <p className="font-medium flex-1 truncate">{source.name}</p>
+                    <p className={`font-medium flex-1 truncate ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
+                        {source.name}
+                    </p>
                     <Avatar className="h-5 w-5 shrink-0">
                         <AvatarImage src={source.profiles?.avatar_url || undefined} />
                         <AvatarFallback className="text-xs">
@@ -70,14 +76,14 @@ export const IncomeSourceItem = ({
                     </Avatar>
                 </div>
 
-                {/* Bottom row: Amount input and edit button */}
+                {/* Bottom row: Amount input, edit button, and toggle */}
                 <div className="flex items-center gap-2">
                     <div className="flex-1">
                         <input
                             type="number"
                             value={amount || ""}
                             onChange={(e) => onAmountChange(source.id, e.target.value)}
-                            onClick={(e) => e.stopPropagation()} // Prevent opening edit dialog
+                            onClick={(e) => e.stopPropagation()}
                             className={`w-full text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${getInputUnderlineClass()} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
                             placeholder="0"
                             disabled={isSkipped}
@@ -95,18 +101,12 @@ export const IncomeSourceItem = ({
                     >
                         <Edit className="h-4 w-4" />
                     </Button>
+                    <VerticalToggle />
                 </div>
             </div>
 
             {/* Desktop: Single line layout */}
             <div className="hidden sm:flex items-center gap-4">
-                <Switch
-                    checked={!isSkipped}
-                    onCheckedChange={(checked) =>
-                        onAmountChange(source.id, checked ? source.default_amount.toString() : "0")
-                    }
-                    onClick={(e) => e.stopPropagation()}
-                />
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         {Icon && <Icon className="h-4 w-4" style={{ color: cat?.color }} />}
@@ -131,7 +131,7 @@ export const IncomeSourceItem = ({
                         type="number"
                         value={amount || ""}
                         onChange={(e) => onAmountChange(source.id, e.target.value)}
-                        onClick={(e) => e.stopPropagation()} // Prevent opening edit dialog
+                        onClick={(e) => e.stopPropagation()}
                         className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${getInputUnderlineClass()} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
                         placeholder="0"
                         disabled={isSkipped}
@@ -155,6 +155,7 @@ export const IncomeSourceItem = ({
                             {source.profiles?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "?"}
                         </AvatarFallback>
                     </Avatar>
+                    <VerticalToggle />
                 </div>
             </div>
         </DataListItem>
