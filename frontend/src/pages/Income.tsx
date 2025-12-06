@@ -364,7 +364,7 @@ const Income = () => {
                 Monthly Income
               </CardTitle>
               <CardDescription className="mt-1.5">
-                Add your income sources with a default amount, and adjust the actual monthly income if needed. When you're done, click "Save Monthly Income"!
+                Values are pre-filled from previous months and save automatically as you type. Toggle off any income not received this month.
               </CardDescription>
             </div>
             <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
@@ -403,15 +403,28 @@ const Income = () => {
             </div>
           ) : (
             <>
-              {/* Color Legend */}
-              <div className="flex items-center gap-4 text-xs text-muted-foreground pb-2 border-b border-border mb-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-green-500"></span>
-                  <span>Saved</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-lime-400"></span>
-                  <span>Unsaved changes</span>
+              {/* Status Bar: shows autosave status on the right */}
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-border mb-2">
+                <span className="text-muted-foreground">Tap an item to edit details</span>
+                <div className="flex items-center gap-2">
+                  {autoSaveStatus === 'saving' && (
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Saving...
+                    </span>
+                  )}
+                  {autoSaveStatus === 'saved' && (
+                    <span className="flex items-center gap-1.5 text-green-600">
+                      <Check className="h-3.5 w-3.5" />
+                      Saved
+                    </span>
+                  )}
+                  {autoSaveStatus === 'error' && (
+                    <span className="flex items-center gap-1.5 text-red-500">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      Error
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="space-y-3">
@@ -438,33 +451,6 @@ const Income = () => {
                     />
                   );
                 })}
-              </div>
-
-              {/* Autosave Status Indicator */}
-              <div className="flex items-center justify-center gap-2 py-3">
-                {autoSaveStatus === 'saving' && (
-                  <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving...
-                  </span>
-                )}
-                {autoSaveStatus === 'saved' && (
-                  <span className="flex items-center gap-2 text-sm text-green-600">
-                    <Check className="h-4 w-4" />
-                    Saved
-                  </span>
-                )}
-                {autoSaveStatus === 'error' && (
-                  <span className="flex items-center gap-2 text-sm text-red-500">
-                    <AlertCircle className="h-4 w-4" />
-                    Save failed
-                  </span>
-                )}
-                {autoSaveStatus === 'idle' && monthlyIncomes.length === 0 && (
-                  <span className="text-sm text-muted-foreground">
-                    Changes save automatically
-                  </span>
-                )}
               </div>
 
               {/* Tax Summary Card */}

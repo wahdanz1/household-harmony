@@ -42,25 +42,9 @@ export const IncomeSourceItem = ({
         }
     };
 
-    // Vertical toggle component (used in both mobile and desktop)
-    const VerticalToggle = () => (
-        <div
-            className="flex items-center justify-center h-full"
-            onClick={(e) => e.stopPropagation()}
-        >
-            <Switch
-                checked={!isSkipped}
-                onCheckedChange={(checked) =>
-                    onAmountChange(source.id, checked ? source.default_amount.toString() : "0")
-                }
-                className="rotate-90 data-[state=unchecked]:bg-muted"
-            />
-        </div>
-    );
-
     return (
         <DataListItem onClick={() => onEdit(source)}>
-            {/* Mobile: Compact layout */}
+            {/* Mobile: Compact layout - horizontal toggle, no edit button */}
             <div className="sm:hidden space-y-3">
                 {/* Top row: Icon + Title + Avatar */}
                 <div className="flex items-center gap-2">
@@ -76,7 +60,7 @@ export const IncomeSourceItem = ({
                     </Avatar>
                 </div>
 
-                {/* Bottom row: Amount input, edit button, and toggle */}
+                {/* Bottom row: Amount input, currency, and horizontal toggle */}
                 <div className="flex items-center gap-2">
                     <div className="flex-1">
                         <input
@@ -90,22 +74,19 @@ export const IncomeSourceItem = ({
                         />
                     </div>
                     <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">{currency}</span>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(source);
-                        }}
-                    >
-                        <Edit className="h-4 w-4" />
-                    </Button>
-                    <VerticalToggle />
+                    <div onClick={(e) => e.stopPropagation()}>
+                        <Switch
+                            checked={!isSkipped}
+                            onCheckedChange={(checked) =>
+                                onAmountChange(source.id, checked ? source.default_amount.toString() : "0")
+                            }
+                            className="data-[state=unchecked]:bg-muted"
+                        />
+                    </div>
                 </div>
             </div>
 
-            {/* Desktop: Single line layout */}
+            {/* Desktop: Single line layout with vertical toggle */}
             <div className="hidden sm:flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -155,7 +136,19 @@ export const IncomeSourceItem = ({
                             {source.profiles?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "?"}
                         </AvatarFallback>
                     </Avatar>
-                    <VerticalToggle />
+                    {/* Vertical toggle - rotated -90deg so dot is on top when ON */}
+                    <div
+                        className="flex items-center justify-center"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <Switch
+                            checked={!isSkipped}
+                            onCheckedChange={(checked) =>
+                                onAmountChange(source.id, checked ? source.default_amount.toString() : "0")
+                            }
+                            className="-rotate-90 data-[state=unchecked]:bg-muted"
+                        />
+                    </div>
                 </div>
             </div>
         </DataListItem>
