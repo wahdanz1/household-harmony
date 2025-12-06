@@ -25,11 +25,11 @@ export const IncomeSourceItem = ({
     status = 'none',
 }: IncomeSourceItemProps & { status?: 'saved' | 'modified' | 'none' }) => {
     const isSkipped = amount === "0";
-    const isDifferent = amount !== source.default_amount.toString();
 
     const cat = getIncomeCategoryById(source.category);
     const Icon = cat?.icon;
 
+    // Left border: overall save status
     const getStatusBorderClass = () => {
         switch (status) {
             case 'saved':
@@ -38,6 +38,19 @@ export const IncomeSourceItem = ({
                 return 'border-l-4 border-l-lime-400 pl-2';
             default:
                 return 'pl-3'; // Default padding to align with bordered items
+        }
+    };
+
+    // Bottom underline on input: same logic for consistency
+    const getInputUnderlineClass = () => {
+        if (isSkipped) return 'border-border';
+        switch (status) {
+            case 'saved':
+                return 'border-green-500';
+            case 'modified':
+                return 'border-lime-400';
+            default:
+                return 'border-border';
         }
     };
 
@@ -65,7 +78,7 @@ export const IncomeSourceItem = ({
                             value={amount || ""}
                             onChange={(e) => onAmountChange(source.id, e.target.value)}
                             onClick={(e) => e.stopPropagation()} // Prevent opening edit dialog
-                            className={`w-full text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isSkipped ? "border-border" : (isDifferent ? "border-primary" : "border-border")} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
+                            className={`w-full text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${getInputUnderlineClass()} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
                             placeholder="0"
                             disabled={isSkipped}
                         />
@@ -119,7 +132,7 @@ export const IncomeSourceItem = ({
                         value={amount || ""}
                         onChange={(e) => onAmountChange(source.id, e.target.value)}
                         onClick={(e) => e.stopPropagation()} // Prevent opening edit dialog
-                        className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${isSkipped ? "border-border" : (isDifferent ? "border-primary" : "border-border")} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
+                        className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${getInputUnderlineClass()} focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed`}
                         placeholder="0"
                         disabled={isSkipped}
                     />

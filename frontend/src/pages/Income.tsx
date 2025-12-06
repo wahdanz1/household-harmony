@@ -420,9 +420,7 @@ const Income = () => {
                       source={source}
                       amount={amounts[source.id] || source.default_amount.toString()}
                       currency={household?.currency || "SEK"}
-                      onAmountChange={(sourceId, value) =>
-                        setAmounts({ ...amounts, [sourceId]: value })
-                      }
+                      onAmountChange={handleAmountChange}
                       onEdit={handleEditSource}
                       onDelete={handleDeleteSource}
                       status={status}
