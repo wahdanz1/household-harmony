@@ -1,38 +1,35 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, AlertCircle, Plus, Calendar, Sparkles } from "lucide-react";
+import { TrendingUp, AlertCircle, Plus, Check, Loader2 } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { getActiveHousehold } from "@/utils/householdHelpers";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { IncomeSourceItem } from "@/components/income/IncomeSourceItem";
 import { IncomeSourceDialog } from "@/components/income/IncomeSourceDialog";
 import { OneTimeIncomeCard } from "@/components/income/OneTimeIncomeCard";
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
-import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { TaxSummaryCard } from "@/components/income/TaxSummaryCard";
 import { TaxPrognosisModal } from "@/components/income/TaxPrognosisModal";
+import { PageHeader } from "@/components/shared/PageHeader";
 import { fetchIncomeSuggestions, getSuggestionBorderColor } from "@/services/smartDefaults";
 import { getTaxPrognosis } from "@/services/tax";
 import type { IncomeSuggestion, IncomeForTax, TaxPrognosisResult } from "@/types/api";
 
 const Income = () => {
   const { user } = useAuth();
+  const { household, members, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
   const { toast } = useToast();
-  const [household, setHousehold] = useState<any>(null);
   const [incomeSources, setIncomeSources] = useState<any[]>([]);
   const [monthlyIncomes, setMonthlyIncomes] = useState<any[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [oneTimeIncomes, setOneTimeIncomes] = useState<any[]>([]);
-  const [coParents, setCoParents] = useState<any[]>([]);
-  const [members, setMembers] = useState<any[]>([]);
-  const [hasSaved, setHasSaved] = useState(false);
-  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
 
   // Auto-fill and tax state
   const [suggestions, setSuggestions] = useState<IncomeSuggestion[]>([]);
@@ -41,67 +38,40 @@ const Income = () => {
   const [prognosis, setPrognosis] = useState<TaxPrognosisResult | null>(null);
   const [prognosisLoading, setPrognosisLoading] = useState(false);
 
-  // Track if auto-fill has been attempted this session
+  // Autosave state
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasAutoFilledRef = useRef(false);
 
-  const financialMonthStart = household?.financial_month_start || 25;
   const currentMonth = getCurrentFinancialMonth(financialMonthStart);
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
   const fetchData = async () => {
-    if (!user) return;
-
-    const { membership } = await getActiveHousehold(user.id);
-
-    if (!membership) return;
+    if (!household?.id) return;
 
     const [
-      { data: householdInfo },
       { data: sourcesData },
       { data: monthlyData },
-      { data: coParentsData },
-      { data: membersData },
     ] = await Promise.all([
-      supabase.from("households").select("*").eq("id", membership.household_id).single(),
-      supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", membership.household_id).eq("is_active", true).order("created_at", { ascending: true }),
-      supabase.from("monthly_incomes").select("*").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
-      supabase.from("co_parents").select("*").eq("household_id", membership.household_id),
-      supabase.from("household_members").select("*, profiles(full_name, email)").eq("household_id", membership.household_id),
+      supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", household.id).eq("is_active", true).order("created_at", { ascending: true }),
+      supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
     ]);
 
-    setHousehold(householdInfo);
     setIncomeSources(sourcesData || []);
-    setCoParents(coParentsData || []);
-    setMembers(membersData || []);
 
     // Separate regular incomes and one-time incomes
     const regularIncomes = (monthlyData || []).filter((m: any) => m.income_source_id !== null);
     const oneTimeIncomesData = (monthlyData || []).filter((m: any) => m.income_source_id === null);
 
+
     setMonthlyIncomes(regularIncomes);
     setOneTimeIncomes(oneTimeIncomesData);
 
-    // Check if there are saved incomes to determine button state
+    // Set autosave status based on existing data
     if (regularIncomes.length > 0) {
-      setHasSaved(true);
-      // Get the most recent updated_at timestamp
-      const mostRecent = regularIncomes.reduce((latest: any, current: any) => {
-        const latestDate = new Date(latest.updated_at || latest.created_at || 0);
-        const currentDate = new Date(current.updated_at || current.created_at || 0);
-        return currentDate > latestDate ? current : latest;
-      });
-
-      const dateToUse = mostRecent.updated_at || mostRecent.created_at;
-      const savedDate = new Date(dateToUse);
-
-      // Only set if it's a valid date
-      if (!isNaN(savedDate.getTime())) {
-        setLastSavedTime(savedDate);
-      }
+      setAutoSaveStatus('saved');
     } else {
-      // Reset when no saved incomes
-      setHasSaved(false);
-      setLastSavedTime(null);
+      setAutoSaveStatus('idle');
     }
 
     const initialAmounts: Record<string, string> = {};
@@ -114,8 +84,10 @@ const Income = () => {
   };
 
   useEffect(() => {
-    fetchData();
-  }, [user]);
+    if (!householdLoading && household?.id) {
+      fetchData();
+    }
+  }, [household?.id, householdLoading, currentMonth]);
 
   // Auto-fill on page load when no saved income for current month
   useEffect(() => {
@@ -197,9 +169,22 @@ const Income = () => {
     return getSuggestionBorderColor(suggestion.source);
   };
 
-  // Handle amount change - track modifications
+  // Handle amount change - track modifications and trigger autosave
   const handleAmountChange = (sourceId: string, value: string) => {
-    setAmounts({ ...amounts, [sourceId]: value });
+    const newAmounts = { ...amounts, [sourceId]: value };
+    setAmounts(newAmounts);
+
+    // Trigger debounced autosave
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    setAutoSaveStatus('idle'); // Show as pending
+    autoSaveTimerRef.current = setTimeout(() => {
+      if (household && user && incomeSources.length > 0) {
+        handleSave();
+      }
+    }, 500); // 500ms debounce
   };
 
   // Fetch tax prognosis
@@ -241,6 +226,7 @@ const Income = () => {
   const handleSave = async () => {
     if (!household || !user) return;
     setSaving(true);
+    setAutoSaveStatus('saving');
 
     const entries = incomeSources.map((source) => ({
       income_source_id: source.id,
@@ -257,19 +243,15 @@ const Income = () => {
       .upsert(entries as any, { onConflict: "income_source_id,month" });
 
     if (error) {
+      setAutoSaveStatus('error');
       toast({
         title: "Error",
         description: "Failed to save income data",
         variant: "destructive",
       });
     } else {
-      toast({
-        title: "Success",
-        description: "Monthly income saved",
-      });
-      setHasSaved(true);
-      setLastSavedTime(new Date());
-      fetchData();
+      setAutoSaveStatus('saved');
+      // Don't show toast for autosave - only show brief status indicator
     }
     setSaving(false);
   };
@@ -365,28 +347,12 @@ const Income = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Income Management</h1>
-          <div className="flex items-center gap-2 mt-2">
-            <p className="text-muted-foreground">
-              {format(monthStart, "MMM d")} – {format(monthEnd, "MMM d, yyyy")}
-            </p>
-            {suggestions.length > 0 && (
-              <span className="flex items-center gap-1 text-xs text-green-600">
-                <Sparkles className="h-3 w-3" />
-                Smart defaults
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">Total Income</p>
-          <p className="text-2xl sm:text-3xl font-bold text-success">
-            {totalIncome.toFixed(0)} {household?.currency || "SEK"}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Income Management"
+        totalLabel="Total Income"
+        totalAmount={totalIncome}
+        showSmartDefaults={suggestions.length > 0}
+      />
 
       {/* Unified Income Management */}
       <Card>
@@ -465,18 +431,32 @@ const Income = () => {
                 })}
               </div>
 
-              {lastSavedTime && !isNaN(lastSavedTime.getTime()) && (
-                <p className="text-xs text-center text-muted-foreground mb-2">
-                  Monthly income saved {format(lastSavedTime, "MMM d, yyyy 'at' HH:mm")}
-                </p>
-              )}
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className={`w-full ${hasSaved ? 'bg-green-900/40 hover:bg-green-900/60 text-green-100 border border-green-800/50' : ''}`}
-              >
-                {saving ? "Saving..." : hasSaved ? "Update Monthly Income" : "Save Monthly Income"}
-              </Button>
+              {/* Autosave Status Indicator */}
+              <div className="flex items-center justify-center gap-2 py-3">
+                {autoSaveStatus === 'saving' && (
+                  <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </span>
+                )}
+                {autoSaveStatus === 'saved' && (
+                  <span className="flex items-center gap-2 text-sm text-green-600">
+                    <Check className="h-4 w-4" />
+                    Saved
+                  </span>
+                )}
+                {autoSaveStatus === 'error' && (
+                  <span className="flex items-center gap-2 text-sm text-red-500">
+                    <AlertCircle className="h-4 w-4" />
+                    Save failed
+                  </span>
+                )}
+                {autoSaveStatus === 'idle' && monthlyIncomes.length === 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    Changes save automatically
+                  </span>
+                )}
+              </div>
 
               {/* Tax Summary Card */}
               {incomeSources.length > 0 && (
