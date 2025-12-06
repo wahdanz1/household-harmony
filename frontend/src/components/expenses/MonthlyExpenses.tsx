@@ -1,12 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingDown, AlertCircle, Plus } from "lucide-react";
+import { TrendingDown, AlertCircle, Plus, Loader2, Check } from "lucide-react";
 import { AddExpenseDialog } from "./AddExpenseDialog";
 import { RegularExpenseItem } from "./RegularExpenseItem";
 import { ExpenseSummaryBlocks } from "./ExpenseSummaryBlocks";
 import { RegularExpenseDialog } from "./RegularExpenseDialog";
 import { useRegularExpenses } from "./hooks/useRegularExpenses";
-import { format } from "date-fns";
 import { useState } from "react";
 
 interface MonthlyExpensesProps {
@@ -16,13 +15,12 @@ interface MonthlyExpensesProps {
   creditCardExpenses: any[];
   amounts: Record<string, string>;
   currency: string;
-  saving: boolean;
   subscriptionsTotal: number;
   insuranceTotal: number;
   members: any[];
   coParents: any[];
-  onAmountsChange: (amounts: Record<string, string>) => void;
-  onSave: () => void;
+  autoSaveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  onAmountChange: (categoryId: string, value: string) => void;
   onCategoriesUpdate: () => void;
   onNavigateToSubscriptions?: () => void;
   onNavigateToInsurance?: () => void;
@@ -37,13 +35,12 @@ export const MonthlyExpenses = ({
   creditCardExpenses,
   amounts,
   currency,
-  saving,
   subscriptionsTotal,
   insuranceTotal,
   members,
   coParents,
-  onAmountsChange,
-  onSave,
+  autoSaveStatus,
+  onAmountChange,
   onCategoriesUpdate,
   onNavigateToSubscriptions,
   onNavigateToInsurance,
@@ -73,13 +70,6 @@ export const MonthlyExpenses = ({
     resetCategoryForm,
   } = useRegularExpenses(householdId, expenseCategories, onCategoriesUpdate);
 
-  // Sort all expenses by amount (highest to lowest)
-  const sortedCategories = [...expenseCategories].sort((a, b) => {
-    const amountA = parseFloat(amounts[a.id] || a.default_amount.toString() || "0");
-    const amountB = parseFloat(amounts[b.id] || b.default_amount.toString() || "0");
-    return amountB - amountA; // Descending order
-  });
-
   return (
     <div className="space-y-4">
       {/* Unified Expense Categories & Entry */}
@@ -92,7 +82,7 @@ export const MonthlyExpenses = ({
                 Monthly Expenses
               </CardTitle>
               <CardDescription className="mt-1.5">
-                Add expense categories with defaults, and adjust actual monthly expenses if needed. Click "Save Monthly Expenses" when done!
+                Values are pre-filled from previous months and save automatically as you type.
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -118,8 +108,46 @@ export const MonthlyExpenses = ({
             </div>
           ) : (
             <>
-              <div className="space-y-3">
+              {/* Status Bar */}
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-border mb-2">
+                <span className="text-muted-foreground">
+                  <span className="hidden sm:inline">Click</span>
+                  <span className="sm:hidden">Tap</span>
+                  {" "}an item to edit details
+                </span>
+                <div className="flex items-center gap-2">
+                  {autoSaveStatus === 'saving' && (
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Saving...
+                    </span>
+                  )}
+                  {autoSaveStatus === 'saved' && (
+                    <span className="flex items-center gap-1.5 text-green-600 animate-in fade-in slide-in-from-right-2 duration-300">
+                      <Check className="h-3.5 w-3.5" />
+                      <span className="inline-flex">
+                        {'Saved'.split('').map((letter, i) => (
+                          <span
+                            key={i}
+                            className="animate-in fade-in duration-150"
+                            style={{ animationDelay: `${i * 50}ms` }}
+                          >
+                            {letter}
+                          </span>
+                        ))}
+                      </span>
+                    </span>
+                  )}
+                  {autoSaveStatus === 'error' && (
+                    <span className="flex items-center gap-1.5 text-red-500">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      Error
+                    </span>
+                  )}
+                </div>
+              </div>
 
+              <div className="space-y-3">
                 {(() => {
                   // Combine categories and unmatched credit expenses for unified sorting
                   const combinedItems = [
@@ -128,7 +156,7 @@ export const MonthlyExpenses = ({
                       return { type: 'category', data: category, amount, id: category.id };
                     }),
                     ...creditCardExpenses.map(expense => {
-                      // Check if matched (logic from before)
+                      // Check if matched
                       const isMatched = expenseCategories.some((category: any) => {
                         const creditCategory = expense.category.toLowerCase();
                         const categoryName = category.name.toLowerCase();
@@ -146,7 +174,7 @@ export const MonthlyExpenses = ({
                         return false;
                       });
 
-                      if (isMatched) return null; // Skip matched ones, they are inside categories
+                      if (isMatched) return null;
 
                       return {
                         type: 'credit',
@@ -163,8 +191,6 @@ export const MonthlyExpenses = ({
                   return combinedItems.map((item: any) => {
                     if (item.type === 'category') {
                       const category = item.data;
-                      const hasEntry = monthlyExpenses.some((m) => m.regular_expense_id === category.id);
-                      const isDifferent = amounts[category.id] !== category.default_amount.toString();
 
                       // Find matching credit card expenses
                       const matchingCreditExpenses = creditCardExpenses.filter(expense => {
@@ -184,10 +210,12 @@ export const MonthlyExpenses = ({
                         return false;
                       });
 
-                      // Calculate status
+                      // Status based on smart defaults - compare to default_amount
+                      const currentAmount = amounts[category.id];
+                      const suggestedAmount = category.default_amount.toString();
                       let status: 'saved' | 'modified' | 'none' = 'none';
-                      if (hasEntry) {
-                        status = isDifferent ? 'modified' : 'saved';
+                      if (currentAmount !== undefined) {
+                        status = currentAmount === suggestedAmount ? 'saved' : 'modified';
                       }
 
                       return (
@@ -197,12 +225,8 @@ export const MonthlyExpenses = ({
                           amount={amounts[category.id] || category.default_amount.toString()}
                           currency={currency}
                           members={members}
-                          hasEntry={hasEntry}
-                          isDifferent={isDifferent}
                           creditExpenses={matchingCreditExpenses}
-                          onAmountChange={(categoryId, value) =>
-                            onAmountsChange({ ...amounts, [categoryId]: value })
-                          }
+                          onAmountChange={onAmountChange}
                           onEdit={handleEditCategory}
                           onNavigateToCredit={onNavigateToCredit}
                           status={status}
@@ -224,7 +248,6 @@ export const MonthlyExpenses = ({
                           amount="0"
                           currency={currency}
                           members={members}
-                          hasEntry={true}
                           creditExpenses={[expense]}
                           onEdit={() => {
                             if (onNavigateToCredit) {
@@ -250,35 +273,6 @@ export const MonthlyExpenses = ({
                   subscriptionSeverity={subscriptionSeverity}
                 />
               </div>
-
-              {monthlyExpenses.length > 0 && (
-                <p className="text-xs text-center text-muted-foreground mb-2">
-                  Monthly expenses saved {(() => {
-                    try {
-                      const mostRecent = monthlyExpenses.reduce((latest, current) => {
-                        const latestDate = new Date(latest.updated_at || latest.created_at || 0);
-                        const currentDate = new Date(current.updated_at || current.created_at || 0);
-                        return currentDate > latestDate ? current : latest;
-                      }, monthlyExpenses[0]);
-
-                      const dateToUse = mostRecent.updated_at || mostRecent.created_at;
-                      if (!dateToUse) return "";
-
-                      return format(new Date(dateToUse), "MMM d, yyyy 'at' HH:mm");
-                    } catch (e) {
-                      console.error("Error formatting date:", e);
-                      return "";
-                    }
-                  })()}
-                </p>
-              )}
-              <Button
-                onClick={onSave}
-                disabled={saving}
-                className={`w-full ${monthlyExpenses.length > 0 ? 'bg-green-900/40 hover:bg-green-900/60 text-green-100 border border-green-800/50' : ''}`}
-              >
-                {saving ? "Saving..." : monthlyExpenses.length > 0 ? "Update Monthly Expenses" : "Save Monthly Expenses"}
-              </Button>
             </>
           )}
         </CardContent>

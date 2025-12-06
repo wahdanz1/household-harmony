@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Edit, Check, ExternalLink } from "lucide-react";
+import { Edit, ExternalLink } from "lucide-react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { DataListItem } from "@/components/ui/data-list-item";
 
@@ -10,12 +10,11 @@ interface RegularExpenseItemProps {
     amount: string;
     currency: string;
     members: any[];
-    hasEntry: boolean;
-    isDifferent?: boolean;
     creditExpenses?: any[];
     onAmountChange?: (categoryId: string, value: string) => void;
     onEdit: (category: any) => void;
     onNavigateToCredit?: () => void;
+    status?: 'saved' | 'modified' | 'none';
 }
 
 export const RegularExpenseItem = ({
@@ -23,14 +22,14 @@ export const RegularExpenseItem = ({
     amount,
     currency,
     members,
-    hasEntry,
-    isDifferent,
     creditExpenses = [],
     onAmountChange = () => { },
     onEdit,
     onNavigateToCredit,
     status = 'none'
-}: RegularExpenseItemProps & { status?: 'saved' | 'modified' | 'none' }) => {
+}: RegularExpenseItemProps) => {
+    const isDisabled = category.type === "static" || category.type === "credit";
+
     const getDisplayAmount = () => {
         const baseAmount = parseFloat(amount || "0");
 
@@ -45,8 +44,6 @@ export const RegularExpenseItem = ({
         }
 
         // Only add credit card expenses if this is a pure credit category (unmatched)
-        // For regular categories, we want to show the base amount only, 
-        // and list credit expenses separately below
         if (category.type === 'credit') {
             const creditTotal = creditExpenses.reduce((sum, expense) => {
                 const val = typeof expense.amount === 'string' ? parseFloat(expense.amount) : expense.amount;
@@ -68,25 +65,29 @@ export const RegularExpenseItem = ({
     const cat = getCategoryById(category.category || 'other');
     const Icon = cat?.icon;
 
-    const getStatusBorderClass = () => {
+    // Underline color based on status (matches Income page)
+    const getInputUnderlineClass = () => {
+        if (isDisabled) return 'border-border';
         switch (status) {
             case 'saved':
-                return 'border-l-4 border-l-green-500 pl-2';
+                return 'border-green-500';
             case 'modified':
-                return 'border-l-4 border-l-lime-400 pl-2';
+                return 'border-lime-400';
             default:
-                return 'pl-3'; // Default padding to align with bordered items
+                return 'border-border';
         }
     };
 
     return (
-        <DataListItem onClick={() => onEdit(category)} className={getStatusBorderClass()}>
+        <DataListItem onClick={() => onEdit(category)}>
             {/* Mobile: Compact layout */}
             <div className="sm:hidden space-y-3">
                 {/* Top row: Icon + Title + Avatar */}
                 <div className="flex items-center gap-2">
                     {Icon && <Icon className="h-4 w-4" style={{ color: cat.color }} />}
-                    <p className="font-medium flex-1 truncate">{category.name}</p>
+                    <p className={`font-medium flex-1 truncate ${isDisabled ? "text-muted-foreground" : ""}`}>
+                        {category.name}
+                    </p>
                     {/* Credit badge for credit expenses */}
                     {category.type === 'credit' && (
                         <Badge variant="secondary" className="text-xs shrink-0">
@@ -101,31 +102,20 @@ export const RegularExpenseItem = ({
                     )}
                 </div>
 
-                {/* Bottom row: Amount input and edit button */}
+                {/* Bottom row: Amount input */}
                 <div className="flex items-center gap-2">
                     <div className="flex-1">
                         <input
                             type="number"
                             value={getDisplayAmount()}
                             onChange={(e) => onAmountChange(category.id, e.target.value)}
-                            disabled={category.type === "static" || category.type === "credit"}
+                            disabled={isDisabled}
                             onClick={(e) => e.stopPropagation()}
-                            className={`w-full text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""} `}
+                            className={`w-full text-right text-lg font-semibold bg-transparent border-0 border-b-2 ${getInputUnderlineClass()} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                             placeholder="0"
                         />
                     </div>
                     <span className="text-sm text-muted-foreground whitespace-nowrap shrink-0">{currency}</span>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(category);
-                        }}
-                    >
-                        {category.type === 'credit' ? <ExternalLink className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
-                    </Button>
                 </div>
             </div>
 
@@ -134,7 +124,9 @@ export const RegularExpenseItem = ({
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                         {Icon && <Icon className="h-4 w-4" style={{ color: cat.color }} />}
-                        <p className="font-medium truncate">{category.name}</p>
+                        <p className={`font-medium truncate ${isDisabled ? "text-muted-foreground" : ""}`}>
+                            {category.name}
+                        </p>
                         <span
                             className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
                             style={{
@@ -157,9 +149,9 @@ export const RegularExpenseItem = ({
                         type="number"
                         value={getDisplayAmount()}
                         onChange={(e) => onAmountChange(category.id, e.target.value)}
-                        disabled={category.type === "static" || category.type === "credit"}
+                        disabled={isDisabled}
                         onClick={(e) => e.stopPropagation()}
-                        className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${isDifferent ? "border-primary" : "border-border"} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${(category.type === "static" || category.type === "credit") ? "opacity-50 cursor-not-allowed" : ""}`}
+                        className={`w-32 text-right text-xl font-semibold bg-transparent border-0 border-b-2 ${getInputUnderlineClass()} focus:outline-none focus:border-primary rounded-none px-2 py-1 ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                         placeholder="0"
                     />
                     <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
