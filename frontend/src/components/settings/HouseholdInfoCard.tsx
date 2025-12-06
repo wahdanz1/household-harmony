@@ -17,6 +17,7 @@ interface HouseholdInfoCardProps {
     name: string;
     currency: string;
     owner_id: string;
+    financial_month_start?: number;
   };
   userRole: string;
   members: any[];
@@ -29,6 +30,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
   const [editName, setEditName] = useState(household.name);
+  const [editFinancialMonthStart, setEditFinancialMonthStart] = useState(household.financial_month_start || 25);
   const [isSaving, setIsSaving] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const { toast } = useToast();
@@ -38,22 +40,35 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
   const shouldShowJoinButton = !isOwner || !hasOtherMembers; // Show if not owner, or owner with no other members
 
   const handleSaveName = async () => {
+    // Validate financial_month_start
+    if (editFinancialMonthStart < 1 || editFinancialMonthStart > 28) {
+      toast({
+        title: "Invalid Day",
+        description: "Financial month start must be between 1 and 28",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSaving(true);
     const { error } = await supabase
       .from("households")
-      .update({ name: editName })
+      .update({
+        name: editName,
+        financial_month_start: editFinancialMonthStart
+      })
       .eq("id", household.id);
 
     if (error) {
       toast({
         title: "Error",
-        description: "Failed to update household name",
+        description: "Failed to update household settings",
         variant: "destructive",
       });
     } else {
       toast({
         title: "Success",
-        description: "Household name updated",
+        description: "Household settings updated",
       });
       setShowEditDialog(false);
       onUpdate();
@@ -118,6 +133,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
           {isOwner && (
             <Button variant="outline" size="sm" onClick={() => {
               setEditName(household.name);
+              setEditFinancialMonthStart(household.financial_month_start || 25);
               setShowEditDialog(true);
             }}>
               <Edit className="h-4 w-4 mr-2" />
@@ -176,6 +192,24 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
               <Shuffle className="h-4 w-4 mr-2" />
               Generate Random Name
             </Button>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-month-start">Financial Month Start Day</Label>
+              <Input
+                id="edit-month-start"
+                type="number"
+                min={1}
+                max={28}
+                value={editFinancialMonthStart}
+                onChange={(e) => setEditFinancialMonthStart(parseInt(e.target.value) || 25)}
+                placeholder="25"
+              />
+              <p className="text-xs text-muted-foreground">
+                Day of month when your financial month starts (1-28, default: 25).<br />
+                Example: 25 = Nov 25 - Dec 24. This controls when income/expenses auto-fill.<br />
+                <span className="text-amber-600 font-medium">Testing tip:</span> Set to tomorrow to test new month behavior.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>

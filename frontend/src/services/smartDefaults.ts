@@ -53,20 +53,19 @@ export const fetchExpenseSuggestions = async (
 
 /**
  * Get border color class based on suggestion source
- * - green: last month's value (static)
- * - blue: 3-month average (variable)
- * - lime: user modified the suggested value
+ * - green: backend suggestion (any type)
+ * - yellow: user modified the suggested value
+ * - (no border for user-added sources without suggestions)
  */
 export const getSuggestionBorderColor = (
     source: 'last_month' | 'average_3_months' | 'user_modified' | null
 ): string => {
     switch (source) {
         case 'last_month':
-            return 'border-green-500 border-2';
         case 'average_3_months':
-            return 'border-blue-500 border-2';
+            return 'border-green-500 border-2';
         case 'user_modified':
-            return 'border-lime-500 border-2';
+            return 'border-yellow-500 border-2';
         default:
             return '';
     }

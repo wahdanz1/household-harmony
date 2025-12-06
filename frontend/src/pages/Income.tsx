@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, AlertCircle, Plus, Check } from "lucide-react";
+import { TrendingUp, AlertCircle, Plus, Calendar, Sparkles } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,11 +13,10 @@ import { IncomeSourceDialog } from "@/components/income/IncomeSourceDialog";
 import { OneTimeIncomeCard } from "@/components/income/OneTimeIncomeCard";
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
 import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
-import { AutoFillButton } from "@/components/shared/AutoFillButton";
 import { TaxSummaryCard } from "@/components/income/TaxSummaryCard";
 import { TaxPrognosisModal } from "@/components/income/TaxPrognosisModal";
 import { fetchIncomeSuggestions, getSuggestionBorderColor } from "@/services/smartDefaults";
-import { calculateMonthlyTax, getTaxPrognosis } from "@/services/tax";
+import { getTaxPrognosis } from "@/services/tax";
 import type { IncomeSuggestion, IncomeForTax, TaxPrognosisResult } from "@/types/api";
 
 const Income = () => {
@@ -38,15 +37,16 @@ const Income = () => {
   // Auto-fill and tax state
   const [suggestions, setSuggestions] = useState<IncomeSuggestion[]>([]);
   const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
-  const [autoFillLoading, setAutoFillLoading] = useState(false);
-  const [taxData, setTaxData] = useState<{ gross: number; tax: number; net: number; rate: number } | null>(null);
-  const [taxLoading, setTaxLoading] = useState(false);
   const [prognosisModalOpen, setPrognosisModalOpen] = useState(false);
   const [prognosis, setPrognosis] = useState<TaxPrognosisResult | null>(null);
   const [prognosisLoading, setPrognosisLoading] = useState(false);
 
-  const currentMonth = getCurrentFinancialMonth();
-  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth);
+  // Track if auto-fill has been attempted this session
+  const hasAutoFilledRef = useRef(false);
+
+  const financialMonthStart = household?.financial_month_start || 25;
+  const currentMonth = getCurrentFinancialMonth(financialMonthStart);
+  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
   const fetchData = async () => {
     if (!user) return;
@@ -117,6 +117,21 @@ const Income = () => {
     fetchData();
   }, [user]);
 
+  // Auto-fill on page load when no saved income for current month
+  useEffect(() => {
+    // Only auto-fill once, when we have data loaded and no saved income
+    if (
+      !loading &&
+      !hasAutoFilledRef.current &&
+      household?.id &&
+      incomeSources.length > 0 &&
+      monthlyIncomes.length === 0 // No saved income for current month
+    ) {
+      hasAutoFilledRef.current = true;
+      handleAutoFill(true);
+    }
+  }, [loading, household?.id, incomeSources.length, monthlyIncomes.length]);
+
   const {
     sourceDialogOpen,
     setSourceDialogOpen,
@@ -130,12 +145,13 @@ const Income = () => {
   } = useIncomeSources(household?.id || "", members, fetchData);
 
   // Auto-fill handler - fetches suggestions from backend
-  const handleAutoFill = async () => {
-    if (!household?.id) return;
+  const handleAutoFill = async (showToast = true) => {
+    if (!household?.id || !incomeSources.length) return;
 
-    setAutoFillLoading(true);
     try {
       const incomeSuggestions = await fetchIncomeSuggestions(household.id);
+      if (incomeSuggestions.length === 0) return;
+
       setSuggestions(incomeSuggestions);
 
       // Apply suggestions to form
@@ -153,19 +169,15 @@ const Income = () => {
       setAmounts(newAmounts);
       setAppliedSuggestions(newApplied);
 
-      toast({
-        title: "Auto-fill applied",
-        description: `Applied suggestions for ${incomeSuggestions.length} income sources`,
-      });
+      if (showToast && incomeSuggestions.length > 0) {
+        toast({
+          title: "✨ Smart defaults applied",
+          description: `Pre-filled ${incomeSuggestions.length} income sources from historical data`,
+        });
+      }
     } catch (error) {
       console.error('Auto-fill failed:', error);
-      toast({
-        title: "Auto-fill unavailable",
-        description: "Could not fetch suggestions. Using default amounts.",
-        variant: "destructive",
-      });
-    } finally {
-      setAutoFillLoading(false);
+      // Silently fail - user can still enter amounts manually
     }
   };
 
@@ -356,9 +368,17 @@ const Income = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Income Management</h1>
-          <p className="text-muted-foreground mt-2">
-            {formatFinancialMonth(currentMonth)}
-          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <p className="text-muted-foreground">
+              {format(monthStart, "MMM d")} – {format(monthEnd, "MMM d, yyyy")}
+            </p>
+            {suggestions.length > 0 && (
+              <span className="flex items-center gap-1 text-xs text-green-600">
+                <Sparkles className="h-3 w-3" />
+                Smart defaults
+              </span>
+            )}
+          </div>
         </div>
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Total Income</p>
@@ -385,20 +405,12 @@ const Income = () => {
               setSourceDialogOpen(open);
               if (!open) resetSourceForm();
             }}>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <AutoFillButton
-                  onAutoFill={handleAutoFill}
-                  loading={autoFillLoading}
-                  disabled={incomeSources.length === 0}
-                  tooltip="Auto-fill from historical data"
-                />
-                <DialogTrigger asChild>
-                  <Button size="sm" className="flex-1 sm:flex-initial">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Source
-                  </Button>
-                </DialogTrigger>
-              </div>
+              <DialogTrigger asChild>
+                <Button size="sm" className="w-full sm:w-auto">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Source
+                </Button>
+              </DialogTrigger>
               <IncomeSourceDialog
                 open={sourceDialogOpen}
                 editingSourceId={editingSourceId}
@@ -475,7 +487,6 @@ const Income = () => {
                     netIncome={calculateEstimatedTax().net}
                     effectiveRate={calculateEstimatedTax().rate}
                     onViewPrognosis={handleViewPrognosis}
-                    loading={taxLoading}
                   />
                 </div>
               )}
