@@ -405,7 +405,11 @@ const Income = () => {
             <>
               {/* Status Bar: shows autosave status on the right */}
               <div className="flex items-center justify-between text-xs pb-2 border-b border-border mb-2">
-                <span className="text-muted-foreground">Tap an item to edit details</span>
+                <span className="text-muted-foreground">
+                  <span className="hidden sm:inline">Click</span>
+                  <span className="sm:hidden">Tap</span>
+                  {" "}an item to edit details
+                </span>
                 <div className="flex items-center gap-2">
                   {autoSaveStatus === 'saving' && (
                     <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -414,9 +418,19 @@ const Income = () => {
                     </span>
                   )}
                   {autoSaveStatus === 'saved' && (
-                    <span className="flex items-center gap-1.5 text-green-600">
+                    <span className="flex items-center gap-1.5 text-green-600 animate-in fade-in slide-in-from-right-2 duration-300">
                       <Check className="h-3.5 w-3.5" />
-                      Saved
+                      <span className="inline-flex">
+                        {'Saved'.split('').map((letter, i) => (
+                          <span
+                            key={i}
+                            className="animate-in fade-in duration-150"
+                            style={{ animationDelay: `${i * 50}ms` }}
+                          >
+                            {letter}
+                          </span>
+                        ))}
+                      </span>
                     </span>
                   )}
                   {autoSaveStatus === 'error' && (
@@ -429,13 +443,16 @@ const Income = () => {
               </div>
               <div className="space-y-3">
                 {incomeSources.map((source) => {
-                  const savedEntry = monthlyIncomes.find((m: any) => m.income_source_id === source.id);
                   const currentAmount = amounts[source.id];
-                  const savedAmount = savedEntry ? savedEntry.amount.toString() : null;
 
+                  // Find the smart suggestion for this source
+                  const suggestion = suggestions.find(s => s.income_source_id === source.id);
+                  const suggestedAmount = suggestion?.suggested_amount?.toString() || source.default_amount.toString();
+
+                  // Status: green = using smart default, lime = manually overridden
                   let status: 'saved' | 'modified' | 'none' = 'none';
-                  if (savedEntry) {
-                    status = currentAmount !== savedAmount ? 'modified' : 'saved';
+                  if (suggestion || appliedSuggestions.has(source.id)) {
+                    status = currentAmount === suggestedAmount ? 'saved' : 'modified';
                   }
 
                   return (
