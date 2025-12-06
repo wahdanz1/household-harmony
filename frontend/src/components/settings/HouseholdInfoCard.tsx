@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { JoinExistingUserDialog } from "./JoinExistingUserDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { generateHouseholdName } from "@/utils/householdNames";
 
 interface HouseholdInfoCardProps {
@@ -26,6 +27,7 @@ interface HouseholdInfoCardProps {
 
 export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: HouseholdInfoCardProps) => {
   const { user } = useAuth();
+  const { refresh: refreshHousehold } = useHousehold();
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [showLeaveDialog, setShowLeaveDialog] = useState(false);
@@ -71,6 +73,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
         description: "Household settings updated",
       });
       setShowEditDialog(false);
+      await refreshHousehold(); // Refresh the global context with new settings
       onUpdate();
     }
     setIsSaving(false);

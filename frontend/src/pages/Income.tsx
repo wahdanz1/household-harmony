@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, AlertCircle, Plus, Check, Loader2 } from "lucide-react";
@@ -23,6 +24,7 @@ import type { IncomeSuggestion, IncomeForTax, TaxPrognosisResult } from "@/types
 const Income = () => {
   const { user } = useAuth();
   const { household, members, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
+  const location = useLocation(); // Trigger refetch on navigation
   const { toast } = useToast();
   const [incomeSources, setIncomeSources] = useState<any[]>([]);
   const [monthlyIncomes, setMonthlyIncomes] = useState<any[]>([]);
@@ -42,19 +44,27 @@ const Income = () => {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasAutoFilledRef = useRef(false);
+  const amountsRef = useRef<Record<string, string>>({}); // Track latest amounts for autosave
 
+  // Keep these for display/header purposes only (will update on re-render)
   const currentMonth = getCurrentFinancialMonth(financialMonthStart);
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!household?.id) return;
+
+    // Compute dates fresh inside fetchData using current financialMonthStart
+    const fetchMonth = getCurrentFinancialMonth(financialMonthStart);
+    const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, financialMonthStart);
+    const startStr = format(fetchStart, "yyyy-MM-dd");
+    const endStr = format(fetchEnd, "yyyy-MM-dd");
 
     const [
       { data: sourcesData },
       { data: monthlyData },
     ] = await Promise.all([
       supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", household.id).eq("is_active", true).order("created_at", { ascending: true }),
-      supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
+      supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
     ]);
 
     setIncomeSources(sourcesData || []);
@@ -67,8 +77,31 @@ const Income = () => {
     setMonthlyIncomes(regularIncomes);
     setOneTimeIncomes(oneTimeIncomesData);
 
+    // Auto-create monthly_incomes records for sources that don't have them yet
+    // This ensures Dashboard shows all income, not just edited sources
+    const missingRecords: any[] = [];
+    (sourcesData || []).forEach((source: any) => {
+      const existing = (monthlyData || []).find((m: any) => m.income_source_id === source.id);
+      if (!existing && user) {
+        missingRecords.push({
+          income_source_id: source.id,
+          household_id: household.id,
+          month: fetchMonth,
+          month_start: startStr,
+          month_end: endStr,
+          amount: parseFloat(source.default_amount?.toString() || "0"),
+          created_by: user.id,
+        });
+      }
+    });
+
+    // Create missing records in batch if any
+    if (missingRecords.length > 0) {
+      await supabase.from("monthly_incomes").insert(missingRecords);
+    }
+
     // Set autosave status based on existing data
-    if (regularIncomes.length > 0) {
+    if (regularIncomes.length > 0 || missingRecords.length > 0) {
       setAutoSaveStatus('saved');
     } else {
       setAutoSaveStatus('idle');
@@ -80,14 +113,15 @@ const Income = () => {
       initialAmounts[source.id] = existing ? existing.amount.toString() : source.default_amount.toString();
     });
     setAmounts(initialAmounts);
+    amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  };
+  }, [household?.id, financialMonthStart, user]);
 
   useEffect(() => {
     if (!householdLoading && household?.id) {
       fetchData();
     }
-  }, [household?.id, householdLoading, currentMonth]);
+  }, [householdLoading, fetchData, location.key]); // location.key changes on each navigation
 
   // Auto-fill on page load when no saved income for current month
   useEffect(() => {
@@ -173,6 +207,7 @@ const Income = () => {
   const handleAmountChange = (sourceId: string, value: string) => {
     const newAmounts = { ...amounts, [sourceId]: value };
     setAmounts(newAmounts);
+    amountsRef.current = newAmounts; // Keep ref in sync for autosave
 
     // Trigger debounced autosave
     if (autoSaveTimerRef.current) {
@@ -223,18 +258,25 @@ const Income = () => {
     return { gross, tax, net, rate: estimatedRate * 100 };
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!household || !user) return;
     setSaving(true);
     setAutoSaveStatus('saving');
 
+    // Use amountsRef to get the latest amounts value
+    const currentAmounts = amountsRef.current;
+
+    // Compute dates fresh at save time
+    const saveMonth = getCurrentFinancialMonth(financialMonthStart);
+    const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, financialMonthStart);
+
     const entries = incomeSources.map((source) => ({
       income_source_id: source.id,
       household_id: household.id,
-      month: currentMonth,
-      month_start: format(monthStart, "yyyy-MM-dd"),
-      month_end: format(monthEnd, "yyyy-MM-dd"),
-      amount: parseFloat(amounts[source.id] || "0"),
+      month: saveMonth,
+      month_start: format(saveStart, "yyyy-MM-dd"),
+      month_end: format(saveEnd, "yyyy-MM-dd"),
+      amount: parseFloat(currentAmounts[source.id] || "0"),
       created_by: user.id,
     }));
 
@@ -254,7 +296,7 @@ const Income = () => {
       // Don't show toast for autosave - only show brief status indicator
     }
     setSaving(false);
-  };
+  }, [household, user, incomeSources, financialMonthStart, toast]);
 
   const handleAddOneTime = async (data: {
     name: string;
@@ -449,10 +491,11 @@ const Income = () => {
                   const suggestion = suggestions.find(s => s.income_source_id === source.id);
                   const suggestedAmount = suggestion?.suggested_amount?.toString() || source.default_amount.toString();
 
-                  // Status: green = using smart default, lime = manually overridden
+                  // Status: green = using default/smart default, lime = manually overridden
+                  // Always calculate status by comparing with default, like Expenses page
                   let status: 'saved' | 'modified' | 'none' = 'none';
-                  if (suggestion || appliedSuggestions.has(source.id)) {
-                    status = currentAmount === suggestedAmount ? 'saved' : 'modified';
+                  if (currentAmount !== undefined) {
+                    status = currentAmount === source.default_amount.toString() ? 'saved' : 'modified';
                   }
 
                   return (

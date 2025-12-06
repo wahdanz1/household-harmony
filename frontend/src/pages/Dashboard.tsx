@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { getActiveHousehold } from "@/utils/householdHelpers";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { format } from "date-fns";
-import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { PageHeader } from "@/components/shared/PageHeader";
 import MonthOverview from "@/components/dashboard/MonthOverview";
 import QuickActions from "@/components/dashboard/QuickActions";
 import SavingsGoalsPreview from "@/components/dashboard/SavingsGoalsPreview";
@@ -11,27 +12,31 @@ import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlemen
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { household, financialMonthStart, loading: householdLoading } = useHousehold();
   const [loading, setLoading] = useState(true);
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
   const [currency, setCurrency] = useState("SEK");
   const [householdId, setHouseholdId] = useState<string>("");
 
-  const currentMonth = getCurrentFinancialMonth();
-  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth);
+  // Keep these for display purposes only (will be correct after household loads)
+  const currentMonth = getCurrentFinancialMonth(financialMonthStart);
+  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return;
+      if (!user || !household?.id || householdLoading) return;
 
-      const { membership } = await getActiveHousehold(user.id);
+      setHouseholdId(household.id);
 
-      if (!membership) return;
-
-      setHouseholdId(membership.household_id);
+      // Compute dates fresh inside fetchData using current financialMonthStart
+      const fms = household?.financial_month_start || 25;
+      const fetchMonth = getCurrentFinancialMonth(fms);
+      const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, fms);
+      const startStr = format(fetchStart, "yyyy-MM-dd");
+      const endStr = format(fetchEnd, "yyyy-MM-dd");
 
       const [
-        { data: householdInfo },
         { data: monthlyIncomes },
         { data: monthlyExpenses },
         { data: subscriptions },
@@ -39,13 +44,12 @@ const Dashboard = () => {
         { data: creditCardExpenses },
         { data: sharedExpenses },
       ] = await Promise.all([
-        supabase.from("households").select("currency").eq("id", membership.household_id).single(),
-        supabase.from("monthly_incomes").select("*").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
-        supabase.from("monthly_expenses").select("*").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
-        supabase.from("subscriptions").select("amount").eq("household_id", membership.household_id).eq("is_active", true),
-        supabase.from("insurances").select("total_amount, payment_frequency, is_shared, share_percentage").eq("household_id", membership.household_id).eq("is_active", true),
-        supabase.from("credit_card_expenses").select("amount").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
-        supabase.from("shared_expenses").select("amount, paid_by").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
+        supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+        supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+        supabase.from("subscriptions").select("amount").eq("household_id", household.id).eq("is_active", true),
+        supabase.from("insurances").select("total_amount, payment_frequency, is_shared, share_percentage").eq("household_id", household.id).eq("is_active", true),
+        supabase.from("credit_card_expenses").select("amount").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+        supabase.from("shared_expenses").select("amount, paid_by").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
       ]);
 
       // Helper to deduplicate recurring items (which might have duplicate rows for Calendar vs Financial months)
@@ -102,14 +106,15 @@ const Dashboard = () => {
 
       setIncome(totalIncome);
       setExpenses(totalMonthlyExpenses + totalSubscriptions + totalInsurance + totalCreditCard + totalShared);
-      setCurrency(householdInfo?.currency || "SEK");
+      setCurrency(household.currency || "SEK");
       setLoading(false);
     };
 
     fetchData();
-  }, [user, currentMonth]); // Re-fetch if financial month changes
+  }, [user, household, householdLoading]); // Depend on household object which contains financialMonthStart
 
-  if (loading) {
+  // Wait for household data to load before showing anything
+  if (householdLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <p className="text-muted-foreground">Loading...</p>
@@ -119,10 +124,7 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1 capitalize">{formatFinancialMonth(currentMonth)}</p>
-      </div>
+      <PageHeader title="Dashboard" />
 
       <MonthOverview
         income={income}

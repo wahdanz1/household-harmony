@@ -39,7 +39,6 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
         name: string;
         amount: string;
         billing_cycle: string;
-        next_billing_date: Date;
         category: string;
         notes: string;
         is_active: boolean;
@@ -49,7 +48,6 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
         name: "",
         amount: "",
         billing_cycle: "monthly",
-        next_billing_date: new Date(),
         category: "other",
         notes: "",
         is_active: true,
@@ -66,7 +64,6 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
             name: formData.name,
             amount: parseFloat(formData.amount),
             billing_cycle: formData.billing_cycle,
-            next_billing_date: format(formData.next_billing_date, "yyyy-MM-dd"),
             category: formData.category,
             notes: formData.notes,
             is_active: formData.is_active,

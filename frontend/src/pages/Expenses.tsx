@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarDays, CreditCard, Shield, ShoppingBag } from "lucide-react";
@@ -16,6 +17,7 @@ import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUt
 const Expenses = () => {
   const { user } = useAuth();
   const { household, members, coParents } = useHousehold();
+  const location = useLocation(); // Trigger refetch on navigation
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
@@ -28,13 +30,23 @@ const Expenses = () => {
   // Autosave state
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const amountsRef = useRef<Record<string, string>>({}); // Track latest amounts for autosave
 
   const financialMonthStart = household?.financial_month_start || 25;
+
+  // Keep these for display purposes only
   const currentMonth = getCurrentFinancialMonth(financialMonthStart);
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
   const fetchData = useCallback(async () => {
     if (!user || !household) return;
+
+    // Compute dates fresh inside fetchData using current financialMonthStart
+    const fms = household?.financial_month_start || 25;
+    const fetchMonth = getCurrentFinancialMonth(fms);
+    const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, fms);
+    const startStr = format(fetchStart, "yyyy-MM-dd");
+    const endStr = format(fetchEnd, "yyyy-MM-dd");
 
     const [
       { data: categoriesData },
@@ -45,11 +57,11 @@ const Expenses = () => {
       { data: creditCardExpensesData },
     ] = await Promise.all([
       supabase.from("regular_expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
-      supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
-      supabase.from("monthly_expenses").select("*").eq("household_id", household.id).lt("month_start", format(monthStart, "yyyy-MM-dd")),
+      supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+      supabase.from("monthly_expenses").select("*").eq("household_id", household.id).lt("month_start", startStr),
       supabase.from("subscriptions").select("*").eq("household_id", household.id).eq("is_active", true),
       supabase.from("insurances").select("*").eq("household_id", household.id).eq("is_active", true),
-      supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", household.id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
+      supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
     ]);
 
     setExpenseCategories(categoriesData || []);
@@ -58,8 +70,44 @@ const Expenses = () => {
     setInsurances(insurancesData || []);
     setCreditCardExpenses(creditCardExpensesData || []);
 
+    // Auto-create monthly_expenses records for categories that don't have them yet
+    // This ensures Dashboard shows all expenses, not just edited categories
+    const missingRecords: any[] = [];
+    (categoriesData || []).forEach((category: any) => {
+      const existing = (monthlyData || []).find((m: any) => m.regular_expense_id === category.id);
+
+      if (!existing && user) {
+        // Calculate the appropriate amount for the missing record
+        let amount = category.default_amount;
+
+        if (category.type === "dynamic") {
+          // Use historical average if available
+          const previousExpenses = (historicalData || []).filter((h: any) => h.regular_expense_id === category.id);
+          if (previousExpenses.length > 0) {
+            const total = previousExpenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
+            amount = Math.round(total / previousExpenses.length);
+          }
+        }
+
+        missingRecords.push({
+          regular_expense_id: category.id,
+          household_id: household.id,
+          month: fetchMonth,
+          month_start: startStr,
+          month_end: endStr,
+          amount: parseFloat(amount?.toString() || "0"),
+          created_by: user.id,
+        });
+      }
+    });
+
+    // Create missing records in batch if any
+    if (missingRecords.length > 0) {
+      await supabase.from("monthly_expenses").insert(missingRecords);
+    }
+
     // Check if there are saved expenses to set initial status
-    if ((monthlyData || []).length > 0) {
+    if ((monthlyData || []).length > 0 || missingRecords.length > 0) {
       setAutoSaveStatus('saved');
     }
 
@@ -87,26 +135,35 @@ const Expenses = () => {
     });
 
     setAmounts(initialAmounts);
+    amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [user, household, monthStart, monthEnd]);
+  }, [user, household]);
 
   useEffect(() => {
     if (household) {
       fetchData();
     }
-  }, [household, fetchData]);
+  }, [household, fetchData, location.key]); // location.key changes on each navigation
 
   const handleSave = useCallback(async () => {
     if (!household || !user) return;
     setAutoSaveStatus('saving');
 
+    // Use amountsRef to get the latest amounts value
+    const currentAmounts = amountsRef.current;
+
+    // Compute dates fresh at save time
+    const fms = household?.financial_month_start || 25;
+    const saveMonth = getCurrentFinancialMonth(fms);
+    const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, fms);
+
     const entries = expenseCategories.map((category) => ({
       regular_expense_id: category.id,
       household_id: household.id,
-      month: currentMonth,
-      month_start: format(monthStart, "yyyy-MM-dd"),
-      month_end: format(monthEnd, "yyyy-MM-dd"),
-      amount: parseFloat(amounts[category.id] || "0"),
+      month: saveMonth,
+      month_start: format(saveStart, "yyyy-MM-dd"),
+      month_end: format(saveEnd, "yyyy-MM-dd"),
+      amount: parseFloat(currentAmounts[category.id] || "0"),
       created_by: user.id,
     }));
 
@@ -118,13 +175,22 @@ const Expenses = () => {
       setAutoSaveStatus('error');
     } else {
       setAutoSaveStatus('saved');
-      fetchData();
+      // Update monthlyExpenses state without refetching (which would overwrite amounts)
+      setMonthlyExpenses(entries.map((entry, i) => ({
+        ...entry,
+        id: monthlyExpenses.find(m => m.regular_expense_id === entry.regular_expense_id)?.id || `temp-${i}`,
+        updated_at: new Date().toISOString(),
+      })));
     }
-  }, [household, user, expenseCategories, amounts, currentMonth, monthStart, monthEnd, fetchData]);
+  }, [household, user, expenseCategories, monthlyExpenses]);
 
   // Handle amount change with debounced autosave
   const handleAmountChange = useCallback((categoryId: string, value: string) => {
-    setAmounts(prev => ({ ...prev, [categoryId]: value }));
+    setAmounts(prev => {
+      const newAmounts = { ...prev, [categoryId]: value };
+      amountsRef.current = newAmounts; // Keep ref in sync for autosave
+      return newAmounts;
+    });
     setAutoSaveStatus('idle');
 
     // Clear previous timer
@@ -232,10 +298,14 @@ const Expenses = () => {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${household?.enable_credit_cards ? (coParents.length > 0 ? 5 : 4) : (coParents.length > 0 ? 4 : 3)}, minmax(0, 1fr))` }}>
-          <TabsTrigger value="general" className="flex items-center gap-2">
+        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${household?.enable_credit_cards ? (coParents.length > 0 ? 6 : 5) : (coParents.length > 0 ? 5 : 4)}, minmax(0, 1fr))` }}>
+          <TabsTrigger value="all" className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
-            <span className="hidden sm:inline">General</span>
+            <span className="hidden sm:inline">All</span>
+          </TabsTrigger>
+          <TabsTrigger value="fixed" className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            <span className="hidden sm:inline">Fixed</span>
           </TabsTrigger>
           <TabsTrigger value="subscriptions" className="flex items-center gap-2">
             <CreditCard className="h-4 w-4" />
@@ -259,10 +329,37 @@ const Expenses = () => {
           )}
         </TabsList>
 
-        <TabsContent value="general" className="mt-6">
+        <TabsContent value="all" className="mt-6">
           <MonthlyExpenses
             householdId={household?.id}
             expenseCategories={expenseCategories}
+            monthlyExpenses={monthlyExpenses}
+            creditCardExpenses={creditCardExpenses}
+            amounts={amounts}
+            currency={household?.currency || "SEK"}
+            subscriptionsTotal={subscriptionsTotal}
+            insuranceTotal={insuranceTotal}
+            subscriptionSeverity={subscriptionSeverity}
+            members={members}
+            coParents={coParents}
+            autoSaveStatus={autoSaveStatus}
+            onAmountChange={handleAmountChange}
+            onCategoriesUpdate={fetchData}
+            onNavigateToSubscriptions={() => setActiveTab("subscriptions")}
+            onNavigateToInsurance={() => setActiveTab("insurance")}
+            onNavigateToCredit={() => setActiveTab("credit")}
+          />
+        </TabsContent>
+
+        <TabsContent value="fixed" className="mt-6">
+          <MonthlyExpenses
+            householdId={household?.id}
+            expenseCategories={expenseCategories.filter(cat => {
+              // Filter for predictable/fixed expenses
+              // Include: static types + specific categories like rent, electricity, internet, phone
+              const fixedCategories = ['rent', 'electricity', 'internet', 'phone', 'transportation'];
+              return cat.type === 'static' || fixedCategories.includes(cat.category);
+            })}
             monthlyExpenses={monthlyExpenses}
             creditCardExpenses={creditCardExpenses}
             amounts={amounts}

@@ -7,6 +7,7 @@ interface PageHeaderProps {
     title: string;
     totalLabel?: string;
     totalAmount?: number;
+    totalColorClass?: string; // e.g., "text-success" or "text-destructive"
     showSmartDefaults?: boolean;
     children?: React.ReactNode;
 }
@@ -19,6 +20,7 @@ export const PageHeader = ({
     title,
     totalLabel,
     totalAmount,
+    totalColorClass = "text-success",
     showSmartDefaults = false,
     children,
 }: PageHeaderProps) => {
@@ -46,7 +48,7 @@ export const PageHeader = ({
             {totalLabel && totalAmount !== undefined && (
                 <div className="text-right">
                     <p className="text-sm text-muted-foreground">{totalLabel}</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-success">
+                    <p className={`text-2xl sm:text-3xl font-bold ${totalColorClass}`}>
                         {totalAmount.toFixed(0)} {household?.currency || "SEK"}
                     </p>
                 </div>

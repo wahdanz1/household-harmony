@@ -107,7 +107,7 @@ export const RegularExpenseItem = ({
                     <div className="flex-1">
                         <input
                             type="number"
-                            value={getDisplayAmount()}
+                            value={amount || ""}
                             onChange={(e) => onAmountChange(category.id, e.target.value)}
                             disabled={isDisabled}
                             onClick={(e) => e.stopPropagation()}
@@ -147,7 +147,7 @@ export const RegularExpenseItem = ({
                 <div className="flex items-center gap-2">
                     <input
                         type="number"
-                        value={getDisplayAmount()}
+                        value={amount || ""}
                         onChange={(e) => onAmountChange(category.id, e.target.value)}
                         disabled={isDisabled}
                         onClick={(e) => e.stopPropagation()}

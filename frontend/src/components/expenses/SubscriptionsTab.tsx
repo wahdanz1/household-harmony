@@ -4,13 +4,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { CreditCard, Plus, Edit, Trash2, CalendarIcon, MoreHorizontal } from "lucide-react";
+import { CreditCard, Plus, Edit, Trash2, MoreHorizontal } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { DataListItem } from "@/components/ui/data-list-item";
 import { useTabCrud } from "@/components/expenses/hooks/useTabCrud";
 import { SummaryStatsCard } from "@/components/expenses/SummaryStatsCard";
@@ -21,7 +18,6 @@ interface SubscriptionFormData {
   name: string;
   amount: string;
   billing_cycle: string;
-  next_billing_date: Date;
   category: string;
   notes: string;
   is_active: boolean;
@@ -56,7 +52,6 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
       name: "",
       amount: "",
       billing_cycle: "monthly",
-      next_billing_date: new Date(),
       category: "other",
       notes: "",
       is_active: true,
@@ -75,7 +70,6 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
       name: data.name,
       amount: parseFloat(data.amount),
       billing_cycle: data.billing_cycle,
-      next_billing_date: format(data.next_billing_date, "yyyy-MM-dd"),
       category: data.category,
       notes: data.notes,
       is_active: data.is_active,
@@ -87,7 +81,6 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
       name: subscription.name,
       amount: subscription.amount.toString(),
       billing_cycle: subscription.billing_cycle,
-      next_billing_date: subscription.next_billing_date ? new Date(subscription.next_billing_date) : new Date(),
       category: subscription.category || "other",
       notes: subscription.notes || "",
       is_active: subscription.is_active,
@@ -264,27 +257,6 @@ export const SubscriptionsTab = ({ householdId, currency }: SubscriptionsTabProp
                     </div>
                   </div>
                 )}
-
-                <div className="space-y-2">
-                  <Label>Next Billing Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(formData.next_billing_date, "PPP")}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={formData.next_billing_date}
-                        onSelect={(date) => date && setFormData({ ...formData, next_billing_date: date })}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
 
                 <div className="space-y-2">
                   <Label>Notes</Label>
