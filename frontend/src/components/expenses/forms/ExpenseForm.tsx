@@ -4,13 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { InfoIcon, Trash2 } from "lucide-react";
-import { EXPENSE_CATEGORIES } from "@/constants/expenseCategories";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { EXPENSE_CATEGORIES } from "@/constants/expenseCategories";
 
-export interface ExpenseCategoryFormData {
-    category: string;
+export interface ExpenseFormData {
+    category?: string;
     name: string;
     type: "static" | "dynamic";
     default_amount: string;
@@ -20,54 +20,46 @@ export interface ExpenseCategoryFormData {
     waterCost?: string;
 }
 
-interface ExpenseCategoryFormProps {
-    defaultValues?: Partial<ExpenseCategoryFormData>;
-    onSubmit: (data: ExpenseCategoryFormData) => void;
+interface ExpenseFormProps {
+    defaultValues: ExpenseFormData;
+    onSubmit: (data: ExpenseFormData) => void;
     onCancel: () => void;
-    submitLabel: string;
+    submitLabel?: string;
+    isSaving?: boolean;
     isEditing?: boolean;
     onDelete?: () => void;
-    isSaving?: boolean;
 }
 
-export const ExpenseCategoryForm = ({
+export const ExpenseForm = ({
     defaultValues,
     onSubmit,
     onCancel,
-    submitLabel,
+    submitLabel = "Save",
+    isSaving = false,
     isEditing = false,
     onDelete,
-    isSaving = false,
-}: ExpenseCategoryFormProps) => {
+}: ExpenseFormProps) => {
     const { toast } = useToast();
-    const [formData, setFormData] = useState<ExpenseCategoryFormData>({
-        category: defaultValues?.category || "",
-        name: defaultValues?.name || "",
-        type: defaultValues?.type || "static",
-        default_amount: defaultValues?.default_amount || "",
-        electricityGrid: defaultValues?.electricityGrid || "",
-        electricityMarket: defaultValues?.electricityMarket || "",
-        waterIncluded: defaultValues?.waterIncluded ?? true,
-        waterCost: defaultValues?.waterCost || "",
-    });
+    const [formData, setFormData] = useState<ExpenseFormData>(defaultValues);
 
-    // Update form data when defaultValues change (important for Edit dialog)
+    // Derived values for conditional rendering
+    const selectedCategory = EXPENSE_CATEGORIES.find(cat => cat.id === formData.category);
+    const CategoryIcon = selectedCategory?.icon;
+    const isElectricity = formData.category === "electricity";
+    const isRent = formData.category === "rent";
+
     useEffect(() => {
-        if (defaultValues) {
-            setFormData(prev => ({
-                ...prev,
-                ...defaultValues,
-                // Ensure we don't overwrite with undefined if not provided in update
-                category: defaultValues.category ?? prev.category,
-                name: defaultValues.name ?? prev.name,
-                type: defaultValues.type ?? prev.type,
-                default_amount: defaultValues.default_amount ?? prev.default_amount,
-                electricityGrid: defaultValues.electricityGrid ?? prev.electricityGrid,
-                electricityMarket: defaultValues.electricityMarket ?? prev.electricityMarket,
-                waterIncluded: defaultValues.waterIncluded ?? prev.waterIncluded,
-                waterCost: defaultValues.waterCost ?? prev.waterCost,
-            }));
-        }
+        setFormData((prev) => ({
+            ...prev,
+            category: defaultValues.category ?? prev.category,
+            name: defaultValues.name ?? prev.name,
+            type: defaultValues.type ?? prev.type,
+            default_amount: defaultValues.default_amount ?? prev.default_amount,
+            electricityGrid: defaultValues.electricityGrid ?? prev.electricityGrid,
+            electricityMarket: defaultValues.electricityMarket ?? prev.electricityMarket,
+            waterIncluded: defaultValues.waterIncluded ?? prev.waterIncluded,
+            waterCost: defaultValues.waterCost ?? prev.waterCost,
+        }));
     }, [defaultValues]);
 
     const handleSubmit = () => {
@@ -104,12 +96,6 @@ export const ExpenseCategoryForm = ({
 
         onSubmit(formData);
     };
-
-    const selectedCategory = EXPENSE_CATEGORIES.find(cat => cat.id === formData.category);
-    const CategoryIcon = selectedCategory?.icon;
-
-    const isElectricity = formData.category === "electricity";
-    const isRent = formData.category === "rent";
 
     return (
         <div className="space-y-4">

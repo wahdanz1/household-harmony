@@ -1,11 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingDown, AlertCircle, Plus, Loader2, Check } from "lucide-react";
+import { Home, AlertCircle, Plus, Loader2, Check } from "lucide-react";
 import { AddExpenseDialog } from "./AddExpenseDialog";
-import { RegularExpenseItem } from "./RegularExpenseItem";
+import { ExpenseItem } from "./ExpenseItem";
 import { ExpenseSummaryBlocks } from "./ExpenseSummaryBlocks";
-import { RegularExpenseDialog } from "./RegularExpenseDialog";
-import { useRegularExpenses } from "./hooks/useRegularExpenses";
+import { EditExpenseDialog } from "./EditExpenseDialog";
+import { useExpenses } from "./hooks/useExpenses";
 import { useState } from "react";
 
 interface MonthlyExpensesProps {
@@ -68,21 +68,21 @@ export const MonthlyExpenses = ({
     handleDeleteCategory,
     initializeDefaults,
     resetCategoryForm,
-  } = useRegularExpenses(householdId, expenseCategories, onCategoriesUpdate);
+  } = useExpenses(householdId, expenseCategories, onCategoriesUpdate);
 
   return (
     <div className="space-y-4">
-      {/* Unified Expense Categories & Entry */}
+      {/* Fixed/Recurring Expenses */}
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <TrendingDown className="h-5 w-5 text-destructive" />
-                Monthly Expenses
+                <Home className="h-5 w-5 text-blue-500" />
+                Fixed Expenses
               </CardTitle>
               <CardDescription className="mt-1.5">
-                Values are pre-filled from previous months and save automatically as you type.
+                Predictable recurring costs like rent, utilities, and transportation.
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -219,7 +219,7 @@ export const MonthlyExpenses = ({
                       }
 
                       return (
-                        <RegularExpenseItem
+                        <ExpenseItem
                           key={category.id}
                           category={category}
                           amount={amounts[category.id] || category.default_amount.toString()}
@@ -235,7 +235,7 @@ export const MonthlyExpenses = ({
                     } else {
                       const expense = item.data;
                       return (
-                        <RegularExpenseItem
+                        <ExpenseItem
                           key={`credit-${expense.id}`}
                           category={{
                             id: `credit-${expense.category}`,
@@ -278,7 +278,7 @@ export const MonthlyExpenses = ({
         </CardContent>
       </Card>
 
-      <RegularExpenseDialog
+      <EditExpenseDialog
         open={categoryDialogOpen}
         editingCategoryId={editingCategoryId}
         categoryFormData={categoryFormData}

@@ -2,12 +2,16 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarDays, CreditCard, Shield, ShoppingBag } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CalendarDays, CreditCard, Shield, ShoppingBag, LayoutGrid, List, Home, ShoppingCart, Plus } from "lucide-react";
 import { MonthlyExpenses } from "@/components/expenses/MonthlyExpenses";
+import { VariableExpenses } from "@/components/expenses/VariableExpenses";
+import { AllTabBlockView, AllTabListView } from "@/components/expenses/AllTabBlockView";
 import { SubscriptionsTab } from "@/components/expenses/SubscriptionsTab";
 import { InsuranceTab } from "@/components/expenses/InsuranceTab";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
+import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -25,7 +29,9 @@ const Expenses = () => {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [creditCardExpenses, setCreditCardExpenses] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState("all");
+  const [viewMode, setViewMode] = useState<'blocks' | 'list'>('blocks');
+  const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
 
   // Autosave state
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -298,57 +304,122 @@ const Expenses = () => {
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${household?.enable_credit_cards ? (coParents.length > 0 ? 6 : 5) : (coParents.length > 0 ? 5 : 4)}, minmax(0, 1fr))` }}>
-          <TabsTrigger value="all" className="flex items-center gap-2">
+        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${household?.enable_credit_cards ? (coParents.length > 0 ? 7 : 6) : (coParents.length > 0 ? 6 : 5)}, minmax(0, 1fr))` }}>
+          <TabsTrigger value="all" className="flex items-center gap-2 transition-all hover:bg-muted/80">
             <CalendarDays className="h-4 w-4" />
             <span className="hidden sm:inline">All</span>
           </TabsTrigger>
-          <TabsTrigger value="fixed" className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" />
+          <TabsTrigger value="fixed" className="flex items-center gap-2 transition-all hover:bg-muted/80">
+            <Home className="h-4 w-4" />
             <span className="hidden sm:inline">Fixed</span>
           </TabsTrigger>
-          <TabsTrigger value="subscriptions" className="flex items-center gap-2">
+          <TabsTrigger value="variable" className="flex items-center gap-2 transition-all hover:bg-muted/80">
+            <ShoppingCart className="h-4 w-4" />
+            <span className="hidden sm:inline">Variable</span>
+          </TabsTrigger>
+          <TabsTrigger value="subscriptions" className="flex items-center gap-2 transition-all hover:bg-muted/80">
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">Subscriptions</span>
           </TabsTrigger>
-          <TabsTrigger value="insurance" className="flex items-center gap-2">
+          <TabsTrigger value="insurance" className="flex items-center gap-2 transition-all hover:bg-muted/80">
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Insurance</span>
           </TabsTrigger>
           {household?.enable_credit_cards && (
-            <TabsTrigger value="credit" className="flex items-center gap-2">
+            <TabsTrigger value="credit" className="flex items-center gap-2 transition-all hover:bg-muted/80">
               <CreditCard className="h-4 w-4" />
               <span className="hidden sm:inline">Credit</span>
             </TabsTrigger>
           )}
           {coParents.length > 0 && (
-            <TabsTrigger value="shared" className="flex items-center gap-2">
+            <TabsTrigger value="shared" className="flex items-center gap-2 transition-all hover:bg-muted/80">
               <ShoppingBag className="h-4 w-4" />
               <span className="hidden sm:inline">Shared</span>
             </TabsTrigger>
           )}
         </TabsList>
 
-        <TabsContent value="all" className="mt-6">
-          <MonthlyExpenses
-            householdId={household?.id}
-            expenseCategories={expenseCategories}
-            monthlyExpenses={monthlyExpenses}
-            creditCardExpenses={creditCardExpenses}
-            amounts={amounts}
-            currency={household?.currency || "SEK"}
-            subscriptionsTotal={subscriptionsTotal}
-            insuranceTotal={insuranceTotal}
-            subscriptionSeverity={subscriptionSeverity}
-            members={members}
-            coParents={coParents}
-            autoSaveStatus={autoSaveStatus}
-            onAmountChange={handleAmountChange}
-            onCategoriesUpdate={fetchData}
-            onNavigateToSubscriptions={() => setActiveTab("subscriptions")}
-            onNavigateToInsurance={() => setActiveTab("insurance")}
-            onNavigateToCredit={() => setActiveTab("credit")}
-          />
+        <TabsContent value="all" className="mt-6 space-y-4">
+          {/* Header with Add Button and View Mode Toggle */}
+          <div className="flex justify-between items-center">
+            <Button onClick={() => setAddExpenseDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Expense
+            </Button>
+            <div className="flex rounded-lg border border-border p-1 bg-muted/30">
+              <Button
+                variant={viewMode === 'blocks' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 px-3"
+                onClick={() => setViewMode('blocks')}
+              >
+                <LayoutGrid className="h-4 w-4 mr-1.5" />
+                Blocks
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-8 px-3"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4 mr-1.5" />
+                List
+              </Button>
+            </div>
+          </div>
+
+          {/* Conditional View */}
+          {viewMode === 'blocks' ? (
+            <AllTabBlockView
+              fixedExpenses={expenseCategories
+                .filter(cat => {
+                  const fixedCategories = ['rent', 'electricity', 'internet', 'phone', 'transportation'];
+                  return cat.type === 'static' || fixedCategories.includes(cat.category);
+                })
+                .map(cat => ({
+                  id: cat.id,
+                  name: cat.name,
+                  amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
+                  category: cat.category,
+                }))}
+              variableExpenses={expenseCategories
+                .filter(cat => {
+                  const fixedCategories = ['rent', 'electricity', 'internet', 'phone', 'transportation'];
+                  return cat.type !== 'static' && !fixedCategories.includes(cat.category);
+                })
+                .map(cat => ({
+                  id: cat.id,
+                  name: cat.name,
+                  amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
+                  category: cat.category,
+                }))}
+              subscriptions={subscriptions.filter(s => s.is_active)}
+              insurances={insurances.filter(i => i.is_active)}
+              subscriptionsTotal={subscriptionsTotal}
+              insuranceTotal={insuranceTotal}
+              currency={household?.currency || "SEK"}
+              onNavigateToFixed={() => setActiveTab("fixed")}
+              onNavigateToSubscriptions={() => setActiveTab("subscriptions")}
+              onNavigateToInsurance={() => setActiveTab("insurance")}
+            />
+          ) : (
+            <AllTabListView
+              expenses={expenseCategories.map(cat => ({
+                id: cat.id,
+                name: cat.name,
+                amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
+                category: cat.category,
+              }))}
+              subscriptions={subscriptions.filter(s => s.is_active)}
+              insurances={insurances.filter(i => i.is_active)}
+              currency={household?.currency || "SEK"}
+              onItemClick={(id, type) => {
+                if (type === 'subscription') setActiveTab("subscriptions");
+                else if (type === 'insurance') setActiveTab("insurance");
+                else setActiveTab("fixed");
+              }}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="fixed" className="mt-6">
@@ -375,6 +446,24 @@ const Expenses = () => {
             onNavigateToSubscriptions={() => setActiveTab("subscriptions")}
             onNavigateToInsurance={() => setActiveTab("insurance")}
             onNavigateToCredit={() => setActiveTab("credit")}
+          />
+        </TabsContent>
+
+        <TabsContent value="variable" className="mt-6">
+          <VariableExpenses
+            householdId={household?.id}
+            expenseCategories={expenseCategories.filter(cat => {
+              // Filter for variable/budgeted expenses (opposite of fixed)
+              const fixedCategories = ['rent', 'electricity', 'internet', 'phone', 'transportation'];
+              return cat.type !== 'static' && !fixedCategories.includes(cat.category);
+            })}
+            monthlyExpenses={monthlyExpenses}
+            amounts={amounts}
+            currency={household?.currency || "SEK"}
+            hasCoParents={coParents.length > 0}
+            autoSaveStatus={autoSaveStatus}
+            onAmountChange={handleAmountChange}
+            onCategoriesUpdate={fetchData}
           />
         </TabsContent>
 
@@ -414,6 +503,15 @@ const Expenses = () => {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Add Expense Dialog */}
+      <AddExpenseDialog
+        open={addExpenseDialogOpen}
+        onOpenChange={setAddExpenseDialogOpen}
+        householdId={household?.id || ""}
+        hasCoParents={coParents.length > 0}
+        onSuccess={fetchData}
+      />
     </div>
   );
 };

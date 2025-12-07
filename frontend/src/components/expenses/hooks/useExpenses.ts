@@ -8,7 +8,7 @@ interface CategoryFormData {
     default_amount: string;
 }
 
-export const useRegularExpenses = (
+export const useExpenses = (
     householdId: string,
     expenseCategories: any[],
     onUpdate: () => void

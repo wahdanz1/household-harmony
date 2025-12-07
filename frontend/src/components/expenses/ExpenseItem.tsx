@@ -5,7 +5,7 @@ import { Edit, ExternalLink } from "lucide-react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { DataListItem } from "@/components/ui/data-list-item";
 
-interface RegularExpenseItemProps {
+interface ExpenseItemProps {
     category: any;
     amount: string;
     currency: string;
@@ -17,7 +17,7 @@ interface RegularExpenseItemProps {
     status?: 'saved' | 'modified' | 'none';
 }
 
-export const RegularExpenseItem = ({
+export const ExpenseItem = ({
     category,
     amount,
     currency,
@@ -27,7 +27,7 @@ export const RegularExpenseItem = ({
     onEdit,
     onNavigateToCredit,
     status = 'none'
-}: RegularExpenseItemProps) => {
+}: ExpenseItemProps) => {
     const isDisabled = category.type === "static" || category.type === "credit";
 
     const getDisplayAmount = () => {

@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ExpenseCategoryForm, ExpenseCategoryFormData } from "./forms/ExpenseCategoryForm";
+import { ExpenseForm } from "./forms/ExpenseForm";
 
-interface ExpenseCategoryDialogProps {
+interface EditExpenseDialogProps {
     open: boolean;
     editingCategoryId: string | null;
     categoryFormData: {
@@ -24,7 +24,7 @@ interface ExpenseCategoryDialogProps {
     onDelete: (id: string) => void;
 }
 
-export const ExpenseCategoryDialog = ({
+export const EditExpenseDialog = ({
     open,
     editingCategoryId,
     categoryFormData,
@@ -36,20 +36,20 @@ export const ExpenseCategoryDialog = ({
     onOpenChange,
     onSave,
     onDelete,
-}: ExpenseCategoryDialogProps) => {
+}: EditExpenseDialogProps) => {
     const editingCategory = expenseCategories.find(c => c.id === editingCategoryId);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Edit Expense Category</DialogTitle>
+                    <DialogTitle>Edit Expense Item</DialogTitle>
                     <DialogDescription>
-                        Update the details for this expense category
+                        Update the details for this expense
                     </DialogDescription>
                 </DialogHeader>
 
-                <ExpenseCategoryForm
+                <ExpenseForm
                     defaultValues={{
                         category: editingCategory?.category,
                         name: categoryFormData.name,
