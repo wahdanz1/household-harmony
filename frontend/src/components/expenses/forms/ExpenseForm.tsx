@@ -137,18 +137,7 @@ export const ExpenseForm = ({
                 />
             </div>
 
-            <div className="space-y-2">
-                <Label>Type *</Label>
-                <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v as "static" | "dynamic" })}>
-                    <SelectTrigger>
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="static">Static (Fixed amount each month)</SelectItem>
-                        <SelectItem value="dynamic">Dynamic (Varies each month)</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
+            {/* Type field removed - all expenses default to 'dynamic' now */}
 
             {/* Electricity Special Fields */}
             {isElectricity && (

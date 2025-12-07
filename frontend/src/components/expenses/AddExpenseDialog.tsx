@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Home, ShoppingCart, CreditCard, Shield, Users, Zap } from "lucide-react";
+import { Home, CreditCard, Shield, Zap } from "lucide-react";
 import { ExpenseForm, ExpenseFormData } from "./forms/ExpenseForm";
 import { SubscriptionForm } from "./forms/SubscriptionForm";
 import { InsuranceForm } from "./forms/InsuranceForm";
-import { SharedExpenseForm } from "./forms/SharedExpenseForm";
 import { TemporaryExpenseForm } from "./forms/TemporaryExpenseForm";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,24 +18,16 @@ interface AddExpenseDialogProps {
     onSuccess: () => void;
 }
 
-type ExpenseType = "fixed" | "variable" | "subscription" | "insurance" | "temporary" | "shared" | null;
+type ExpenseType = "expense" | "subscription" | "insurance" | "temporary" | null;
 
 const expenseTypes = [
     {
-        id: "fixed" as const,
-        label: "Fixed Expense",
-        description: "Predictable recurring costs",
+        id: "expense" as const,
+        label: "Expense",
+        description: "Regular household expenses",
         icon: Home,
         color: "bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/20",
         iconColor: "text-blue-500",
-    },
-    {
-        id: "variable" as const,
-        label: "Variable Expense",
-        description: "Budget-based costs that vary",
-        icon: ShoppingCart,
-        color: "bg-green-500/10 hover:bg-green-500/20 border-green-500/20",
-        iconColor: "text-green-500",
     },
     {
         id: "subscription" as const,
@@ -61,14 +52,6 @@ const expenseTypes = [
         icon: Zap,
         color: "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/20",
         iconColor: "text-amber-500",
-    },
-    {
-        id: "shared" as const,
-        label: "Shared",
-        description: "Co-parent expenses",
-        icon: Users,
-        color: "bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20",
-        iconColor: "text-orange-500",
     },
 ];
 
@@ -121,12 +104,20 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
             }
         }
 
+        // Calculate default_amount - for electricity, it's grid + market
+        let calculatedDefaultAmount = parseFloat(data.default_amount);
+        if (data.category === "electricity") {
+            const grid = parseFloat(data.electricityGrid || "0");
+            const market = parseFloat(data.electricityMarket || "0");
+            calculatedDefaultAmount = grid + market;
+        }
+
         const { error } = await supabase.from("regular_expenses").insert({
             household_id: householdId,
             category: data.category,
             name: data.name,
             type: data.type,
-            default_amount: parseFloat(data.default_amount),
+            default_amount: calculatedDefaultAmount,
             created_by: user.id,
             is_active: true,
             sort_order: 999,
@@ -151,7 +142,7 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
         }
     };
 
-    const availableTypes = hasCoParents ? expenseTypes : expenseTypes.filter(t => t.id !== "shared");
+    const availableTypes = expenseTypes;
 
     // Get label for dialog title
     const getTypeLabel = () => {
@@ -201,12 +192,12 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
                     </div>
                 ) : (
                     <div className="mt-4">
-                        {(selectedType === "fixed" || selectedType === "variable") && (
+                        {selectedType === "expense" && (
                             <ExpenseForm
                                 defaultValues={{
                                     category: undefined,
                                     name: "",
-                                    type: selectedType === "fixed" ? "static" : "dynamic",
+                                    type: "dynamic",
                                     default_amount: "0",
                                     electricityGrid: "",
                                     electricityMarket: "",
@@ -240,13 +231,7 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
                                 onCancel={handleBack}
                             />
                         )}
-                        {selectedType === "shared" && (
-                            <SharedExpenseForm
-                                householdId={householdId}
-                                onSuccess={handleSuccess}
-                                onCancel={handleBack}
-                            />
-                        )}
+
                     </div>
                 )}
             </DialogContent>

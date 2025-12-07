@@ -33,6 +33,18 @@ export const ExpenseItem = ({
     const getDisplayAmount = () => {
         const baseAmount = parseFloat(amount || "0");
 
+        // For Electricity category, use grid + market from metadata if available
+        if (category.category === "electricity" && category.metadata) {
+            const grid = parseFloat(category.metadata.electricity_grid || "0");
+            const market = parseFloat(category.metadata.electricity_market || "0");
+            const metadataTotal = grid + market;
+
+            // If we have metadata values, use them; otherwise fall back to baseAmount
+            if (metadataTotal > 0) {
+                return metadataTotal.toString();
+            }
+        }
+
         // For Rent category, add water cost if not included
         if (category.category === "rent" && category.metadata) {
             const waterIncluded = category.metadata.water_included !== false;
