@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, AlertCircle, Plus, Check, Loader2 } from "lucide-react";
+import { TrendingUp, AlertCircle, Plus } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,12 +14,11 @@ import { IncomeSourceDialog } from "@/components/income/IncomeSourceDialog";
 import { OneTimeIncomeCard } from "@/components/income/OneTimeIncomeCard";
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
-import { TaxSummaryCard } from "@/components/income/TaxSummaryCard";
-import { TaxPrognosisModal } from "@/components/income/TaxPrognosisModal";
+
 import { PageHeader } from "@/components/shared/PageHeader";
 import { fetchIncomeSuggestions, getSuggestionBorderColor } from "@/services/smartDefaults";
-import { getTaxPrognosis } from "@/services/tax";
-import type { IncomeSuggestion, IncomeForTax, TaxPrognosisResult } from "@/types/api";
+
+import type { IncomeSuggestion } from "@/types/api";
 
 const Income = () => {
   const { user } = useAuth();
@@ -33,12 +32,9 @@ const Income = () => {
   const [saving, setSaving] = useState(false);
   const [oneTimeIncomes, setOneTimeIncomes] = useState<any[]>([]);
 
-  // Auto-fill and tax state
+  // Auto-fill state
   const [suggestions, setSuggestions] = useState<IncomeSuggestion[]>([]);
   const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
-  const [prognosisModalOpen, setPrognosisModalOpen] = useState(false);
-  const [prognosis, setPrognosis] = useState<TaxPrognosisResult | null>(null);
-  const [prognosisLoading, setPrognosisLoading] = useState(false);
 
   // Autosave state
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -222,41 +218,7 @@ const Income = () => {
     }, 500); // 500ms debounce
   };
 
-  // Fetch tax prognosis
-  const handleViewPrognosis = async () => {
-    setPrognosisModalOpen(true);
-    setPrognosisLoading(true);
 
-    try {
-      const incomeData: IncomeForTax[] = incomeSources.map(source => ({
-        gross_monthly: parseFloat(amounts[source.id] || '0'),
-        tax_type: source.tax_type || 'progressive',
-        custom_rate: source.custom_tax_rate,
-      }));
-
-      const result = await getTaxPrognosis(incomeData);
-      setPrognosis(result);
-    } catch (error) {
-      console.error('Failed to fetch prognosis:', error);
-      toast({
-        title: "Prognosis unavailable",
-        description: "Could not calculate tax prognosis",
-        variant: "destructive",
-      });
-    } finally {
-      setPrognosisLoading(false);
-    }
-  };
-
-  // Calculate estimated tax (simplified for display)
-  const calculateEstimatedTax = (): { gross: number; tax: number; net: number; rate: number } => {
-    const gross = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0);
-    // Simplified tax estimate - 30% average for display
-    const estimatedRate = 0.30;
-    const tax = gross * estimatedRate;
-    const net = gross - tax;
-    return { gross, tax, net, rate: estimatedRate * 100 };
-  };
 
   const handleSave = useCallback(async () => {
     if (!household || !user) return;
@@ -453,26 +415,9 @@ const Income = () => {
                   {" "}an item to edit details
                 </span>
                 <div className="flex items-center gap-2">
-                  {autoSaveStatus === 'saving' && (
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Saving...
-                    </span>
-                  )}
                   {autoSaveStatus === 'saved' && (
-                    <span className="flex items-center gap-1.5 text-green-600 animate-in fade-in slide-in-from-right-2 duration-300">
-                      <Check className="h-3.5 w-3.5" />
-                      <span className="inline-flex">
-                        {'Saved'.split('').map((letter, i) => (
-                          <span
-                            key={i}
-                            className="animate-in fade-in duration-150"
-                            style={{ animationDelay: `${i * 50}ms` }}
-                          >
-                            {letter}
-                          </span>
-                        ))}
-                      </span>
+                    <span className="text-sm text-primary animate-in fade-in duration-150">
+                      ✓ Saved
                     </span>
                   )}
                   {autoSaveStatus === 'error' && (
@@ -513,18 +458,7 @@ const Income = () => {
                 })}
               </div>
 
-              {/* Tax Summary Card */}
-              {incomeSources.length > 0 && (
-                <div className="mt-4">
-                  <TaxSummaryCard
-                    grossIncome={calculateEstimatedTax().gross}
-                    estimatedTax={calculateEstimatedTax().tax}
-                    netIncome={calculateEstimatedTax().net}
-                    effectiveRate={calculateEstimatedTax().rate}
-                    onViewPrognosis={handleViewPrognosis}
-                  />
-                </div>
-              )}
+
             </>
           )}
         </CardContent>
@@ -539,13 +473,7 @@ const Income = () => {
         onDelete={handleDeleteOneTime}
       />
 
-      {/* Tax Prognosis Modal */}
-      <TaxPrognosisModal
-        open={prognosisModalOpen}
-        onOpenChange={setPrognosisModalOpen}
-        prognosis={prognosis}
-        loading={prognosisLoading}
-      />
+
     </div>
   );
 };

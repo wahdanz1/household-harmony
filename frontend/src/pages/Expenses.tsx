@@ -386,11 +386,6 @@ const Expenses = () => {
                 ✓ Saved
               </span>
             )}
-            {autoSaveStatus === 'saving' && (
-              <span className="text-sm text-muted-foreground">
-                Saving...
-              </span>
-            )}
             {autoSaveStatus === 'error' && (
               <span className="text-sm text-destructive">
                 Failed to save
