@@ -10,16 +10,7 @@ interface EditExpenseDialogProps {
         default_amount: string;
     };
     expenseCategories: any[];
-    electricityGrid: string;
-    electricityMarket: string;
-    waterIncluded: boolean;
-    waterCost: string;
     onOpenChange: (open: boolean) => void;
-    onFormDataChange: (data: any) => void;
-    onElectricityGridChange: (value: string) => void;
-    onElectricityMarketChange: (value: string) => void;
-    onWaterIncludedChange: (value: boolean) => void;
-    onWaterCostChange: (value: string) => void;
     onSave: (data: any) => void;
     onDelete: (id: string) => void;
 }
@@ -29,10 +20,6 @@ export const EditExpenseDialog = ({
     editingCategoryId,
     categoryFormData,
     expenseCategories,
-    electricityGrid,
-    electricityMarket,
-    waterIncluded,
-    waterCost,
     onOpenChange,
     onSave,
     onDelete,
@@ -55,10 +42,6 @@ export const EditExpenseDialog = ({
                         name: categoryFormData.name,
                         type: categoryFormData.type,
                         default_amount: categoryFormData.default_amount,
-                        electricityGrid,
-                        electricityMarket,
-                        waterIncluded,
-                        waterCost,
                     }}
                     onSubmit={onSave}
                     onCancel={() => onOpenChange(false)}

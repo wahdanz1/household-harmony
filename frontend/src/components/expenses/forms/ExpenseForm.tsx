@@ -3,7 +3,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { InfoIcon, Trash2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
@@ -14,10 +13,6 @@ export interface ExpenseFormData {
     name: string;
     type: "static" | "dynamic";
     default_amount: string;
-    electricityGrid?: string;
-    electricityMarket?: string;
-    waterIncluded?: boolean;
-    waterCost?: string;
 }
 
 interface ExpenseFormProps {
@@ -45,8 +40,6 @@ export const ExpenseForm = ({
     // Derived values for conditional rendering
     const selectedCategory = EXPENSE_CATEGORIES.find(cat => cat.id === formData.category);
     const CategoryIcon = selectedCategory?.icon;
-    const isElectricity = formData.category === "electricity";
-    const isRent = formData.category === "rent";
 
     useEffect(() => {
         setFormData((prev) => ({
@@ -55,10 +48,6 @@ export const ExpenseForm = ({
             name: defaultValues.name ?? prev.name,
             type: defaultValues.type ?? prev.type,
             default_amount: defaultValues.default_amount ?? prev.default_amount,
-            electricityGrid: defaultValues.electricityGrid ?? prev.electricityGrid,
-            electricityMarket: defaultValues.electricityMarket ?? prev.electricityMarket,
-            waterIncluded: defaultValues.waterIncluded ?? prev.waterIncluded,
-            waterCost: defaultValues.waterCost ?? prev.waterCost,
         }));
     }, [defaultValues]);
 
@@ -67,28 +56,6 @@ export const ExpenseForm = ({
             toast({
                 title: "Missing fields",
                 description: "Please fill in all required fields",
-                variant: "destructive",
-            });
-            return;
-        }
-
-        // Validate Electricity fields
-        if (formData.category === "electricity") {
-            if (!formData.electricityGrid || !formData.electricityMarket) {
-                toast({
-                    title: "Missing Electricity fields",
-                    description: "Please fill in both Grid and Market amounts",
-                    variant: "destructive",
-                });
-                return;
-            }
-        }
-
-        // Validate Rent water cost if not included
-        if (formData.category === "rent" && !formData.waterIncluded && !formData.waterCost) {
-            toast({
-                title: "Missing Water Cost",
-                description: "Please enter the water cost",
                 variant: "destructive",
             });
             return;
@@ -139,93 +106,32 @@ export const ExpenseForm = ({
 
             {/* Type field removed - all expenses default to 'dynamic' now */}
 
-            {/* Electricity Special Fields */}
-            {isElectricity && (
-                <>
-                    <div className="space-y-2">
-                        <Label>Grid Amount *</Label>
-                        <Input
-                            type="number"
-                            value={formData.electricityGrid}
-                            onChange={(e) => setFormData({ ...formData, electricityGrid: e.target.value })}
-                            placeholder="0"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Market Amount *</Label>
-                        <Input
-                            type="number"
-                            value={formData.electricityMarket}
-                            onChange={(e) => setFormData({ ...formData, electricityMarket: e.target.value })}
-                            placeholder="0"
-                        />
-                    </div>
-                </>
-            )}
 
-            {/* Rent Special Fields */}
-            {isRent && (
-                <>
-                    <div className="flex items-center justify-between space-x-2 py-2">
-                        <Label htmlFor="water-included" className="cursor-pointer">Water Included</Label>
-                        <Switch
-                            id="water-included"
-                            checked={formData.waterIncluded}
-                            onCheckedChange={(checked) => setFormData({ ...formData, waterIncluded: checked })}
-                        />
-                    </div>
-                    {!formData.waterIncluded && (
-                        <div className="space-y-2">
-                            <Label>Water Cost *</Label>
-                            <Input
-                                type="number"
-                                value={formData.waterCost}
-                                onChange={(e) => setFormData({ ...formData, waterCost: e.target.value })}
-                                placeholder="0"
-                            />
-                        </div>
-                    )}
-                </>
-            )}
 
-            {/* Default Amount - only show if NOT Electricity (since it has Grid + Market) */}
-            {!isElectricity && (
-                <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                        <Label>Default Amount *</Label>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Enter the usual monthly amount for this expense.</p>
-                                    <p>This will be pre-filled each month to save you time.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
-                    <Input
-                        type="number"
-                        value={formData.default_amount}
-                        onChange={(e) => setFormData({ ...formData, default_amount: e.target.value })}
-                        placeholder="0"
-                    />
+
+            {/* Default Amount */}
+            <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                    <Label>Default Amount *</Label>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Enter the usual monthly amount for this expense.</p>
+                                <p>This will be pre-filled each month to save you time.</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 </div>
-            )}
-
-            {/* For Electricity, calculate total from Grid + Market */}
-            {isElectricity && (
-                <div className="space-y-2">
-                    <Label>Total Amount (Grid + Market)</Label>
-                    <Input
-                        type="number"
-                        value={(parseFloat(formData.electricityGrid || "0") + parseFloat(formData.electricityMarket || "0")).toString()}
-                        disabled
-                        className="bg-muted"
-                    />
-                </div>
-            )}
+                <Input
+                    type="number"
+                    value={formData.default_amount}
+                    onChange={(e) => setFormData({ ...formData, default_amount: e.target.value })}
+                    placeholder="0"
+                />
+            </div>
 
             {/* Footer Buttons */}
             <div className="flex flex-col gap-2 pt-4">

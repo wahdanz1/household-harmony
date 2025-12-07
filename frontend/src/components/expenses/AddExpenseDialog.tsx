@@ -42,16 +42,16 @@ const expenseTypes = [
         label: "Insurance",
         description: "Insurance policies",
         icon: Shield,
-        color: "bg-teal-500/10 hover:bg-teal-500/20 border-teal-500/20",
-        iconColor: "text-teal-500",
+        color: "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/20",
+        iconColor: "text-amber-500",
     },
     {
         id: "temporary" as const,
         label: "Temporary",
         description: "One-time unexpected costs",
         icon: Zap,
-        color: "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/20",
-        iconColor: "text-amber-500",
+        color: "bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20",
+        iconColor: "text-orange-500",
     },
 ];
 
@@ -89,39 +89,15 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
             return;
         }
 
-        // Build metadata object
-        const metadata: any = {};
-
-        if (data.category === "electricity") {
-            metadata.electricity_grid = parseFloat(data.electricityGrid || "0");
-            metadata.electricity_market = parseFloat(data.electricityMarket || "0");
-        }
-
-        if (data.category === "rent") {
-            metadata.water_included = data.waterIncluded;
-            if (!data.waterIncluded) {
-                metadata.water_cost = parseFloat(data.waterCost || "0");
-            }
-        }
-
-        // Calculate default_amount - for electricity, it's grid + market
-        let calculatedDefaultAmount = parseFloat(data.default_amount);
-        if (data.category === "electricity") {
-            const grid = parseFloat(data.electricityGrid || "0");
-            const market = parseFloat(data.electricityMarket || "0");
-            calculatedDefaultAmount = grid + market;
-        }
-
         const { error } = await supabase.from("regular_expenses").insert({
             household_id: householdId,
             category: data.category,
             name: data.name,
             type: data.type,
-            default_amount: calculatedDefaultAmount,
+            default_amount: parseFloat(data.default_amount),
             created_by: user.id,
             is_active: true,
             sort_order: 999,
-            metadata: Object.keys(metadata).length > 0 ? metadata : {},
         });
 
         setSaving(false);
@@ -199,10 +175,6 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
                                     name: "",
                                     type: "dynamic",
                                     default_amount: "0",
-                                    electricityGrid: "",
-                                    electricityMarket: "",
-                                    waterIncluded: true,
-                                    waterCost: "",
                                 }}
                                 onSubmit={handleExpenseSubmit}
                                 onCancel={handleBack}

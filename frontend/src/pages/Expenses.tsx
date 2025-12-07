@@ -3,8 +3,8 @@ import { useLocation } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, CreditCard, LayoutGrid, List, Users, Plus } from "lucide-react";
-import { AllTabBlockView, AllTabListView } from "@/components/expenses/AllTabBlockView";
+import { CalendarDays, CreditCard, Users, Plus } from "lucide-react";
+import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
@@ -30,7 +30,6 @@ const Expenses = () => {
   const [loading, setLoading] = useState(true);
   const [creditCardExpenses, setCreditCardExpenses] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("all");
-  const [viewMode, setViewMode] = useState<'blocks' | 'list'>('blocks');
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
 
   // Edit dialog state for subscriptions and insurance
@@ -116,10 +115,7 @@ const Expenses = () => {
       await supabase.from("monthly_expenses").insert(missingRecords);
     }
 
-    // Check if there are saved expenses to set initial status
-    if ((monthlyData || []).length > 0 || missingRecords.length > 0) {
-      setAutoSaveStatus('saved');
-    }
+    // Note: Don't set 'saved' status on initial load - only after actual user edits
 
     const initialAmounts: Record<string, string> = {};
     (categoriesData || []).forEach((category: any) => {
@@ -162,14 +158,6 @@ const Expenses = () => {
     editingCategoryId,
     categoryFormData,
     setCategoryFormData,
-    electricityGrid,
-    setElectricityGrid,
-    electricityMarket,
-    setElectricityMarket,
-    waterIncluded,
-    setWaterIncluded,
-    waterCost,
-    setWaterCost,
     handleEditCategory,
     handleSaveCategory,
     handleDeleteCategory,
@@ -281,19 +269,33 @@ const Expenses = () => {
     return sum;
   }, 0);
 
-  const subscriptionSeverity = subscriptions.reduce((severity, sub) => {
-    if (severity === 'danger') return 'danger';
+  // Calculate next month's start/end for "upcoming" warning
+  const nextMonthStart = new Date(monthEnd);
+  nextMonthStart.setDate(nextMonthStart.getDate() + 1);
+  const nextMonthEnd = new Date(nextMonthStart);
+  nextMonthEnd.setMonth(nextMonthEnd.getMonth() + 1);
+  nextMonthEnd.setDate(nextMonthEnd.getDate() - 1);
+
+  const subscriptionSeverity = subscriptions.filter(sub => sub.is_active).reduce((severity, sub) => {
+    if (severity === 'danger') return 'danger'; // danger is highest priority
 
     if (sub.billing_cycle === 'yearly') {
       if (!sub.billing_month || !sub.billing_day) return severity;
       const dateInStartYear = new Date(monthStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
       const dateInEndYear = new Date(monthEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
-      const isDue = (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
+
+      // Check if due THIS month (danger - red)
+      const isDueThisMonth = (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
         (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-      if (isDue) return 'danger';
+      if (isDueThisMonth) return 'danger';
+
+      // Check if due NEXT month (upcoming - orange)
+      const isDueNextMonth = (dateInStartYear >= nextMonthStart && dateInStartYear <= nextMonthEnd) ||
+        (dateInEndYear >= nextMonthStart && dateInEndYear <= nextMonthEnd);
+      if (isDueNextMonth && severity !== 'warning') return 'upcoming';
     }
 
-    if (sub.billing_cycle === 'quarterly' && severity !== 'danger') {
+    if (sub.billing_cycle === 'quarterly' && severity !== 'danger' && severity !== 'upcoming') {
       if (!sub.billing_month || !sub.billing_day) return severity; // No warning without billing info
       const billingMonths = [
         sub.billing_month - 1,
@@ -311,7 +313,7 @@ const Expenses = () => {
     }
 
     return severity;
-  }, 'default' as 'default' | 'warning' | 'danger');
+  }, 'default' as 'default' | 'upcoming' | 'warning' | 'danger');
 
   const insuranceTotal = insurances
     .filter((ins) => ins.is_active)
@@ -372,145 +374,107 @@ const Expenses = () => {
         )}
 
         <TabsContent value="all" className="mt-6 space-y-4">
-          {/* Header with Add Button and View Mode Toggle */}
+          {/* Header with Add Button and Saved indicator */}
           <div className="flex justify-between items-center">
             <Button onClick={() => setAddExpenseDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Expense
             </Button>
-            <div className="flex rounded-lg border border-border p-1 bg-muted/30">
-              <Button
-                variant={viewMode === 'blocks' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-8 px-3"
-                onClick={() => setViewMode('blocks')}
-              >
-                <LayoutGrid className="h-4 w-4 mr-1.5" />
-                Blocks
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                className="h-8 px-3"
-                onClick={() => setViewMode('list')}
-              >
-                <List className="h-4 w-4 mr-1.5" />
-                List
-              </Button>
-            </div>
+            {/* Saved indicator - fade in animation matching Income page */}
+            {autoSaveStatus === 'saved' && (
+              <span className="text-sm text-primary animate-in fade-in duration-150">
+                ✓ Saved
+              </span>
+            )}
+            {autoSaveStatus === 'saving' && (
+              <span className="text-sm text-muted-foreground">
+                Saving...
+              </span>
+            )}
+            {autoSaveStatus === 'error' && (
+              <span className="text-sm text-destructive">
+                Failed to save
+              </span>
+            )}
           </div>
 
-          {/* Conditional View */}
-          {viewMode === 'blocks' ? (
-            <AllTabBlockView
-              expenses={expenseCategories.map(cat => ({
-                id: cat.id,
-                name: cat.name,
-                amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
-                defaultAmount: parseFloat(cat.default_amount || '0'),
-                category: cat.category,
-              }))}
-              subscriptions={subscriptions.filter(s => s.is_active).map(sub => {
-                // Calculate if this subscription is due in current financial month
-                let isDue = false;
-                if (sub.billing_cycle === 'yearly' && sub.billing_month && sub.billing_day) {
-                  const dateInStartYear = new Date(monthStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
-                  const dateInEndYear = new Date(monthEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
-                  isDue = (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
+          {/* Expense Blocks View */}
+          <AllTabBlockView
+            expenses={expenseCategories.map(cat => ({
+              id: cat.id,
+              name: cat.name,
+              amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
+              defaultAmount: parseFloat(cat.default_amount || '0'),
+              category: cat.category,
+            })).sort((a, b) => b.amount - a.amount)}
+            subscriptions={subscriptions.filter(s => s.is_active).map(sub => {
+              // Calculate if this subscription is due in current financial month
+              let isDue = false;
+              if (sub.billing_cycle === 'yearly' && sub.billing_month && sub.billing_day) {
+                const dateInStartYear = new Date(monthStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
+                const dateInEndYear = new Date(monthEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
+                isDue = (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
+                  (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
+              } else if (sub.billing_cycle === 'quarterly' && sub.billing_month && sub.billing_day) {
+                const billingMonths = [
+                  sub.billing_month - 1,
+                  (sub.billing_month - 1 + 3) % 12,
+                  (sub.billing_month - 1 + 6) % 12,
+                  (sub.billing_month - 1 + 9) % 12
+                ];
+                isDue = billingMonths.some(monthIndex => {
+                  const dateInStartYear = new Date(monthStart.getFullYear(), monthIndex, sub.billing_day!);
+                  const dateInEndYear = new Date(monthEnd.getFullYear(), monthIndex, sub.billing_day!);
+                  return (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
                     (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-                } else if (sub.billing_cycle === 'quarterly' && sub.billing_month && sub.billing_day) {
-                  const billingMonths = [
-                    sub.billing_month - 1,
-                    (sub.billing_month - 1 + 3) % 12,
-                    (sub.billing_month - 1 + 6) % 12,
-                    (sub.billing_month - 1 + 9) % 12
-                  ];
-                  isDue = billingMonths.some(monthIndex => {
-                    const dateInStartYear = new Date(monthStart.getFullYear(), monthIndex, sub.billing_day!);
-                    const dateInEndYear = new Date(monthEnd.getFullYear(), monthIndex, sub.billing_day!);
-                    return (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
-                      (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-                  });
-                } else if (sub.billing_cycle === 'monthly') {
-                  isDue = true; // Monthly is always "due"
-                }
-                return {
-                  ...sub,
-                  total_amount: sub.amount,
-                  isDue,
-                };
-              })}
-              insurances={insurances.filter(i => i.is_active).map(ins => {
-                // Calculate monthly cost from total_amount and payment_frequency
-                let monthlyAmount = 0;
-                if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
-                else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
-                else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
-                else monthlyAmount = ins.total_amount;
+                });
+              } else if (sub.billing_cycle === 'monthly') {
+                isDue = true; // Monthly is always "due"
+              }
+              return {
+                ...sub,
+                total_amount: sub.amount,
+                isDue,
+              };
+            })}
+            insurances={insurances.filter(i => i.is_active).map(ins => {
+              // Calculate monthly cost from total_amount and payment_frequency
+              let monthlyAmount = 0;
+              if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
+              else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
+              else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
+              else monthlyAmount = ins.total_amount;
 
-                if (ins.is_shared) {
-                  monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
-                }
+              if (ins.is_shared) {
+                monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
+              }
 
-                return {
-                  id: ins.id,
-                  name: ins.name,
-                  monthly_cost: monthlyAmount,
-                  total_amount: ins.total_amount,
-                  payment_frequency: ins.payment_frequency,
-                };
-              })}
-              subscriptionsTotal={subscriptionsTotal}
-              insuranceTotal={insuranceTotal}
-              subscriptionSeverity={subscriptionSeverity}
-              currency={household?.currency || "SEK"}
-              onExpenseClick={(id) => {
-                const expense = expenseCategories.find(cat => cat.id === id);
-                if (expense) handleEditCategory(expense);
-              }}
-              onSubscriptionClick={(id) => {
-                const subscription = subscriptions.find(s => s.id === id);
-                if (subscription) setEditingSubscription(subscription);
-              }}
-              onInsuranceClick={(id) => {
-                const insurance = insurances.find(i => i.id === id);
-                if (insurance) setEditingInsurance(insurance);
-              }}
-              onAmountChange={handleAmountChange}
-            />
-          ) : (
-            <AllTabListView
-              expenses={expenseCategories.map(cat => ({
-                id: cat.id,
-                name: cat.name,
-                amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
-                category: cat.category,
-              }))}
-              subscriptions={subscriptions.filter(s => s.is_active)}
-              insurances={insurances.filter(i => i.is_active).map(ins => {
-                let monthlyAmount = 0;
-                if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
-                else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
-                else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
-                else monthlyAmount = ins.total_amount;
-                if (ins.is_shared) monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
-                return { id: ins.id, name: ins.name, monthly_cost: monthlyAmount };
-              })}
-              currency={household?.currency || "SEK"}
-              onItemClick={(id, type) => {
-                if (type === 'expense') {
-                  const expense = expenseCategories.find(cat => cat.id === id);
-                  if (expense) handleEditCategory(expense);
-                } else if (type === 'subscription') {
-                  const subscription = subscriptions.find(s => s.id === id);
-                  if (subscription) setEditingSubscription(subscription);
-                } else if (type === 'insurance') {
-                  const insurance = insurances.find(i => i.id === id);
-                  if (insurance) setEditingInsurance(insurance);
-                }
-              }}
-            />
-          )}
+              return {
+                id: ins.id,
+                name: ins.name,
+                monthly_cost: monthlyAmount,
+                total_amount: ins.total_amount,
+                payment_frequency: ins.payment_frequency,
+              };
+            })}
+            subscriptionsTotal={subscriptionsTotal}
+            insuranceTotal={insuranceTotal}
+            subscriptionSeverity={subscriptionSeverity}
+            currency={household?.currency || "SEK"}
+            onExpenseClick={(id) => {
+              const expense = expenseCategories.find(cat => cat.id === id);
+              if (expense) handleEditCategory(expense);
+            }}
+            onSubscriptionClick={(id) => {
+              const subscription = subscriptions.find(s => s.id === id);
+              if (subscription) setEditingSubscription(subscription);
+            }}
+            onInsuranceClick={(id) => {
+              const insurance = insurances.find(i => i.id === id);
+              if (insurance) setEditingInsurance(insurance);
+            }}
+            onAmountChange={handleAmountChange}
+          />
         </TabsContent>
 
         {household?.enable_credit_cards && (
@@ -552,15 +516,6 @@ const Expenses = () => {
         editingCategoryId={editingCategoryId}
         categoryFormData={categoryFormData}
         expenseCategories={expenseCategories}
-        electricityGrid={electricityGrid}
-        electricityMarket={electricityMarket}
-        waterIncluded={waterIncluded}
-        waterCost={waterCost}
-        onFormDataChange={setCategoryFormData}
-        onElectricityGridChange={setElectricityGrid}
-        onElectricityMarketChange={setElectricityMarket}
-        onWaterIncludedChange={setWaterIncluded}
-        onWaterCostChange={setWaterCost}
         onSave={handleSaveCategory}
         onDelete={handleDeleteCategory}
       />

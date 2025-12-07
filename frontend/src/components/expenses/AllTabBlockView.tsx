@@ -17,6 +17,7 @@ interface ExpenseItem {
     // For color-coded subscriptions
     billingCycle?: 'monthly' | 'quarterly' | 'yearly';
     isDue?: boolean; // Is this subscription due in the current financial month?
+    hasSpecialFields?: boolean; // Electricity/Rent - needs dialog to edit
 }
 
 interface ExpenseBlockProps {
@@ -27,7 +28,7 @@ interface ExpenseBlockProps {
     items: ExpenseItem[];
     colorClass?: string;
     headerMetrics?: React.ReactNode; // Metrics shown in the header (always visible)
-    severity?: 'default' | 'warning' | 'danger'; // Border color severity
+    severity?: 'default' | 'upcoming' | 'warning' | 'danger'; // Border color severity
     severityMessage?: string; // Tooltip message explaining the severity
     onItemClick?: (id: string) => void;
     onAmountChange?: (id: string, amount: string) => void;
@@ -57,12 +58,14 @@ export const ExpenseBlock = ({
     const severityBorderClass = severity === 'danger'
         ? 'border-red-500 border-2'
         : severity === 'warning'
-            ? 'border-amber-500 border-2'
-            : 'border-border';
+            ? 'border-yellow-500 border-2'  // Quarterly - yellow for distinction from orange
+            : severity === 'upcoming'
+                ? 'border-orange-500 border-2'  // Yearly next month - orange
+                : 'border-border';
 
     return (
         <div
-            className={`rounded-lg bg-muted/40 ${severityBorderClass}`}
+            className={`rounded-lg bg-muted/40 overflow-hidden ${severityBorderClass}`}
         >
             {/* Header row - always clickable to expand */}
             <div
@@ -79,7 +82,10 @@ export const ExpenseBlock = ({
                     {severity !== 'default' && severityMessage && (
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <div className={`shrink-0 ${severity === 'danger' ? 'text-red-500' : 'text-amber-500'}`}>
+                                <div className={`shrink-0 ${severity === 'danger' ? 'text-red-500'
+                                    : severity === 'upcoming' ? 'text-orange-500'
+                                        : 'text-yellow-500'  // warning (quarterly) - yellow to match border
+                                    }`}>
                                     <AlertTriangle className="h-5 w-5" />
                                 </div>
                             </TooltipTrigger>
@@ -136,7 +142,7 @@ export const ExpenseBlock = ({
                                     </div>
                                     <div className="flex items-center gap-1 sm:gap-2">
                                         {editable && onAmountChange ? (
-                                            <div className="relative">
+                                            <div className="relative flex items-center gap-1">
                                                 <Input
                                                     type="number"
                                                     value={item.amount.toFixed(0)}
@@ -153,6 +159,7 @@ export const ExpenseBlock = ({
                                                             : '#84cc16', // lime-500 = overridden
                                                     }}
                                                 />
+                                                <span className="text-xs text-muted-foreground shrink-0">{currency}</span>
                                             </div>
                                         ) : item.displayAmount !== undefined ? (
                                             // Custom display with billing cycle colors
@@ -161,7 +168,7 @@ export const ExpenseBlock = ({
                                                 : item.isDue
                                                     ? item.billingCycle === 'yearly'
                                                         ? 'text-red-500' // Red for yearly due
-                                                        : 'text-amber-500' // Yellow for quarterly due
+                                                        : 'text-yellow-500' // Yellow for quarterly due
                                                     : 'text-muted-foreground' // Muted otherwise
                                                 }`}>
                                                 {item.displayAmount.toFixed(0)} {currency}{item.displayLabel}
@@ -192,7 +199,7 @@ interface AllTabBlockViewProps {
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
-    subscriptionSeverity?: 'default' | 'warning' | 'danger';
+    subscriptionSeverity?: 'default' | 'upcoming' | 'warning' | 'danger';
     onExpenseClick?: (id: string) => void;
     onSubscriptionClick?: (id: string) => void;
     onInsuranceClick?: (id: string) => void;
@@ -307,9 +314,11 @@ export const AllTabBlockView = ({
                     severityMessage={
                         subscriptionSeverity === 'danger'
                             ? "A yearly subscription is due this month!"
-                            : subscriptionSeverity === 'warning'
-                                ? "A quarterly subscription is due this month"
-                                : undefined
+                            : subscriptionSeverity === 'upcoming'
+                                ? "A yearly subscription is due next month"
+                                : subscriptionSeverity === 'warning'
+                                    ? "A quarterly subscription is due this month"
+                                    : undefined
                     }
                     headerMetrics={
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -342,93 +351,6 @@ export const AllTabBlockView = ({
 
             {/* Grand Total */}
             <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-                <div className="flex items-center justify-between">
-                    <p className="font-semibold text-lg">Total Monthly Expenses</p>
-                    <p className="text-2xl font-bold text-destructive">{grandTotal.toFixed(0)} {currency}</p>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-/**
- * Simplified list view for the All tab - clean overview style matching Blocks
- * No edit buttons, no avatars - just a clean list sorted by amount
- */
-interface AllTabListViewProps {
-    expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; amount: number; billing_cycle: string }[];
-    insurances: { id: string; name: string; monthly_cost: number }[];
-    currency: string;
-    onItemClick?: (id: string, type: 'expense' | 'subscription' | 'insurance') => void;
-}
-
-export const AllTabListView = ({
-    expenses,
-    subscriptions,
-    insurances,
-    currency,
-    onItemClick,
-}: AllTabListViewProps) => {
-    // Combine all items into a unified list
-    const allItems = [
-        ...expenses.map(e => ({
-            id: e.id,
-            name: e.name,
-            amount: e.amount,
-            category: e.category,
-            type: 'expense' as const,
-        })),
-        ...subscriptions.map(s => ({
-            id: s.id,
-            name: s.name,
-            amount: s.billing_cycle === 'yearly' ? parseFloat(s.amount.toString()) / 12 : parseFloat(s.amount.toString()),
-            category: 'subscription',
-            type: 'subscription' as const,
-        })),
-        ...insurances.map(i => ({
-            id: i.id,
-            name: i.name,
-            amount: i.monthly_cost,
-            category: 'insurance',
-            type: 'insurance' as const,
-        })),
-    ].sort((a, b) => b.amount - a.amount); // Sort by amount, highest first
-
-    const grandTotal = allItems.reduce((sum, item) => sum + item.amount, 0);
-
-    return (
-        <div className="space-y-2">
-            {allItems.map((item) => {
-                const cat = item.category ? getCategoryById(item.category) : null;
-                const Icon = cat?.icon || (item.type === 'subscription' ? CreditCard : item.type === 'insurance' ? Shield : null);
-                const iconColor = cat?.color || (item.type === 'subscription' ? '#A855F7' : item.type === 'insurance' ? '#F59E0B' : undefined);
-
-                return (
-                    <div
-                        key={`${item.type}-${item.id}`}
-                        className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/40 hover:bg-muted/60 transition-colors cursor-pointer group"
-                        onClick={() => onItemClick?.(item.id, item.type)}
-                    >
-                        <div className="flex items-center gap-3 min-w-0">
-                            {Icon && <Icon className="h-4 w-4 shrink-0" style={{ color: iconColor }} />}
-                            <span className="font-medium truncate">{item.name}</span>
-                            {item.type !== 'expense' && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground capitalize shrink-0">
-                                    {item.type}
-                                </span>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="font-bold whitespace-nowrap">{item.amount.toFixed(0)} {currency}</span>
-                            <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
-                    </div>
-                );
-            })}
-
-            {/* Grand Total */}
-            <div className="p-4 rounded-lg bg-primary/10 border border-primary/20 mt-4">
                 <div className="flex items-center justify-between">
                     <p className="font-semibold text-lg">Total Monthly Expenses</p>
                     <p className="text-2xl font-bold text-destructive">{grandTotal.toFixed(0)} {currency}</p>
