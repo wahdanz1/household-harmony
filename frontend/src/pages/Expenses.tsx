@@ -2,8 +2,8 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { CalendarDays, CreditCard, Users, Plus } from "lucide-react";
+import { AddButton } from "@/components/ui/add-button";
+import { CalendarDays, CreditCard, Users } from "lucide-react";
 import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
@@ -376,10 +376,7 @@ const Expenses = () => {
         <TabsContent value="all" className="mt-6 space-y-4">
           {/* Header with Add Button and Saved indicator */}
           <div className="flex justify-between items-center">
-            <Button onClick={() => setAddExpenseDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Expense
-            </Button>
+            <AddButton onClick={() => setAddExpenseDialogOpen(true)}>Add Expense</AddButton>
             {/* Saved indicator - fade in animation matching Income page */}
             {autoSaveStatus === 'saved' && (
               <span className="text-sm text-primary animate-in fade-in duration-150">

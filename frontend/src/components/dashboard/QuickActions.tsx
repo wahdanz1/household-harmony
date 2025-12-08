@@ -1,38 +1,55 @@
-import { Button } from "@/components/ui/button";
-import { Plus, Edit, Target } from "lucide-react";
+import { DollarSign, Receipt, Target } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const QuickActions = () => {
   const navigate = useNavigate();
 
+  const actions = [
+    {
+      label: "Income",
+      icon: DollarSign,
+      path: "/income",
+      color: "text-green-500",
+      bgColor: "bg-green-500/10",
+      hoverBg: "hover:bg-green-500/20",
+      borderColor: "border-green-500/30",
+    },
+    {
+      label: "Expenses",
+      icon: Receipt,
+      path: "/expenses",
+      color: "text-red-500",
+      bgColor: "bg-red-500/10",
+      hoverBg: "hover:bg-red-500/20",
+      borderColor: "border-red-500/30",
+    },
+    {
+      label: "Savings",
+      icon: Target,
+      path: "/savings",
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10",
+      hoverBg: "hover:bg-blue-500/20",
+      borderColor: "border-blue-500/30",
+    },
+  ];
+
   return (
     <div className="grid gap-3 sm:grid-cols-3">
-      <Button 
-        onClick={() => navigate("/income")}
-        variant="outline" 
-        className="h-auto py-4 flex-col gap-2 hover:bg-success/10 hover:border-success/30"
-      >
-        <Plus className="h-5 w-5 text-success" />
-        <span className="text-sm font-medium">Add Income</span>
-      </Button>
-
-      <Button 
-        onClick={() => navigate("/expenses")}
-        variant="outline" 
-        className="h-auto py-4 flex-col gap-2 hover:bg-primary/10 hover:border-primary/30"
-      >
-        <Edit className="h-5 w-5 text-primary" />
-        <span className="text-sm font-medium">Update Expenses</span>
-      </Button>
-
-      <Button 
-        onClick={() => navigate("/savings")}
-        variant="outline" 
-        className="h-auto py-4 flex-col gap-2 hover:bg-accent/30 hover:border-accent"
-      >
-        <Target className="h-5 w-5 text-accent-foreground" />
-        <span className="text-sm font-medium">Manage Savings</span>
-      </Button>
+      {actions.map((action) => (
+        <button
+          key={action.path}
+          onClick={() => navigate(action.path)}
+          className={`flex items-center gap-3 p-4 rounded-lg border ${action.borderColor} ${action.bgColor} ${action.hoverBg} transition-all duration-200 group`}
+        >
+          <div className={`p-2 rounded-lg ${action.bgColor}`}>
+            <action.icon className={`h-5 w-5 ${action.color}`} />
+          </div>
+          <span className="font-medium text-foreground group-hover:translate-x-1 transition-transform">
+            {action.label}
+          </span>
+        </button>
+      ))}
     </div>
   );
 };

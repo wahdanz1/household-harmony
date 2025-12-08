@@ -1,8 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { TrendingUp, AlertCircle, Plus } from "lucide-react";
+import { AddButton } from "@/components/ui/add-button";
+import { TrendingUp, AlertCircle } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { IncomeSourceItem } from "@/components/income/IncomeSourceItem";
 import { IncomeSourceDialog } from "@/components/income/IncomeSourceDialog";
-import { OneTimeIncomeCard } from "@/components/income/OneTimeIncomeCard";
+
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 
@@ -30,7 +29,7 @@ const Income = () => {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [oneTimeIncomes, setOneTimeIncomes] = useState<any[]>([]);
+
 
   // Auto-fill state
   const [suggestions, setSuggestions] = useState<IncomeSuggestion[]>([]);
@@ -65,13 +64,10 @@ const Income = () => {
 
     setIncomeSources(sourcesData || []);
 
-    // Separate regular incomes and one-time incomes
+    // Separate regular incomes (filter out one-time incomes which have no source)
     const regularIncomes = (monthlyData || []).filter((m: any) => m.income_source_id !== null);
-    const oneTimeIncomesData = (monthlyData || []).filter((m: any) => m.income_source_id === null);
-
 
     setMonthlyIncomes(regularIncomes);
-    setOneTimeIncomes(oneTimeIncomesData);
 
     // Auto-create monthly_incomes records for sources that don't have them yet
     // This ensures Dashboard shows all income, not just edited sources
@@ -96,12 +92,7 @@ const Income = () => {
       await supabase.from("monthly_incomes").insert(missingRecords);
     }
 
-    // Set autosave status based on existing data
-    if (regularIncomes.length > 0 || missingRecords.length > 0) {
-      setAutoSaveStatus('saved');
-    } else {
-      setAutoSaveStatus('idle');
-    }
+    // Note: Don't set 'saved' status on initial load - only after actual user edits
 
     const initialAmounts: Record<string, string> = {};
     (sourcesData || []).forEach((source: any) => {
@@ -331,15 +322,7 @@ const Income = () => {
     }
   };
 
-  const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) +
-    oneTimeIncomes.reduce((sum, income) => {
-      const amount = parseFloat(income.amount || "0");
-      // If shared, only count your portion
-      if (income.is_shared && income.share_percentage) {
-        return sum + (amount * (parseFloat(income.share_percentage.toString()) / 100));
-      }
-      return sum + amount;
-    }, 0);
+  const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0);
 
   if (loading) {
     return (
@@ -350,7 +333,7 @@ const Income = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Income Management"
         totalLabel="Total Income"
@@ -358,121 +341,102 @@ const Income = () => {
         showSmartDefaults={suggestions.length > 0}
       />
 
-      {/* Unified Income Management */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-success" />
-                Monthly Income
-              </CardTitle>
-              <CardDescription className="mt-1.5">
-                Values are pre-filled from previous months and save automatically as you type. Toggle off any income not received this month.
-              </CardDescription>
-            </div>
-            <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
+      {/* Add Source Button - matching Expenses style */}
+      <div className="flex justify-between items-center">
+        <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
+          setSourceDialogOpen(open);
+          if (!open) resetSourceForm();
+        }}>
+          <DialogTrigger asChild>
+            <AddButton>Add Source</AddButton>
+          </DialogTrigger>
+          <IncomeSourceDialog
+            open={sourceDialogOpen}
+            editingSourceId={editingSourceId}
+            sourceFormData={sourceFormData}
+            members={members}
+            coParents={coParents}
+            onOpenChange={(open) => {
               setSourceDialogOpen(open);
               if (!open) resetSourceForm();
-            }}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="w-full sm:w-auto">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Source
-                </Button>
-              </DialogTrigger>
-              <IncomeSourceDialog
-                open={sourceDialogOpen}
-                editingSourceId={editingSourceId}
-                sourceFormData={sourceFormData}
-                members={members}
-                coParents={coParents}
-                onOpenChange={(open) => {
-                  setSourceDialogOpen(open);
-                  if (!open) resetSourceForm();
-                }}
-                onFormDataChange={setSourceFormData}
-                onSave={handleSaveSource}
-                onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
-              />
-            </Dialog>
+            }}
+            onFormDataChange={setSourceFormData}
+            onSave={handleSaveSource}
+            onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
+          />
+        </Dialog>
+        {/* Saved indicator - right aligned */}
+        {autoSaveStatus === 'saved' && (
+          <span className="text-sm text-primary animate-in fade-in duration-150">
+            ✓ Saved
+          </span>
+        )}
+        {autoSaveStatus === 'error' && (
+          <span className="text-sm text-destructive">
+            Failed to save
+          </span>
+        )}
+      </div>
+
+      {/* Monthly Income Block - matching Expenses style */}
+      <div className="bg-muted/40 rounded-lg p-4 overflow-hidden border border-primary/20">
+        {/* Block Header */}
+        <div className="flex items-center gap-3">
+          <TrendingUp className="h-5 w-5 text-green-500" />
+          <div>
+            <h3 className="font-semibold text-foreground">Income</h3>
+            <p className="text-xs text-muted-foreground">
+              {incomeSources.length} {incomeSources.length === 1 ? 'source' : 'sources'}
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {incomeSources.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <AlertCircle className="h-12 w-12 mb-4 opacity-50" />
-              <p>No income sources configured</p>
-              <p className="text-sm">Add income sources above to get started</p>
-            </div>
-          ) : (
-            <>
-              {/* Status Bar: shows autosave status on the right */}
-              <div className="flex items-center justify-between text-xs pb-2 border-b border-border mb-2">
-                <span className="text-muted-foreground">
-                  <span className="hidden sm:inline">Click</span>
-                  <span className="sm:hidden">Tap</span>
-                  {" "}an item to edit details
-                </span>
-                <div className="flex items-center gap-2">
-                  {autoSaveStatus === 'saved' && (
-                    <span className="text-sm text-primary animate-in fade-in duration-150">
-                      ✓ Saved
-                    </span>
-                  )}
-                  {autoSaveStatus === 'error' && (
-                    <span className="flex items-center gap-1.5 text-red-500">
-                      <AlertCircle className="h-3.5 w-3.5" />
-                      Error
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-3">
-                {incomeSources.map((source) => {
-                  const currentAmount = amounts[source.id];
+        </div>
 
-                  // Find the smart suggestion for this source
-                  const suggestion = suggestions.find(s => s.income_source_id === source.id);
-                  const suggestedAmount = suggestion?.suggested_amount?.toString() || source.default_amount.toString();
+        {/* Income Sources List */}
+        {incomeSources.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground mt-4">
+            <AlertCircle className="h-10 w-10 mb-3 opacity-50" />
+            <p>No income sources configured</p>
+            <p className="text-sm">Click "Add Source" to get started</p>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {incomeSources.map((source) => {
+              const currentAmount = amounts[source.id];
 
-                  // Status: green = using default/smart default, lime = manually overridden
-                  // Always calculate status by comparing with default, like Expenses page
-                  let status: 'saved' | 'modified' | 'none' = 'none';
-                  if (currentAmount !== undefined) {
-                    status = currentAmount === source.default_amount.toString() ? 'saved' : 'modified';
-                  }
+              // Status: green = using default, lime = manually overridden
+              let status: 'saved' | 'modified' | 'none' = 'none';
+              if (currentAmount !== undefined) {
+                status = currentAmount === source.default_amount.toString() ? 'saved' : 'modified';
+              }
 
-                  return (
-                    <IncomeSourceItem
-                      key={source.id}
-                      source={source}
-                      amount={amounts[source.id] || source.default_amount.toString()}
-                      currency={household?.currency || "SEK"}
-                      onAmountChange={handleAmountChange}
-                      onEdit={handleEditSource}
-                      onDelete={handleDeleteSource}
-                      status={status}
-                    />
-                  );
-                })}
-              </div>
+              return (
+                <IncomeSourceItem
+                  key={source.id}
+                  source={source}
+                  amount={amounts[source.id] || source.default_amount.toString()}
+                  currency={household?.currency || "SEK"}
+                  onAmountChange={handleAmountChange}
+                  onEdit={handleEditSource}
+                  onDelete={handleDeleteSource}
+                  status={status}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
 
 
-            </>
-          )}
-        </CardContent>
-      </Card>
 
-      <OneTimeIncomeCard
-        oneTimeIncomes={oneTimeIncomes}
-        currency={household?.currency || "SEK"}
-        coParents={coParents}
-        saving={saving}
-        onAdd={handleAddOneTime}
-        onDelete={handleDeleteOneTime}
-      />
-
+      {/* Total Monthly Income Bar - matching Expenses style with border */}
+      <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-foreground">Total Monthly Income</span>
+          <span className="text-2xl font-bold text-green-500">
+            {totalIncome.toFixed(0)} {household?.currency || "SEK"}
+          </span>
+        </div>
+      </div>
 
     </div>
   );

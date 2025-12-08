@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Home, CreditCard, Shield, Pencil, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { Input } from "@/components/ui/input";
@@ -61,7 +61,7 @@ export const ExpenseBlock = ({
             ? 'border-yellow-500 border-2'  // Quarterly - yellow for distinction from orange
             : severity === 'upcoming'
                 ? 'border-orange-500 border-2'  // Yearly next month - orange
-                : 'border-border';
+                : 'border border-primary/20';
 
     return (
         <div
@@ -116,22 +116,22 @@ export const ExpenseBlock = ({
                 <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-border">
 
                     {/* Items list */}
-                    <div className="pt-3 space-y-1">
+                    <div className="pt-3 space-y-2">
                         {items.map((item) => {
                             const cat = item.category ? getCategoryById(item.category) : null;
                             const Icon = cat?.icon;
                             return (
                                 <div
                                     key={item.id}
-                                    className="flex items-center justify-between text-sm py-2 px-2 -mx-2 rounded hover:bg-muted/80 cursor-pointer group transition-colors"
+                                    className="flex items-center justify-between text-sm p-3 rounded-lg border border-border bg-background/40 hover:bg-background/60 cursor-pointer group transition-colors"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onItemClick?.(item.id);
                                     }}
                                 >
                                     <div className="flex items-center gap-2 min-w-0">
-                                        {Icon && <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: cat?.color }} />}
-                                        <span className={`truncate ${
+                                        {Icon && <Icon className="h-4 w-4 shrink-0" style={{ color: cat?.color }} />}
+                                        <span className={`font-medium text-sm sm:text-base truncate ${
                                             // Color name based on billing cycle and due status
                                             item.billingCycle === 'monthly' || !item.billingCycle
                                                 ? 'text-foreground' // White for monthly
@@ -140,10 +140,10 @@ export const ExpenseBlock = ({
                                                     : 'text-muted-foreground' // Muted otherwise
                                             }`}>{item.name}</span>
                                     </div>
-                                    <div className="flex items-center gap-1 sm:gap-2">
+                                    <div className="flex items-center gap-2">
                                         {editable && onAmountChange ? (
                                             <div className="relative flex items-center gap-1">
-                                                <Input
+                                                <input
                                                     type="number"
                                                     value={item.amount.toFixed(0)}
                                                     onChange={(e) => {
@@ -151,15 +151,13 @@ export const ExpenseBlock = ({
                                                         onAmountChange(item.id, e.target.value);
                                                     }}
                                                     onClick={(e) => e.stopPropagation()}
-                                                    className="w-20 sm:w-24 h-9 text-right text-sm font-medium pr-1"
-                                                    style={{
-                                                        borderBottomWidth: '2px',
-                                                        borderBottomColor: item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
-                                                            ? '#22c55e'  // green-500 = matches default
-                                                            : '#84cc16', // lime-500 = overridden
-                                                    }}
+                                                    className={`w-20 sm:w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 ${item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
+                                                        ? 'border-green-500'
+                                                        : 'border-lime-400'
+                                                        }`}
+                                                    placeholder="0"
                                                 />
-                                                <span className="text-xs text-muted-foreground shrink-0">{currency}</span>
+                                                <span className="text-sm text-muted-foreground shrink-0">{currency}</span>
                                             </div>
                                         ) : item.displayAmount !== undefined ? (
                                             // Custom display with billing cycle colors
@@ -307,7 +305,7 @@ export const AllTabBlockView = ({
                     title="Subscriptions"
                     total={subscriptionsTotal}
                     currency={currency}
-                    icon={<CreditCard className="h-5 w-5 text-purple-500" />}
+                    icon={<Repeat className="h-5 w-5 text-purple-500" />}
                     items={subscriptionItems}
                     onItemClick={onSubscriptionClick}
                     severity={subscriptionSeverity}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Home, CreditCard, Shield, Zap } from "lucide-react";
+import { Home, Repeat, Shield, Zap } from "lucide-react";
 import { ExpenseForm, ExpenseFormData } from "./forms/ExpenseForm";
 import { SubscriptionForm } from "./forms/SubscriptionForm";
 import { InsuranceForm } from "./forms/InsuranceForm";
@@ -33,7 +33,7 @@ const expenseTypes = [
         id: "subscription" as const,
         label: "Subscription",
         description: "Recurring bills & services",
-        icon: CreditCard,
+        icon: Repeat,
         color: "bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/20",
         iconColor: "text-purple-500",
     },
