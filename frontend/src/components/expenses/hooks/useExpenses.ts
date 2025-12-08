@@ -8,7 +8,7 @@ interface CategoryFormData {
     default_amount: string;
 }
 
-export const useRegularExpenses = (
+export const useExpenses = (
     householdId: string,
     expenseCategories: any[],
     onUpdate: () => void
@@ -22,14 +22,6 @@ export const useRegularExpenses = (
         default_amount: "0",
     });
 
-    // Special field states for Electricity
-    const [electricityGrid, setElectricityGrid] = useState("");
-    const [electricityMarket, setElectricityMarket] = useState("");
-
-    // Special field states for Rent
-    const [waterIncluded, setWaterIncluded] = useState(true);
-    const [waterCost, setWaterCost] = useState("");
-
     const resetCategoryForm = () => {
         setCategoryFormData({
             name: "",
@@ -37,32 +29,14 @@ export const useRegularExpenses = (
             default_amount: "0",
         });
         setEditingCategoryId(null);
-        setElectricityGrid("");
-        setElectricityMarket("");
-        setWaterIncluded(true);
-        setWaterCost("");
     };
 
     const handleEditCategory = (category: any) => {
-        const metadata = category.metadata || {};
-
         setCategoryFormData({
             name: category.name,
             type: category.type,
             default_amount: category.default_amount.toString(),
         });
-
-        // Load Electricity metadata
-        if (category.category === "electricity") {
-            setElectricityGrid(metadata.electricity_grid?.toString() || "");
-            setElectricityMarket(metadata.electricity_market?.toString() || "");
-        }
-
-        // Load Rent metadata
-        if (category.category === "rent") {
-            setWaterIncluded(metadata.water_included !== false);
-            setWaterCost(metadata.water_cost?.toString() || "");
-        }
 
         setEditingCategoryId(category.id);
         setCategoryDialogOpen(true);
@@ -73,54 +47,19 @@ export const useRegularExpenses = (
         const dataName = submittedData?.name || categoryFormData.name;
         const dataType = submittedData?.type || categoryFormData.type;
         const dataDefaultAmount = submittedData?.default_amount || categoryFormData.default_amount;
-        const dataCategory = submittedData?.category; // New form provides category
-
-        // Find the category being edited to check for special fields (fallback)
-        const editingCategory = expenseCategories.find(c => c.id === editingCategoryId);
-        const categoryType = dataCategory || editingCategory?.category;
-
-        // Build metadata object for Electricity and Rent
-        let metadata = null;
-        let calculatedDefaultAmount = parseFloat(dataDefaultAmount);
-
-        if (categoryType === "electricity") {
-            const grid = parseFloat(submittedData?.electricityGrid || electricityGrid || "0");
-            const market = parseFloat(submittedData?.electricityMarket || electricityMarket || "0");
-
-            metadata = {
-                electricity_grid: grid,
-                electricity_market: market,
-            };
-
-            // For Electricity, default_amount is the SUM of Grid + Market
-            calculatedDefaultAmount = grid + market;
-        } else if (categoryType === "rent") {
-            const isWaterIncluded = submittedData !== undefined ? submittedData.waterIncluded : waterIncluded;
-            const cost = parseFloat(submittedData?.waterCost || waterCost || "0");
-
-            metadata = {
-                water_included: isWaterIncluded,
-                water_cost: isWaterIncluded ? 0 : cost,
-            };
-        }
+        const dataCategory = submittedData?.category;
 
         const data: any = {
             household_id: householdId,
             name: dataName,
             type: dataType,
-            default_amount: calculatedDefaultAmount,
+            default_amount: parseFloat(dataDefaultAmount),
             sort_order: expenseCategories.length,
         };
 
         // If we have a category type (from new form or existing), include it
-        // This allows changing the category of an existing expense
-        if (categoryType) {
-            data.category = categoryType;
-        }
-
-        // Add metadata if it exists
-        if (metadata) {
-            data.metadata = metadata;
+        if (dataCategory) {
+            data.category = dataCategory;
         }
 
         let error;
@@ -152,11 +91,11 @@ export const useRegularExpenses = (
         }
     };
 
-    const handleDeleteCategory = async (id: string) => {
+    const handleDeleteCategory = async (categoryId: string) => {
         const { error } = await supabase
             .from("regular_expenses")
             .delete()
-            .eq("id", id);
+            .eq("id", categoryId);
 
         if (error) {
             toast({
@@ -167,43 +106,26 @@ export const useRegularExpenses = (
         } else {
             toast({
                 title: "Success",
-                description: "Category deleted",
+                description: "Expense category deleted",
             });
+            setCategoryDialogOpen(false);
+            resetCategoryForm();
             onUpdate();
         }
     };
 
     const initializeDefaults = async () => {
-        const DEFAULT_CATEGORIES = {
-            static: [
-                "Rent", "Electricity", "Internet", "Phone", "Insurance", "Loan Payments"
-            ],
-            dynamic: [
-                "Groceries", "Fuel", "Dining Out", "Entertainment",
-                "Shopping", "Healthcare", "Personal Care"
-            ]
-        };
-
-        const categories = [
-            ...DEFAULT_CATEGORIES.static.map((name, index) => ({
-                household_id: householdId,
-                name,
-                type: "static" as const,
-                default_amount: 0,
-                sort_order: index,
-            })),
-            ...DEFAULT_CATEGORIES.dynamic.map((name, index) => ({
-                household_id: householdId,
-                name,
-                type: "dynamic" as const,
-                default_amount: 0,
-                sort_order: DEFAULT_CATEGORIES.static.length + index,
-            })),
+        const defaultCategories: { name: string; category: string; type: "static" | "dynamic"; default_amount: number; sort_order: number; household_id: string }[] = [
+            { name: "Rent", category: "rent", type: "static", default_amount: 0, sort_order: 0, household_id: householdId },
+            { name: "Electricity", category: "electricity", type: "dynamic", default_amount: 0, sort_order: 1, household_id: householdId },
+            { name: "Fuel", category: "fuel", type: "dynamic", default_amount: 0, sort_order: 2, household_id: householdId },
+            { name: "Transport", category: "transport", type: "dynamic", default_amount: 0, sort_order: 3, household_id: householdId },
+            { name: "Groceries", category: "groceries", type: "dynamic", default_amount: 0, sort_order: 4, household_id: householdId },
         ];
 
         const { error } = await supabase
             .from("regular_expenses")
-            .insert(categories);
+            .insert(defaultCategories);
 
         if (error) {
             toast({
@@ -226,14 +148,6 @@ export const useRegularExpenses = (
         editingCategoryId,
         categoryFormData,
         setCategoryFormData,
-        electricityGrid,
-        setElectricityGrid,
-        electricityMarket,
-        setElectricityMarket,
-        waterIncluded,
-        setWaterIncluded,
-        waterCost,
-        setWaterCost,
         handleEditCategory,
         handleSaveCategory,
         handleDeleteCategory,

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,71 +49,64 @@ const SavingsGoalsPreview = ({ currency }: SavingsGoalsPreviewProps) => {
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('sv-SE', {
-      style: 'currency',
-      currency: currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
   };
 
   const priorityColors = {
-    high: "text-destructive",
-    medium: "text-warning",
-    low: "text-muted-foreground",
+    high: "text-red-500 bg-red-500/20",
+    medium: "text-yellow-500 bg-yellow-500/20",
+    low: "text-muted-foreground bg-muted",
   };
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            Savings Goals
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-4">Loading...</p>
-        </CardContent>
-      </Card>
+      <div className="bg-muted/40 rounded-lg p-4 border border-primary/20">
+        <div className="flex items-center gap-3 mb-4">
+          <Target className="h-5 w-5 text-blue-500" />
+          <h3 className="font-semibold text-foreground">Savings Goals</h3>
+        </div>
+        <p className="text-sm text-muted-foreground text-center py-4">Loading...</p>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Target className="h-5 w-5 text-primary" />
-          Savings Goals
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {goals.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No savings goals yet. Create your first goal!
-          </p>
-        ) : (
-          goals.map((goal) => {
+    <div className="bg-muted/40 rounded-lg p-4 border border-primary/20">
+      <div className="flex items-center gap-3 mb-4">
+        <Target className="h-5 w-5 text-blue-500" />
+        <h3 className="font-semibold text-foreground">Savings Goals</h3>
+      </div>
+
+      {goals.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No savings goals yet. Create your first goal!
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {goals.map((goal) => {
             const progress = (goal.current_amount / goal.target_amount) * 100;
             return (
-              <div key={goal.id} className="space-y-2">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium">{goal.name}</p>
+              <div key={goal.id} className="bg-background/40 rounded-lg p-3 border border-border">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{goal.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatCurrency(goal.current_amount)} of {formatCurrency(goal.target_amount)}
+                      {formatCurrency(goal.current_amount)} / {formatCurrency(goal.target_amount)} {currency}
                     </p>
                   </div>
-                  <span className={`text-xs font-medium ${priorityColors[goal.priority]} uppercase`}>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${priorityColors[goal.priority]}`}>
                     {goal.priority}
                   </span>
                 </div>
                 <Progress value={progress} className="h-2" />
               </div>
             );
-          })
-        )}
-      </CardContent>
-    </Card>
+          })}
+        </div>
+      )}
+    </div>
   );
 };
 

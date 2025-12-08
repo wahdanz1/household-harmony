@@ -72,7 +72,7 @@ export const IncomeSourceDialog = ({
                         <Input
                             value={sourceFormData.name}
                             onChange={(e) => onFormDataChange({ ...sourceFormData, name: e.target.value })}
-                            placeholder="e.g., Dad's Salary"
+                            placeholder="e.g., Monthly Salary"
                         />
                     </div>
 
@@ -95,21 +95,6 @@ export const IncomeSourceDialog = ({
                         </Select>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label>Type</Label>
-                        <Select
-                            value={sourceFormData.type}
-                            onValueChange={(v) => onFormDataChange({ ...sourceFormData, type: v as typeof sourceFormData.type })}
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="static">Static (Fixed amount)</SelectItem>
-                                <SelectItem value="variable">Variable (Changes monthly)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
 
                     <div className="space-y-2">
                         <Label>Default Amount</Label>

@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CalendarDays, CreditCard, Shield, Users, Zap } from "lucide-react";
-import { AddRegularExpenseForm } from "./forms/AddRegularExpenseForm";
+import { Home, Repeat, Shield, Zap } from "lucide-react";
+import { ExpenseForm, ExpenseFormData } from "./forms/ExpenseForm";
 import { SubscriptionForm } from "./forms/SubscriptionForm";
 import { InsuranceForm } from "./forms/InsuranceForm";
-import { SharedExpenseForm } from "./forms/SharedExpenseForm";
 import { TemporaryExpenseForm } from "./forms/TemporaryExpenseForm";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface AddExpenseDialogProps {
     open: boolean;
@@ -16,22 +18,22 @@ interface AddExpenseDialogProps {
     onSuccess: () => void;
 }
 
-type ExpenseType = "regular" | "subscription" | "insurance" | "temporary" | "shared" | null;
+type ExpenseType = "expense" | "subscription" | "insurance" | "temporary" | null;
 
 const expenseTypes = [
     {
-        id: "regular" as const,
-        label: "Regular",
-        description: "Monthly expense categories",
-        icon: CalendarDays,
+        id: "expense" as const,
+        label: "Expense",
+        description: "Regular household expenses",
+        icon: Home,
         color: "bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/20",
         iconColor: "text-blue-500",
     },
     {
         id: "subscription" as const,
         label: "Subscription",
-        description: "Recurring bills",
-        icon: CreditCard,
+        description: "Recurring bills & services",
+        icon: Repeat,
         color: "bg-purple-500/10 hover:bg-purple-500/20 border-purple-500/20",
         iconColor: "text-purple-500",
     },
@@ -40,29 +42,24 @@ const expenseTypes = [
         label: "Insurance",
         description: "Insurance policies",
         icon: Shield,
-        color: "bg-green-500/10 hover:bg-green-500/20 border-green-500/20",
-        iconColor: "text-green-500",
-    },
-    {
-        id: "temporary" as const,
-        label: "Temporary",
-        description: "One-time expenses",
-        icon: Zap,
         color: "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/20",
         iconColor: "text-amber-500",
     },
     {
-        id: "shared" as const,
-        label: "Shared",
-        description: "Co-parent expenses",
-        icon: Users,
+        id: "temporary" as const,
+        label: "Temporary",
+        description: "One-time unexpected costs",
+        icon: Zap,
         color: "bg-orange-500/10 hover:bg-orange-500/20 border-orange-500/20",
         iconColor: "text-orange-500",
     },
 ];
 
 export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents, onSuccess }: AddExpenseDialogProps) => {
+    const { user } = useAuth();
+    const { toast } = useToast();
     const [selectedType, setSelectedType] = useState<ExpenseType>(null);
+    const [saving, setSaving] = useState(false);
 
     const handleClose = () => {
         setSelectedType(null);
@@ -78,13 +75,62 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
         handleClose();
     };
 
-    const availableTypes = hasCoParents ? expenseTypes : expenseTypes.filter(t => t.id !== "shared");
+    // Handle Fixed/Variable expense submission (INSERT to regular_expenses)
+    const handleExpenseSubmit = async (data: ExpenseFormData) => {
+        setSaving(true);
+
+        if (!user) {
+            toast({
+                title: "Error",
+                description: "You must be logged in to create an expense",
+                variant: "destructive",
+            });
+            setSaving(false);
+            return;
+        }
+
+        const { error } = await supabase.from("regular_expenses").insert({
+            household_id: householdId,
+            category: data.category,
+            name: data.name,
+            type: data.type,
+            default_amount: parseFloat(data.default_amount),
+            created_by: user.id,
+            is_active: true,
+            sort_order: 999,
+        });
+
+        setSaving(false);
+
+        if (error) {
+            console.error("Error creating expense:", error);
+            toast({
+                title: "Error",
+                description: `Failed to create expense: ${error.message}`,
+                variant: "destructive",
+            });
+        } else {
+            toast({
+                title: "Success",
+                description: "Expense created successfully",
+            });
+            handleSuccess();
+        }
+    };
+
+    const availableTypes = expenseTypes;
+
+    // Get label for dialog title
+    const getTypeLabel = () => {
+        const type = expenseTypes.find(t => t.id === selectedType);
+        return type?.label || selectedType;
+    };
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>{selectedType ? `Add ${selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} Expense` : "Add Expense"}</DialogTitle>
+                    <DialogTitle>{selectedType ? `Add ${getTypeLabel()}` : "Add Expense"}</DialogTitle>
                     <DialogDescription>
                         {selectedType ? "Fill in the details below" : "Choose the type of expense you want to add"}
                     </DialogDescription>
@@ -122,11 +168,18 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
                     </div>
                 ) : (
                     <div className="mt-4">
-                        {selectedType === "regular" && (
-                            <AddRegularExpenseForm
-                                householdId={householdId}
-                                onSuccess={handleSuccess}
+                        {selectedType === "expense" && (
+                            <ExpenseForm
+                                defaultValues={{
+                                    category: undefined,
+                                    name: "",
+                                    type: "dynamic",
+                                    default_amount: "0",
+                                }}
+                                onSubmit={handleExpenseSubmit}
                                 onCancel={handleBack}
+                                submitLabel="Create Expense"
+                                isSaving={saving}
                             />
                         )}
                         {selectedType === "subscription" && (
@@ -150,13 +203,7 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
                                 onCancel={handleBack}
                             />
                         )}
-                        {selectedType === "shared" && (
-                            <SharedExpenseForm
-                                householdId={householdId}
-                                onSuccess={handleSuccess}
-                                onCancel={handleBack}
-                            />
-                        )}
+
                     </div>
                 )}
             </DialogContent>

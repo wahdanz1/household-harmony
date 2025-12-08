@@ -101,3 +101,13 @@ All colors MUST be HSL.
     -moz-appearance: textfield;
   }
 }
+
+/* Typewriter animation for "Saved" indicator */
+@keyframes typewriter {
+  from {
+    width: 0;
+  }
+  to {
+    width: 4.5em;
+  }
+}

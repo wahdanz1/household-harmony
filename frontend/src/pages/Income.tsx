@@ -1,92 +1,98 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { TrendingUp, AlertCircle, Plus, Check } from "lucide-react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { useLocation } from "react-router-dom";
+import { AddButton } from "@/components/ui/add-button";
+import { TrendingUp, AlertCircle } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { getActiveHousehold } from "@/utils/householdHelpers";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { IncomeSourceItem } from "@/components/income/IncomeSourceItem";
 import { IncomeSourceDialog } from "@/components/income/IncomeSourceDialog";
-import { OneTimeIncomeCard } from "@/components/income/OneTimeIncomeCard";
+
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
-import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+
+import { PageHeader } from "@/components/shared/PageHeader";
+import { fetchIncomeSuggestions, getSuggestionBorderColor } from "@/services/smartDefaults";
+
+import type { IncomeSuggestion } from "@/types/api";
 
 const Income = () => {
   const { user } = useAuth();
+  const { household, members, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
+  const location = useLocation(); // Trigger refetch on navigation
   const { toast } = useToast();
-  const [household, setHousehold] = useState<any>(null);
   const [incomeSources, setIncomeSources] = useState<any[]>([]);
   const [monthlyIncomes, setMonthlyIncomes] = useState<any[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [oneTimeIncomes, setOneTimeIncomes] = useState<any[]>([]);
-  const [coParents, setCoParents] = useState<any[]>([]);
-  const [members, setMembers] = useState<any[]>([]);
-  const [hasSaved, setHasSaved] = useState(false);
-  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
 
-  const currentMonth = getCurrentFinancialMonth();
-  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth);
 
-  const fetchData = async () => {
-    if (!user) return;
+  // Auto-fill state
+  const [suggestions, setSuggestions] = useState<IncomeSuggestion[]>([]);
+  const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
 
-    const { membership } = await getActiveHousehold(user.id);
+  // Autosave state
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasAutoFilledRef = useRef(false);
+  const amountsRef = useRef<Record<string, string>>({}); // Track latest amounts for autosave
 
-    if (!membership) return;
+  // Keep these for display/header purposes only (will update on re-render)
+  const currentMonth = getCurrentFinancialMonth(financialMonthStart);
+  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
+
+  const fetchData = useCallback(async () => {
+    if (!household?.id) return;
+
+    // Compute dates fresh inside fetchData using current financialMonthStart
+    const fetchMonth = getCurrentFinancialMonth(financialMonthStart);
+    const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, financialMonthStart);
+    const startStr = format(fetchStart, "yyyy-MM-dd");
+    const endStr = format(fetchEnd, "yyyy-MM-dd");
 
     const [
-      { data: householdInfo },
       { data: sourcesData },
       { data: monthlyData },
-      { data: coParentsData },
-      { data: membersData },
     ] = await Promise.all([
-      supabase.from("households").select("*").eq("id", membership.household_id).single(),
-      supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", membership.household_id).eq("is_active", true).order("created_at", { ascending: true }),
-      supabase.from("monthly_incomes").select("*").eq("household_id", membership.household_id).gte("month_end", format(monthStart, "yyyy-MM-dd")).lte("month_start", format(monthEnd, "yyyy-MM-dd")),
-      supabase.from("co_parents").select("*").eq("household_id", membership.household_id),
-      supabase.from("household_members").select("*, profiles(full_name, email)").eq("household_id", membership.household_id),
+      supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", household.id).eq("is_active", true).order("created_at", { ascending: true }),
+      supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
     ]);
 
-    setHousehold(householdInfo);
     setIncomeSources(sourcesData || []);
-    setCoParents(coParentsData || []);
-    setMembers(membersData || []);
 
-    // Separate regular incomes and one-time incomes
+    // Separate regular incomes (filter out one-time incomes which have no source)
     const regularIncomes = (monthlyData || []).filter((m: any) => m.income_source_id !== null);
-    const oneTimeIncomesData = (monthlyData || []).filter((m: any) => m.income_source_id === null);
 
     setMonthlyIncomes(regularIncomes);
-    setOneTimeIncomes(oneTimeIncomesData);
 
-    // Check if there are saved incomes to determine button state
-    if (regularIncomes.length > 0) {
-      setHasSaved(true);
-      // Get the most recent updated_at timestamp
-      const mostRecent = regularIncomes.reduce((latest: any, current: any) => {
-        const latestDate = new Date(latest.updated_at || latest.created_at || 0);
-        const currentDate = new Date(current.updated_at || current.created_at || 0);
-        return currentDate > latestDate ? current : latest;
-      });
-
-      const dateToUse = mostRecent.updated_at || mostRecent.created_at;
-      const savedDate = new Date(dateToUse);
-
-      // Only set if it's a valid date
-      if (!isNaN(savedDate.getTime())) {
-        setLastSavedTime(savedDate);
+    // Auto-create monthly_incomes records for sources that don't have them yet
+    // This ensures Dashboard shows all income, not just edited sources
+    const missingRecords: any[] = [];
+    (sourcesData || []).forEach((source: any) => {
+      const existing = (monthlyData || []).find((m: any) => m.income_source_id === source.id);
+      if (!existing && user) {
+        missingRecords.push({
+          income_source_id: source.id,
+          household_id: household.id,
+          month: fetchMonth,
+          month_start: startStr,
+          month_end: endStr,
+          amount: parseFloat(source.default_amount?.toString() || "0"),
+          created_by: user.id,
+        });
       }
-    } else {
-      // Reset when no saved incomes
-      setHasSaved(false);
-      setLastSavedTime(null);
+    });
+
+    // Create missing records in batch if any
+    if (missingRecords.length > 0) {
+      await supabase.from("monthly_incomes").insert(missingRecords);
     }
+
+    // Note: Don't set 'saved' status on initial load - only after actual user edits
 
     const initialAmounts: Record<string, string> = {};
     (sourcesData || []).forEach((source: any) => {
@@ -94,12 +100,30 @@ const Income = () => {
       initialAmounts[source.id] = existing ? existing.amount.toString() : source.default_amount.toString();
     });
     setAmounts(initialAmounts);
+    amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  };
+  }, [household?.id, financialMonthStart, user]);
 
   useEffect(() => {
-    fetchData();
-  }, [user]);
+    if (!householdLoading && household?.id) {
+      fetchData();
+    }
+  }, [householdLoading, fetchData, location.key]); // location.key changes on each navigation
+
+  // Auto-fill on page load when no saved income for current month
+  useEffect(() => {
+    // Only auto-fill once, when we have data loaded and no saved income
+    if (
+      !loading &&
+      !hasAutoFilledRef.current &&
+      household?.id &&
+      incomeSources.length > 0 &&
+      monthlyIncomes.length === 0 // No saved income for current month
+    ) {
+      hasAutoFilledRef.current = true;
+      handleAutoFill(true);
+    }
+  }, [loading, household?.id, incomeSources.length, monthlyIncomes.length]);
 
   const {
     sourceDialogOpen,
@@ -113,17 +137,99 @@ const Income = () => {
     resetSourceForm,
   } = useIncomeSources(household?.id || "", members, fetchData);
 
-  const handleSave = async () => {
+  // Auto-fill handler - fetches suggestions from backend
+  const handleAutoFill = async (showToast = true) => {
+    if (!household?.id || !incomeSources.length) return;
+
+    try {
+      const incomeSuggestions = await fetchIncomeSuggestions(household.id);
+      if (incomeSuggestions.length === 0) return;
+
+      setSuggestions(incomeSuggestions);
+
+      // Apply suggestions to form
+      const newAmounts = { ...amounts };
+      const newApplied = new Set<string>();
+
+      incomeSuggestions.forEach((suggestion) => {
+        const source = incomeSources.find(s => s.id === suggestion.income_source_id);
+        if (source) {
+          newAmounts[suggestion.income_source_id] = suggestion.suggested_amount.toString();
+          newApplied.add(suggestion.income_source_id);
+        }
+      });
+
+      setAmounts(newAmounts);
+      setAppliedSuggestions(newApplied);
+
+      if (showToast && incomeSuggestions.length > 0) {
+        toast({
+          title: "✨ Smart defaults applied",
+          description: `Pre-filled ${incomeSuggestions.length} income sources from historical data`,
+        });
+      }
+    } catch (error) {
+      console.error('Auto-fill failed:', error);
+      // Silently fail - user can still enter amounts manually
+    }
+  };
+
+  // Get border color for an income source input
+  const getBorderClass = (sourceId: string): string => {
+    const suggestion = suggestions.find(s => s.income_source_id === sourceId);
+    if (!suggestion) return '';
+
+    // Check if user modified the suggestion
+    const originalSuggestion = suggestion.suggested_amount.toString();
+    const currentValue = amounts[sourceId];
+
+    if (appliedSuggestions.has(sourceId) && currentValue !== originalSuggestion) {
+      return getSuggestionBorderColor('user_modified');
+    }
+
+    return getSuggestionBorderColor(suggestion.source);
+  };
+
+  // Handle amount change - track modifications and trigger autosave
+  const handleAmountChange = (sourceId: string, value: string) => {
+    const newAmounts = { ...amounts, [sourceId]: value };
+    setAmounts(newAmounts);
+    amountsRef.current = newAmounts; // Keep ref in sync for autosave
+
+    // Trigger debounced autosave
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+
+    setAutoSaveStatus('idle'); // Show as pending
+    autoSaveTimerRef.current = setTimeout(() => {
+      if (household && user && incomeSources.length > 0) {
+        handleSave();
+      }
+    }, 500); // 500ms debounce
+  };
+
+
+
+  const handleSave = useCallback(async () => {
     if (!household || !user) return;
     setSaving(true);
+    setAutoSaveStatus('saving');
+
+    // Use amountsRef to get the latest amounts value
+    const currentAmounts = amountsRef.current;
+
+    // Compute dates fresh at save time
+    const saveMonth = getCurrentFinancialMonth(financialMonthStart);
+    const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, financialMonthStart);
 
     const entries = incomeSources.map((source) => ({
       income_source_id: source.id,
       household_id: household.id,
-      month: currentMonth,
-      month_start: format(monthStart, "yyyy-MM-dd"),
-      month_end: format(monthEnd, "yyyy-MM-dd"),
-      amount: parseFloat(amounts[source.id] || "0"),
+      month: saveMonth,
+      month_start: format(saveStart, "yyyy-MM-dd"),
+      month_end: format(saveEnd, "yyyy-MM-dd"),
+      amount: parseFloat(currentAmounts[source.id] || "0"),
       created_by: user.id,
     }));
 
@@ -132,22 +238,18 @@ const Income = () => {
       .upsert(entries as any, { onConflict: "income_source_id,month" });
 
     if (error) {
+      setAutoSaveStatus('error');
       toast({
         title: "Error",
         description: "Failed to save income data",
         variant: "destructive",
       });
     } else {
-      toast({
-        title: "Success",
-        description: "Monthly income saved",
-      });
-      setHasSaved(true);
-      setLastSavedTime(new Date());
-      fetchData();
+      setAutoSaveStatus('saved');
+      // Don't show toast for autosave - only show brief status indicator
     }
     setSaving(false);
-  };
+  }, [household, user, incomeSources, financialMonthStart, toast]);
 
   const handleAddOneTime = async (data: {
     name: string;
@@ -220,15 +322,7 @@ const Income = () => {
     }
   };
 
-  const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) +
-    oneTimeIncomes.reduce((sum, income) => {
-      const amount = parseFloat(income.amount || "0");
-      // If shared, only count your portion
-      if (income.is_shared && income.share_percentage) {
-        return sum + (amount * (parseFloat(income.share_percentage.toString()) / 100));
-      }
-      return sum + amount;
-    }, 0);
+  const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0);
 
   if (loading) {
     return (
@@ -239,124 +333,111 @@ const Income = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Income Management</h1>
-          <p className="text-muted-foreground mt-2">
-            {formatFinancialMonth(currentMonth)}
-          </p>
+    <div className="space-y-4">
+      <PageHeader
+        title="Income Management"
+        totalLabel="Total Income"
+        totalAmount={totalIncome}
+        showSmartDefaults={suggestions.length > 0}
+      />
+
+      {/* Add Source Button - matching Expenses style */}
+      <div className="flex justify-between items-center">
+        <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
+          setSourceDialogOpen(open);
+          if (!open) resetSourceForm();
+        }}>
+          <DialogTrigger asChild>
+            <AddButton>Add Source</AddButton>
+          </DialogTrigger>
+          <IncomeSourceDialog
+            open={sourceDialogOpen}
+            editingSourceId={editingSourceId}
+            sourceFormData={sourceFormData}
+            members={members}
+            coParents={coParents}
+            onOpenChange={(open) => {
+              setSourceDialogOpen(open);
+              if (!open) resetSourceForm();
+            }}
+            onFormDataChange={setSourceFormData}
+            onSave={handleSaveSource}
+            onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
+          />
+        </Dialog>
+        {/* Saved indicator - right aligned */}
+        {autoSaveStatus === 'saved' && (
+          <span className="text-sm text-primary animate-in fade-in duration-150">
+            ✓ Saved
+          </span>
+        )}
+        {autoSaveStatus === 'error' && (
+          <span className="text-sm text-destructive">
+            Failed to save
+          </span>
+        )}
+      </div>
+
+      {/* Monthly Income Block - matching Expenses style */}
+      <div className="bg-muted/40 rounded-lg p-4 overflow-hidden border border-primary/20">
+        {/* Block Header */}
+        <div className="flex items-center gap-3">
+          <TrendingUp className="h-5 w-5 text-green-500" />
+          <div>
+            <h3 className="font-semibold text-foreground">Income</h3>
+            <p className="text-xs text-muted-foreground">
+              {incomeSources.length} {incomeSources.length === 1 ? 'source' : 'sources'}
+            </p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">Total Income</p>
-          <p className="text-2xl sm:text-3xl font-bold text-success">
+
+        {/* Income Sources List */}
+        {incomeSources.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground mt-4">
+            <AlertCircle className="h-10 w-10 mb-3 opacity-50" />
+            <p>No income sources configured</p>
+            <p className="text-sm">Click "Add Source" to get started</p>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {incomeSources.map((source) => {
+              const currentAmount = amounts[source.id];
+
+              // Status: green = using default, lime = manually overridden
+              let status: 'saved' | 'modified' | 'none' = 'none';
+              if (currentAmount !== undefined) {
+                status = currentAmount === source.default_amount.toString() ? 'saved' : 'modified';
+              }
+
+              return (
+                <IncomeSourceItem
+                  key={source.id}
+                  source={source}
+                  amount={amounts[source.id] || source.default_amount.toString()}
+                  currency={household?.currency || "SEK"}
+                  onAmountChange={handleAmountChange}
+                  onEdit={handleEditSource}
+                  onDelete={handleDeleteSource}
+                  status={status}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+
+
+      {/* Total Monthly Income Bar - matching Expenses style with border */}
+      <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-foreground">Total Monthly Income</span>
+          <span className="text-2xl font-bold text-green-500">
             {totalIncome.toFixed(0)} {household?.currency || "SEK"}
-          </p>
+          </span>
         </div>
       </div>
 
-      {/* Unified Income Management */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-success" />
-                Monthly Income
-              </CardTitle>
-              <CardDescription className="mt-1.5">
-                Add your income sources with a default amount, and adjust the actual monthly income if needed. When you're done, click "Save Monthly Income"!
-              </CardDescription>
-            </div>
-            <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
-              setSourceDialogOpen(open);
-              if (!open) resetSourceForm();
-            }}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="w-full sm:w-auto">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Source
-                </Button>
-              </DialogTrigger>
-              <IncomeSourceDialog
-                open={sourceDialogOpen}
-                editingSourceId={editingSourceId}
-                sourceFormData={sourceFormData}
-                members={members}
-                coParents={coParents}
-                onOpenChange={(open) => {
-                  setSourceDialogOpen(open);
-                  if (!open) resetSourceForm();
-                }}
-                onFormDataChange={setSourceFormData}
-                onSave={handleSaveSource}
-                onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
-              />
-            </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {incomeSources.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <AlertCircle className="h-12 w-12 mb-4 opacity-50" />
-              <p>No income sources configured</p>
-              <p className="text-sm">Add income sources above to get started</p>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-3">
-                {incomeSources.map((source) => {
-                  const savedEntry = monthlyIncomes.find((m: any) => m.income_source_id === source.id);
-                  const currentAmount = amounts[source.id];
-                  const savedAmount = savedEntry ? savedEntry.amount.toString() : null;
-
-                  let status: 'saved' | 'modified' | 'none' = 'none';
-                  if (savedEntry) {
-                    status = currentAmount !== savedAmount ? 'modified' : 'saved';
-                  }
-
-                  return (
-                    <IncomeSourceItem
-                      key={source.id}
-                      source={source}
-                      amount={amounts[source.id] || source.default_amount.toString()}
-                      currency={household?.currency || "SEK"}
-                      onAmountChange={(sourceId, value) =>
-                        setAmounts({ ...amounts, [sourceId]: value })
-                      }
-                      onEdit={handleEditSource}
-                      onDelete={handleDeleteSource}
-                      status={status}
-                    />
-                  );
-                })}
-              </div>
-
-              {lastSavedTime && !isNaN(lastSavedTime.getTime()) && (
-                <p className="text-xs text-center text-muted-foreground mb-2">
-                  Monthly income saved {format(lastSavedTime, "MMM d, yyyy 'at' HH:mm")}
-                </p>
-              )}
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className={`w-full ${hasSaved ? 'bg-green-900/40 hover:bg-green-900/60 text-green-100 border border-green-800/50' : ''}`}
-              >
-                {saving ? "Saving..." : hasSaved ? "Update Monthly Income" : "Save Monthly Income"}
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      <OneTimeIncomeCard
-        oneTimeIncomes={oneTimeIncomes}
-        currency={household?.currency || "SEK"}
-        coParents={coParents}
-        saving={saving}
-        onAdd={handleAddOneTime}
-        onDelete={handleDeleteOneTime}
-      />
     </div>
   );
 };
