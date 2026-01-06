@@ -16,7 +16,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
-import { VaultUnlockButton } from "@/components/shared/VaultUnlockDialog";
 import { toast } from "sonner";
 
 interface MigrationStatus {
@@ -80,6 +79,7 @@ const TABLES_TO_MIGRATE: TableConfig[] = [
         fields: [
             { original: "name", encrypted: "encrypted_name" },
             { original: "total_amount", encrypted: "encrypted_total_amount" },
+            { original: "provider", encrypted: "encrypted_provider" },
         ],
         householdFilter: true,
     },
@@ -108,6 +108,15 @@ const TABLES_TO_MIGRATE: TableConfig[] = [
         fields: [
             { original: "description", encrypted: "encrypted_description" },
             { original: "amount", encrypted: "encrypted_amount" },
+        ],
+        householdFilter: true,
+    },
+    {
+        table: "credit_cards",
+        displayName: "Credit Cards",
+        fields: [
+            { original: "name", encrypted: "encrypted_name" },
+            { original: "monthly_limit", encrypted: "encrypted_monthly_limit" },
         ],
         householdFilter: true,
     },
@@ -283,29 +292,7 @@ export const DataMigrationCard = () => {
     const allDone = migrationStatus.every((s) => s.status === "done");
     const progress = totalUnencrypted > 0 ? (totalMigrated / totalUnencrypted) * 100 : 0;
 
-    if (!isUnlocked) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Lock className="h-5 w-5" />
-                        Data Migration
-                    </CardTitle>
-                    <CardDescription>Encrypt existing plaintext data</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <Alert>
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Vault Locked</AlertTitle>
-                        <AlertDescription>
-                            Please unlock your vault to access the data migration tool.
-                        </AlertDescription>
-                    </Alert>
-                    <VaultUnlockButton className="w-full" />
-                </CardContent>
-            </Card>
-        );
-    }
+
 
     return (
         <Card>

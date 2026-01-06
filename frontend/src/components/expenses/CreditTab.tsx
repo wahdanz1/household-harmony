@@ -6,10 +6,12 @@ import { CreditCardSummaryCards } from "./credit/CreditCardSummaryCards";
 import { CreditExpensesList } from "./credit/CreditExpensesList";
 import { CreditCard as CreditCardIcon, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { getCategoryById } from "@/constants/expenseCategories";
-import { useEncryptedFields, expenseFields, monthlyExpenseFields, creditCardExpenseFields } from "@/hooks/useEncryptedFields";
+import { useEncryptedFields, expenseFields, monthlyExpenseFields, creditCardExpenseFields, creditCardFields } from "@/hooks/useEncryptedFields";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
+import { useEncryption } from "@/contexts/EncryptionContext";
 
 interface CreditCardExpense {
     id: string;
@@ -46,6 +48,7 @@ interface CreditTabProps {
 
 export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: CreditTabProps) => {
     const { user } = useAuth();
+    const { isUnlocked } = useEncryption();
     const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
     const [expenses, setExpenses] = useState<CreditCardExpense[]>([]);
     const [budgetedCredit, setBudgetedCredit] = useState<BudgetedCreditExpense[]>([]);
@@ -57,14 +60,17 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
     const { decryptRecords: decryptExpenses, encryptRecord: encryptMonthlyExpense } = useEncryptedFields(expenseFields);
     const { decryptRecords: decryptMonthlyExpenses } = useEncryptedFields(monthlyExpenseFields);
     const { decryptRecords: decryptCreditCardExpenses } = useEncryptedFields(creditCardExpenseFields);
+    const { decryptRecords: decryptCreditCards } = useEncryptedFields(creditCardFields);
 
     // Debounce timer ref
     const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
     const amountsRef = useRef<Record<string, string>>({});
 
     useEffect(() => {
-        fetchData();
-    }, [householdId]);
+        if (isUnlocked) {
+            fetchData();
+        }
+    }, [householdId, isUnlocked]);
 
     // Initialize edited amounts when budgetedCredit changes
     useEffect(() => {
@@ -88,12 +94,17 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
         ] = await Promise.all([
             supabase.from("credit_cards").select("*").eq("household_id", householdId).eq("is_active", true),
             supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", householdId).gte("month_end", startStr).lte("month_start", endStr),
-            // Fetch expense categories marked as credit
             (supabase as any).from("expenses").select("*").eq("household_id", householdId).eq("is_active", true).eq("is_credit", true),
             supabase.from("monthly_expenses").select("*").eq("household_id", householdId).gte("month_end", startStr).lte("month_start", endStr),
         ]);
 
-        setCreditCards(cardsData || []);
+        const decryptedCardsRaw = await decryptCreditCards(cardsData || []);
+        // Ensure monthly_limit is a number
+        const decryptedCards = decryptedCardsRaw.map((card: any) => ({
+            ...card,
+            monthly_limit: Number(card.monthly_limit || 0)
+        }));
+        setCreditCards(decryptedCards);
 
         // Decrypt credit card expenses
         const decryptedCCExpenses = await decryptCreditCardExpenses(expensesData || []);
@@ -196,6 +207,10 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
 
     if (loading) {
         return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
+    }
+
+    if (!isUnlocked) {
+        return <VaultLockedAlert className="mt-6" />;
     }
 
     return (

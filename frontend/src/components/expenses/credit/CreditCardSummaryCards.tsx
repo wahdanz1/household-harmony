@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreditCard } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 interface CreditCardData {
     id: string;
@@ -18,8 +19,9 @@ export const CreditCardSummaryCards = ({ creditCards, calculateCardTotal, curren
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {creditCards.map((card) => {
                 const total = calculateCardTotal(card.id);
-                const remaining = card.monthly_limit - total;
-                const percentage = (total / card.monthly_limit) * 100;
+                const limit = card.monthly_limit || 0;
+                const remaining = limit - total;
+                const percentage = limit > 0 ? (total / limit) * 100 : 0;
 
                 return (
                     <Card key={card.id}>
@@ -37,7 +39,7 @@ export const CreditCardSummaryCards = ({ creditCards, calculateCardTotal, curren
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Limit</span>
-                                    <span>{card.monthly_limit.toFixed(0)} {currency}</span>
+                                    <span>{limit.toFixed(0)} {currency}</span>
                                 </div>
                                 <div className="flex justify-between text-sm">
                                     <span className="text-muted-foreground">Remaining</span>

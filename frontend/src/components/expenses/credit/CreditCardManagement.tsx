@@ -18,6 +18,7 @@ import { CreditCard, Plus, Edit, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, creditCardFields } from "@/hooks/useEncryptedFields";
 
 interface CreditCard {
     id: string;
@@ -52,27 +53,35 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, onUpd
     const handleEditCard = (card: CreditCard) => {
         setCardFormData({
             name: card.name,
-            monthly_limit: card.monthly_limit.toString(),
+            monthly_limit: (card.monthly_limit || 0).toString(),
         });
         setEditingCardId(card.id);
         setCardDialogOpen(true);
     };
 
+    const { encryptRecord } = useEncryptedFields(creditCardFields);
+
     const handleSaveCard = async () => {
         if (!user) return;
 
-        const data = {
+        const baseData = {
             household_id: householdId,
             name: cardFormData.name,
             monthly_limit: parseFloat(cardFormData.monthly_limit),
             created_by: user.id,
+            is_encrypted: false,
         };
+
+        const data = await encryptRecord(baseData);
 
         let error;
         if (editingCardId) {
+            // For updates, we need to extract ID and use the rest
+            const { id, ...updateData } = data as any;
+
             ({ error } = await supabase
                 .from("credit_cards")
-                .update(data)
+                .update(updateData)
                 .eq("id", editingCardId));
         } else {
             ({ error } = await supabase
@@ -193,7 +202,7 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, onUpd
                             {creditCards.map((card) => (
                                 <div
                                     key={card.id}
-                                    className="list-item-compact"
+                                    className="list-row-compact"
                                 >
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2">
@@ -201,7 +210,7 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, onUpd
                                             <p className="font-medium">{card.name}</p>
                                         </div>
                                         <p className="text-sm text-muted-foreground">
-                                            Monthly Limit: {card.monthly_limit.toFixed(0)} {currency}
+                                            Monthly Limit: {(card.monthly_limit || 0).toFixed(0)} {currency}
                                         </p>
                                     </div>
                                     <div className="flex gap-2">

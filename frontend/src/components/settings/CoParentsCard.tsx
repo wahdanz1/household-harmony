@@ -158,7 +158,7 @@ export const CoParentsCard = ({ householdId, onUpdate, compact = false }: CoPare
           {coParents.map((coParent) => (
             <div
               key={coParent.id}
-              className="list-item-compact"
+              className="list-row-compact"
             >
               <div>
                 <p className="font-medium">{coParent.name}</p>

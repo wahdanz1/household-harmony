@@ -20,10 +20,13 @@ import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUt
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
+import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
+import { useEncryption } from "@/contexts/EncryptionContext";
 
 const Expenses = () => {
   const { user } = useAuth();
   const { household, members, coParents } = useHousehold();
+  const { isUnlocked } = useEncryption();
   const location = useLocation(); // Trigger refetch on navigation
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
@@ -58,6 +61,12 @@ const Expenses = () => {
 
   const fetchData = useCallback(async () => {
     if (!user || !household) return;
+
+    // If vault is locked, we can't fetch decrypted data safely
+    if (!isUnlocked) {
+      setLoading(false);
+      return;
+    }
 
     // Compute dates fresh inside fetchData using current financialMonthStart
     const fms = household?.financial_month_start || 25;
@@ -139,9 +148,9 @@ const Expenses = () => {
 
       // For static expenses, always use the current default amount from the category definition
       if (category.type === "static") {
-        initialAmounts[category.id] = category.default_amount.toString();
+        initialAmounts[category.id] = (category.default_amount || "0").toString();
       } else if (existing) {
-        initialAmounts[category.id] = existing.amount.toString();
+        initialAmounts[category.id] = (existing.amount || "0").toString();
       } else if (category.type === "dynamic") {
         const previousExpenses = decryptedHistorical.filter((h: any) => h.expense_id === category.id);
         if (previousExpenses.length > 0) {
@@ -149,17 +158,17 @@ const Expenses = () => {
           const avg = total / previousExpenses.length;
           initialAmounts[category.id] = Math.round(avg).toString();
         } else {
-          initialAmounts[category.id] = category.default_amount.toString();
+          initialAmounts[category.id] = (category.default_amount || "0").toString();
         }
       } else {
-        initialAmounts[category.id] = category.default_amount.toString();
+        initialAmounts[category.id] = (category.default_amount || "0").toString();
       }
     });
 
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [user, household]);
+  }, [user, household, isUnlocked]);
 
   useEffect(() => {
     if (household) {
@@ -356,14 +365,26 @@ const Expenses = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-4">
+        <PageHeader title="Expense Management" />
+        <div className="flex items-center justify-center min-h-[300px]">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isUnlocked) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Expense Management" />
+        <VaultLockedAlert />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title="Expense Management"
         totalLabel="Total Expenses"
@@ -504,7 +525,7 @@ const Expenses = () => {
                   return (
                     <div
                       key={sub.id}
-                      className="list-item-compact cursor-pointer hover:bg-background/60 transition-colors opacity-60"
+                      className="list-row-inactive"
                       onClick={() => setEditingSubscription(sub)}
                     >
                       <div className="flex items-center gap-2">
@@ -524,7 +545,7 @@ const Expenses = () => {
                   return (
                     <div
                       key={ins.id}
-                      className="list-item-compact cursor-pointer hover:bg-background/60 transition-colors opacity-60"
+                      className="list-row-inactive"
                       onClick={() => setEditingInsurance(ins)}
                     >
                       <div className="flex items-center gap-2">

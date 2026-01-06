@@ -71,7 +71,7 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
     <div className="space-y-6">
       {/* Combined Summary and Management Card */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent>
           <div className="grid gap-8 md:grid-cols-2">
             {/* Summary Section */}
             <div className="space-y-4">

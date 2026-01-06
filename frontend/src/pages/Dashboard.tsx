@@ -11,6 +11,17 @@ import SavingsGoalsPreview from "@/components/dashboard/SavingsGoalsPreview";
 import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlementCard";
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 import { TrendingUp, TrendingDown, PiggyBank, Repeat, Shield, ClipboardCheck, ChevronRight } from "lucide-react";
+import {
+  useEncryptedFields,
+  monthlyIncomeFields,
+  monthlyExpenseFields,
+  subscriptionFields,
+  insuranceFields,
+  creditCardExpenseFields,
+  sharedExpenseFields
+} from "@/hooks/useEncryptedFields";
+import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
+import { useEncryption } from "@/contexts/EncryptionContext";
 
 interface DashboardData {
   income: number;
@@ -24,6 +35,7 @@ interface DashboardData {
 const Dashboard = () => {
   const { user } = useAuth();
   const { household, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
+  const { isUnlocked } = useEncryption();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData>({
@@ -40,9 +52,27 @@ const Dashboard = () => {
 
   const { needsReview, markAsReviewed } = useMonthlyReviewStatus(household?.id, financialMonthStart);
 
+  // Encryption hooks
+  const { decryptRecords: decryptIncomes } = useEncryptedFields(monthlyIncomeFields);
+  const { decryptRecords: decryptExpenses } = useEncryptedFields(monthlyExpenseFields);
+  const { decryptRecords: decryptSubscriptions } = useEncryptedFields(subscriptionFields);
+  const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
+  const { decryptRecords: decryptCCExpenses } = useEncryptedFields(creditCardExpenseFields);
+  const { decryptRecords: decryptShared } = useEncryptedFields(sharedExpenseFields);
+
   useEffect(() => {
     const fetchData = async () => {
+      // If vault is locked, we can't fetch meaningful data, so stop early (or wait for unlock)
       if (!user || !household?.id || householdLoading) return;
+
+      // If locked, we rely on the VaultLockedAlert to tell the user; 
+      // but we still let it run to clear loading state if desired, 
+      // though typically we'll return early in render.
+      // However, to avoid NaN calculations, we should only process if unlocked.
+      if (!isUnlocked) {
+        setLoading(false);
+        return;
+      }
 
       setHouseholdId(household.id);
 
@@ -67,6 +97,14 @@ const Dashboard = () => {
         supabase.from("credit_card_expenses").select("amount").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
         supabase.from("shared_expenses").select("amount, paid_by").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
       ]);
+
+      // Decrypt all data //
+      const decryptedIncomes = await decryptIncomes(monthlyIncomes || []);
+      const decryptedExpenses = await decryptExpenses(monthlyExpenses || []);
+      const decryptedSubs = await decryptSubscriptions(subscriptions || []);
+      const decryptedInsurances = await decryptInsurances(insurances || []);
+      const decryptedCC = await decryptCCExpenses(creditCardExpenses || []);
+      const decryptedShared = await decryptShared(sharedExpenses || []);
 
       // Helper to deduplicate recurring items
       const deduplicateItems = (items: any[], sourceIdField: string) => {
@@ -93,18 +131,16 @@ const Dashboard = () => {
         return [...Object.values(uniqueItems), ...oneTimeItems];
       };
 
-      const uniqueIncomes = deduplicateItems(monthlyIncomes || [], "income_source_id");
-      const uniqueExpenses = deduplicateItems(monthlyExpenses || [], "expense_id");
+      const uniqueIncomes = deduplicateItems(decryptedIncomes, "income_source_id");
+      const uniqueExpenses = deduplicateItems(decryptedExpenses, "expense_id");
 
-      const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
-      const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
+      const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
+      const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
 
       // Calculate subscriptions - Logic matches Expenses page (Cash Flow based)
-      // - Monthly: always counts
-      // - Quarterly/Yearly: counts full amount ONLY if due this month
       let subscriptionsMonthly = 0;
       let subscriptionsYearly = 0;
-      (subscriptions || []).forEach((sub: any) => {
+      decryptedSubs.forEach((sub: any) => {
         const amount = parseFloat(sub.amount || "0");
 
         // Yearly Projection
@@ -149,26 +185,27 @@ const Dashboard = () => {
       // Calculate insurance - track both monthly equivalent and yearly total
       let insuranceMonthly = 0;
       let insuranceYearly = 0;
-      (insurances || []).forEach((ins: any) => {
+      decryptedInsurances.forEach((ins: any) => {
+        const totalAmount = parseFloat(ins.total_amount || "0"); // Handle string/number mismatch
         let monthlyAmount = 0;
         let yearlyAmount = 0;
 
         if (ins.payment_frequency === "yearly") {
-          monthlyAmount = ins.total_amount / 12;
-          yearlyAmount = ins.total_amount;
+          monthlyAmount = totalAmount / 12;
+          yearlyAmount = totalAmount;
         } else if (ins.payment_frequency === "semi_annually") {
-          monthlyAmount = ins.total_amount / 6;
-          yearlyAmount = ins.total_amount * 2;
+          monthlyAmount = totalAmount / 6;
+          yearlyAmount = totalAmount * 2;
         } else if (ins.payment_frequency === "quarterly") {
-          monthlyAmount = ins.total_amount / 3;
-          yearlyAmount = ins.total_amount * 4;
+          monthlyAmount = totalAmount / 3;
+          yearlyAmount = totalAmount * 4;
         } else {
-          monthlyAmount = ins.total_amount;
-          yearlyAmount = ins.total_amount * 12;
+          monthlyAmount = totalAmount;
+          yearlyAmount = totalAmount * 12;
         }
 
         if (ins.is_shared) {
-          const shareRatio = ins.share_percentage / 100;
+          const shareRatio = (ins.share_percentage || 50) / 100;
           monthlyAmount *= shareRatio;
           yearlyAmount *= shareRatio;
         }
@@ -177,9 +214,9 @@ const Dashboard = () => {
         insuranceYearly += yearlyAmount;
       });
 
-      const totalCreditCard = (creditCardExpenses || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
-      const totalShared = (sharedExpenses || []).reduce((sum: number, item: any) => {
-        return sum + (item.paid_by === "user" ? parseFloat(item.amount) : -parseFloat(item.amount));
+      const totalCreditCard = decryptedCC.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
+      const totalShared = decryptedShared.reduce((sum: number, item: any) => {
+        return sum + (item.paid_by === "user" ? (parseFloat(item.amount) || 0) : -(parseFloat(item.amount) || 0));
       }, 0);
 
       const totalExpenses = totalMonthlyExpenses + subscriptionsMonthly + insuranceMonthly + totalCreditCard + totalShared;
@@ -197,7 +234,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [user, household, householdLoading]);
+  }, [user, household, householdLoading, isUnlocked]); // added isUnlocked dependency
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('sv-SE', {
@@ -208,8 +245,21 @@ const Dashboard = () => {
 
   if (householdLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-4">
+        <PageHeader title="Dashboard" />
+        <div className="flex items-center justify-center min-h-[300px]">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If locked, show alert instead of dashboard metrics
+  if (!isUnlocked) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Dashboard" />
+        <VaultLockedAlert />
       </div>
     );
   }

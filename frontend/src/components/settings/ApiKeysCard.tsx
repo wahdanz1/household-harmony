@@ -6,7 +6,7 @@ import { useEncryption } from "@/contexts/EncryptionContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Key, Eye, EyeOff, Check, AlertCircle, ExternalLink } from "lucide-react";
+import { Key, Eye, EyeOff, Check, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 
@@ -154,12 +154,7 @@ export const ApiKeysCard = () => {
                     </div>
                 </div>
 
-                {!isUnlocked && (
-                    <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-500 text-sm mb-4">
-                        <AlertCircle className="h-4 w-4 shrink-0" />
-                        <span>Vault is locked. API key will be stored unencrypted until you log in again.</span>
-                    </div>
-                )}
+
 
                 <div className="space-y-4">
                     <div className="space-y-2">

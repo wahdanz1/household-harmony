@@ -240,7 +240,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
           {incomeSources.map((source) => (
             <div
               key={source.id}
-              className="list-item-compact"
+              className="list-row-compact"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2">

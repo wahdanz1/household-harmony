@@ -139,7 +139,7 @@ export const ExpenseBlock = ({
                             return (
                                 <div
                                     key={item.id}
-                                    className="list-item-compact text-sm hover:bg-background/60 cursor-pointer group transition-colors"
+                                    className="list-row-compact text-sm hover:bg-background/60 cursor-pointer group transition-colors"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onItemClick?.(item.id);
@@ -167,7 +167,7 @@ export const ExpenseBlock = ({
                                                         onAmountChange(item.id, e.target.value);
                                                     }}
                                                     onClick={(e) => e.stopPropagation()}
-                                                    className={`w-20 sm:w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 ${item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
+                                                    className={`currency-input w-20 sm:w-24 ${item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
                                                         ? 'border-green-500'
                                                         : 'border-lime-400'
                                                         }`}

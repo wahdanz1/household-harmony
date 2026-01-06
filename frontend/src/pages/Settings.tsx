@@ -9,10 +9,15 @@ import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
 import { DataMigrationCard } from "@/components/settings/DataMigrationCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Home, User, Shield } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Home, User, Shield, AlertTriangle } from "lucide-react";
+import { useEncryption } from "@/contexts/EncryptionContext";
+import { VaultUnlockButton } from "@/components/shared/VaultUnlockDialog";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 const Settings = () => {
   const { user } = useAuth();
+  const { isUnlocked } = useEncryption();
   const [household, setHousehold] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
@@ -50,8 +55,14 @@ const Settings = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-4">
+        <PageHeader
+          title="Settings"
+          subtitle="Manage your household and preferences"
+        />
+        <div className="flex items-center justify-center min-h-[300px]">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -65,11 +76,11 @@ const Settings = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your household and preferences</p>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Settings"
+        subtitle="Manage your household and preferences"
+      />
 
       <Tabs defaultValue="general" className="w-full">
         <TabsList>
@@ -114,8 +125,33 @@ const Settings = () => {
 
         <TabsContent value="security" className="mt-6">
           <div className="space-y-6">
-            <ApiKeysCard />
-            <DataMigrationCard />
+            {!isUnlocked && (
+              <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-500 mb-6 flex items-center justify-between p-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-2 rounded-full bg-amber-500/10 shrink-0">
+                    <AlertTriangle className="h-6 w-6 stroke-amber-500" />
+                  </div>
+                  <div>
+                    <AlertTitle className="text-lg font-semibold mb-1">Vault Locked</AlertTitle>
+                    <AlertDescription className="text-base text-amber-500/90">
+                      Your vault is locked. Please unlock it to view and manage sensitive data.
+                    </AlertDescription>
+                  </div>
+                </div>
+
+                <VaultUnlockButton
+                  variant="outline"
+                  className="h-10 px-6 ml-4 border-amber-500/50 hover:bg-amber-500/20 hover:text-amber-500 text-base font-medium whitespace-nowrap"
+                />
+              </Alert>
+            )}
+
+            <div className={!isUnlocked ? "opacity-50 pointer-events-none select-none grayscale-[0.5] transition-all duration-300" : "transition-all duration-300"}>
+              <div className="space-y-6">
+                <ApiKeysCard />
+                <DataMigrationCard />
+              </div>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

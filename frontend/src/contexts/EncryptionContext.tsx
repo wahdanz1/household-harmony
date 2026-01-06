@@ -7,6 +7,7 @@ import {
     reEncryptDEK,
 } from '@/services/encryption';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface EncryptionContextValue {
     /** Whether the vault is unlocked (DEK is available) */
@@ -70,6 +71,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
     const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [showLockWarning, setShowLockWarning] = useState(false);
+    const autoLockDisabledRef = useRef(false);
 
     // Clear timers on unmount
     useEffect(() => {
@@ -86,16 +88,28 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
         if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
 
-        if (!isUnlocked) return;
+        if (!isUnlocked || autoLockDisabledRef.current) return;
 
-        // Set warning timer (fires before lock)
+        // Set warning timer (fires before lock) - show toast
         warningTimerRef.current = setTimeout(() => {
             setShowLockWarning(true);
+            toast({
+                title: 'Vault Auto-Lock Warning',
+                description: 'You have been inactive. The vault will lock in 1 minute. Interact with the app to stay active.',
+                duration: 55000, // Show for almost the full minute
+            });
         }, INACTIVITY_TIMEOUT - LOCK_WARNING_TIME);
 
         // Set lock timer
         inactivityTimerRef.current = setTimeout(() => {
-            lockVault();
+            if (!autoLockDisabledRef.current) {
+                lockVault();
+                toast({
+                    title: 'Vault Locked',
+                    description: 'Your vault has been locked due to inactivity. Please unlock to continue.',
+                    variant: 'destructive',
+                });
+            }
         }, INACTIVITY_TIMEOUT);
     }, [isUnlocked]);
 
@@ -190,7 +204,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
             // If user doesn't have encryption set up yet, initialize it
             if (!profile.encrypted_dek || !profile.dek_salt || !profile.dek_iv) {
-                console.log('User has no encryption keys, initializing...');
+                // User doesn't have encryption set up yet, initialize it
                 return await initializeEncryption(password, userId);
             }
 
@@ -286,6 +300,26 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         changePassword,
         resetInactivityTimer,
     };
+
+    // --- Developer Mode: Disable Auto-Lock ---
+    // Expose functions to window for developers to control auto-lock
+    // Usage in console: window.disableVaultAutoLock() / window.enableVaultAutoLock()
+    useEffect(() => {
+        if (process.env.NODE_ENV === 'development') {
+            (window as any).disableVaultAutoLock = () => {
+                autoLockDisabledRef.current = true;
+                if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+                if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+                setShowLockWarning(false);
+            };
+
+            (window as any).enableVaultAutoLock = () => {
+                autoLockDisabledRef.current = false;
+                resetInactivityTimer();
+            };
+        }
+    }, [resetInactivityTimer]);
+    // -----------------------------------------
 
     return (
         <EncryptionContext.Provider value={value}>

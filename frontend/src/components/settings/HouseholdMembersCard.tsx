@@ -171,7 +171,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
           {members.map((member) => (
             <div
               key={member.id}
-              className="list-item-compact"
+              className="list-row-compact"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2">

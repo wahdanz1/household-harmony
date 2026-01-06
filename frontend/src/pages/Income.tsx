@@ -22,8 +22,12 @@ import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/h
 
 import type { IncomeSuggestion } from "@/types/api";
 
+import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
+import { useEncryption } from "@/contexts/EncryptionContext";
+
 const Income = () => {
   const { user } = useAuth();
+  const { isUnlocked } = useEncryption();
   const { household, members, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
   const location = useLocation(); // Trigger refetch on navigation
   const { toast } = useToast();
@@ -55,6 +59,12 @@ const Income = () => {
   const fetchData = useCallback(async () => {
     if (!household?.id) return;
 
+    // If vault is locked, we can't fetch decrypted data safely
+    if (!isUnlocked) {
+      setLoading(false);
+      return;
+    }
+
     // Compute dates fresh inside fetchData using current financialMonthStart
     const fetchMonth = getCurrentFinancialMonth(financialMonthStart);
     const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, financialMonthStart);
@@ -83,8 +93,8 @@ const Income = () => {
     // Auto-create monthly_incomes records for sources that don't have them yet
     // This ensures Dashboard shows all income, not just edited sources
     const missingRecords: any[] = [];
-    (sourcesData || []).forEach((source: any) => {
-      const existing = (monthlyData || []).find((m: any) => m.income_source_id === source.id);
+    decryptedSources.forEach((source: any) => {
+      const existing = decryptedMonthly.find((m: any) => m.income_source_id === source.id);
       if (!existing && user) {
         missingRecords.push({
           income_source_id: source.id,
@@ -92,7 +102,7 @@ const Income = () => {
           month: fetchMonth,
           month_start: startStr,
           month_end: endStr,
-          amount: parseFloat(source.default_amount?.toString() || "0"),
+          amount: parseFloat((source.default_amount || "0").toString()),
           created_by: user.id,
         });
       }
@@ -106,14 +116,14 @@ const Income = () => {
     // Note: Don't set 'saved' status on initial load - only after actual user edits
 
     const initialAmounts: Record<string, string> = {};
-    (sourcesData || []).forEach((source: any) => {
-      const existing = (monthlyData || []).find((m: any) => m.income_source_id === source.id);
-      initialAmounts[source.id] = existing ? existing.amount.toString() : source.default_amount.toString();
+    decryptedSources.forEach((source: any) => {
+      const existing = decryptedMonthly.find((m: any) => m.income_source_id === source.id);
+      initialAmounts[source.id] = existing ? (existing.amount || "0").toString() : (source.default_amount || "0").toString();
     });
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [household?.id, financialMonthStart, user]);
+  }, [household?.id, financialMonthStart, user, isUnlocked]);
 
   useEffect(() => {
     if (!householdLoading && household?.id) {
@@ -175,7 +185,7 @@ const Income = () => {
 
       if (showToast && incomeSuggestions.length > 0) {
         toast({
-          title: "✨ Smart defaults applied",
+          title: "Smart defaults applied",
           description: `Pre-filled ${incomeSuggestions.length} income sources from historical data`,
         });
       }
@@ -342,8 +352,20 @@ const Income = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-4">
+        <PageHeader title="Income Management" />
+        <div className="flex items-center justify-center min-h-[300px]">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isUnlocked) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Income Management" />
+        <VaultLockedAlert />
       </div>
     );
   }
@@ -400,7 +422,7 @@ const Income = () => {
         <div className="flex items-center gap-3">
           <TrendingUp className="h-5 w-5 text-green-500" />
           <div>
-            <h3 className="font-semibold text-foreground">Income</h3>
+            <h3>Income</h3>
             <p className="text-xs text-muted-foreground">
               {incomeSources.length} {incomeSources.length === 1 ? 'source' : 'sources'}
             </p>
@@ -422,14 +444,15 @@ const Income = () => {
               // Status: green = using default, lime = manually overridden
               let status: 'saved' | 'modified' | 'none' = 'none';
               if (currentAmount !== undefined) {
-                status = currentAmount === source.default_amount.toString() ? 'saved' : 'modified';
+                const defaultStr = (source.default_amount || 0).toString();
+                status = currentAmount === defaultStr ? 'saved' : 'modified';
               }
 
               return (
                 <IncomeSourceItem
                   key={source.id}
                   source={source}
-                  amount={amounts[source.id] || source.default_amount.toString()}
+                  amount={amounts[source.id] || (source.default_amount || "0").toString()}
                   currency={household?.currency || "SEK"}
                   onAmountChange={handleAmountChange}
                   onEdit={handleEditSource}
@@ -447,7 +470,7 @@ const Income = () => {
       {/* Total Monthly Income Bar - matching Expenses style with border */}
       <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-foreground">Total Monthly Income</span>
+          <span className="font-semibold">Total Monthly Income</span>
           <span className="text-2xl font-bold text-green-500">
             {totalIncome.toFixed(0)} {household?.currency || "SEK"}
           </span>

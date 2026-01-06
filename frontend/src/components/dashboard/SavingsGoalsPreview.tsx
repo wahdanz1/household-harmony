@@ -62,18 +62,18 @@ const SavingsGoalsPreview = ({ currency }: SavingsGoalsPreviewProps) => {
 
   if (loading) {
     return (
-      <div className="bg-muted/40 rounded-lg p-4 border border-primary/20">
+      <div className="card-surface">
         <div className="flex items-center gap-3 mb-4">
           <Target className="h-5 w-5 text-blue-500" />
           <h3 className="font-semibold text-foreground">Savings Goals</h3>
         </div>
-        <p className="text-sm text-muted-foreground text-center py-4">Loading...</p>
+        <p className="card-description text-center py-4">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-muted/40 rounded-lg p-4 border border-primary/20">
+    <div className="card-surface">
       <div className="flex items-center gap-3 mb-4">
         <Target className="h-5 w-5 text-blue-500" />
         <h3 className="font-semibold text-foreground">Savings Goals</h3>
