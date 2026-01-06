@@ -6,8 +6,10 @@ import { HouseholdInfoCard } from "@/components/settings/HouseholdInfoCard";
 import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard";
 import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
 import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
+import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
+import { DataMigrationCard } from "@/components/settings/DataMigrationCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Home, Users, User } from "lucide-react";
+import { Home, User, Shield } from "lucide-react";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -70,24 +72,33 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList>
           <TabsTrigger value="general" className="flex items-center gap-2">
             <Home className="h-4 w-4" />
             <span className="hidden sm:inline">General</span>
-          </TabsTrigger>
-          <TabsTrigger value="members" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Members</span>
           </TabsTrigger>
           <TabsTrigger value="personal" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Personal</span>
           </TabsTrigger>
+          <TabsTrigger value="security" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Security</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="mt-6">
           <div className="space-y-6">
-            <HouseholdInfoCard household={household} userRole={userRole} members={members} onUpdate={fetchData} />
+            {/* Household Info & Members - 2 column grid on desktop */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <HouseholdInfoCard household={household} userRole={userRole} members={members} onUpdate={fetchData} />
+              <HouseholdMembersCard
+                members={members}
+                householdId={household.id}
+                invites={invites}
+                onUpdate={fetchData}
+              />
+            </div>
             <ExtraFeaturesCard
               householdId={household.id}
               enableCreditCards={household.enable_credit_cards || false}
@@ -97,17 +108,15 @@ const Settings = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="members" className="mt-6">
-          <HouseholdMembersCard
-            members={members}
-            householdId={household.id}
-            invites={invites}
-            onUpdate={fetchData}
-          />
-        </TabsContent>
-
         <TabsContent value="personal" className="mt-6">
           <PersonalSettingsCard />
+        </TabsContent>
+
+        <TabsContent value="security" className="mt-6">
+          <div className="space-y-6">
+            <ApiKeysCard />
+            <DataMigrationCard />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

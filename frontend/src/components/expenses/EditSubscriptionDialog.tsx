@@ -16,6 +16,7 @@ import { Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, subscriptionFields } from "@/hooks/useEncryptedFields";
 
 const subscriptionCategories = [
     { value: "streaming", label: "Streaming", color: "#EC4899" },
@@ -55,6 +56,7 @@ export const EditSubscriptionDialog = ({
     onSave,
 }: EditSubscriptionDialogProps) => {
     const { toast } = useToast();
+    const { encryptRecord } = useEncryptedFields(subscriptionFields);
     const [formData, setFormData] = useState({
         name: "",
         amount: "",
@@ -87,18 +89,23 @@ export const EditSubscriptionDialog = ({
         if (!subscription) return;
         setSaving(true);
 
+        const baseData = {
+            name: formData.name,
+            amount: parseFloat(formData.amount),
+            billing_cycle: formData.billing_cycle,
+            category: formData.category,
+            notes: formData.notes,
+            is_active: formData.is_active,
+            billing_day: (formData.billing_cycle === "yearly" || formData.billing_cycle === "quarterly") ? formData.billing_day : null,
+            billing_month: (formData.billing_cycle === "yearly" || formData.billing_cycle === "quarterly") ? formData.billing_month : null,
+        };
+
+        // Encrypt sensitive fields (name, amount)
+        const data = await encryptRecord(baseData);
+
         const { error } = await supabase
             .from("subscriptions")
-            .update({
-                name: formData.name,
-                amount: parseFloat(formData.amount),
-                billing_cycle: formData.billing_cycle,
-                category: formData.category,
-                notes: formData.notes,
-                is_active: formData.is_active,
-                billing_day: (formData.billing_cycle === "yearly" || formData.billing_cycle === "quarterly") ? formData.billing_day : null,
-                billing_month: (formData.billing_cycle === "yearly" || formData.billing_cycle === "quarterly") ? formData.billing_month : null,
-            })
+            .update(data)
             .eq("id", subscription.id);
 
         setSaving(false);

@@ -183,7 +183,7 @@ export const OneTimeIncomeCard = ({
                         {oneTimeIncomes.map((income) => (
                             <div
                                 key={income.id}
-                                className="flex items-center gap-4 p-4 rounded-lg border border-border bg-background/40"
+                                className="list-item gap-4"
                             >
                                 <div className="flex-1">
                                     <div className="flex items-center gap-2">

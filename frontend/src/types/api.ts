@@ -9,7 +9,7 @@ export interface IncomeSuggestion {
 }
 
 export interface ExpenseSuggestion {
-    regular_expense_id: string;
+    expense_id: string;
     suggested_amount: number;
     source: 'last_month' | 'average_3_months';
     confidence: 'high' | 'medium' | 'low';

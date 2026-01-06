@@ -6,8 +6,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: any; data: { user: User | null } | null }>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any; data: { user: User | null } | null }>;
   signUpAndJoinHousehold: (email: string, password: string, fullName: string, householdId: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -40,17 +40,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error, data } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    return { error };
+    return { error, data: data ? { user: data.user } : null };
   };
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     const redirectUrl = `${window.location.origin}/`;
 
-    const { error } = await supabase.auth.signUp({
+    const { error, data } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       },
     });
-    return { error };
+    return { error, data: data ? { user: data.user } : null };
   };
 
   const signUpAndJoinHousehold = async (email: string, password: string, fullName: string, householdId: string) => {

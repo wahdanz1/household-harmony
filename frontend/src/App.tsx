@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
 import { HouseholdProvider } from "./contexts/HouseholdContext";
+import { EncryptionProvider } from "./contexts/EncryptionContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 
@@ -33,22 +34,24 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
-          <HouseholdProvider>
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
-                <Route path="/income" element={<ProtectedRoute><Layout><Income /></Layout></ProtectedRoute>} />
-                <Route path="/expenses" element={<ProtectedRoute><Layout><Expenses /></Layout></ProtectedRoute>} />
-                <Route path="/savings" element={<ProtectedRoute><Layout><Savings /></Layout></ProtectedRoute>} />
-                <Route path="/history" element={<ProtectedRoute><Layout><History /></Layout></ProtectedRoute>} />
-                <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-          </HouseholdProvider>
+          <EncryptionProvider>
+            <HouseholdProvider>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+                  <Route path="/income" element={<ProtectedRoute><Layout><Income /></Layout></ProtectedRoute>} />
+                  <Route path="/expenses" element={<ProtectedRoute><Layout><Expenses /></Layout></ProtectedRoute>} />
+                  <Route path="/savings" element={<ProtectedRoute><Layout><Savings /></Layout></ProtectedRoute>} />
+                  <Route path="/history" element={<ProtectedRoute><Layout><History /></Layout></ProtectedRoute>} />
+                  <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </HouseholdProvider>
+          </EncryptionProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

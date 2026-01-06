@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, expenseFields } from "@/hooks/useEncryptedFields";
 
 interface AddExpenseDialogProps {
     open: boolean;
@@ -58,6 +59,7 @@ const expenseTypes = [
 export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents, onSuccess }: AddExpenseDialogProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
+    const { encryptRecord } = useEncryptedFields(expenseFields);
     const [selectedType, setSelectedType] = useState<ExpenseType>(null);
     const [saving, setSaving] = useState(false);
 
@@ -75,7 +77,7 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
         handleClose();
     };
 
-    // Handle Fixed/Variable expense submission (INSERT to regular_expenses)
+    // Handle Fixed/Variable expense submission (INSERT to expenses)
     const handleExpenseSubmit = async (data: ExpenseFormData) => {
         setSaving(true);
 
@@ -89,7 +91,7 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
             return;
         }
 
-        const { error } = await supabase.from("regular_expenses").insert({
+        const baseData = {
             household_id: householdId,
             category: data.category,
             name: data.name,
@@ -98,7 +100,12 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
             created_by: user.id,
             is_active: true,
             sort_order: 999,
-        });
+        };
+
+        // Encrypt sensitive fields (name, default_amount)
+        const encryptedData = await encryptRecord(baseData);
+
+        const { error } = await supabase.from("expenses").insert(encryptedData);
 
         setSaving(false);
 

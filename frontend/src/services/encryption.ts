@@ -1,0 +1,260 @@
+/**
+ * Client-Side Encryption Service
+ * 
+ * Uses Web Crypto API for all cryptographic operations.
+ * Implements two-tier key architecture:
+ * - DEK (Data Encryption Key): Random key that encrypts user data
+ * - KEK (Key Encryption Key): Derived from password, encrypts the DEK
+ */
+
+// Constants
+const PBKDF2_ITERATIONS = 100000;
+const SALT_LENGTH = 16;
+const IV_LENGTH = 12;
+const KEY_LENGTH = 256;
+
+/**
+ * Convert ArrayBuffer to Base64 string
+ */
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+/**
+ * Convert Base64 string to ArrayBuffer
+ */
+export function base64ToArrayBuffer(base64: string): ArrayBuffer {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+/**
+ * Generate cryptographically secure random bytes
+ */
+export function generateRandomBytes(length: number): Uint8Array {
+    return crypto.getRandomValues(new Uint8Array(length));
+}
+
+/**
+ * Derive a Key Encryption Key (KEK) from password using PBKDF2
+ */
+export async function deriveKEK(password: string, salt: Uint8Array): Promise<CryptoKey> {
+    const encoder = new TextEncoder();
+    const passwordBuffer = encoder.encode(password);
+
+    // Import password as key material
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        passwordBuffer,
+        'PBKDF2',
+        false,
+        ['deriveKey']
+    );
+
+    // Derive the KEK using PBKDF2
+    return crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: PBKDF2_ITERATIONS,
+            hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: KEY_LENGTH },
+        false,
+        ['encrypt', 'decrypt']
+    );
+}
+
+/**
+ * Generate a new random Data Encryption Key (DEK)
+ */
+export async function generateDEK(): Promise<CryptoKey> {
+    return crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: KEY_LENGTH },
+        true, // extractable so we can export/encrypt it
+        ['encrypt', 'decrypt']
+    );
+}
+
+/**
+ * Export DEK to raw bytes (for encryption with KEK)
+ */
+export async function exportDEK(dek: CryptoKey): Promise<ArrayBuffer> {
+    return crypto.subtle.exportKey('raw', dek);
+}
+
+/**
+ * Import raw bytes as DEK
+ */
+export async function importDEK(rawKey: ArrayBuffer): Promise<CryptoKey> {
+    return crypto.subtle.importKey(
+        'raw',
+        rawKey,
+        { name: 'AES-GCM', length: KEY_LENGTH },
+        false, // not extractable after import
+        ['encrypt', 'decrypt']
+    );
+}
+
+/**
+ * Encrypt the DEK with the KEK for storage
+ * Returns: { encryptedDEK: base64, iv: base64 }
+ */
+export async function encryptDEK(
+    dek: CryptoKey,
+    kek: CryptoKey
+): Promise<{ encryptedDEK: string; iv: string }> {
+    const iv = generateRandomBytes(IV_LENGTH);
+    const rawDEK = await exportDEK(dek);
+
+    const encryptedBuffer = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        kek,
+        rawDEK
+    );
+
+    return {
+        encryptedDEK: arrayBufferToBase64(encryptedBuffer),
+        iv: arrayBufferToBase64(iv.buffer),
+    };
+}
+
+/**
+ * Decrypt the DEK using the KEK
+ */
+export async function decryptDEK(
+    encryptedDEK: string,
+    iv: string,
+    kek: CryptoKey
+): Promise<CryptoKey> {
+    const encryptedBuffer = base64ToArrayBuffer(encryptedDEK);
+    const ivBuffer = new Uint8Array(base64ToArrayBuffer(iv));
+
+    const rawDEK = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: ivBuffer },
+        kek,
+        encryptedBuffer
+    );
+
+    return importDEK(rawDEK);
+}
+
+/**
+ * Encrypt a string value with the DEK
+ * Returns: base64 encoded ciphertext (iv prepended)
+ */
+export async function encrypt(plaintext: string, dek: CryptoKey): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plaintext);
+    const iv = generateRandomBytes(IV_LENGTH);
+
+    const encryptedBuffer = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        dek,
+        data
+    );
+
+    // Prepend IV to ciphertext (IV is not secret, just needs to be unique)
+    const combined = new Uint8Array(iv.length + encryptedBuffer.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(encryptedBuffer), iv.length);
+
+    return arrayBufferToBase64(combined.buffer);
+}
+
+/**
+ * Decrypt a ciphertext string with the DEK
+ * Returns: decrypted plaintext
+ */
+export async function decrypt(ciphertext: string, dek: CryptoKey): Promise<string> {
+    const combined = new Uint8Array(base64ToArrayBuffer(ciphertext));
+
+    // Extract IV (first 12 bytes) and ciphertext
+    const iv = combined.slice(0, IV_LENGTH);
+    const encryptedData = combined.slice(IV_LENGTH);
+
+    const decryptedBuffer = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv },
+        dek,
+        encryptedData
+    );
+
+    const decoder = new TextDecoder();
+    return decoder.decode(decryptedBuffer);
+}
+
+/**
+ * Generate a new salt for key derivation
+ */
+export function generateSalt(): Uint8Array {
+    return generateRandomBytes(SALT_LENGTH);
+}
+
+/**
+ * Create encryption keys for a new user
+ * Returns all the data needed to store in the user's profile
+ */
+export async function createUserEncryptionKeys(password: string): Promise<{
+    encryptedDEK: string;
+    dekSalt: string;
+    dekIV: string;
+    dek: CryptoKey; // Keep in memory, don't store!
+}> {
+    const salt = generateSalt();
+    const kek = await deriveKEK(password, salt);
+    const dek = await generateDEK();
+    const { encryptedDEK, iv } = await encryptDEK(dek, kek);
+
+    return {
+        encryptedDEK,
+        dekSalt: arrayBufferToBase64(salt.buffer),
+        dekIV: iv,
+        dek, // Return the raw DEK for immediate use in memory
+    };
+}
+
+/**
+ * Unlock user's vault by decrypting their DEK
+ */
+export async function unlockVault(
+    password: string,
+    encryptedDEK: string,
+    dekSalt: string,
+    dekIV: string
+): Promise<CryptoKey> {
+    const salt = new Uint8Array(base64ToArrayBuffer(dekSalt));
+    const kek = await deriveKEK(password, salt);
+    return decryptDEK(encryptedDEK, dekIV, kek);
+}
+
+/**
+ * Re-encrypt DEK with a new password (for password change)
+ */
+export async function reEncryptDEK(
+    dek: CryptoKey,
+    newPassword: string
+): Promise<{
+    encryptedDEK: string;
+    dekSalt: string;
+    dekIV: string;
+}> {
+    const salt = generateSalt();
+    const newKEK = await deriveKEK(newPassword, salt);
+    const { encryptedDEK, iv } = await encryptDEK(dek, newKEK);
+
+    return {
+        encryptedDEK,
+        dekSalt: arrayBufferToBase64(salt.buffer),
+        dekIV: iv,
+    };
+}

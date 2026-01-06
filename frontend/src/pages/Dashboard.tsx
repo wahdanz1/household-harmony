@@ -6,9 +6,11 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { format } from "date-fns";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Card } from "@/components/ui/card";
 import SavingsGoalsPreview from "@/components/dashboard/SavingsGoalsPreview";
 import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlementCard";
-import { TrendingUp, TrendingDown, PiggyBank, Repeat, Shield } from "lucide-react";
+import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
+import { TrendingUp, TrendingDown, PiggyBank, Repeat, Shield, ClipboardCheck, ChevronRight } from "lucide-react";
 
 interface DashboardData {
   income: number;
@@ -34,6 +36,9 @@ const Dashboard = () => {
   });
   const [currency, setCurrency] = useState("SEK");
   const [householdId, setHouseholdId] = useState<string>("");
+  const [reviewWizardOpen, setReviewWizardOpen] = useState(false);
+
+  const { needsReview, markAsReviewed } = useMonthlyReviewStatus(household?.id, financialMonthStart);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -89,7 +94,7 @@ const Dashboard = () => {
       };
 
       const uniqueIncomes = deduplicateItems(monthlyIncomes || [], "income_source_id");
-      const uniqueExpenses = deduplicateItems(monthlyExpenses || [], "regular_expense_id");
+      const uniqueExpenses = deduplicateItems(monthlyExpenses || [], "expense_id");
 
       const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
       const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
@@ -216,84 +221,111 @@ const Dashboard = () => {
     <div className="space-y-4">
       <PageHeader title="Dashboard" />
 
-      {/* Metric Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {/* Monthly Balance */}
-        <div className={`bg-muted/40 rounded-lg p-4 border ${isPositive ? 'border-green-500/30' : 'border-red-500/30'}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <PiggyBank className={`h-4 w-4 ${isPositive ? 'text-green-500' : 'text-red-500'}`} />
-            <span className="text-xs text-muted-foreground">Balance</span>
+      {/* Monthly Review Banner */}
+      {needsReview && (
+        <div
+          className="p-4 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-between cursor-pointer hover:bg-primary/15 transition-colors"
+          onClick={() => setReviewWizardOpen(true)}
+        >
+          <div className="flex items-center gap-3">
+            <ClipboardCheck className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium text-sm">New month! Review your finances</p>
+              <p className="text-xs text-muted-foreground">Confirm your income and expenses are up to date</p>
+            </div>
           </div>
-          <p className={`text-xl font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-            {isPositive ? '+' : ''}{formatCurrency(balance)} {currency}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {isPositive ? 'Surplus' : 'Deficit'}
-          </p>
+          <ChevronRight className="h-5 w-5 text-primary" />
+        </div>
+      )}
+
+      {/* Metric Cards - with reduced opacity when review pending */}
+      <div className={`space-y-3 ${needsReview ? 'opacity-50' : ''} transition-opacity`}>
+        {/* Row 1: Balance - Full Width, More Prominent */}
+        <Card className={`border-2 ${isPositive ? 'border-green-500/40' : 'border-red-500/40'}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <PiggyBank className={`h-5 w-5 ${isPositive ? 'text-green-500' : 'text-red-500'}`} />
+                <span className="text-sm text-muted-foreground">Monthly Balance</span>
+              </div>
+              <p className={`text-3xl font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                {isPositive ? '+' : ''}{formatCurrency(balance)} {currency}
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {isPositive ? 'Surplus' : 'Deficit'}
+            </p>
+          </div>
+        </Card>
+
+        {/* Row 2: Income | Expenses - 50/50 */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Total Income */}
+          <Card
+            className="hover:bg-muted/60 cursor-pointer transition-colors"
+            onClick={() => navigate('/income')}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="h-4 w-4 text-green-500" />
+              <span className="text-xs text-muted-foreground">Income</span>
+            </div>
+            <p className="text-xl font-bold text-green-500">
+              {formatCurrency(data.income)} {currency}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">This month</p>
+          </Card>
+
+          {/* Total Expenses */}
+          <Card
+            className="p-4 hover:bg-muted/60 cursor-pointer transition-colors"
+            onClick={() => navigate('/expenses')}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingDown className="h-4 w-4 text-red-500" />
+              <span className="text-xs text-muted-foreground">Expenses</span>
+            </div>
+            <p className="text-xl font-bold text-red-500">
+              {formatCurrency(data.expenses)} {currency}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">This month</p>
+          </Card>
         </div>
 
-        {/* Total Income */}
-        <div
-          className="bg-muted/40 rounded-lg p-4 border border-primary/20 hover:bg-muted/60 cursor-pointer transition-colors"
-          onClick={() => navigate('/income')}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="h-4 w-4 text-green-500" />
-            <span className="text-xs text-muted-foreground">Income</span>
-          </div>
-          <p className="text-xl font-bold text-green-500">
-            {formatCurrency(data.income)} {currency}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">This month</p>
-        </div>
+        {/* Row 3: Subscriptions | Insurance - 50/50 */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Subscriptions */}
+          <Card
+            className="hover:bg-muted/60 cursor-pointer transition-colors"
+            onClick={() => navigate('/expenses?tab=all')}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Repeat className="h-4 w-4 text-purple-500" />
+              <span className="text-xs text-muted-foreground">Subscriptions</span>
+            </div>
+            <p className="text-xl font-bold text-foreground">
+              {formatCurrency(data.subscriptionsMonthly)} {currency}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatCurrency(data.subscriptionsYearly)}/yr
+            </p>
+          </Card>
 
-        {/* Total Expenses */}
-        <div
-          className="bg-muted/40 rounded-lg p-4 border border-primary/20 hover:bg-muted/60 cursor-pointer transition-colors"
-          onClick={() => navigate('/expenses')}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingDown className="h-4 w-4 text-red-500" />
-            <span className="text-xs text-muted-foreground">Expenses</span>
-          </div>
-          <p className="text-xl font-bold text-red-500">
-            {formatCurrency(data.expenses)} {currency}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">This month</p>
-        </div>
-
-        {/* Subscriptions */}
-        <div
-          className="bg-muted/40 rounded-lg p-4 border border-primary/20 hover:bg-muted/60 cursor-pointer transition-colors"
-          onClick={() => navigate('/expenses?tab=all')}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Repeat className="h-4 w-4 text-purple-500" />
-            <span className="text-xs text-muted-foreground">Subscriptions</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">
-            {formatCurrency(data.subscriptionsMonthly)} {currency}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {formatCurrency(data.subscriptionsYearly)}/yr
-          </p>
-        </div>
-
-        {/* Insurance */}
-        <div
-          className="bg-muted/40 rounded-lg p-4 border border-primary/20 hover:bg-muted/60 cursor-pointer transition-colors"
-          onClick={() => navigate('/expenses?tab=all')}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="h-4 w-4 text-amber-500" />
-            <span className="text-xs text-muted-foreground">Insurance</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">
-            {formatCurrency(data.insuranceMonthly)} {currency}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {formatCurrency(data.insuranceYearly)}/yr
-          </p>
+          {/* Insurance */}
+          <Card
+            className="hover:bg-muted/60 cursor-pointer transition-colors"
+            onClick={() => navigate('/expenses?tab=all')}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="h-4 w-4 text-amber-500" />
+              <span className="text-xs text-muted-foreground">Insurance</span>
+            </div>
+            <p className="text-xl font-bold text-foreground">
+              {formatCurrency(data.insuranceMonthly)} {currency}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatCurrency(data.insuranceYearly)}/yr
+            </p>
+          </Card>
         </div>
       </div>
 
@@ -304,6 +336,13 @@ const Dashboard = () => {
 
       {/* Savings Goals */}
       <SavingsGoalsPreview currency={currency} />
+
+      {/* Monthly Review Wizard */}
+      <MonthlyReviewWizard
+        open={reviewWizardOpen}
+        onOpenChange={setReviewWizardOpen}
+        onComplete={markAsReviewed}
+      />
     </div>
   );
 };

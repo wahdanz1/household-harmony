@@ -21,6 +21,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, creditCardExpenseFields } from "@/hooks/useEncryptedFields";
 import { DataListItem } from "@/components/ui/data-list-item";
 import { creditCategories } from "@/constants/creditCategories";
 import { getCategoryIcon, getCategoryBadgeStyle } from "@/utils/categoryHelpers";
@@ -55,6 +56,7 @@ interface CreditExpensesListProps {
 export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd, creditCards, expenses, onUpdate }: CreditExpensesListProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
+    const { encryptRecord } = useEncryptedFields(creditCardExpenseFields);
     const [isOpen, setIsOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
@@ -93,7 +95,7 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
     const handleSave = async () => {
         if (!user) return;
 
-        const data = {
+        const baseData = {
             household_id: householdId,
             credit_card_id: formData.credit_card_id,
             month: format(monthStart, "yyyy-MM-dd"),
@@ -105,6 +107,9 @@ export const CreditExpensesList = ({ householdId, currency, monthStart, monthEnd
             notes: formData.notes || null,
             created_by: user.id,
         };
+
+        // Encrypt sensitive fields (description, amount)
+        const data = await encryptRecord(baseData);
 
         let error;
         if (editingId) {

@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, savingsGoalFields } from "@/hooks/useEncryptedFields";
 import { format } from "date-fns";
 
 interface SavingsGoal {
@@ -33,6 +34,7 @@ interface SavingsGoal {
 const Savings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { encryptRecord, decryptRecords } = useEncryptedFields(savingsGoalFields);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState("SEK");
@@ -90,7 +92,9 @@ const Savings = () => {
     if (error) {
       toast({ title: "Error loading goals", description: error.message, variant: "destructive" });
     } else {
-      setGoals((data as SavingsGoal[]) || []);
+      // Decrypt savings goals
+      const decryptedGoals = await decryptRecords(data || []) as SavingsGoal[];
+      setGoals(decryptedGoals);
     }
     setLoading(false);
   };
@@ -130,7 +134,7 @@ const Savings = () => {
 
     if (!membership) return;
 
-    const goalData = {
+    const baseData = {
       household_id: membership.household_id,
       name: formData.name,
       target_amount: parseFloat(formData.target_amount),
@@ -143,6 +147,9 @@ const Savings = () => {
       image_url: formData.image_url || null,
       created_by: user.id,
     };
+
+    // Encrypt sensitive fields (name, target_amount, current_amount)
+    const goalData = await encryptRecord(baseData);
 
     if (editingGoal) {
       const { error } = await supabase

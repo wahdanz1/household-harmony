@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CoParentManagement } from "./shared/CoParentManagement";
 import { SharedExpensesList } from "./shared/SharedExpensesList";
+import { useEncryptedFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
 
 interface SharedExpense {
   id: string;
@@ -31,6 +32,7 @@ interface SharedExpensesTabProps {
 export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd }: SharedExpensesTabProps) => {
   const [coParents, setCoParents] = useState<CoParent[]>([]);
   const [expenses, setExpenses] = useState<SharedExpense[]>([]);
+  const { decryptRecords: decryptSharedExpenses } = useEncryptedFields(sharedExpenseFields);
 
   const fetchData = async () => {
     const [{ data: coParentsData }, { data: expensesData }] = await Promise.all([
@@ -45,7 +47,10 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
     ]);
 
     setCoParents(coParentsData || []);
-    setExpenses(expensesData || []);
+
+    // Decrypt shared expenses
+    const decryptedExpenses = await decryptSharedExpenses(expensesData || []) as SharedExpense[];
+    setExpenses(decryptedExpenses);
   };
 
   useEffect(() => {

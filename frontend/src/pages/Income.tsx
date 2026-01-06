@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { AddButton } from "@/components/ui/add-button";
+import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, AlertCircle } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,8 @@ import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUt
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { fetchIncomeSuggestions, getSuggestionBorderColor } from "@/services/smartDefaults";
+
+import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/hooks/useEncryptedFields";
 
 import type { IncomeSuggestion } from "@/types/api";
 
@@ -45,6 +48,10 @@ const Income = () => {
   const currentMonth = getCurrentFinancialMonth(financialMonthStart);
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
+  // Encryption hooks for income data
+  const { decryptRecords: decryptSources } = useEncryptedFields(incomeSourceFields);
+  const { decryptRecords: decryptIncomes, encryptRecord: encryptIncome } = useEncryptedFields(monthlyIncomeFields);
+
   const fetchData = useCallback(async () => {
     if (!household?.id) return;
 
@@ -62,10 +69,14 @@ const Income = () => {
       supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
     ]);
 
-    setIncomeSources(sourcesData || []);
+    // Decrypt sensitive fields (if encrypted)
+    const decryptedSources = await decryptSources(sourcesData || []);
+    const decryptedMonthly = await decryptIncomes(monthlyData || []);
+
+    setIncomeSources(decryptedSources);
 
     // Separate regular incomes (filter out one-time incomes which have no source)
-    const regularIncomes = (monthlyData || []).filter((m: any) => m.income_source_id !== null);
+    const regularIncomes = decryptedMonthly.filter((m: any) => m.income_source_id !== null);
 
     setMonthlyIncomes(regularIncomes);
 
@@ -223,14 +234,19 @@ const Income = () => {
     const saveMonth = getCurrentFinancialMonth(financialMonthStart);
     const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, financialMonthStart);
 
-    const entries = incomeSources.map((source) => ({
-      income_source_id: source.id,
-      household_id: household.id,
-      month: saveMonth,
-      month_start: format(saveStart, "yyyy-MM-dd"),
-      month_end: format(saveEnd, "yyyy-MM-dd"),
-      amount: parseFloat(currentAmounts[source.id] || "0"),
-      created_by: user.id,
+    // Build entries and encrypt them
+    const entries = await Promise.all(incomeSources.map(async (source) => {
+      const baseEntry = {
+        income_source_id: source.id,
+        household_id: household.id,
+        month: saveMonth,
+        month_start: format(saveStart, "yyyy-MM-dd"),
+        month_end: format(saveEnd, "yyyy-MM-dd"),
+        amount: parseFloat(currentAmounts[source.id] || "0"),
+        created_by: user.id,
+      };
+      // Encrypt the entry (encrypts amount field)
+      return await encryptIncome(baseEntry);
     }));
 
     const { error } = await supabase
@@ -249,7 +265,7 @@ const Income = () => {
       // Don't show toast for autosave - only show brief status indicator
     }
     setSaving(false);
-  }, [household, user, incomeSources, financialMonthStart, toast]);
+  }, [household, user, incomeSources, financialMonthStart, toast, encryptIncome]);
 
   const handleAddOneTime = async (data: {
     name: string;
@@ -378,8 +394,8 @@ const Income = () => {
         )}
       </div>
 
-      {/* Monthly Income Block - matching Expenses style */}
-      <div className="bg-muted/40 rounded-lg p-4 overflow-hidden border border-primary/20">
+      {/* Monthly Income Block */}
+      <Card className="overflow-hidden">
         {/* Block Header */}
         <div className="flex items-center gap-3">
           <TrendingUp className="h-5 w-5 text-green-500" />
@@ -424,7 +440,7 @@ const Income = () => {
             })}
           </div>
         )}
-      </div>
+      </Card>
 
 
 
@@ -438,7 +454,7 @@ const Income = () => {
         </div>
       </div>
 
-    </div>
+    </div >
   );
 };
 

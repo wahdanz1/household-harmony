@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle } from "lucide-react";
 import { useState } from "react";
 import { getCategoryById } from "@/constants/expenseCategories";
+import { subscriptionCategories } from "@/constants/subscriptionCategories";
+import { insuranceTypes } from "@/constants/insuranceTypes";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -30,6 +32,7 @@ interface ExpenseBlockProps {
     headerMetrics?: React.ReactNode; // Metrics shown in the header (always visible)
     severity?: 'default' | 'upcoming' | 'warning' | 'danger'; // Border color severity
     severityMessage?: string; // Tooltip message explaining the severity
+    categoryType?: 'expense' | 'subscription' | 'insurance'; // Which category constants to use
     onItemClick?: (id: string) => void;
     onAmountChange?: (id: string, amount: string) => void;
     editable?: boolean;
@@ -48,11 +51,24 @@ export const ExpenseBlock = ({
     headerMetrics,
     severity = 'default',
     severityMessage,
+    categoryType = 'expense',
     onItemClick,
     onAmountChange,
     editable = false,
 }: ExpenseBlockProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
+
+    // Helper to get category info based on type
+    const getCategoryInfo = (category: string | undefined) => {
+        if (!category) return null;
+        if (categoryType === 'subscription') {
+            return subscriptionCategories.find(c => c.value === category);
+        }
+        if (categoryType === 'insurance') {
+            return insuranceTypes.find(c => c.value === category);
+        }
+        return getCategoryById(category);
+    };
 
     // Severity styling for the block border
     const severityBorderClass = severity === 'danger'
@@ -118,12 +134,12 @@ export const ExpenseBlock = ({
                     {/* Items list */}
                     <div className="pt-3 space-y-2">
                         {items.map((item) => {
-                            const cat = item.category ? getCategoryById(item.category) : null;
+                            const cat = getCategoryInfo(item.category);
                             const Icon = cat?.icon;
                             return (
                                 <div
                                     key={item.id}
-                                    className="flex items-center justify-between text-sm p-3 rounded-lg border border-border bg-background/40 hover:bg-background/60 cursor-pointer group transition-colors"
+                                    className="list-item-compact text-sm hover:bg-background/60 cursor-pointer group transition-colors"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onItemClick?.(item.id);
@@ -192,8 +208,8 @@ export const ExpenseBlock = ({
 
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; total_amount?: number; isDue?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string }[];
+    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean }[];
+    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string; type?: string }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
@@ -234,10 +250,14 @@ export const AllTabBlockView = ({
         const displayLabel = cycleLabels[sub.billing_cycle] || '/month';
         const actualAmount = sub.total_amount ?? sub.amount; // Use total_amount if available
 
+        // Get category info for icon
+        const catInfo = subscriptionCategories.find(c => c.value === sub.category);
+
         return {
             id: sub.id,
             name: sub.name,
             amount: sub.billing_cycle === 'yearly' ? parseFloat(sub.amount.toString()) / 12 : parseFloat(sub.amount.toString()),
+            category: sub.category, // Pass through for icon lookup
             displayAmount: actualAmount,
             displayLabel,
             billingCycle: sub.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
@@ -260,6 +280,7 @@ export const AllTabBlockView = ({
             id: ins.id,
             name: ins.name,
             amount: ins.monthly_cost ?? 0, // Used for calculations
+            category: ins.type, // Insurance type for icon lookup
             displayAmount: ins.total_amount, // Actual payment amount
             displayLabel, // e.g., "/year"
         };
@@ -307,6 +328,7 @@ export const AllTabBlockView = ({
                     currency={currency}
                     icon={<Repeat className="h-5 w-5 text-purple-500" />}
                     items={subscriptionItems}
+                    categoryType="subscription"
                     onItemClick={onSubscriptionClick}
                     severity={subscriptionSeverity}
                     severityMessage={
@@ -336,6 +358,7 @@ export const AllTabBlockView = ({
                     currency={currency}
                     icon={<Shield className="h-5 w-5 text-amber-500" />}
                     items={insuranceItems}
+                    categoryType="insurance"
                     onItemClick={onInsuranceClick}
                     headerMetrics={
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">

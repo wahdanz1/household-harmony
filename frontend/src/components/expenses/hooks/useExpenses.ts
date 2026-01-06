@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, expenseFields } from "@/hooks/useEncryptedFields";
 
 interface CategoryFormData {
     name: string;
     type: "static" | "dynamic";
     default_amount: string;
+    is_credit?: boolean;
 }
 
 export const useExpenses = (
@@ -14,12 +16,14 @@ export const useExpenses = (
     onUpdate: () => void
 ) => {
     const { toast } = useToast();
+    const { encryptRecord } = useEncryptedFields(expenseFields);
     const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
     const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
     const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({
         name: "",
         type: "static",
         default_amount: "0",
+        is_credit: false,
     });
 
     const resetCategoryForm = () => {
@@ -27,6 +31,7 @@ export const useExpenses = (
             name: "",
             type: "static",
             default_amount: "0",
+            is_credit: false,
         });
         setEditingCategoryId(null);
     };
@@ -36,6 +41,7 @@ export const useExpenses = (
             name: category.name,
             type: category.type,
             default_amount: category.default_amount.toString(),
+            is_credit: category.is_credit ?? false,
         });
 
         setEditingCategoryId(category.id);
@@ -48,29 +54,34 @@ export const useExpenses = (
         const dataType = submittedData?.type || categoryFormData.type;
         const dataDefaultAmount = submittedData?.default_amount || categoryFormData.default_amount;
         const dataCategory = submittedData?.category;
+        const dataIsCredit = submittedData?.is_credit ?? false;
 
-        const data: any = {
+        const baseData: any = {
             household_id: householdId,
             name: dataName,
             type: dataType,
             default_amount: parseFloat(dataDefaultAmount),
             sort_order: expenseCategories.length,
+            is_credit: dataIsCredit,
         };
 
         // If we have a category type (from new form or existing), include it
         if (dataCategory) {
-            data.category = dataCategory;
+            baseData.category = dataCategory;
         }
+
+        // Encrypt sensitive fields (name, default_amount)
+        const data = await encryptRecord(baseData);
 
         let error;
         if (editingCategoryId) {
             ({ error } = await supabase
-                .from("regular_expenses")
+                .from("expenses")
                 .update(data)
                 .eq("id", editingCategoryId));
         } else {
             ({ error } = await supabase
-                .from("regular_expenses")
+                .from("expenses")
                 .insert(data));
         }
 
@@ -93,7 +104,7 @@ export const useExpenses = (
 
     const handleDeleteCategory = async (categoryId: string) => {
         const { error } = await supabase
-            .from("regular_expenses")
+            .from("expenses")
             .delete()
             .eq("id", categoryId);
 
@@ -123,9 +134,14 @@ export const useExpenses = (
             { name: "Groceries", category: "groceries", type: "dynamic", default_amount: 0, sort_order: 4, household_id: householdId },
         ];
 
+        // Encrypt each default category before inserting
+        const encryptedCategories = await Promise.all(
+            defaultCategories.map(cat => encryptRecord(cat))
+        );
+
         const { error } = await supabase
-            .from("regular_expenses")
-            .insert(defaultCategories);
+            .from("expenses")
+            .insert(encryptedCategories);
 
         if (error) {
             toast({

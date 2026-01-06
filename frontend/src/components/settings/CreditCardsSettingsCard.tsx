@@ -154,7 +154,7 @@ export const CreditCardsSettingsCard = ({ householdId, enableCreditCards, curren
                 <CardDescription className="mt-1.5">Manage credit cards with monthly spending limits</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/40">
+                <div className="list-item">
                     <div className="space-y-0.5">
                         <Label>Enable Credit Card Tracking</Label>
                         <p className="text-sm text-muted-foreground">
@@ -223,7 +223,7 @@ export const CreditCardsSettingsCard = ({ householdId, enableCreditCards, curren
                                 creditCards.map((card) => (
                                     <div
                                         key={card.id}
-                                        className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/40"
+                                        className="list-item-compact"
                                     >
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2">

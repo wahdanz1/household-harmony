@@ -3,7 +3,7 @@ import { useLocation } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddButton } from "@/components/ui/add-button";
-import { CalendarDays, CreditCard, Users } from "lucide-react";
+import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield } from "lucide-react";
 import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
@@ -17,6 +17,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
+import { subscriptionCategories } from "@/constants/subscriptionCategories";
+import { insuranceTypes } from "@/constants/insuranceTypes";
 
 const Expenses = () => {
   const { user } = useAuth();
@@ -47,6 +50,12 @@ const Expenses = () => {
   const currentMonth = getCurrentFinancialMonth(financialMonthStart);
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
+  // Encryption hooks for expense data
+  const { decryptRecords: decryptExpenses } = useEncryptedFields(expenseFields);
+  const { decryptRecords: decryptMonthlyExpenses, encryptRecord: encryptExpense } = useEncryptedFields(monthlyExpenseFields);
+  const { decryptRecords: decryptSubscriptions } = useEncryptedFields(subscriptionFields);
+  const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
+
   const fetchData = useCallback(async () => {
     if (!user || !household) return;
 
@@ -65,25 +74,32 @@ const Expenses = () => {
       { data: insurancesData },
       { data: creditCardExpensesData },
     ] = await Promise.all([
-      supabase.from("regular_expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
+      supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
       supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
       supabase.from("monthly_expenses").select("*").eq("household_id", household.id).lt("month_start", startStr),
-      supabase.from("subscriptions").select("*").eq("household_id", household.id).eq("is_active", true),
-      supabase.from("insurances").select("*").eq("household_id", household.id).eq("is_active", true),
+      supabase.from("subscriptions").select("*").eq("household_id", household.id),
+      supabase.from("insurances").select("*").eq("household_id", household.id),
       supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
     ]);
 
-    setExpenseCategories(categoriesData || []);
-    setMonthlyExpenses(monthlyData || []);
-    setSubscriptions(subscriptionsData || []);
-    setInsurances(insurancesData || []);
+    // Decrypt sensitive fields (if encrypted)
+    const decryptedCategories = await decryptExpenses(categoriesData || []);
+    const decryptedMonthly = await decryptMonthlyExpenses(monthlyData || []);
+    const decryptedHistorical = await decryptMonthlyExpenses(historicalData || []);
+    const decryptedSubs = await decryptSubscriptions(subscriptionsData || []);
+    const decryptedIns = await decryptInsurances(insurancesData || []);
+
+    setExpenseCategories(decryptedCategories);
+    setMonthlyExpenses(decryptedMonthly);
+    setSubscriptions(decryptedSubs);
+    setInsurances(decryptedIns);
     setCreditCardExpenses(creditCardExpensesData || []);
 
     // Auto-create monthly_expenses records for categories that don't have them yet
     // This ensures Dashboard shows all expenses, not just edited categories
     const missingRecords: any[] = [];
-    (categoriesData || []).forEach((category: any) => {
-      const existing = (monthlyData || []).find((m: any) => m.regular_expense_id === category.id);
+    decryptedCategories.forEach((category: any) => {
+      const existing = decryptedMonthly.find((m: any) => m.expense_id === category.id);
 
       if (!existing && user) {
         // Calculate the appropriate amount for the missing record
@@ -91,7 +107,7 @@ const Expenses = () => {
 
         if (category.type === "dynamic") {
           // Use historical average if available
-          const previousExpenses = (historicalData || []).filter((h: any) => h.regular_expense_id === category.id);
+          const previousExpenses = decryptedHistorical.filter((h: any) => h.expense_id === category.id);
           if (previousExpenses.length > 0) {
             const total = previousExpenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
             amount = Math.round(total / previousExpenses.length);
@@ -99,7 +115,7 @@ const Expenses = () => {
         }
 
         missingRecords.push({
-          regular_expense_id: category.id,
+          expense_id: category.id,
           household_id: household.id,
           month: fetchMonth,
           month_start: startStr,
@@ -118,8 +134,8 @@ const Expenses = () => {
     // Note: Don't set 'saved' status on initial load - only after actual user edits
 
     const initialAmounts: Record<string, string> = {};
-    (categoriesData || []).forEach((category: any) => {
-      const existing = (monthlyData || []).find((m: any) => m.regular_expense_id === category.id);
+    decryptedCategories.forEach((category: any) => {
+      const existing = decryptedMonthly.find((m: any) => m.expense_id === category.id);
 
       // For static expenses, always use the current default amount from the category definition
       if (category.type === "static") {
@@ -127,7 +143,7 @@ const Expenses = () => {
       } else if (existing) {
         initialAmounts[category.id] = existing.amount.toString();
       } else if (category.type === "dynamic") {
-        const previousExpenses = (historicalData || []).filter((h: any) => h.regular_expense_id === category.id);
+        const previousExpenses = decryptedHistorical.filter((h: any) => h.expense_id === category.id);
         if (previousExpenses.length > 0) {
           const total = previousExpenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
           const avg = total / previousExpenses.length;
@@ -175,19 +191,24 @@ const Expenses = () => {
     const saveMonth = getCurrentFinancialMonth(fms);
     const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, fms);
 
-    const entries = expenseCategories.map((category) => ({
-      regular_expense_id: category.id,
-      household_id: household.id,
-      month: saveMonth,
-      month_start: format(saveStart, "yyyy-MM-dd"),
-      month_end: format(saveEnd, "yyyy-MM-dd"),
-      amount: parseFloat(currentAmounts[category.id] || "0"),
-      created_by: user.id,
+    // Build entries and encrypt them
+    const entries = await Promise.all(expenseCategories.map(async (category) => {
+      const baseEntry = {
+        expense_id: category.id,
+        household_id: household.id,
+        month: saveMonth,
+        month_start: format(saveStart, "yyyy-MM-dd"),
+        month_end: format(saveEnd, "yyyy-MM-dd"),
+        amount: parseFloat(currentAmounts[category.id] || "0"),
+        created_by: user.id,
+      };
+      // Encrypt the entry (encrypts amount field)
+      return await encryptExpense(baseEntry);
     }));
 
     const { error } = await supabase
       .from("monthly_expenses")
-      .upsert(entries as any, { onConflict: "regular_expense_id,month" });
+      .upsert(entries as any, { onConflict: "expense_id,month" });
 
     if (error) {
       setAutoSaveStatus('error');
@@ -196,11 +217,11 @@ const Expenses = () => {
       // Update monthlyExpenses state without refetching (which would overwrite amounts)
       setMonthlyExpenses(entries.map((entry, i) => ({
         ...entry,
-        id: monthlyExpenses.find(m => m.regular_expense_id === entry.regular_expense_id)?.id || `temp-${i}`,
+        id: monthlyExpenses.find(m => m.expense_id === entry.expense_id)?.id || `temp-${i}`,
         updated_at: new Date().toISOString(),
       })));
     }
-  }, [household, user, expenseCategories, monthlyExpenses]);
+  }, [household, user, expenseCategories, monthlyExpenses, encryptExpense]);
 
   // Handle amount change with debounced autosave
   const handleAmountChange = useCallback((categoryId: string, value: string) => {
@@ -353,7 +374,7 @@ const Expenses = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Only show tabs when there are multiple tabs (Credit or Co-Parent enabled) */}
         {(household?.enable_credit_cards || coParents.length > 0) && (
-          <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${1 + (household?.enable_credit_cards ? 1 : 0) + (coParents.length > 0 ? 1 : 0)}, minmax(0, 1fr))` }}>
+          <TabsList>
             <TabsTrigger value="all" className="flex items-center gap-2 transition-all hover:bg-muted/80">
               <CalendarDays className="h-4 w-4" />
               <span className="hidden sm:inline">All</span>
@@ -425,6 +446,7 @@ const Expenses = () => {
               }
               return {
                 ...sub,
+                category: sub.category, // Pass category for icon lookup
                 total_amount: sub.amount,
                 isDue,
               };
@@ -447,6 +469,7 @@ const Expenses = () => {
                 monthly_cost: monthlyAmount,
                 total_amount: ins.total_amount,
                 payment_frequency: ins.payment_frequency,
+                type: ins.type, // Pass type for icon lookup
               };
             })}
             subscriptionsTotal={subscriptionsTotal}
@@ -467,6 +490,56 @@ const Expenses = () => {
             }}
             onAmountChange={handleAmountChange}
           />
+
+          {/* Inactive Items Section */}
+          {(subscriptions.some(s => !s.is_active) || insurances.some(i => !i.is_active)) && (
+            <div className="mt-6 pt-4 border-t border-border/50">
+              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                <Moon className="h-4 w-4 opacity-60" /> Inactive Items
+              </h3>
+              <div className="space-y-2">
+                {subscriptions.filter(s => !s.is_active).map(sub => {
+                  const subCat = subscriptionCategories.find(c => c.value === sub.category);
+                  const SubIcon = subCat?.icon || Repeat;
+                  return (
+                    <div
+                      key={sub.id}
+                      className="list-item-compact cursor-pointer hover:bg-background/60 transition-colors opacity-60"
+                      onClick={() => setEditingSubscription(sub)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <SubIcon className="h-4 w-4" style={{ color: subCat?.color ? `${subCat.color}80` : undefined }} />
+                        <span className="text-sm">{sub.name}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {sub.amount} {household?.currency}/
+                        {sub.billing_cycle === 'yearly' ? 'year' : sub.billing_cycle === 'quarterly' ? 'quarter' : 'month'}
+                      </span>
+                    </div>
+                  );
+                })}
+                {insurances.filter(i => !i.is_active).map(ins => {
+                  const insCat = insuranceTypes.find(c => c.value === ins.type);
+                  const InsIcon = insCat?.icon || Shield;
+                  return (
+                    <div
+                      key={ins.id}
+                      className="list-item-compact cursor-pointer hover:bg-background/60 transition-colors opacity-60"
+                      onClick={() => setEditingInsurance(ins)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <InsIcon className="h-4 w-4" style={{ color: insCat?.color ? `${insCat.color}80` : undefined }} />
+                        <span className="text-sm">{ins.name}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {ins.total_amount} {household?.currency}/{ins.payment_frequency === 'yearly' ? 'year' : 'period'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         {household?.enable_credit_cards && (

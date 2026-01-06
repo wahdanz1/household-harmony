@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, insuranceFields } from "@/hooks/useEncryptedFields";
 
 interface InsuranceFormProps {
     householdId: string;
@@ -34,6 +35,7 @@ const monthNames = [
 export const InsuranceForm = ({ householdId, onSuccess, onCancel }: InsuranceFormProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
+    const { encryptRecord } = useEncryptedFields(insuranceFields);
     const [coParents, setCoParents] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         name: "",
@@ -66,7 +68,7 @@ export const InsuranceForm = ({ householdId, onSuccess, onCancel }: InsuranceFor
 
         setSaving(true);
 
-        const data = {
+        const baseData = {
             household_id: householdId,
             name: formData.name,
             provider: formData.provider || null,
@@ -81,6 +83,9 @@ export const InsuranceForm = ({ householdId, onSuccess, onCancel }: InsuranceFor
             share_percentage: formData.is_shared ? parseFloat(formData.share_percentage) : 50,
             created_by: user.id,
         };
+
+        // Encrypt sensitive fields (name, total_amount)
+        const data = await encryptRecord(baseData);
 
         const { error } = await supabase.from("insurances").insert(data);
 

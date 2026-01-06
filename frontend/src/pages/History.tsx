@@ -77,7 +77,7 @@ const History = () => {
         .order("month", { ascending: false }),
       supabase
         .from("monthly_expenses")
-        .select("*, regular_expenses(name), profiles(full_name, avatar_url)")
+        .select("*, expenses(name), profiles(full_name, avatar_url)")
         .eq("household_id", membership.household_id)
         .order("month", { ascending: false }),
       supabase
@@ -96,7 +96,7 @@ const History = () => {
         .eq("household_id", membership.household_id)
         .order("created_at", { ascending: false }),
       supabase.from("income_sources").select("name").eq("household_id", membership.household_id).eq("is_active", true),
-      supabase.from("regular_expenses").select("name").eq("household_id", membership.household_id).eq("is_active", true),
+      supabase.from("expenses").select("name").eq("household_id", membership.household_id).eq("is_active", true),
       supabase.from("savings_goals").select("name").eq("household_id", membership.household_id).eq("is_active", true),
       supabase
         .from("household_members")
@@ -131,7 +131,7 @@ const History = () => {
         id: item.id,
         type: "expense",
         date: item.month,
-        category: item.regular_expenses?.name || "Unknown",
+        category: item.expenses?.name || "Unknown",
         amount: parseFloat(item.amount),
         member: {
           name: item.profiles?.full_name || "Unknown",
