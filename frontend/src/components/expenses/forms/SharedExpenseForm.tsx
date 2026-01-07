@@ -8,6 +8,7 @@ import { format, startOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
 
 interface SharedExpenseFormProps {
     householdId: string;
@@ -18,6 +19,7 @@ interface SharedExpenseFormProps {
 export const SharedExpenseForm = ({ householdId, onSuccess, onCancel }: SharedExpenseFormProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
+    const { encryptRecord } = useEncryptedFields(sharedExpenseFields);
     const [coParents, setCoParents] = useState<any[]>([]);
     const [formData, setFormData] = useState({
         description: "",
@@ -49,7 +51,7 @@ export const SharedExpenseForm = ({ householdId, onSuccess, onCancel }: SharedEx
 
         setSaving(true);
 
-        const data = {
+        const baseData = {
             household_id: householdId,
             co_parent_id: formData.co_parent_id,
             month: currentMonth,
@@ -59,6 +61,9 @@ export const SharedExpenseForm = ({ householdId, onSuccess, onCancel }: SharedEx
             paid_by: formData.paid_by,
             created_by: user.id,
         };
+
+        // Encrypt sensitive fields (description, amount)
+        const data = await encryptRecord(baseData);
 
         const { error } = await supabase.from("shared_expenses").insert(data);
 

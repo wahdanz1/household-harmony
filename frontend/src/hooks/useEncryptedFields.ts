@@ -35,8 +35,8 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
     /**
      * Encrypt a record before saving to database.
      * - Encrypts specified fields and stores in encrypted_ columns
+     * - Sets original plaintext fields to null (prevents plaintext in DB)
      * - Sets is_encrypted = true
-     * - Keeps original fields as-is for backward compatibility (can be cleared later)
      */
     const encryptRecord = useCallback(async <T extends Record<string, any>>(
         record: T
@@ -56,6 +56,8 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
                 const encryptedValue = await encrypt(stringValue);
                 if (encryptedValue) {
                     (encryptedRecord as any)[config.encrypted] = encryptedValue;
+                    // Clear plaintext field to prevent it from being written to DB
+                    (encryptedRecord as any)[config.original] = null;
                 }
             }
         }
@@ -173,6 +175,11 @@ export const creditCardFields: EncryptionFieldConfig[] = [
 ];
 
 export const sharedExpenseFields: EncryptionFieldConfig[] = [
+    { original: 'description', encrypted: 'encrypted_description' },
+    { original: 'amount', encrypted: 'encrypted_amount' },
+];
+
+export const temporaryExpenseFields: EncryptionFieldConfig[] = [
     { original: 'description', encrypted: 'encrypted_description' },
     { original: 'amount', encrypted: 'encrypted_amount' },
 ];

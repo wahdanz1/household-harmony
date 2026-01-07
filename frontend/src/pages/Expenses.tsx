@@ -135,9 +135,12 @@ const Expenses = () => {
       }
     });
 
-    // Create missing records in batch if any
+    // Create missing records in batch if any (encrypted)
     if (missingRecords.length > 0) {
-      await supabase.from("monthly_expenses").insert(missingRecords);
+      const encryptedRecords = await Promise.all(
+        missingRecords.map(record => encryptExpense(record))
+      );
+      await supabase.from("monthly_expenses").insert(encryptedRecords);
     }
 
     // Note: Don't set 'saved' status on initial load - only after actual user edits

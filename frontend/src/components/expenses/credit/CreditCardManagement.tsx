@@ -30,10 +30,11 @@ interface CreditCardManagementProps {
     householdId: string;
     currency: string;
     creditCards: CreditCard[];
+    calculateCardTotal?: (cardId: string) => number;
     onUpdate: () => void;
 }
 
-export const CreditCardManagement = ({ householdId, currency, creditCards, onUpdate }: CreditCardManagementProps) => {
+export const CreditCardManagement = ({ householdId, currency, creditCards, calculateCardTotal, onUpdate }: CreditCardManagementProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
     const [cardDialogOpen, setCardDialogOpen] = useState(false);
@@ -198,39 +199,59 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, onUpd
                             No credit cards yet. Add one to get started!
                         </p>
                     ) : (
-                        <div className="space-y-2">
-                            {creditCards.map((card) => (
-                                <div
-                                    key={card.id}
-                                    className="list-row-compact"
-                                >
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2">
-                                            <CreditCard className="h-4 w-4" />
-                                            <p className="font-medium">{card.name}</p>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            {creditCards.map((card) => {
+                                const total = calculateCardTotal ? calculateCardTotal(card.id) : 0;
+                                const limit = card.monthly_limit || 0;
+                                const remaining = limit - total;
+                                const percentage = limit > 0 ? (total / limit) * 100 : 0;
+
+                                return (
+                                    <div
+                                        key={card.id}
+                                        className="p-4 rounded-lg bg-muted/50 border border-border/50"
+                                    >
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <CreditCard className="h-4 w-4" />
+                                                <span className="font-medium">{card.name}</span>
+                                            </div>
+                                            <div className="flex gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => handleEditCard(card)}
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    onClick={() => confirmDeleteCard(card.id, card.name)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">
-                                            Monthly Limit: {(card.monthly_limit || 0).toFixed(0)} {currency}
-                                        </p>
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-sm">
+                                                <span className="font-medium">{total.toFixed(0)} / {limit.toFixed(0)} {currency}</span>
+                                                <span className={remaining < 0 ? "text-destructive" : "text-green-600"}>
+                                                    {remaining >= 0 ? `${remaining.toFixed(0)} ${currency} left` : `${Math.abs(remaining).toFixed(0)} ${currency} over`}
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-secondary rounded-full h-2">
+                                                <div
+                                                    className={`h-2 rounded-full transition-all ${percentage > 100 ? "bg-destructive" : percentage > 80 ? "bg-orange-500" : "bg-green-600"}`}
+                                                    style={{ width: `${Math.min(percentage, 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => handleEditCard(card)}
-                                        >
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => confirmDeleteCard(card.id, card.name)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </CardContent>

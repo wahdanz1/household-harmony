@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { IncomeSourceItem } from "@/components/income/IncomeSourceItem";
 import { IncomeSourceDialog } from "@/components/income/IncomeSourceDialog";
+import { OneTimeIncomeDialog } from "@/components/income/OneTimeIncomeDialog";
 
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
@@ -108,9 +109,12 @@ const Income = () => {
       }
     });
 
-    // Create missing records in batch if any
+    // Create missing records in batch if any (encrypted)
     if (missingRecords.length > 0) {
-      await supabase.from("monthly_incomes").insert(missingRecords);
+      const encryptedRecords = await Promise.all(
+        missingRecords.map(record => encryptIncome(record))
+      );
+      await supabase.from("monthly_incomes").insert(encryptedRecords);
     }
 
     // Note: Don't set 'saved' status on initial load - only after actual user edits
@@ -381,28 +385,31 @@ const Income = () => {
 
       {/* Add Source Button - matching Expenses style */}
       <div className="flex justify-between items-center">
-        <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
-          setSourceDialogOpen(open);
-          if (!open) resetSourceForm();
-        }}>
-          <DialogTrigger asChild>
-            <AddButton>Add Source</AddButton>
-          </DialogTrigger>
-          <IncomeSourceDialog
-            open={sourceDialogOpen}
-            editingSourceId={editingSourceId}
-            sourceFormData={sourceFormData}
-            members={members}
-            coParents={coParents}
-            onOpenChange={(open) => {
-              setSourceDialogOpen(open);
-              if (!open) resetSourceForm();
-            }}
-            onFormDataChange={setSourceFormData}
-            onSave={handleSaveSource}
-            onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
-          />
-        </Dialog>
+        <div className="flex gap-2">
+          <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
+            setSourceDialogOpen(open);
+            if (!open) resetSourceForm();
+          }}>
+            <DialogTrigger asChild>
+              <AddButton>Add Source</AddButton>
+            </DialogTrigger>
+            <IncomeSourceDialog
+              open={sourceDialogOpen}
+              editingSourceId={editingSourceId}
+              sourceFormData={sourceFormData}
+              members={members}
+              coParents={coParents}
+              onOpenChange={(open) => {
+                setSourceDialogOpen(open);
+                if (!open) resetSourceForm();
+              }}
+              onFormDataChange={setSourceFormData}
+              onSave={handleSaveSource}
+              onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
+            />
+          </Dialog>
+          <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />
+        </div>
         {/* Saved indicator - right aligned */}
         {autoSaveStatus === 'saved' && (
           <span className="text-sm text-primary animate-in fade-in duration-150">

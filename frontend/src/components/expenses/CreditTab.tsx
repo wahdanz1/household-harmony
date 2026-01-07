@@ -2,8 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { CreditCardManagement } from "./credit/CreditCardManagement";
-import { CreditCardSummaryCards } from "./credit/CreditCardSummaryCards";
-import { CreditExpensesList } from "./credit/CreditExpensesList";
 import { CreditCard as CreditCardIcon, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, creditCardExpenseFields, creditCardFields } from "@/hooks/useEncryptedFields";
@@ -289,30 +287,9 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 householdId={householdId}
                 currency={currency}
                 creditCards={creditCards}
+                calculateCardTotal={calculateCardTotal}
                 onUpdate={fetchData}
             />
-
-            {creditCards.length === 0 ? null : (
-                <>
-                    {/* Summary Cards */}
-                    <CreditCardSummaryCards
-                        creditCards={creditCards}
-                        calculateCardTotal={calculateCardTotal}
-                        currency={currency}
-                    />
-
-                    {/* Expenses List */}
-                    <CreditExpensesList
-                        householdId={householdId}
-                        currency={currency}
-                        monthStart={monthStart}
-                        monthEnd={monthEnd}
-                        creditCards={creditCards}
-                        expenses={expenses}
-                        onUpdate={fetchData}
-                    />
-                </>
-            )}
         </div>
     );
 };

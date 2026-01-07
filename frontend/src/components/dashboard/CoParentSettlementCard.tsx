@@ -49,10 +49,10 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
         .eq("is_shared", true)
         .eq("co_parent_id", coParent.id);
 
-      const incomeReceived = (sharedIncomes || []).reduce((sum, inc) => sum + parseFloat(inc.amount.toString()), 0);
+      const incomeReceived = (sharedIncomes || []).reduce((sum, inc) => sum + parseFloat((inc.amount || 0).toString()), 0);
       const yourShareOfIncome = (sharedIncomes || []).reduce((sum, inc) => {
-        const sharePercentage = parseFloat(inc.share_percentage.toString());
-        return sum + (parseFloat(inc.amount.toString()) * sharePercentage / 100);
+        const sharePercentage = parseFloat((inc.share_percentage || 0).toString());
+        return sum + (parseFloat((inc.amount || 0).toString()) * sharePercentage / 100);
       }, 0);
 
       const { data: sharedInsurances } = await supabase
@@ -68,8 +68,8 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
       let theirShareOfInsurance = 0;
 
       (sharedInsurances || []).forEach((ins) => {
-        insurancePaid += parseFloat(ins.total_amount.toString());
-        theirShareOfInsurance += parseFloat(ins.total_amount.toString()) * parseFloat(ins.share_percentage.toString()) / 100;
+        insurancePaid += parseFloat((ins.total_amount || 0).toString());
+        theirShareOfInsurance += parseFloat((ins.total_amount || 0).toString()) * parseFloat((ins.share_percentage || 0).toString()) / 100;
       });
 
       const { data: sharedExpenses } = await supabase
@@ -84,7 +84,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
       let expensesTheyPaid = 0;
 
       (sharedExpenses || []).forEach((exp) => {
-        const amount = parseFloat(exp.amount.toString());
+        const amount = parseFloat((exp.amount || 0).toString());
         if (exp.paid_by === "user") {
           expensesYouPaid += amount;
         } else {

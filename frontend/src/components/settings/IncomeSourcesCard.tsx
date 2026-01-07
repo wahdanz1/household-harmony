@@ -9,6 +9,7 @@ import { TrendingUp, Plus, Trash2, Edit } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, incomeSourceFields } from "@/hooks/useEncryptedFields";
 
 interface IncomeSource {
   id: string;
@@ -35,6 +36,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
   const formatCategory = (category: string) => {
     return category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   };
+  const { encryptRecord } = useEncryptedFields(incomeSourceFields);
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<{
@@ -64,7 +66,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
   };
 
   const handleSave = async () => {
-    const data = {
+    const baseData = {
       household_id: householdId,
       category: formData.category,
       name: formData.name,
@@ -72,6 +74,9 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
       default_amount: parseFloat(formData.default_amount),
       owner_id: formData.owner_id,
     };
+
+    // Encrypt sensitive fields (name, default_amount)
+    const data = await encryptRecord(baseData);
 
     let error;
     if (editingId) {
