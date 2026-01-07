@@ -199,7 +199,7 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, calcu
                             No credit cards yet. Add one to get started!
                         </p>
                     ) : (
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <div className="grid-auto-fill-2">
                             {creditCards.map((card) => {
                                 const total = calculateCardTotal ? calculateCardTotal(card.id) : 0;
                                 const limit = card.monthly_limit || 0;
@@ -209,7 +209,7 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, calcu
                                 return (
                                     <div
                                         key={card.id}
-                                        className="p-4 rounded-lg bg-muted/50 border border-border/50"
+                                        className="card-block"
                                     >
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2">

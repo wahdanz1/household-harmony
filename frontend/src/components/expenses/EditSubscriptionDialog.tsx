@@ -212,7 +212,7 @@ export const EditSubscriptionDialog = ({
 
                     {(formData.billing_cycle === "yearly" || formData.billing_cycle === "quarterly") && (
                         <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid-2">
                                 <div className="space-y-2">
                                     <Label>Billing Month</Label>
                                     <Select

@@ -22,6 +22,7 @@ import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
+import { LoadingState } from "@/components/shared/states";
 
 const Expenses = () => {
   const { user } = useAuth();
@@ -370,9 +371,7 @@ const Expenses = () => {
     return (
       <div className="space-y-4">
         <PageHeader title="Expense Management" />
-        <div className="flex items-center justify-center min-h-[300px]">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+        <LoadingState />
       </div>
     );
   }
@@ -518,8 +517,8 @@ const Expenses = () => {
           {/* Inactive Items Section */}
           {(subscriptions.some(s => !s.is_active) || insurances.some(i => !i.is_active)) && (
             <div className="mt-6 pt-4 border-t border-border/50">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
-                <Moon className="h-4 w-4 opacity-60" /> Inactive Items
+              <h3>
+                <Moon className="h-4 w-4 opacity-60 inline mr-2" /> Inactive Items
               </h3>
               <div className="space-y-2">
                 {subscriptions.filter(s => !s.is_active).map(sub => {

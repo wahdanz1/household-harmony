@@ -14,6 +14,7 @@ import { Home, User, Shield, AlertTriangle } from "lucide-react";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { VaultUnlockButton } from "@/components/shared/VaultUnlockDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { LoadingState } from "@/components/shared/states";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -60,9 +61,7 @@ const Settings = () => {
           title="Settings"
           subtitle="Manage your household and preferences"
         />
-        <div className="flex items-center justify-center min-h-[300px]">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+        <LoadingState />
       </div>
     );
   }

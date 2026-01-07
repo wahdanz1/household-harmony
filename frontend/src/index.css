@@ -134,6 +134,74 @@
     @apply list-row-compact opacity-60 hover:bg-background/60 cursor-pointer transition-colors;
   }
 
+  /* Card Block - For income/expense/credit card items */
+  .card-block {
+    @apply p-4 rounded-lg bg-background/40 border border-border hover:bg-background/60 transition-colors;
+  }
+
+  .card-block-interactive {
+    @apply card-block cursor-pointer;
+  }
+
+  /* Loading State */
+  .loading-container {
+    @apply flex items-center justify-center py-12;
+  }
+
+  .loading-spinner {
+    @apply animate-spin h-8 w-8 text-primary;
+  }
+
+  /* Empty State */
+  .empty-state {
+    @apply text-center py-12 text-muted-foreground;
+  }
+
+  .empty-state-icon {
+    @apply h-12 w-12 mx-auto mb-4 opacity-50;
+  }
+
+  /* Grid Auto-Fill */
+  .grid-auto-fill {
+    @apply grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .grid-auto-fill-2 {
+    @apply grid gap-4 grid-cols-1 md:grid-cols-2;
+  }
+
+  .grid-2 {
+    @apply grid gap-4 grid-cols-2;
+  }
+
+  .grid-3 {
+    @apply grid gap-4 grid-cols-3;
+  }
+
+  /* Button Variants */
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-destructive {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-ghost {
+    @apply hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-primary:disabled,
+  .btn-secondary:disabled,
+  .btn-destructive:disabled,
+  .btn-ghost:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
   /* Special Component: Currency Input */
   .currency-input {
     @apply w-24 sm:w-28 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed;

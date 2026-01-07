@@ -23,6 +23,7 @@ import {
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { LoadingState } from "@/components/shared/states";
 
 interface Transaction {
   id: string;
@@ -304,9 +305,7 @@ const History = () => {
           title="Transaction History"
           subtitle="View and analyze all your financial transactions"
         />
-        <div className="flex items-center justify-center min-h-[300px]">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+        <LoadingState />
       </div>
     );
   }
@@ -331,7 +330,7 @@ const History = () => {
       />
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid-auto-fill">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Income</CardDescription>

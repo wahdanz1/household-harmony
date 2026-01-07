@@ -147,7 +147,7 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
             </div>
 
             {formData.billing_cycle === "yearly" && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid-2">
                     <div className="space-y-2">
                         <Label>Billing Month</Label>
                         <Select

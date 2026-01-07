@@ -11,6 +11,8 @@ import SavingsGoalsPreview from "@/components/dashboard/SavingsGoalsPreview";
 import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlementCard";
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 import { TrendingUp, TrendingDown, PiggyBank, Repeat, Shield, ClipboardCheck, ChevronRight } from "lucide-react";
+import { LoadingState } from "@/components/shared/states";
+import { SummaryCard } from "@/components/shared/SummaryCard";
 import {
   useEncryptedFields,
   monthlyIncomeFields,
@@ -247,9 +249,7 @@ const Dashboard = () => {
     return (
       <div className="space-y-4">
         <PageHeader title="Dashboard" />
-        <div className="flex items-center justify-center min-h-[300px]">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+        <LoadingState />
       </div>
     );
   }
@@ -309,73 +309,47 @@ const Dashboard = () => {
         </Card>
 
         {/* Row 2: Income | Expenses - 50/50 */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Total Income */}
-          <Card
-            className="hover:bg-muted/60 cursor-pointer transition-colors"
+        <div className="grid-2 gap-3">
+          <SummaryCard
+            title="Income"
+            icon={TrendingUp}
+            amount={formatCurrency(data.income)}
+            periodLabel="This month"
+            color="green"
+            currency={currency}
             onClick={() => navigate('/income')}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-green-500" />
-              <span className="text-xs text-muted-foreground">Income</span>
-            </div>
-            <p className="text-xl font-bold text-green-500">
-              {formatCurrency(data.income)} {currency}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">This month</p>
-          </Card>
-
-          {/* Total Expenses */}
-          <Card
-            className="p-4 hover:bg-muted/60 cursor-pointer transition-colors"
+          />
+          <SummaryCard
+            title="Expenses"
+            icon={TrendingDown}
+            amount={formatCurrency(data.expenses)}
+            periodLabel="This month"
+            color="red"
+            currency={currency}
             onClick={() => navigate('/expenses')}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingDown className="h-4 w-4 text-red-500" />
-              <span className="text-xs text-muted-foreground">Expenses</span>
-            </div>
-            <p className="text-xl font-bold text-red-500">
-              {formatCurrency(data.expenses)} {currency}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">This month</p>
-          </Card>
+          />
         </div>
 
         {/* Row 3: Subscriptions | Insurance - 50/50 */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Subscriptions */}
-          <Card
-            className="hover:bg-muted/60 cursor-pointer transition-colors"
+        <div className="grid-2 gap-3">
+          <SummaryCard
+            title="Subscriptions"
+            icon={Repeat}
+            amount={formatCurrency(data.subscriptionsMonthly)}
+            periodLabel={`${formatCurrency(data.subscriptionsYearly)}/yr`}
+            color="purple"
+            currency={currency}
             onClick={() => navigate('/expenses?tab=all')}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Repeat className="h-4 w-4 text-purple-500" />
-              <span className="text-xs text-muted-foreground">Subscriptions</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">
-              {formatCurrency(data.subscriptionsMonthly)} {currency}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(data.subscriptionsYearly)}/yr
-            </p>
-          </Card>
-
-          {/* Insurance */}
-          <Card
-            className="hover:bg-muted/60 cursor-pointer transition-colors"
+          />
+          <SummaryCard
+            title="Insurance"
+            icon={Shield}
+            amount={formatCurrency(data.insuranceMonthly)}
+            periodLabel={`${formatCurrency(data.insuranceYearly)}/yr`}
+            color="amber"
+            currency={currency}
             onClick={() => navigate('/expenses?tab=all')}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <Shield className="h-4 w-4 text-amber-500" />
-              <span className="text-xs text-muted-foreground">Insurance</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">
-              {formatCurrency(data.insuranceMonthly)} {currency}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatCurrency(data.insuranceYearly)}/yr
-            </p>
-          </Card>
+          />
         </div>
       </div>
 

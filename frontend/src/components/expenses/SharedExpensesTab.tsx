@@ -76,7 +76,7 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
             {/* Summary Section */}
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold text-lg">Shared Expenses Summary</h3>
+                <h3>Shared Expenses Summary</h3>
                 <p className="text-sm text-muted-foreground">Track expenses you share with co-parents</p>
               </div>
               <div>

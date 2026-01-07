@@ -17,6 +17,7 @@ import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState, LoadingState } from "@/components/shared/states";
 import { fetchIncomeSuggestions, getSuggestionBorderColor } from "@/services/smartDefaults";
 
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/hooks/useEncryptedFields";
@@ -358,9 +359,7 @@ const Income = () => {
     return (
       <div className="space-y-4">
         <PageHeader title="Income Management" />
-        <div className="flex items-center justify-center min-h-[300px]">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+        <LoadingState />
       </div>
     );
   }
@@ -438,10 +437,12 @@ const Income = () => {
 
         {/* Income Sources List */}
         {incomeSources.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground mt-4">
-            <AlertCircle className="h-10 w-10 mb-3 opacity-50" />
-            <p>No income sources configured</p>
-            <p className="text-sm">Click "Add Source" to get started</p>
+          <div className="mt-4">
+            <EmptyState
+              icon={AlertCircle}
+              title="No income sources configured"
+              description='Click "Add Source" to get started'
+            />
           </div>
         ) : (
           <div className="mt-4 space-y-2">

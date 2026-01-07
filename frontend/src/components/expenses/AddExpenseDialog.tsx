@@ -165,7 +165,7 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
                                             <Icon className="h-6 w-6" />
                                         </div>
                                         <div>
-                                            <h3 className="font-semibold">{type.label}</h3>
+                                            <h3>{type.label}</h3>
                                             <p className="text-xs text-muted-foreground mt-0.5">{type.description}</p>
                                         </div>
                                     </div>

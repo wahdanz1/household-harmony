@@ -223,7 +223,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                         <div className="flex items-center gap-3">
                             <CreditCardIcon className="h-5 w-5 text-purple-500" />
                             <div>
-                                <h3 className="font-semibold">Budgeted Credit Expenses</h3>
+                                <h3>Budgeted Credit Expenses</h3>
                                 <p className="text-sm text-muted-foreground">
                                     {budgetedCredit.length} categories
                                     {saveStatus === "saving" && " • Saving..."}

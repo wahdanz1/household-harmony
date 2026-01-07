@@ -53,7 +53,7 @@ const MonthOverview = ({ income, expenses, currency }: MonthOverviewProps) => {
       </div>
 
       {/* Income and Expenses Row */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid-auto-fill-2">
         {/* Income */}
         <div className="bg-muted/40 rounded-lg p-4 border-l-4 border-green-500">
           <div className="flex items-center justify-between">

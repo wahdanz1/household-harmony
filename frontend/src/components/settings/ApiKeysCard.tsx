@@ -149,7 +149,7 @@ export const ApiKeysCard = () => {
                 <div className="flex items-center gap-3 mb-4">
                     <Key className="h-5 w-5 text-primary" />
                     <div>
-                        <h3 className="font-semibold">Gemini API Key</h3>
+                        <h3>Gemini API Key</h3>
                         <p className="text-sm text-muted-foreground">Used for AI-powered features like invoice parsing</p>
                     </div>
                 </div>

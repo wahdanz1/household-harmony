@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, savingsGoalFields } from "@/hooks/useEncryptedFields";
+import { LoadingState } from "@/components/shared/states";
 import { format } from "date-fns";
 import { PageHeader } from "@/components/shared/PageHeader";
 
@@ -267,9 +268,7 @@ const Savings = () => {
           title="Savings Goals"
           subtitle="Track and achieve your household savings goals"
         />
-        <div className="flex items-center justify-center min-h-[300px]">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+        <LoadingState />
       </div>
     );
   }
@@ -305,7 +304,7 @@ const Savings = () => {
                 placeholder="e.g., Emergency Fund"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid-2">
               <div>
                 <Label htmlFor="target">Target Amount</Label>
                 <Input
@@ -327,7 +326,7 @@ const Savings = () => {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid-2">
               <div>
                 <Label htmlFor="monthly">Monthly Contribution</Label>
                 <Input
@@ -498,7 +497,7 @@ const Savings = () => {
         </TabsContent>
 
         <TabsContent value="calculator" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid-auto-fill-2">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

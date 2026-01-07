@@ -65,7 +65,7 @@ const SavingsGoalsPreview = ({ currency }: SavingsGoalsPreviewProps) => {
       <div className="card-surface">
         <div className="flex items-center gap-3 mb-4">
           <Target className="h-5 w-5 text-blue-500" />
-          <h3 className="font-semibold text-foreground">Savings Goals</h3>
+          <h3>Savings Goals</h3>
         </div>
         <p className="card-description text-center py-4">Loading...</p>
       </div>
@@ -76,7 +76,7 @@ const SavingsGoalsPreview = ({ currency }: SavingsGoalsPreviewProps) => {
     <div className="card-surface">
       <div className="flex items-center gap-3 mb-4">
         <Target className="h-5 w-5 text-blue-500" />
-        <h3 className="font-semibold text-foreground">Savings Goals</h3>
+        <h3>Savings Goals</h3>
       </div>
 
       {goals.length === 0 ? (

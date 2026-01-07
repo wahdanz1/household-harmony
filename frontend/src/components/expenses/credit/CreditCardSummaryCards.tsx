@@ -16,7 +16,7 @@ interface CreditCardSummaryCardsProps {
 
 export const CreditCardSummaryCards = ({ creditCards, calculateCardTotal, currency }: CreditCardSummaryCardsProps) => {
     return (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid-auto-fill">
             {creditCards.map((card) => {
                 const total = calculateCardTotal(card.id);
                 const limit = card.monthly_limit || 0;
