@@ -220,7 +220,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
 
             {invites.length > 0 && (
               <div className="space-y-3">
-                <h4 className="font-medium text-sm">Active Invites</h4>
+                <h4 className="text-sm">Active Invites</h4>
                 {invites.map((invite) => (
                   <div key={invite.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex-1">

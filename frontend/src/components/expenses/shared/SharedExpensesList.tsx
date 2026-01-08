@@ -288,7 +288,7 @@ export const SharedExpensesList = ({
 
                         return (
                             <div key={coParent.id} className="space-y-2">
-                                <h3 className="font-semibold text-sm text-muted-foreground">
+                                <h3 className="text-sm text-muted-foreground">
                                     {coParent.name} - {total.toFixed(0)} {currency}
                                 </h3>
                                 {coParentExpenses.map((expense) => (

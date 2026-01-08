@@ -219,6 +219,20 @@
   .card-description {
     @apply text-sm text-muted-foreground;
   }
+
+  /* Navigation Item */
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-white/5 hover:text-foreground transition-all;
+  }
+
+  .nav-item-active {
+    @apply bg-primary/20 text-primary hover:bg-primary/25 shadow-lg shadow-primary/10;
+  }
+
+  /* Quick Action Tile */
+  .action-tile {
+    @apply flex items-center gap-3 p-4 rounded-lg border transition-all duration-200 bg-background/50 hover:bg-background/80 cursor-pointer;
+  }
 }
 
 @layer utilities {

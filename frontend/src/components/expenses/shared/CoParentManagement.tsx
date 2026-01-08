@@ -120,7 +120,7 @@ export const CoParentManagement = ({ householdId, coParents, onUpdate }: CoParen
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h3 className="font-semibold flex items-center gap-2">
+                        <h3 className="flex items-center gap-2">
                             <Users className="h-5 w-5" />
                             Manage Co-Parents
                         </h3>

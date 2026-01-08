@@ -12,7 +12,7 @@ export const VaultLockedAlert = ({
     className
 }: VaultLockedAlertProps) => {
     return (
-        <Alert className={`border-amber-500/50 bg-amber-500/10 text-amber-500 flex items-center justify-between p-4 ${className}`}>
+        <Alert variant="warning" className={`flex items-center justify-between p-4 ${className}`}>
             <div className="flex items-center gap-4">
                 <div className="p-2 rounded-full bg-amber-500/10 shrink-0">
                     <AlertTriangle className="h-6 w-6 stroke-amber-500" />

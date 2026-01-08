@@ -202,7 +202,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div>
-                                <h4 className="text-sm font-semibold mb-3">Current Members ({members.length})</h4>
+                                <h4 className="text-sm mb-3">Current Members ({members.length})</h4>
                                 <div className="space-y-2">
                                     {members.map((member) => (
                                         <div key={member.id} className="flex items-center gap-3 p-2 rounded-lg border">

@@ -331,9 +331,9 @@ export const DataMigrationCard = () => {
                         </Button>
                     </>
                 ) : totalUnencrypted === 0 ? (
-                    <Alert className="border-green-500/50 bg-green-500/10">
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        <AlertTitle className="text-green-500">All Data Encrypted</AlertTitle>
+                    <Alert variant="success">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <AlertTitle>All Data Encrypted</AlertTitle>
                         <AlertDescription>
                             Congratulations! All your data is already encrypted.
                         </AlertDescription>
@@ -397,9 +397,9 @@ export const DataMigrationCard = () => {
                         )}
 
                         {allDone && (
-                            <Alert className="border-green-500/50 bg-green-500/10">
-                                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                <AlertTitle className="text-green-500">Migration Complete</AlertTitle>
+                            <Alert variant="success">
+                                <CheckCircle2 className="h-4 w-4" />
+                                <AlertTitle>Migration Complete</AlertTitle>
                                 <AlertDescription>
                                     All {totalMigrated} records have been encrypted successfully.
                                 </AlertDescription>

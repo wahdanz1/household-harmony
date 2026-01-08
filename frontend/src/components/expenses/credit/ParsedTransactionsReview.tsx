@@ -208,7 +208,7 @@ export const ParsedTransactionsReview = ({
     };
 
     return (
-        <Card className="w-full border-primary/20 bg-muted/30">
+        <Card variant="muted" className="w-full">
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <div>
@@ -314,7 +314,7 @@ export const ParsedTransactionsReview = ({
                                             {t.confidence} CONFIDENCE
                                         </Badge>
                                         {duplicate && (
-                                            <Badge variant="outline" className="text-[10px] h-4 bg-yellow-500/10 text-yellow-500 border-yellow-500/30 flex gap-1 items-center">
+                                            <Badge variant="warning" className="text-[10px] h-4 flex gap-1 items-center">
                                                 <AlertCircle className="h-2 w-2" /> POTENTIAL DUPLICATE
                                             </Badge>
                                         )}
@@ -327,7 +327,7 @@ export const ParsedTransactionsReview = ({
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-border">
                     <Button
-                        className="col-span-2 bg-primary text-primary-foreground hover:bg-primary/90"
+                        className="col-span-2"
                         onClick={handleAccept}
                         disabled={saving || selectedIds.size === 0}
                     >

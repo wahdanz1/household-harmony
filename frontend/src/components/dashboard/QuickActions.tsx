@@ -35,12 +35,12 @@ const QuickActions = () => {
   ];
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="grid-auto-fill">
       {actions.map((action) => (
         <button
           key={action.path}
           onClick={() => navigate(action.path)}
-          className={`flex items-center gap-3 p-4 rounded-lg border ${action.borderColor} ${action.bgColor} ${action.hoverBg} transition-all duration-200 group`}
+          className={`action-tile group ${action.borderColor} ${action.bgColor} ${action.hoverBg}`}
         >
           <div className={`p-2 rounded-lg ${action.bgColor}`}>
             <action.icon className={`h-5 w-5 ${action.color}`} />

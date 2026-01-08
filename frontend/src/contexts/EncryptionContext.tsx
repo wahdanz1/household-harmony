@@ -328,9 +328,9 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             {showLockWarning && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-background border border-border rounded-lg p-6 max-w-md mx-4 shadow-xl">
-                        <h2 className="text-lg font-semibold text-foreground mb-2">
+                        <h4 className="mb-2">
                             Session Timeout Warning
-                        </h2>
+                        </h4>
                         <p className="text-muted-foreground mb-4">
                             Your vault will lock in 60 seconds due to inactivity.
                         </p>

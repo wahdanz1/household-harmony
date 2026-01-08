@@ -125,7 +125,7 @@ const Settings = () => {
         <TabsContent value="security" className="mt-6">
           <div className="space-y-6">
             {!isUnlocked && (
-              <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-500 mb-6 flex items-center justify-between p-4">
+              <Alert variant="warning" className="mb-6 flex items-center justify-between p-4">
                 <div className="flex items-center gap-4">
                   <div className="p-2 rounded-full bg-amber-500/10 shrink-0">
                     <AlertTriangle className="h-6 w-6 stroke-amber-500" />

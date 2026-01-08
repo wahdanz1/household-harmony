@@ -364,14 +364,14 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                     <div className="animate-in fade-in slide-in-from-top-4 duration-300">
                         <div className="mb-2 flex items-center justify-between px-1">
                             <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                                <Badge variant="soft">
                                     {parseResult.language}
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
                                     {parseResult.provider_used}
                                 </Badge>
                                 {parseResult.cached && (
-                                    <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600">
+                                    <Badge variant="success" className="text-xs">
                                         cached
                                     </Badge>
                                 )}
