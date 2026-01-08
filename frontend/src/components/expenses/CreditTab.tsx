@@ -2,14 +2,38 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { CreditCardManagement } from "./credit/CreditCardManagement";
-import { CreditCard as CreditCardIcon, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { CreditCard as CreditCardIcon, Check } from "lucide-react";
 import { getCategoryById } from "@/constants/expenseCategories";
+import { ExpenseBlock } from "./AllTabBlockView";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, creditCardExpenseFields, creditCardFields } from "@/hooks/useEncryptedFields";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { FileUp, Loader2, Sparkles } from "lucide-react";
+import { ParsedTransactionsReview } from "./credit/ParsedTransactionsReview";
+
+// Backend API response type
+interface ParseResult {
+    language: "Swedish" | "English";
+    transactions: Array<{
+        date: string;
+        merchant: string;
+        amount: number;
+        category: string;
+        confidence: "HIGH" | "MEDIUM" | "LOW";
+    }>;
+    provider_used: "groq" | "gemini";
+    duration_ms: number;
+    cached: boolean;
+}
+
+// Backend API URL (local dev or Railway)
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 interface CreditCardExpense {
     id: string;
@@ -46,7 +70,8 @@ interface CreditTabProps {
 
 export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: CreditTabProps) => {
     const { user } = useAuth();
-    const { isUnlocked } = useEncryption();
+    const { household } = useHousehold();
+    const { isUnlocked, decrypt, encrypt } = useEncryption();
     const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
     const [expenses, setExpenses] = useState<CreditCardExpense[]>([]);
     const [budgetedCredit, setBudgetedCredit] = useState<BudgetedCreditExpense[]>([]);
@@ -54,6 +79,9 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
     const [budgetExpanded, setBudgetExpanded] = useState(true);
     const [editedAmounts, setEditedAmounts] = useState<Record<string, string>>({});
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+    const [parsing, setParsing] = useState(false);
+    const [parseResult, setParseResult] = useState<ParseResult | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { decryptRecords: decryptExpenses, encryptRecord: encryptMonthlyExpense } = useEncryptedFields(expenseFields);
     const { decryptRecords: decryptMonthlyExpenses } = useEncryptedFields(monthlyExpenseFields);
@@ -203,6 +231,90 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
     // Calculate total from edited amounts
     const totalBudgetedCredit = Object.values(editedAmounts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
 
+    const handleFileSelect = async (file: File) => {
+        if (!user || !isUnlocked || !household) return;
+
+        // File size validation (10MB)
+        const MAX_SIZE = 10 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+            toast.error("PDF too large (max 10MB)");
+            return;
+        }
+
+        setParsing(true);
+        try {
+            // Get session for auth header
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData?.session?.access_token;
+
+            if (!token) {
+                toast.error("Authentication required. Please log in again.");
+                setParsing(false);
+                return;
+            }
+
+            // Prepare FormData with PDF file
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Call backend API
+            const response = await fetch(
+                `${API_BASE_URL}/api/llm/parse-invoice?user_id=${user.id}&household_id=${household.id}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: formData,
+                }
+            );
+
+            // Handle specific error codes
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const errorMsg = errorData.detail || 'Unknown error';
+
+                switch (response.status) {
+                    case 401:
+                        toast.error("Add LLM API key in Settings to use this feature.");
+                        break;
+                    case 413:
+                        toast.error("PDF too large (max 10MB)");
+                        break;
+                    case 429:
+                        toast.error("Rate limit reached - wait 60 seconds and try again.");
+                        break;
+                    case 500:
+                        toast.error("Processing failed - please try again.");
+                        break;
+                    default:
+                        toast.error(errorMsg);
+                }
+                setParsing(false);
+                return;
+            }
+
+            const result: ParseResult = await response.json();
+            setParseResult(result);
+
+            const cachedNote = result.cached ? " (cached)" : "";
+            toast.success(
+                `Found ${result.transactions.length} transactions! Parsed with ${result.provider_used} in ${(result.duration_ms / 1000).toFixed(1)}s${cachedNote}`
+            );
+        } catch (err: any) {
+            console.error("PDF Parsing failed:", err);
+
+            // Network error (backend down)
+            if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+                toast.error("Invoice parsing service is currently unavailable. Please try again later.");
+            } else {
+                toast.error(err.message || "Failed to parse PDF invoice");
+            }
+        } finally {
+            setParsing(false);
+        }
+    };
+
     if (loading) {
         return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
     }
@@ -213,65 +325,104 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
 
     return (
         <div className="space-y-6">
+            {/* Magic PDF Import Section */}
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-yellow-500" />
+                            Credit Card Assistant
+                        </h3>
+                        <p className="text-sm text-muted-foreground">Upload your bank statement and let Gemini do the work</p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={parsing}
+                        className="bg-primary/5 border-primary/20 hover:bg-primary/10"
+                    >
+                        {parsing ? (
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Parsing PDF...</>
+                        ) : (
+                            <><FileUp className="h-4 w-4 mr-2" /> Import from PDF</>
+                        )}
+                    </Button>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileSelect(file);
+                            e.target.value = ''; // Reset to allow same file re-upload
+                        }}
+                        accept=".pdf"
+                        className="hidden"
+                    />
+                </div>
+
+                {parseResult && (
+                    <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+                        <div className="mb-2 flex items-center justify-between px-1">
+                            <div className="flex items-center gap-2">
+                                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                                    {parseResult.language}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                    {parseResult.provider_used}
+                                </Badge>
+                                {parseResult.cached && (
+                                    <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600">
+                                        cached
+                                    </Badge>
+                                )}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                                {(parseResult.duration_ms / 1000).toFixed(1)}s
+                            </span>
+                        </div>
+                        <ParsedTransactionsReview
+                            transactions={parseResult.transactions}
+                            existingExpenses={expenses}
+                            creditCards={creditCards}
+                            householdId={householdId}
+                            currency={currency}
+                            onAccept={() => {
+                                setParseResult(null);
+                                fetchData();
+                            }}
+                            onCancel={() => setParseResult(null)}
+                        />
+                    </div>
+                )}
+            </div>
+
+            {/* Budgeted Credit Expenses Section */}
             {/* Budgeted Credit Expenses Section */}
             {budgetedCredit.length > 0 && (
-                <div className="bg-muted/40 rounded-lg border border-border overflow-hidden">
-                    <div
-                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/60 transition-colors"
-                        onClick={() => setBudgetExpanded(!budgetExpanded)}
-                    >
-                        <div className="flex items-center gap-3">
-                            <CreditCardIcon className="h-5 w-5 text-purple-500" />
-                            <div>
-                                <h3>Budgeted Credit Expenses</h3>
-                                <p className="text-sm text-muted-foreground">
-                                    {budgetedCredit.length} categories
-                                    {saveStatus === "saving" && " • Saving..."}
-                                    {saveStatus === "saved" && (
-                                        <span className="text-green-500 ml-1">
-                                            <Check className="inline h-3 w-3" /> Saved
-                                        </span>
-                                    )}
-                                </p>
+                <ExpenseBlock
+                    title="Budgeted Credit Expenses"
+                    total={totalBudgetedCredit}
+                    currency={currency}
+                    icon={<CreditCardIcon className="h-5 w-5 text-purple-500" />}
+                    items={budgetedCredit.map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        amount: parseFloat(editedAmounts[item.id] || "0"),
+                        defaultAmount: item.default_amount,
+                        category: item.category
+                    }))}
+                    editable={true}
+                    onAmountChange={handleAmountChange}
+                    colorClass="text-purple-500"
+                    headerMetrics={
+                        saveStatus !== 'idle' ? (
+                            <div className="flex items-center gap-1 text-xs animate-in fade-in">
+                                {saveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> <span className="text-muted-foreground">Saving...</span></>}
+                                {saveStatus === "saved" && <><Check className="h-3 w-3 text-green-500" /> <span className="text-green-500">Saved</span></>}
                             </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className="text-lg font-bold text-purple-500">{totalBudgetedCredit.toFixed(0)} {currency}</span>
-                            {budgetExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                        </div>
-                    </div>
-                    {budgetExpanded && (
-                        <div className="border-t border-border divide-y divide-border/50">
-                            {budgetedCredit.map(item => {
-                                const cat = getCategoryById(item.category);
-                                const Icon = cat?.icon;
-                                const currentValue = parseFloat(editedAmounts[item.id] || "0");
-                                const isDefault = currentValue === item.default_amount;
-
-                                return (
-                                    <div key={item.id} className="flex items-center justify-between p-3 px-4" onClick={(e) => e.stopPropagation()}>
-                                        <div className="flex items-center gap-2">
-                                            {Icon && <Icon className="h-4 w-4" style={{ color: cat?.color }} />}
-                                            <span className="text-sm">{item.name}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Input
-                                                type="number"
-                                                value={editedAmounts[item.id] || ""}
-                                                onChange={(e) => handleAmountChange(item.id, e.target.value)}
-                                                className={`w-24 text-right h-8 ${isDefault
-                                                    ? "border-green-500/50 focus:border-green-500"
-                                                    : "border-lime-500/50 focus:border-lime-500"
-                                                    }`}
-                                            />
-                                            <span className="text-xs text-muted-foreground w-10">{currency}</span>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
+                        ) : undefined
+                    }
+                />
             )}
 
             {budgetedCredit.length === 0 && creditCards.length === 0 && (

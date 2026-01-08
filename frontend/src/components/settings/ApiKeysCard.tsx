@@ -9,13 +9,20 @@ import { Label } from "@/components/ui/label";
 import { Key, Eye, EyeOff, Check, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
-// Type for API key record (since Supabase types may not be regenerated yet)
+// Type for API key record
 interface ApiKeyRecord {
     id: string;
     user_id: string;
     household_id: string;
-    provider: string;
+    provider: "groq" | "gemini";
     encrypted_key: string | null;
     key_iv: string | null;
     is_encrypted: boolean;
@@ -23,12 +30,28 @@ interface ApiKeyRecord {
     updated_at: string;
 }
 
+type LLMProvider = "groq" | "gemini";
+
+const providerConfig: Record<LLMProvider, { name: string; helpUrl: string; helpText: string }> = {
+    groq: {
+        name: "Groq",
+        helpUrl: "https://console.groq.com/keys",
+        helpText: "Get a free Groq API key",
+    },
+    gemini: {
+        name: "Gemini",
+        helpUrl: "https://aistudio.google.com/app/apikey",
+        helpText: "Get a free Gemini API key",
+    },
+};
+
 export const ApiKeysCard = () => {
     const { user } = useAuth();
     const { household } = useHousehold();
     const { encrypt, decrypt, isUnlocked } = useEncryption();
 
-    const [geminiKey, setGeminiKey] = useState("");
+    const [provider, setProvider] = useState<LLMProvider>("groq");
+    const [apiKey, setApiKey] = useState("");
     const [showKey, setShowKey] = useState(false);
     const [saving, setSaving] = useState(false);
     const [hasKey, setHasKey] = useState(false);
@@ -42,76 +65,74 @@ export const ApiKeysCard = () => {
         if (!user || !household) return;
 
         setLoading(true);
+        // Reset state before fetching
+        setHasKey(false);
+        setApiKey("");
 
-        // Use 'any' cast to work around missing Supabase types
+        // Fetch the most recently updated key for this user
         const { data, error } = await (supabase as any)
             .from("user_api_keys")
             .select("*")
             .eq("user_id", user.id)
-            .eq("provider", "gemini")
+            .order("updated_at", { ascending: false })
+            .limit(1)
             .maybeSingle();
+
+        if (error) {
+            console.error("Failed to fetch API key:", error);
+            setLoading(false);
+            return;
+        }
 
         if (data) {
             const record = data as ApiKeyRecord;
             setHasKey(true);
-            // Decrypt key if encrypted and vault is unlocked
-            if (record.is_encrypted && isUnlocked && record.encrypted_key) {
-                try {
-                    const decrypted = await decrypt(record.encrypted_key);
-                    setGeminiKey(decrypted || "");
-                } catch (e) {
-                    console.error("Failed to decrypt API key:", e);
-                    setGeminiKey(""); // Show empty if can't decrypt
-                }
-            } else if (!record.is_encrypted && record.encrypted_key) {
-                // Legacy unencrypted key
-                setGeminiKey(record.encrypted_key);
-            }
+            setProvider(record.provider || "gemini");
+            // API keys are now encrypted with backend master key
+            // Frontend cannot and should not decrypt them
+            // The field stays empty, but "configured" status shows
         }
         setLoading(false);
     };
 
     const handleSave = async () => {
-        if (!user || !household || !geminiKey.trim()) return;
+        if (!user || !household || !apiKey.trim()) return;
 
         setSaving(true);
         try {
-            let keyData: Record<string, any> = {
-                user_id: user.id,
-                household_id: household.id,
-                provider: "gemini",
-                updated_at: new Date().toISOString(),
-            };
-
-            // Encrypt key if vault is unlocked
-            if (isUnlocked) {
-                const encrypted = await encrypt(geminiKey);
-                if (encrypted) {
-                    keyData.encrypted_key = encrypted;
-                    keyData.is_encrypted = true;
-                } else {
-                    // Fallback to unencrypted if encryption fails
-                    keyData.encrypted_key = geminiKey;
-                    keyData.is_encrypted = false;
-                }
-            } else {
-                // Store unencrypted (not recommended, but fallback)
-                keyData.encrypted_key = geminiKey;
-                keyData.is_encrypted = false;
+            // Get the current session for auth header
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                toast.error("Please log in again");
+                return;
             }
 
-            // Use 'any' cast to work around missing Supabase types
-            const { error } = await (supabase as any)
-                .from("user_api_keys")
-                .upsert(keyData, { onConflict: "user_id,provider" });
+            // Call backend API to save encrypted key
+            const response = await fetch(
+                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys?user_id=${user.id}&household_id=${household.id}`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${session.access_token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        api_key: apiKey,
+                        provider: provider,
+                    }),
+                }
+            );
 
-            if (error) throw error;
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.detail || "Failed to save API key");
+            }
 
             setHasKey(true);
-            toast.success("API key saved successfully");
+            toast.success(`${providerConfig[provider].name} API key saved securely`);
         } catch (error) {
             console.error("Failed to save API key:", error);
-            toast.error("Failed to save API key");
+            toast.error(error instanceof Error ? error.message : "Failed to save API key");
         } finally {
             setSaving(false);
         }
@@ -120,17 +141,33 @@ export const ApiKeysCard = () => {
     const handleDelete = async () => {
         if (!user) return;
 
-        // Use 'any' cast to work around missing Supabase types
-        const { error } = await (supabase as any)
-            .from("user_api_keys")
-            .delete()
-            .eq("user_id", user.id)
-            .eq("provider", "gemini");
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                toast.error("Please log in again");
+                return;
+            }
 
-        if (!error) {
-            setGeminiKey("");
+            const response = await fetch(
+                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys/${provider}?user_id=${user.id}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        "Authorization": `Bearer ${session.access_token}`,
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error("Failed to delete API key");
+            }
+
+            setApiKey("");
             setHasKey(false);
             toast.success("API key removed");
+        } catch (error) {
+            console.error("Failed to delete API key:", error);
+            toast.error("Failed to delete API key");
         }
     };
 
@@ -142,31 +179,54 @@ export const ApiKeysCard = () => {
         );
     }
 
+    const currentConfig = providerConfig[provider];
+
     return (
         <div className="space-y-6">
-            {/* Gemini API Key */}
             <Card>
                 <div className="flex items-center gap-3 mb-4">
                     <Key className="h-5 w-5 text-primary" />
                     <div>
-                        <h3>Gemini API Key</h3>
-                        <p className="text-sm text-muted-foreground">Used for AI-powered features like invoice parsing</p>
+                        <h3>LLM API Key</h3>
+                        <p className="text-sm text-muted-foreground">
+                            Used for AI-powered features like invoice parsing
+                        </p>
                     </div>
                 </div>
 
-
-
                 <div className="space-y-4">
+                    {/* Provider Selection */}
                     <div className="space-y-2">
-                        <Label htmlFor="gemini-key">API Key</Label>
+                        <Label htmlFor="llm-provider">LLM Provider</Label>
+                        <Select
+                            value={provider}
+                            onValueChange={(v) => setProvider(v as LLMProvider)}
+                        >
+                            <SelectTrigger id="llm-provider">
+                                <SelectValue placeholder="Select provider" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="groq">
+                                    Groq (Recommended - Fast & Free)
+                                </SelectItem>
+                                <SelectItem value="gemini">
+                                    Google Gemini
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* API Key Input */}
+                    <div className="space-y-2">
+                        <Label htmlFor="api-key">{currentConfig.name} API Key</Label>
                         <div className="relative">
                             <Input
-                                id="gemini-key"
-                                name="gemini-api-key"
+                                id="api-key"
+                                name="llm-api-key"
                                 type={showKey ? "text" : "password"}
-                                value={geminiKey}
-                                onChange={(e) => setGeminiKey(e.target.value)}
-                                placeholder={hasKey ? "••••••••••••••••" : "Enter your Gemini API key"}
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                placeholder={hasKey ? "••••••••••••••••" : `Enter your ${currentConfig.name} API key`}
                                 className="pr-10"
                                 autoComplete="off"
                                 data-form-type="other"
@@ -183,8 +243,9 @@ export const ApiKeysCard = () => {
                         </div>
                     </div>
 
+                    {/* Action Buttons */}
                     <div className="flex items-center gap-3">
-                        <Button onClick={handleSave} disabled={saving || !geminiKey.trim()}>
+                        <Button onClick={handleSave} disabled={saving || !apiKey.trim()}>
                             <Check className="h-4 w-4 mr-2" />
                             {saving ? "Saving..." : hasKey ? "Update Key" : "Save Key"}
                         </Button>
@@ -195,20 +256,21 @@ export const ApiKeysCard = () => {
                         )}
                     </div>
 
+                    {/* Help Link */}
                     <a
-                        href="https://aistudio.google.com/app/apikey"
+                        href={currentConfig.helpUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                     >
-                        Get a free Gemini API key <ExternalLink className="h-3 w-3" />
+                        {currentConfig.helpText} <ExternalLink className="h-3 w-3" />
                     </a>
                 </div>
 
                 {hasKey && (
                     <div className="mt-4 flex items-center gap-2 text-sm text-green-500">
                         <Check className="h-4 w-4" />
-                        <span>API key configured</span>
+                        <span>{currentConfig.name} API key configured</span>
                     </div>
                 )}
             </Card>

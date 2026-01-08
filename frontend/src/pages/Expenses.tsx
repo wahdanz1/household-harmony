@@ -398,18 +398,18 @@ const Expenses = () => {
         {/* Only show tabs when there are multiple tabs (Credit or Co-Parent enabled) */}
         {(household?.enable_credit_cards || coParents.length > 0) && (
           <TabsList>
-            <TabsTrigger value="all" className="flex items-center gap-2 transition-all hover:bg-muted/80">
+            <TabsTrigger value="all" className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
               <span className="hidden sm:inline">All</span>
             </TabsTrigger>
             {household?.enable_credit_cards && (
-              <TabsTrigger value="credit" className="flex items-center gap-2 transition-all hover:bg-muted/80">
+              <TabsTrigger value="credit" className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4" />
                 <span className="hidden sm:inline">Credit</span>
               </TabsTrigger>
             )}
             {coParents.length > 0 && (
-              <TabsTrigger value="coparent" className="flex items-center gap-2 transition-all hover:bg-muted/80">
+              <TabsTrigger value="coparent" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 <span className="hidden sm:inline">Co-Parent</span>
               </TabsTrigger>
