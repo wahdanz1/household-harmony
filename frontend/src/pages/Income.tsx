@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { AddButton } from "@/components/ui/add-button";
+import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, AlertCircle } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,17 +11,25 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { IncomeSourceItem } from "@/components/income/IncomeSourceItem";
 import { IncomeSourceDialog } from "@/components/income/IncomeSourceDialog";
+import { OneTimeIncomeDialog } from "@/components/income/OneTimeIncomeDialog";
 
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 
 import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState, LoadingState } from "@/components/shared/states";
 import { fetchIncomeSuggestions, getSuggestionBorderColor } from "@/services/smartDefaults";
+
+import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/hooks/useEncryptedFields";
 
 import type { IncomeSuggestion } from "@/types/api";
 
+import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
+import { useEncryption } from "@/contexts/EncryptionContext";
+
 const Income = () => {
   const { user } = useAuth();
+  const { isUnlocked } = useEncryption();
   const { household, members, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
   const location = useLocation(); // Trigger refetch on navigation
   const { toast } = useToast();
@@ -45,8 +54,18 @@ const Income = () => {
   const currentMonth = getCurrentFinancialMonth(financialMonthStart);
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
+  // Encryption hooks for income data
+  const { decryptRecords: decryptSources } = useEncryptedFields(incomeSourceFields);
+  const { decryptRecords: decryptIncomes, encryptRecord: encryptIncome } = useEncryptedFields(monthlyIncomeFields);
+
   const fetchData = useCallback(async () => {
     if (!household?.id) return;
+
+    // If vault is locked, we can't fetch decrypted data safely
+    if (!isUnlocked) {
+      setLoading(false);
+      return;
+    }
 
     // Compute dates fresh inside fetchData using current financialMonthStart
     const fetchMonth = getCurrentFinancialMonth(financialMonthStart);
@@ -62,18 +81,22 @@ const Income = () => {
       supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
     ]);
 
-    setIncomeSources(sourcesData || []);
+    // Decrypt sensitive fields (if encrypted)
+    const decryptedSources = await decryptSources(sourcesData || []);
+    const decryptedMonthly = await decryptIncomes(monthlyData || []);
+
+    setIncomeSources(decryptedSources);
 
     // Separate regular incomes (filter out one-time incomes which have no source)
-    const regularIncomes = (monthlyData || []).filter((m: any) => m.income_source_id !== null);
+    const regularIncomes = decryptedMonthly.filter((m: any) => m.income_source_id !== null);
 
     setMonthlyIncomes(regularIncomes);
 
     // Auto-create monthly_incomes records for sources that don't have them yet
     // This ensures Dashboard shows all income, not just edited sources
     const missingRecords: any[] = [];
-    (sourcesData || []).forEach((source: any) => {
-      const existing = (monthlyData || []).find((m: any) => m.income_source_id === source.id);
+    decryptedSources.forEach((source: any) => {
+      const existing = decryptedMonthly.find((m: any) => m.income_source_id === source.id);
       if (!existing && user) {
         missingRecords.push({
           income_source_id: source.id,
@@ -81,28 +104,31 @@ const Income = () => {
           month: fetchMonth,
           month_start: startStr,
           month_end: endStr,
-          amount: parseFloat(source.default_amount?.toString() || "0"),
+          amount: parseFloat((source.default_amount || "0").toString()),
           created_by: user.id,
         });
       }
     });
 
-    // Create missing records in batch if any
+    // Create missing records in batch if any (encrypted)
     if (missingRecords.length > 0) {
-      await supabase.from("monthly_incomes").insert(missingRecords);
+      const encryptedRecords = await Promise.all(
+        missingRecords.map(record => encryptIncome(record))
+      );
+      await supabase.from("monthly_incomes").insert(encryptedRecords);
     }
 
     // Note: Don't set 'saved' status on initial load - only after actual user edits
 
     const initialAmounts: Record<string, string> = {};
-    (sourcesData || []).forEach((source: any) => {
-      const existing = (monthlyData || []).find((m: any) => m.income_source_id === source.id);
-      initialAmounts[source.id] = existing ? existing.amount.toString() : source.default_amount.toString();
+    decryptedSources.forEach((source: any) => {
+      const existing = decryptedMonthly.find((m: any) => m.income_source_id === source.id);
+      initialAmounts[source.id] = existing ? (existing.amount || "0").toString() : (source.default_amount || "0").toString();
     });
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [household?.id, financialMonthStart, user]);
+  }, [household?.id, financialMonthStart, user, isUnlocked]);
 
   useEffect(() => {
     if (!householdLoading && household?.id) {
@@ -164,7 +190,7 @@ const Income = () => {
 
       if (showToast && incomeSuggestions.length > 0) {
         toast({
-          title: "✨ Smart defaults applied",
+          title: "Smart defaults applied",
           description: `Pre-filled ${incomeSuggestions.length} income sources from historical data`,
         });
       }
@@ -223,14 +249,19 @@ const Income = () => {
     const saveMonth = getCurrentFinancialMonth(financialMonthStart);
     const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, financialMonthStart);
 
-    const entries = incomeSources.map((source) => ({
-      income_source_id: source.id,
-      household_id: household.id,
-      month: saveMonth,
-      month_start: format(saveStart, "yyyy-MM-dd"),
-      month_end: format(saveEnd, "yyyy-MM-dd"),
-      amount: parseFloat(currentAmounts[source.id] || "0"),
-      created_by: user.id,
+    // Build entries and encrypt them
+    const entries = await Promise.all(incomeSources.map(async (source) => {
+      const baseEntry = {
+        income_source_id: source.id,
+        household_id: household.id,
+        month: saveMonth,
+        month_start: format(saveStart, "yyyy-MM-dd"),
+        month_end: format(saveEnd, "yyyy-MM-dd"),
+        amount: parseFloat(currentAmounts[source.id] || "0"),
+        created_by: user.id,
+      };
+      // Encrypt the entry (encrypts amount field)
+      return await encryptIncome(baseEntry);
     }));
 
     const { error } = await supabase
@@ -249,7 +280,7 @@ const Income = () => {
       // Don't show toast for autosave - only show brief status indicator
     }
     setSaving(false);
-  }, [household, user, incomeSources, financialMonthStart, toast]);
+  }, [household, user, incomeSources, financialMonthStart, toast, encryptIncome]);
 
   const handleAddOneTime = async (data: {
     name: string;
@@ -326,8 +357,18 @@ const Income = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-4">
+        <PageHeader title="Income Management" />
+        <LoadingState />
+      </div>
+    );
+  }
+
+  if (!isUnlocked) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Income Management" />
+        <VaultLockedAlert />
       </div>
     );
   }
@@ -343,28 +384,31 @@ const Income = () => {
 
       {/* Add Source Button - matching Expenses style */}
       <div className="flex justify-between items-center">
-        <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
-          setSourceDialogOpen(open);
-          if (!open) resetSourceForm();
-        }}>
-          <DialogTrigger asChild>
-            <AddButton>Add Source</AddButton>
-          </DialogTrigger>
-          <IncomeSourceDialog
-            open={sourceDialogOpen}
-            editingSourceId={editingSourceId}
-            sourceFormData={sourceFormData}
-            members={members}
-            coParents={coParents}
-            onOpenChange={(open) => {
-              setSourceDialogOpen(open);
-              if (!open) resetSourceForm();
-            }}
-            onFormDataChange={setSourceFormData}
-            onSave={handleSaveSource}
-            onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
-          />
-        </Dialog>
+        <div className="flex gap-2">
+          <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
+            setSourceDialogOpen(open);
+            if (!open) resetSourceForm();
+          }}>
+            <DialogTrigger asChild>
+              <AddButton>Add Source</AddButton>
+            </DialogTrigger>
+            <IncomeSourceDialog
+              open={sourceDialogOpen}
+              editingSourceId={editingSourceId}
+              sourceFormData={sourceFormData}
+              members={members}
+              coParents={coParents}
+              onOpenChange={(open) => {
+                setSourceDialogOpen(open);
+                if (!open) resetSourceForm();
+              }}
+              onFormDataChange={setSourceFormData}
+              onSave={handleSaveSource}
+              onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
+            />
+          </Dialog>
+          <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />
+        </div>
         {/* Saved indicator - right aligned */}
         {autoSaveStatus === 'saved' && (
           <span className="text-sm text-primary animate-in fade-in duration-150">
@@ -378,13 +422,13 @@ const Income = () => {
         )}
       </div>
 
-      {/* Monthly Income Block - matching Expenses style */}
-      <div className="bg-muted/40 rounded-lg p-4 overflow-hidden border border-primary/20">
+      {/* Monthly Income Block */}
+      <Card className="overflow-hidden">
         {/* Block Header */}
         <div className="flex items-center gap-3">
           <TrendingUp className="h-5 w-5 text-green-500" />
           <div>
-            <h3 className="font-semibold text-foreground">Income</h3>
+            <h3>Income</h3>
             <p className="text-xs text-muted-foreground">
               {incomeSources.length} {incomeSources.length === 1 ? 'source' : 'sources'}
             </p>
@@ -393,10 +437,12 @@ const Income = () => {
 
         {/* Income Sources List */}
         {incomeSources.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground mt-4">
-            <AlertCircle className="h-10 w-10 mb-3 opacity-50" />
-            <p>No income sources configured</p>
-            <p className="text-sm">Click "Add Source" to get started</p>
+          <div className="mt-4">
+            <EmptyState
+              icon={AlertCircle}
+              title="No income sources configured"
+              description='Click "Add Source" to get started'
+            />
           </div>
         ) : (
           <div className="mt-4 space-y-2">
@@ -406,14 +452,15 @@ const Income = () => {
               // Status: green = using default, lime = manually overridden
               let status: 'saved' | 'modified' | 'none' = 'none';
               if (currentAmount !== undefined) {
-                status = currentAmount === source.default_amount.toString() ? 'saved' : 'modified';
+                const defaultStr = (source.default_amount || 0).toString();
+                status = currentAmount === defaultStr ? 'saved' : 'modified';
               }
 
               return (
                 <IncomeSourceItem
                   key={source.id}
                   source={source}
-                  amount={amounts[source.id] || source.default_amount.toString()}
+                  amount={amounts[source.id] || (source.default_amount || "0").toString()}
                   currency={household?.currency || "SEK"}
                   onAmountChange={handleAmountChange}
                   onEdit={handleEditSource}
@@ -424,21 +471,21 @@ const Income = () => {
             })}
           </div>
         )}
-      </div>
+      </Card>
 
 
 
       {/* Total Monthly Income Bar - matching Expenses style with border */}
       <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-foreground">Total Monthly Income</span>
+          <span className="font-semibold">Total Monthly Income</span>
           <span className="text-2xl font-bold text-green-500">
             {totalIncome.toFixed(0)} {household?.currency || "SEK"}
           </span>
         </div>
       </div>
 
-    </div>
+    </div >
   );
 };
 

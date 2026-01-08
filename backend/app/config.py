@@ -6,8 +6,11 @@ class Settings(BaseSettings):
     
     # Supabase
     SUPABASE_URL: str
-    SUPABASE_KEY: str
+    SUPABASE_SERVICE_KEY: str  # Service role key (bypasses RLS)
     JWT_SECRET: str
+    
+    # Encryption
+    ENCRYPTION_MASTER_KEY: str = ""  # Fernet key for API key encryption
     
     # Environment
     ENVIRONMENT: str = "development"

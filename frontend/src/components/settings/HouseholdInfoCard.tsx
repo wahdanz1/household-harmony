@@ -148,7 +148,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
       <CardContent className="space-y-6">
         {/* Household Name Display */}
         <div>
-          <h2 className="text-2xl font-bold">{household.name}</h2>
+          <h2>{household.name}</h2>
           <p className="text-sm text-muted-foreground mt-1">
             {isOwner ? "You are the owner" : "You are a member"}
           </p>

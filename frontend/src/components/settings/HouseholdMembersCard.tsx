@@ -171,7 +171,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
           {members.map((member) => (
             <div
               key={member.id}
-              className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/40"
+              className="list-row-compact"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -209,7 +209,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
             <div className="pt-6 border-t">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="font-semibold">Invite Members</h3>
+                  <h3>Invite Members</h3>
                   <p className="text-sm text-muted-foreground">Generate a 6-digit code that expires in 24 hours</p>
                 </div>
                 <Button onClick={() => setShowEmailDialog(true)}>

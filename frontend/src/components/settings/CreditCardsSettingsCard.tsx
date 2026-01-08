@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useEncryptedFields, creditCardFields } from "@/hooks/useEncryptedFields";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,99 +7,37 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CreditCard, Plus, Edit, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface CreditCardData {
-    id: string;
-    name: string;
-    monthly_limit: number;
-    is_active: boolean;
-}
-
-interface CreditCardsSettingsCardProps {
-    householdId: string;
-    enableCreditCards: boolean;
-    currency: string;
-    onUpdate: () => void;
-}
+// ... existing imports
 
 export const CreditCardsSettingsCard = ({ householdId, enableCreditCards, currency, onUpdate }: CreditCardsSettingsCardProps) => {
+    const { user } = useAuth();
     const { toast } = useToast();
-    const [creditCards, setCreditCards] = useState<CreditCardData[]>([]);
-    const [isOpen, setIsOpen] = useState(false);
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [formData, setFormData] = useState({
-        name: "",
-        monthly_limit: "0",
-    });
 
-    useEffect(() => {
-        if (enableCreditCards) {
-            fetchCreditCards();
-        }
-    }, [householdId, enableCreditCards]);
-
-    const fetchCreditCards = async () => {
-        const { data } = await supabase
-            .from("credit_cards")
-            .select("*")
-            .eq("household_id", householdId)
-            .order("created_at", { ascending: true });
-
-        setCreditCards(data || []);
-    };
-
-    const handleToggleEnable = async (enabled: boolean) => {
-        const { error } = await supabase
-            .from("households")
-            .update({ enable_credit_cards: enabled })
-            .eq("id", householdId);
-
-        if (error) {
-            toast({
-                title: "Error",
-                description: "Failed to update credit card settings",
-                variant: "destructive",
-            });
-        } else {
-            toast({
-                title: "Success",
-                description: enabled ? "Credit cards enabled" : "Credit cards disabled",
-            });
-            onUpdate();
-        }
-    };
-
-    const resetForm = () => {
-        setFormData({
-            name: "",
-            monthly_limit: "0",
-        });
-        setEditingId(null);
-    };
-
-    const handleEdit = (card: CreditCardData) => {
-        setFormData({
-            name: card.name,
-            monthly_limit: card.monthly_limit.toString(),
-        });
-        setEditingId(card.id);
-        setIsOpen(true);
-    };
+    // ... existing code
 
     const handleSave = async () => {
-        const data = {
+        if (!user) return;
+
+        const baseData = {
             household_id: householdId,
             name: formData.name,
             monthly_limit: parseFloat(formData.monthly_limit),
+            created_by: user.id,
+            is_encrypted: false,
         };
+
+        const data = await encryptRecord(baseData);
+        // ... rest of handleSave
 
         let error;
         if (editingId) {
+            const { id, ...updateData } = data as any;
+
             ({ error } = await supabase
                 .from("credit_cards")
-                .update(data)
+                .update(updateData)
                 .eq("id", editingId));
         } else {
             ({ error } = await supabase
@@ -154,7 +93,7 @@ export const CreditCardsSettingsCard = ({ householdId, enableCreditCards, curren
                 <CardDescription className="mt-1.5">Manage credit cards with monthly spending limits</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/40">
+                <div className="list-row">
                     <div className="space-y-0.5">
                         <Label>Enable Credit Card Tracking</Label>
                         <p className="text-sm text-muted-foreground">
@@ -223,7 +162,7 @@ export const CreditCardsSettingsCard = ({ householdId, enableCreditCards, curren
                                 creditCards.map((card) => (
                                     <div
                                         key={card.id}
-                                        className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/40"
+                                        className="list-row-compact"
                                     >
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2">

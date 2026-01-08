@@ -13,7 +13,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, savingsGoalFields } from "@/hooks/useEncryptedFields";
+import { LoadingState } from "@/components/shared/states";
 import { format } from "date-fns";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 interface SavingsGoal {
   id: string;
@@ -33,6 +36,7 @@ interface SavingsGoal {
 const Savings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { encryptRecord, decryptRecords } = useEncryptedFields(savingsGoalFields);
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState("SEK");
@@ -90,7 +94,9 @@ const Savings = () => {
     if (error) {
       toast({ title: "Error loading goals", description: error.message, variant: "destructive" });
     } else {
-      setGoals((data as SavingsGoal[]) || []);
+      // Decrypt savings goals
+      const decryptedGoals = await decryptRecords(data || []) as SavingsGoal[];
+      setGoals(decryptedGoals);
     }
     setLoading(false);
   };
@@ -130,7 +136,7 @@ const Savings = () => {
 
     if (!membership) return;
 
-    const goalData = {
+    const baseData = {
       household_id: membership.household_id,
       name: formData.name,
       target_amount: parseFloat(formData.target_amount),
@@ -143,6 +149,9 @@ const Savings = () => {
       image_url: formData.image_url || null,
       created_by: user.id,
     };
+
+    // Encrypt sensitive fields (name, target_amount, current_amount)
+    const goalData = await encryptRecord(baseData);
 
     if (editingGoal) {
       const { error } = await supabase
@@ -253,138 +262,146 @@ const Savings = () => {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-96">Loading...</div>;
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Savings Goals"
+          subtitle="Track and achieve your household savings goals"
+        />
+        <LoadingState />
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Savings Goals</h1>
-          <p className="text-muted-foreground mt-1">Track and achieve your household savings goals</p>
-        </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setIsAddDialogOpen(open); }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Goal
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>{editingGoal ? "Edit Goal" : "Create New Goal"}</DialogTitle>
-              <DialogDescription>
-                {editingGoal ? "Update your savings goal details" : "Set up a new savings goal for your household"}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
+    <div className="space-y-4">
+      <PageHeader
+        title="Savings Goals"
+        subtitle="Track and achieve your household savings goals"
+      />
+
+      <Dialog open={isAddDialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setIsAddDialogOpen(open); }}>
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Goal
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingGoal ? "Edit Goal" : "Create New Goal"}</DialogTitle>
+            <DialogDescription>
+              {editingGoal ? "Update your savings goal details" : "Set up a new savings goal for your household"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">Goal Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Emergency Fund"
+              />
+            </div>
+            <div className="grid-2">
               <div>
-                <Label htmlFor="name">Goal Name</Label>
+                <Label htmlFor="target">Target Amount</Label>
                 <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Emergency Fund, Vacation"
+                  id="target"
+                  type="number"
+                  value={formData.target_amount}
+                  onChange={(e) => setFormData({ ...formData, target_amount: e.target.value })}
+                  placeholder="50000"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="target">Target Amount</Label>
-                  <Input
-                    id="target"
-                    type="number"
-                    value={formData.target_amount}
-                    onChange={(e) => setFormData({ ...formData, target_amount: e.target.value })}
-                    placeholder="50000"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="current">Current Amount</Label>
-                  <Input
-                    id="current"
-                    type="number"
-                    value={formData.current_amount}
-                    onChange={(e) => setFormData({ ...formData, current_amount: e.target.value })}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select value={formData.priority} onValueChange={(value: any) => setFormData({ ...formData, priority: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="type">Type</Label>
-                  <Select value={formData.goal_type} onValueChange={(value: any) => setFormData({ ...formData, goal_type: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="household">Household</SelectItem>
-                      <SelectItem value="personal">Personal</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
               <div>
-                <Label htmlFor="monthly_contribution">Monthly Contribution ({currency})</Label>
+                <Label htmlFor="current">Current Amount</Label>
                 <Input
-                  id="monthly_contribution"
+                  id="current"
+                  type="number"
+                  value={formData.current_amount}
+                  onChange={(e) => setFormData({ ...formData, current_amount: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            <div className="grid-2">
+              <div>
+                <Label htmlFor="monthly">Monthly Contribution</Label>
+                <Input
+                  id="monthly"
                   type="number"
                   value={formData.monthly_contribution}
                   onChange={(e) => setFormData({ ...formData, monthly_contribution: e.target.value })}
-                  placeholder="1000"
-                />
-                {formData.monthly_contribution && formData.target_amount && formData.current_amount && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Estimated completion: {Math.ceil((parseFloat(formData.target_amount) - parseFloat(formData.current_amount)) / (parseFloat(formData.monthly_contribution) * 2))} months
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="image">Goal Image (Optional)</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    id="image"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    disabled={uploadingImage}
-                    className="cursor-pointer"
-                  />
-                  {uploadingImage && <span className="text-sm text-muted-foreground">Uploading...</span>}
-                </div>
-                {formData.image_url && (
-                  <img src={formData.image_url} alt="Goal preview" className="mt-2 h-20 w-20 object-cover rounded" />
-                )}
-              </div>
-              <div>
-                <Label htmlFor="description">Description (Optional)</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Add notes about this goal..."
-                  rows={3}
+                  placeholder="5000"
                 />
               </div>
-              <Button onClick={handleSaveGoal} className="w-full">
-                {editingGoal ? "Update Goal" : "Create Goal"}
-              </Button>
+              <div>
+                <Label htmlFor="priority">Priority</Label>
+                <Select
+                  value={formData.priority}
+                  onValueChange={(value: "high" | "medium" | "low") => setFormData({ ...formData, priority: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <div>
+              <Label htmlFor="goal_type">Goal Type</Label>
+              <Select
+                value={formData.goal_type}
+                onValueChange={(value: "household" | "personal") => setFormData({ ...formData, goal_type: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="household">Household Goal</SelectItem>
+                  <SelectItem value="personal">Personal Goal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="image">Goal Image (Optional)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                  className="cursor-pointer"
+                />
+                {uploadingImage && <span className="text-sm text-muted-foreground">Uploading...</span>}
+              </div>
+              {formData.image_url && (
+                <img src={formData.image_url} alt="Goal preview" className="mt-2 h-20 w-20 object-cover rounded" />
+              )}
+            </div>
+            <div>
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Add notes about this goal..."
+                rows={3}
+              />
+            </div>
+            <Button onClick={handleSaveGoal} className="w-full">
+              {editingGoal ? "Update Goal" : "Create Goal"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Tabs defaultValue="goals" className="space-y-4">
         <TabsList>
@@ -480,7 +497,7 @@ const Savings = () => {
         </TabsContent>
 
         <TabsContent value="calculator" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid-auto-fill-2">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -569,7 +586,7 @@ const Savings = () => {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </div >
   );
 };
 

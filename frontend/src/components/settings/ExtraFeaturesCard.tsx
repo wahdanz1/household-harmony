@@ -69,9 +69,9 @@ export const ExtraFeaturesCard = ({ householdId, enableCreditCards, enableShared
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 pb-2 border-b">
                             <CreditCard className="h-5 w-5" />
-                            <h3 className="font-semibold">Credit Cards</h3>
+                            <h3>Credit Cards</h3>
                         </div>
-                        <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/40">
+                        <div className="list-row">
                             <div className="space-y-0.5 flex-1">
                                 <Label>Enable Credit Card Tracking</Label>
                                 <p className="text-sm text-muted-foreground">
@@ -94,9 +94,9 @@ export const ExtraFeaturesCard = ({ householdId, enableCreditCards, enableShared
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 pb-2 border-b">
                             <Users className="h-5 w-5" />
-                            <h3 className="font-semibold">Shared Expenses</h3>
+                            <h3>Shared Expenses</h3>
                         </div>
-                        <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/40">
+                        <div className="list-row">
                             <div className="space-y-0.5 flex-1">
                                 <Label>Enable Shared Expenses</Label>
                                 <p className="text-sm text-muted-foreground">

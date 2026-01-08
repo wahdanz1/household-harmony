@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CoParentManagement } from "./shared/CoParentManagement";
 import { SharedExpensesList } from "./shared/SharedExpensesList";
+import { useEncryptedFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
 
 interface SharedExpense {
   id: string;
@@ -31,6 +32,7 @@ interface SharedExpensesTabProps {
 export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd }: SharedExpensesTabProps) => {
   const [coParents, setCoParents] = useState<CoParent[]>([]);
   const [expenses, setExpenses] = useState<SharedExpense[]>([]);
+  const { decryptRecords: decryptSharedExpenses } = useEncryptedFields(sharedExpenseFields);
 
   const fetchData = async () => {
     const [{ data: coParentsData }, { data: expensesData }] = await Promise.all([
@@ -45,7 +47,10 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
     ]);
 
     setCoParents(coParentsData || []);
-    setExpenses(expensesData || []);
+
+    // Decrypt shared expenses
+    const decryptedExpenses = await decryptSharedExpenses(expensesData || []) as SharedExpense[];
+    setExpenses(decryptedExpenses);
   };
 
   useEffect(() => {
@@ -66,12 +71,12 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
     <div className="space-y-6">
       {/* Combined Summary and Management Card */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent>
           <div className="grid gap-8 md:grid-cols-2">
             {/* Summary Section */}
             <div className="space-y-4">
               <div>
-                <h3 className="font-semibold text-lg">Shared Expenses Summary</h3>
+                <h3>Shared Expenses Summary</h3>
                 <p className="text-sm text-muted-foreground">Track expenses you share with co-parents</p>
               </div>
               <div>

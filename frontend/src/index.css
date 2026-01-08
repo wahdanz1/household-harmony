@@ -2,10 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
     /* Dark theme with sage/teal/forest green palette */
@@ -18,34 +14,27 @@ All colors MUST be HSL.
     --popover: 200 12% 12%;
     --popover-foreground: 140 10% 92%;
 
-    /* Sage green primary (from gradient center) */
     --primary: 140 25% 55%;
     --primary-foreground: 200 15% 8%;
 
-    /* Darker surface */
     --secondary: 200 10% 15%;
     --secondary-foreground: 140 10% 92%;
 
     --muted: 200 10% 18%;
     --muted-foreground: 140 8% 60%;
 
-    /* Teal accent (from gradient bottom-left) */
     --accent: 180 30% 30%;
     --accent-foreground: 140 15% 85%;
 
-    /* Destructive */
     --destructive: 0 70% 60%;
     --destructive-foreground: 140 10% 92%;
 
-    /* Success green (matches gradient) */
     --success: 140 40% 50%;
     --success-foreground: 200 15% 8%;
 
-    /* Soft lime warning (from gradient top-right) */
     --warning: 75 45% 55%;
     --warning-foreground: 200 15% 8%;
 
-    /* Subtle borders */
     --border: 200 10% 15%;
     --input: 200 10% 18%;
     --ring: 140 25% 55%;
@@ -61,28 +50,34 @@ All colors MUST be HSL.
     --sidebar-border: 200 10% 12%;
     --sidebar-ring: 140 25% 55%;
   }
-}
 
-/* Gradient background - Green shit */
-@layer utilities {
-  .gradient-background {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background:
-      radial-gradient(ellipse at 20% 0%, hsla(180, 40%, 20%, 0.3) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 100%, hsla(75, 35%, 35%, 0.25) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 50%, hsl(194, 14%, 19%) 0%, hsl(200, 15%, 6%) 100%);
-  }
-}
-
-@layer base {
   * {
     @apply border-border;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Typography Hierarchy - Zero Class Default */
+  h1 {
+    @apply text-3xl font-bold tracking-tight scroll-m-20;
+  }
+
+  h2 {
+    @apply text-2xl font-semibold tracking-tight scroll-m-20 first:mt-0;
+  }
+
+  h3 {
+    @apply text-xl font-semibold tracking-tight scroll-m-20;
+  }
+
+  h4 {
+    @apply text-lg font-semibold tracking-tight scroll-m-20;
+  }
+
+  p {
+    @apply leading-7 text-sm;
   }
 
   /* Optimized for financial data readability */
@@ -96,17 +91,154 @@ All colors MUST be HSL.
     -webkit-appearance: none;
     margin: 0;
   }
-  
+
   input[type="number"] {
     -moz-appearance: textfield;
   }
 }
 
-/* Typewriter animation for "Saved" indicator */
+@layer components {
+
+  /* Layout Helpers */
+  .page-layout {
+    @apply space-y-6 container mx-auto p-4 md:p-6 max-w-7xl;
+  }
+
+  .section-header {
+    @apply flex items-center justify-between mb-4;
+  }
+
+  /* Card Surface Classes */
+  .card-surface {
+    @apply rounded-lg border border-primary/20 bg-muted/40 p-6;
+  }
+
+  .card-surface-neutral {
+    @apply rounded-lg border border-border bg-muted/40;
+  }
+
+  .card-surface-interactive {
+    @apply rounded-lg border border-primary/20 bg-muted/40 hover:bg-muted/60 cursor-pointer transition-colors;
+  }
+
+  /* List Items */
+  .list-row {
+    @apply flex items-center justify-between p-4 rounded-lg border border-border bg-background/40;
+  }
+
+  .list-row-compact {
+    @apply flex items-center justify-between p-3 rounded-lg border border-border bg-background/40;
+  }
+
+  .list-row-inactive {
+    @apply list-row-compact opacity-60 hover:bg-background/60 cursor-pointer transition-colors;
+  }
+
+  /* Card Block - For income/expense/credit card items */
+  .card-block {
+    @apply p-4 rounded-lg bg-background/40 border border-border hover:bg-background/60 transition-colors;
+  }
+
+  .card-block-interactive {
+    @apply card-block cursor-pointer;
+  }
+
+  /* Loading State */
+  .loading-container {
+    @apply flex items-center justify-center py-12;
+  }
+
+  .loading-spinner {
+    @apply animate-spin h-8 w-8 text-primary;
+  }
+
+  /* Empty State */
+  .empty-state {
+    @apply text-center py-12 text-muted-foreground;
+  }
+
+  .empty-state-icon {
+    @apply h-12 w-12 mx-auto mb-4 opacity-50;
+  }
+
+  /* Grid Auto-Fill */
+  .grid-auto-fill {
+    @apply grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  .grid-auto-fill-2 {
+    @apply grid gap-4 grid-cols-1 md:grid-cols-2;
+  }
+
+  .grid-2 {
+    @apply grid gap-4 grid-cols-2;
+  }
+
+  .grid-3 {
+    @apply grid gap-4 grid-cols-3;
+  }
+
+  /* Button Variants */
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-destructive {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90 px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-ghost {
+    @apply hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md font-medium transition-colors;
+  }
+
+  .btn-primary:disabled,
+  .btn-secondary:disabled,
+  .btn-destructive:disabled,
+  .btn-ghost:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* Special Component: Currency Input */
+  .currency-input {
+    @apply w-24 sm:w-28 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Semantic Text Classes (for override) */
+  .text-subtitle {
+    @apply text-muted-foreground mt-1;
+  }
+
+  .card-title {
+    @apply text-2xl font-semibold leading-none tracking-tight;
+  }
+
+  .card-description {
+    @apply text-sm text-muted-foreground;
+  }
+}
+
+@layer utilities {
+  .gradient-background {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(ellipse at 20% 0%, hsla(180, 40%, 20%, 0.3) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, hsla(75, 35%, 35%, 0.25) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, hsl(194, 14%, 19%) 0%, hsl(200, 15%, 6%) 100%);
+  }
+}
+
+/* Animations */
 @keyframes typewriter {
   from {
     width: 0;
   }
+
   to {
     width: 4.5em;
   }

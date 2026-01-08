@@ -6,9 +6,24 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { format } from "date-fns";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { Card } from "@/components/ui/card";
 import SavingsGoalsPreview from "@/components/dashboard/SavingsGoalsPreview";
 import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlementCard";
-import { TrendingUp, TrendingDown, PiggyBank, Repeat, Shield } from "lucide-react";
+import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
+import { TrendingUp, TrendingDown, PiggyBank, Repeat, Shield, ClipboardCheck, ChevronRight } from "lucide-react";
+import { LoadingState } from "@/components/shared/states";
+import { SummaryCard } from "@/components/shared/SummaryCard";
+import {
+  useEncryptedFields,
+  monthlyIncomeFields,
+  monthlyExpenseFields,
+  subscriptionFields,
+  insuranceFields,
+  creditCardExpenseFields,
+  sharedExpenseFields
+} from "@/hooks/useEncryptedFields";
+import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
+import { useEncryption } from "@/contexts/EncryptionContext";
 
 interface DashboardData {
   income: number;
@@ -22,6 +37,7 @@ interface DashboardData {
 const Dashboard = () => {
   const { user } = useAuth();
   const { household, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
+  const { isUnlocked } = useEncryption();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData>({
@@ -34,10 +50,31 @@ const Dashboard = () => {
   });
   const [currency, setCurrency] = useState("SEK");
   const [householdId, setHouseholdId] = useState<string>("");
+  const [reviewWizardOpen, setReviewWizardOpen] = useState(false);
+
+  const { needsReview, markAsReviewed } = useMonthlyReviewStatus(household?.id, financialMonthStart);
+
+  // Encryption hooks
+  const { decryptRecords: decryptIncomes } = useEncryptedFields(monthlyIncomeFields);
+  const { decryptRecords: decryptExpenses } = useEncryptedFields(monthlyExpenseFields);
+  const { decryptRecords: decryptSubscriptions } = useEncryptedFields(subscriptionFields);
+  const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
+  const { decryptRecords: decryptCCExpenses } = useEncryptedFields(creditCardExpenseFields);
+  const { decryptRecords: decryptShared } = useEncryptedFields(sharedExpenseFields);
 
   useEffect(() => {
     const fetchData = async () => {
+      // If vault is locked, we can't fetch meaningful data, so stop early (or wait for unlock)
       if (!user || !household?.id || householdLoading) return;
+
+      // If locked, we rely on the VaultLockedAlert to tell the user; 
+      // but we still let it run to clear loading state if desired, 
+      // though typically we'll return early in render.
+      // However, to avoid NaN calculations, we should only process if unlocked.
+      if (!isUnlocked) {
+        setLoading(false);
+        return;
+      }
 
       setHouseholdId(household.id);
 
@@ -62,6 +99,14 @@ const Dashboard = () => {
         supabase.from("credit_card_expenses").select("amount").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
         supabase.from("shared_expenses").select("amount, paid_by").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
       ]);
+
+      // Decrypt all data //
+      const decryptedIncomes = await decryptIncomes(monthlyIncomes || []);
+      const decryptedExpenses = await decryptExpenses(monthlyExpenses || []);
+      const decryptedSubs = await decryptSubscriptions(subscriptions || []);
+      const decryptedInsurances = await decryptInsurances(insurances || []);
+      const decryptedCC = await decryptCCExpenses(creditCardExpenses || []);
+      const decryptedShared = await decryptShared(sharedExpenses || []);
 
       // Helper to deduplicate recurring items
       const deduplicateItems = (items: any[], sourceIdField: string) => {
@@ -88,18 +133,16 @@ const Dashboard = () => {
         return [...Object.values(uniqueItems), ...oneTimeItems];
       };
 
-      const uniqueIncomes = deduplicateItems(monthlyIncomes || [], "income_source_id");
-      const uniqueExpenses = deduplicateItems(monthlyExpenses || [], "regular_expense_id");
+      const uniqueIncomes = deduplicateItems(decryptedIncomes, "income_source_id");
+      const uniqueExpenses = deduplicateItems(decryptedExpenses, "expense_id");
 
-      const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
-      const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
+      const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
+      const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
 
       // Calculate subscriptions - Logic matches Expenses page (Cash Flow based)
-      // - Monthly: always counts
-      // - Quarterly/Yearly: counts full amount ONLY if due this month
       let subscriptionsMonthly = 0;
       let subscriptionsYearly = 0;
-      (subscriptions || []).forEach((sub: any) => {
+      decryptedSubs.forEach((sub: any) => {
         const amount = parseFloat(sub.amount || "0");
 
         // Yearly Projection
@@ -144,26 +187,27 @@ const Dashboard = () => {
       // Calculate insurance - track both monthly equivalent and yearly total
       let insuranceMonthly = 0;
       let insuranceYearly = 0;
-      (insurances || []).forEach((ins: any) => {
+      decryptedInsurances.forEach((ins: any) => {
+        const totalAmount = parseFloat(ins.total_amount || "0"); // Handle string/number mismatch
         let monthlyAmount = 0;
         let yearlyAmount = 0;
 
         if (ins.payment_frequency === "yearly") {
-          monthlyAmount = ins.total_amount / 12;
-          yearlyAmount = ins.total_amount;
+          monthlyAmount = totalAmount / 12;
+          yearlyAmount = totalAmount;
         } else if (ins.payment_frequency === "semi_annually") {
-          monthlyAmount = ins.total_amount / 6;
-          yearlyAmount = ins.total_amount * 2;
+          monthlyAmount = totalAmount / 6;
+          yearlyAmount = totalAmount * 2;
         } else if (ins.payment_frequency === "quarterly") {
-          monthlyAmount = ins.total_amount / 3;
-          yearlyAmount = ins.total_amount * 4;
+          monthlyAmount = totalAmount / 3;
+          yearlyAmount = totalAmount * 4;
         } else {
-          monthlyAmount = ins.total_amount;
-          yearlyAmount = ins.total_amount * 12;
+          monthlyAmount = totalAmount;
+          yearlyAmount = totalAmount * 12;
         }
 
         if (ins.is_shared) {
-          const shareRatio = ins.share_percentage / 100;
+          const shareRatio = (ins.share_percentage || 50) / 100;
           monthlyAmount *= shareRatio;
           yearlyAmount *= shareRatio;
         }
@@ -172,9 +216,9 @@ const Dashboard = () => {
         insuranceYearly += yearlyAmount;
       });
 
-      const totalCreditCard = (creditCardExpenses || []).reduce((sum: number, item: any) => sum + parseFloat(item.amount), 0);
-      const totalShared = (sharedExpenses || []).reduce((sum: number, item: any) => {
-        return sum + (item.paid_by === "user" ? parseFloat(item.amount) : -parseFloat(item.amount));
+      const totalCreditCard = decryptedCC.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
+      const totalShared = decryptedShared.reduce((sum: number, item: any) => {
+        return sum + (item.paid_by === "user" ? (parseFloat(item.amount) || 0) : -(parseFloat(item.amount) || 0));
       }, 0);
 
       const totalExpenses = totalMonthlyExpenses + subscriptionsMonthly + insuranceMonthly + totalCreditCard + totalShared;
@@ -192,7 +236,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [user, household, householdLoading]);
+  }, [user, household, householdLoading, isUnlocked]); // added isUnlocked dependency
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('sv-SE', {
@@ -203,8 +247,19 @@ const Dashboard = () => {
 
   if (householdLoading || loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="space-y-4">
+        <PageHeader title="Dashboard" />
+        <LoadingState />
+      </div>
+    );
+  }
+
+  // If locked, show alert instead of dashboard metrics
+  if (!isUnlocked) {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Dashboard" />
+        <VaultLockedAlert />
       </div>
     );
   }
@@ -216,84 +271,85 @@ const Dashboard = () => {
     <div className="space-y-4">
       <PageHeader title="Dashboard" />
 
-      {/* Metric Cards Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {/* Monthly Balance */}
-        <div className={`bg-muted/40 rounded-lg p-4 border ${isPositive ? 'border-green-500/30' : 'border-red-500/30'}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <PiggyBank className={`h-4 w-4 ${isPositive ? 'text-green-500' : 'text-red-500'}`} />
-            <span className="text-xs text-muted-foreground">Balance</span>
+      {/* Monthly Review Banner */}
+      {needsReview && (
+        <div
+          className="p-4 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-between cursor-pointer hover:bg-primary/15 transition-colors"
+          onClick={() => setReviewWizardOpen(true)}
+        >
+          <div className="flex items-center gap-3">
+            <ClipboardCheck className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium text-sm">New month! Review your finances</p>
+              <p className="text-xs text-muted-foreground">Confirm your income and expenses are up to date</p>
+            </div>
           </div>
-          <p className={`text-xl font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-            {isPositive ? '+' : ''}{formatCurrency(balance)} {currency}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {isPositive ? 'Surplus' : 'Deficit'}
-          </p>
+          <ChevronRight className="h-5 w-5 text-primary" />
+        </div>
+      )}
+
+      {/* Metric Cards - with reduced opacity when review pending */}
+      <div className={`space-y-3 ${needsReview ? 'opacity-50' : ''} transition-opacity`}>
+        {/* Row 1: Balance - Full Width, More Prominent */}
+        <Card className={`border-2 ${isPositive ? 'border-green-500/40' : 'border-red-500/40'}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <PiggyBank className={`h-5 w-5 ${isPositive ? 'text-green-500' : 'text-red-500'}`} />
+                <span className="text-sm text-muted-foreground">Monthly Balance</span>
+              </div>
+              <p className={`text-3xl font-bold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                {isPositive ? '+' : ''}{formatCurrency(balance)} {currency}
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {isPositive ? 'Surplus' : 'Deficit'}
+            </p>
+          </div>
+        </Card>
+
+        {/* Row 2: Income | Expenses - 50/50 */}
+        <div className="grid-2 gap-3">
+          <SummaryCard
+            title="Income"
+            icon={TrendingUp}
+            amount={formatCurrency(data.income)}
+            periodLabel="This month"
+            color="green"
+            currency={currency}
+            onClick={() => navigate('/income')}
+          />
+          <SummaryCard
+            title="Expenses"
+            icon={TrendingDown}
+            amount={formatCurrency(data.expenses)}
+            periodLabel="This month"
+            color="red"
+            currency={currency}
+            onClick={() => navigate('/expenses')}
+          />
         </div>
 
-        {/* Total Income */}
-        <div
-          className="bg-muted/40 rounded-lg p-4 border border-primary/20 hover:bg-muted/60 cursor-pointer transition-colors"
-          onClick={() => navigate('/income')}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="h-4 w-4 text-green-500" />
-            <span className="text-xs text-muted-foreground">Income</span>
-          </div>
-          <p className="text-xl font-bold text-green-500">
-            {formatCurrency(data.income)} {currency}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">This month</p>
-        </div>
-
-        {/* Total Expenses */}
-        <div
-          className="bg-muted/40 rounded-lg p-4 border border-primary/20 hover:bg-muted/60 cursor-pointer transition-colors"
-          onClick={() => navigate('/expenses')}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingDown className="h-4 w-4 text-red-500" />
-            <span className="text-xs text-muted-foreground">Expenses</span>
-          </div>
-          <p className="text-xl font-bold text-red-500">
-            {formatCurrency(data.expenses)} {currency}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">This month</p>
-        </div>
-
-        {/* Subscriptions */}
-        <div
-          className="bg-muted/40 rounded-lg p-4 border border-primary/20 hover:bg-muted/60 cursor-pointer transition-colors"
-          onClick={() => navigate('/expenses?tab=all')}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Repeat className="h-4 w-4 text-purple-500" />
-            <span className="text-xs text-muted-foreground">Subscriptions</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">
-            {formatCurrency(data.subscriptionsMonthly)} {currency}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {formatCurrency(data.subscriptionsYearly)}/yr
-          </p>
-        </div>
-
-        {/* Insurance */}
-        <div
-          className="bg-muted/40 rounded-lg p-4 border border-primary/20 hover:bg-muted/60 cursor-pointer transition-colors"
-          onClick={() => navigate('/expenses?tab=all')}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Shield className="h-4 w-4 text-amber-500" />
-            <span className="text-xs text-muted-foreground">Insurance</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">
-            {formatCurrency(data.insuranceMonthly)} {currency}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {formatCurrency(data.insuranceYearly)}/yr
-          </p>
+        {/* Row 3: Subscriptions | Insurance - 50/50 */}
+        <div className="grid-2 gap-3">
+          <SummaryCard
+            title="Subscriptions"
+            icon={Repeat}
+            amount={formatCurrency(data.subscriptionsMonthly)}
+            periodLabel={`${formatCurrency(data.subscriptionsYearly)}/yr`}
+            color="purple"
+            currency={currency}
+            onClick={() => navigate('/expenses?tab=all')}
+          />
+          <SummaryCard
+            title="Insurance"
+            icon={Shield}
+            amount={formatCurrency(data.insuranceMonthly)}
+            periodLabel={`${formatCurrency(data.insuranceYearly)}/yr`}
+            color="amber"
+            currency={currency}
+            onClick={() => navigate('/expenses?tab=all')}
+          />
         </div>
       </div>
 
@@ -304,6 +360,13 @@ const Dashboard = () => {
 
       {/* Savings Goals */}
       <SavingsGoalsPreview currency={currency} />
+
+      {/* Monthly Review Wizard */}
+      <MonthlyReviewWizard
+        open={reviewWizardOpen}
+        onOpenChange={setReviewWizardOpen}
+        onComplete={markAsReviewed}
+      />
     </div>
   );
 };

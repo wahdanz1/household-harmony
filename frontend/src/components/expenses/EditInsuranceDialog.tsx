@@ -16,6 +16,7 @@ import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { insuranceTypes, monthNames } from "@/constants/insuranceTypes";
+import { useEncryptedFields, insuranceFields } from "@/hooks/useEncryptedFields";
 
 interface Insurance {
     id: string;
@@ -48,6 +49,7 @@ export const EditInsuranceDialog = ({
     onSave,
 }: EditInsuranceDialogProps) => {
     const { toast } = useToast();
+    const { encryptRecord } = useEncryptedFields(insuranceFields);
     const [formData, setFormData] = useState({
         name: "",
         provider: "",
@@ -98,23 +100,28 @@ export const EditInsuranceDialog = ({
         if (!insurance) return;
         setSaving(true);
 
+        const baseData = {
+            name: formData.name,
+            provider: formData.provider || null,
+            type: formData.type,
+            total_amount: parseFloat(formData.total_amount),
+            payment_frequency: formData.payment_frequency,
+            invoice_month: formData.invoice_month && formData.invoice_month !== "0"
+                ? parseInt(formData.invoice_month)
+                : null,
+            notes: formData.notes || null,
+            is_active: formData.is_active,
+            is_shared: formData.is_shared,
+            co_parent_id: formData.is_shared ? formData.co_parent_id : null,
+            share_percentage: formData.is_shared ? parseFloat(formData.share_percentage) : 50,
+        };
+
+        // Encrypt sensitive fields (name, total_amount)
+        const data = await encryptRecord(baseData);
+
         const { error } = await supabase
             .from("insurances")
-            .update({
-                name: formData.name,
-                provider: formData.provider || null,
-                type: formData.type,
-                total_amount: parseFloat(formData.total_amount),
-                payment_frequency: formData.payment_frequency,
-                invoice_month: formData.invoice_month && formData.invoice_month !== "0"
-                    ? parseInt(formData.invoice_month)
-                    : null,
-                notes: formData.notes || null,
-                is_active: formData.is_active,
-                is_shared: formData.is_shared,
-                co_parent_id: formData.is_shared ? formData.co_parent_id : null,
-                share_percentage: formData.is_shared ? parseFloat(formData.share_percentage) : 50,
-            })
+            .update(data)
             .eq("id", insurance.id);
 
         setSaving(false);

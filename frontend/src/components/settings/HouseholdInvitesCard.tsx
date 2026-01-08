@@ -157,7 +157,7 @@ export const HouseholdInvitesCard = ({ invites, householdId, onUpdate }: Househo
             {activeInvites.map((invite) => (
               <div
                 key={invite.id}
-                className="flex items-center justify-between p-4 rounded-lg border border-border bg-background/40"
+                className="list-row"
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">

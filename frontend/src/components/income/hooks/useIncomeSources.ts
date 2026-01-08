@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, incomeSourceFields } from "@/hooks/useEncryptedFields";
 
 interface SourceFormData {
     category: "salary" | "business_income" | "government_benefits" | "investment_income" | "gift" | "other";
@@ -19,6 +20,7 @@ export const useIncomeSources = (
     onUpdate: () => void
 ) => {
     const { toast } = useToast();
+    const { encryptRecord } = useEncryptedFields(incomeSourceFields);
     const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
     const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
     const [sourceFormData, setSourceFormData] = useState<SourceFormData>({
@@ -62,7 +64,7 @@ export const useIncomeSources = (
     };
 
     const handleSaveSource = async () => {
-        const data = {
+        const baseData = {
             household_id: householdId,
             category: sourceFormData.category,
             name: sourceFormData.name,
@@ -73,6 +75,9 @@ export const useIncomeSources = (
             co_parent_id: sourceFormData.is_shared ? sourceFormData.co_parent_id : null,
             share_percentage: sourceFormData.is_shared ? parseFloat(sourceFormData.share_percentage) : null,
         };
+
+        // Encrypt sensitive fields (name, default_amount)
+        const data = await encryptRecord(baseData);
 
         let error;
         if (editingSourceId) {
@@ -120,6 +125,8 @@ export const useIncomeSources = (
                 title: "Success",
                 description: "Income source deleted",
             });
+            setSourceDialogOpen(false);
+            resetSourceForm();
             onUpdate();
         }
     };

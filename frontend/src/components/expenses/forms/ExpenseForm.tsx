@@ -3,7 +3,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { InfoIcon, Trash2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { InfoIcon, Trash2, CreditCard } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { EXPENSE_CATEGORIES } from "@/constants/expenseCategories";
@@ -13,6 +14,7 @@ export interface ExpenseFormData {
     name: string;
     type: "static" | "dynamic";
     default_amount: string;
+    is_credit?: boolean;
 }
 
 interface ExpenseFormProps {
@@ -48,6 +50,7 @@ export const ExpenseForm = ({
             name: defaultValues.name ?? prev.name,
             type: defaultValues.type ?? prev.type,
             default_amount: defaultValues.default_amount ?? prev.default_amount,
+            is_credit: defaultValues.is_credit ?? prev.is_credit ?? false,
         }));
     }, [defaultValues]);
 
@@ -130,6 +133,22 @@ export const ExpenseForm = ({
                     value={formData.default_amount}
                     onChange={(e) => setFormData({ ...formData, default_amount: e.target.value })}
                     placeholder="0"
+                />
+            </div>
+
+            {/* Credit Card Toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
+                <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-purple-500" />
+                    <div>
+                        <Label htmlFor="is-credit" className="text-sm font-medium cursor-pointer">Credit Card Expense</Label>
+                        <p className="text-xs text-muted-foreground">Track this as a credit card expense</p>
+                    </div>
+                </div>
+                <Switch
+                    id="is-credit"
+                    checked={formData.is_credit || false}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_credit: checked })}
                 />
             </div>
 

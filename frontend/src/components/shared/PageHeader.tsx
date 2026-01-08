@@ -5,6 +5,7 @@ import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUt
 
 interface PageHeaderProps {
     title: string;
+    subtitle?: string; // Optional custom subtitle (overrides financial month)
     totalLabel?: string;
     totalAmount?: number;
     totalColorClass?: string; // e.g., "text-success" or "text-destructive"
@@ -18,6 +19,7 @@ interface PageHeaderProps {
  */
 export const PageHeader = ({
     title,
+    subtitle,
     totalLabel,
     totalAmount,
     totalColorClass = "text-success",
@@ -28,13 +30,16 @@ export const PageHeader = ({
     const currentMonth = getCurrentFinancialMonth(financialMonthStart);
     const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
+    // Use custom subtitle or default to financial month range
+    const displaySubtitle = subtitle || `${format(monthStart, "MMM d")} – ${format(monthEnd, "MMM d, yyyy")}`;
+
     return (
         <div className="flex items-center justify-between">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+                <h1>{title}</h1>
                 <div className="flex items-center gap-2 mt-2">
                     <p className="text-muted-foreground">
-                        {format(monthStart, "MMM d")} – {format(monthEnd, "MMM d, yyyy")}
+                        {displaySubtitle}
                     </p>
                     {showSmartDefaults && (
                         <span className="flex items-center gap-1 text-xs text-green-600">

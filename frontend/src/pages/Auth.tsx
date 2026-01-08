@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEncryption } from "@/contexts/EncryptionContext";
 import { useToast } from "@/hooks/use-toast";
 import { JoinHouseholdWizard } from "@/components/JoinHouseholdWizard";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Lock, Shield } from "lucide-react";
 import { z } from "zod";
 import { PLACEHOLDERS } from "@/constants/ui";
 import { isEmailAllowed } from "@/config/emailWhitelist";
@@ -19,9 +20,17 @@ const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+// Strong password requirements for new accounts (encryption security)
+const passwordSchema = z.string()
+  .min(12, "Password must be at least 12 characters for encryption security")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+  .regex(/[0-9]/, "Password must contain at least one number")
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character");
+
 const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: passwordSchema,
   confirmPassword: z.string(),
   fullName: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -40,6 +49,7 @@ const Auth = () => {
   const [showJoinDialog, setShowJoinDialog] = useState(false);
 
   const { signIn, signUp, user } = useAuth();
+  const { unlockWithPassword, initializeEncryption, isLoading: encryptionLoading } = useEncryption();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -80,7 +90,8 @@ const Auth = () => {
         return;
       }
 
-      const { error } = await signIn(loginEmail, loginPassword);
+      // Sign in with Supabase
+      const { error, data } = await signIn(loginEmail, loginPassword);
 
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
@@ -96,10 +107,18 @@ const Auth = () => {
             variant: "destructive",
           });
         }
-      } else {
+      } else if (data?.user) {
+        // Unlock encryption vault with the same password
+        const vaultUnlocked = await unlockWithPassword(loginPassword, data.user.id);
+
+        if (!vaultUnlocked) {
+          console.warn("Failed to unlock encryption vault - user may have legacy unencrypted data");
+          // Don't block login, just warn - vault will be initialized later if needed
+        }
+
         toast({
           title: "Welcome back!",
-          description: "You've successfully logged in.",
+          description: vaultUnlocked ? "Vault unlocked. Your data is protected." : "You've successfully logged in.",
         });
         navigate("/");
       }
@@ -148,7 +167,7 @@ const Auth = () => {
         return;
       }
 
-      const { error } = await signUp(signupEmail, signupPassword, signupFullName);
+      const { error, data } = await signUp(signupEmail, signupPassword, signupFullName);
 
       if (error) {
         if (error.message.includes("User already registered")) {
@@ -165,10 +184,27 @@ const Auth = () => {
           });
         }
       } else {
-        toast({
-          title: "Account Created!",
-          description: "Please check your email to confirm your account before logging in.",
-        });
+        // If user was auto-signed in (no email confirmation required), initialize encryption
+        if (data?.user) {
+          const encryptionInitialized = await initializeEncryption(signupPassword, data.user.id);
+          if (encryptionInitialized) {
+            toast({
+              title: "Account Created & Secured!",
+              description: "Your encryption vault has been set up. Your data is protected.",
+            });
+            navigate("/");
+          } else {
+            toast({
+              title: "Account Created!",
+              description: "Please check your email to confirm your account before logging in.",
+            });
+          }
+        } else {
+          toast({
+            title: "Account Created!",
+            description: "Please check your email to confirm your account. Your encryption vault will be set up on first login.",
+          });
+        }
         // Clear form
         setSignupEmail("");
         setSignupPassword("");

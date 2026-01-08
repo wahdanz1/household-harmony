@@ -37,7 +37,7 @@ export const TaxSummaryCard = ({
             <CardContent className="pt-4">
                 <div className="flex flex-col gap-4">
                     {/* Tax Breakdown */}
-                    <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="grid-3 text-center">
                         <div>
                             <p className="text-xs text-muted-foreground uppercase tracking-wide">Gross</p>
                             <p className="text-lg font-bold text-success">{formatSEK(grossIncome)}</p>

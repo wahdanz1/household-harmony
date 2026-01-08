@@ -8,6 +8,7 @@ import { format, startOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, temporaryExpenseFields } from "@/hooks/useEncryptedFields";
 
 interface TemporaryExpenseFormProps {
     householdId: string;
@@ -27,6 +28,7 @@ const temporaryCategories = [
 export const TemporaryExpenseForm = ({ householdId, onSuccess, onCancel }: TemporaryExpenseFormProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
+    const { encryptRecord } = useEncryptedFields(temporaryExpenseFields);
     const [formData, setFormData] = useState({
         description: "",
         amount: "",
@@ -42,7 +44,7 @@ export const TemporaryExpenseForm = ({ householdId, onSuccess, onCancel }: Tempo
 
         setSaving(true);
 
-        const data = {
+        const baseData = {
             household_id: householdId,
             month: currentMonth,
             description: formData.description,
@@ -51,6 +53,9 @@ export const TemporaryExpenseForm = ({ householdId, onSuccess, onCancel }: Tempo
             notes: formData.notes || null,
             created_by: user.id,
         };
+
+        // Encrypt sensitive fields (description, amount)
+        const data = await encryptRecord(baseData);
 
         const { error } = await supabase.from("temporary_expenses").insert(data);
 

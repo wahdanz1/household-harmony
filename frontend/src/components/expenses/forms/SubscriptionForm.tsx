@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useEncryptedFields, subscriptionFields } from "@/hooks/useEncryptedFields";
 
 interface SubscriptionFormProps {
     householdId: string;
@@ -35,6 +36,7 @@ const subscriptionCategories = [
 export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: SubscriptionFormProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
+    const { encryptRecord } = useEncryptedFields(subscriptionFields);
     const [formData, setFormData] = useState<{
         name: string;
         amount: string;
@@ -59,7 +61,7 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
 
         setSaving(true);
 
-        const data = {
+        const baseData = {
             household_id: householdId,
             name: formData.name,
             amount: parseFloat(formData.amount),
@@ -71,6 +73,9 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
             billing_day: formData.billing_cycle === "yearly" ? formData.billing_day : null,
             billing_month: formData.billing_cycle === "yearly" ? formData.billing_month : null,
         };
+
+        // Encrypt sensitive fields (name, amount)
+        const data = await encryptRecord(baseData);
 
         const { error } = await supabase.from("subscriptions").insert(data);
 
@@ -142,7 +147,7 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
             </div>
 
             {formData.billing_cycle === "yearly" && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid-2">
                     <div className="space-y-2">
                         <Label>Billing Month</Label>
                         <Select
