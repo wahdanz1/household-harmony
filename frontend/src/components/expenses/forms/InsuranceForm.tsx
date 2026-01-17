@@ -40,7 +40,7 @@ export const InsuranceForm = ({ householdId, onSuccess, onCancel }: InsuranceFor
     const [formData, setFormData] = useState({
         name: "",
         provider: "",
-        type: "home",
+        category: "home",
         total_amount: "",
         payment_frequency: "yearly",
         invoice_month: "",
@@ -72,7 +72,7 @@ export const InsuranceForm = ({ householdId, onSuccess, onCancel }: InsuranceFor
             household_id: householdId,
             name: formData.name,
             provider: formData.provider || null,
-            type: formData.type,
+            category: formData.category,
             total_amount: parseFloat(formData.total_amount),
             payment_frequency: formData.payment_frequency,
             invoice_month: formData.invoice_month && formData.invoice_month !== "0" ? parseInt(formData.invoice_month) : null,
@@ -87,7 +87,7 @@ export const InsuranceForm = ({ householdId, onSuccess, onCancel }: InsuranceFor
         // Encrypt sensitive fields (name, total_amount)
         const data = await encryptRecord(baseData);
 
-        const { error } = await supabase.from("insurances").insert(data);
+        const { error } = await supabase.from("insurances").insert(data as any);
 
         if (error) {
             toast({
@@ -118,7 +118,7 @@ export const InsuranceForm = ({ householdId, onSuccess, onCancel }: InsuranceFor
 
             <div className="space-y-2">
                 <Label>Type</Label>
-                <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
+                <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
                     <SelectTrigger>
                         <SelectValue />
                     </SelectTrigger>

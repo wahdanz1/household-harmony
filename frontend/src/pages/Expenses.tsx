@@ -35,7 +35,7 @@ const Expenses = () => {
   const [insurances, setInsurances] = useState<any[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [creditCardExpenses, setCreditCardExpenses] = useState<any[]>([]);
+  // Credit card expenses now handled via expenses table with is_credit=true
   const [activeTab, setActiveTab] = useState("all");
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
 
@@ -82,14 +82,12 @@ const Expenses = () => {
       { data: historicalData },
       { data: subscriptionsData },
       { data: insurancesData },
-      { data: creditCardExpensesData },
     ] = await Promise.all([
       supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
       supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
       supabase.from("monthly_expenses").select("*").eq("household_id", household.id).lt("month_start", startStr),
       supabase.from("subscriptions").select("*").eq("household_id", household.id),
       supabase.from("insurances").select("*").eq("household_id", household.id),
-      supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
     ]);
 
     // Decrypt sensitive fields (if encrypted)
@@ -103,7 +101,7 @@ const Expenses = () => {
     setMonthlyExpenses(decryptedMonthly);
     setSubscriptions(decryptedSubs);
     setInsurances(decryptedIns);
-    setCreditCardExpenses(creditCardExpensesData || []);
+    // Credit card expenses now tracked via expenses.is_credit
 
     // Auto-create monthly_expenses records for categories that don't have them yet
     // This ensures Dashboard shows all expenses, not just edited categories
@@ -364,8 +362,8 @@ const Expenses = () => {
       return sum + monthlyAmount;
     }, 0);
 
-  const creditCardTotal = creditCardExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal + creditCardTotal;
+  // Credit card expenses now included in regular expenses via is_credit flag
+  const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal;
 
   if (loading) {
     return (
@@ -492,7 +490,7 @@ const Expenses = () => {
                 monthly_cost: monthlyAmount,
                 total_amount: ins.total_amount,
                 payment_frequency: ins.payment_frequency,
-                type: ins.type, // Pass type for icon lookup
+                type: ins.category, // Pass category for icon lookup
               };
             })}
             subscriptionsTotal={subscriptionsTotal}
@@ -542,7 +540,7 @@ const Expenses = () => {
                   );
                 })}
                 {insurances.filter(i => !i.is_active).map(ins => {
-                  const insCat = insuranceTypes.find(c => c.value === ins.type);
+                  const insCat = insuranceTypes.find(c => c.value === ins.category);
                   const InsIcon = insCat?.icon || Shield;
                   return (
                     <div

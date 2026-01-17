@@ -22,7 +22,7 @@ interface Insurance {
     id: string;
     name: string;
     provider: string;
-    type: string;
+    category: string;
     total_amount: number;
     payment_frequency: string;
     invoice_month?: number | string;
@@ -53,7 +53,7 @@ export const EditInsuranceDialog = ({
     const [formData, setFormData] = useState({
         name: "",
         provider: "",
-        type: "home",
+        category: "home",
         total_amount: "",
         payment_frequency: "yearly",
         invoice_month: "",
@@ -83,7 +83,7 @@ export const EditInsuranceDialog = ({
             setFormData({
                 name: insurance.name,
                 provider: insurance.provider || "",
-                type: insurance.type,
+                category: insurance.category,
                 total_amount: insurance.total_amount.toString(),
                 payment_frequency: insurance.payment_frequency,
                 invoice_month: monthValue,
@@ -103,7 +103,7 @@ export const EditInsuranceDialog = ({
         const baseData = {
             name: formData.name,
             provider: formData.provider || null,
-            type: formData.type,
+            category: formData.category,
             total_amount: parseFloat(formData.total_amount),
             payment_frequency: formData.payment_frequency,
             invoice_month: formData.invoice_month && formData.invoice_month !== "0"
@@ -121,7 +121,7 @@ export const EditInsuranceDialog = ({
 
         const { error } = await supabase
             .from("insurances")
-            .update(data)
+            .update(data as any)
             .eq("id", insurance.id);
 
         setSaving(false);
@@ -183,8 +183,8 @@ export const EditInsuranceDialog = ({
                     <div className="space-y-2">
                         <Label>Type</Label>
                         <Select
-                            value={formData.type}
-                            onValueChange={(v) => setFormData({ ...formData, type: v })}
+                            value={formData.category}
+                            onValueChange={(v) => setFormData({ ...formData, category: v })}
                         >
                             <SelectTrigger>
                                 <SelectValue />

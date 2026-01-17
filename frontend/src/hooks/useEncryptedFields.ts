@@ -56,8 +56,8 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
                 const encryptedValue = await encrypt(stringValue);
                 if (encryptedValue) {
                     (encryptedRecord as any)[config.encrypted] = encryptedValue;
-                    // Clear plaintext field to prevent it from being written to DB
-                    (encryptedRecord as any)[config.original] = null;
+                    // DELETE plaintext field to prevent it from being written to DB
+                    delete (encryptedRecord as any)[config.original];
                 }
             }
         }

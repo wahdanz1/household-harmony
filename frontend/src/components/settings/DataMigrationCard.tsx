@@ -102,15 +102,7 @@ const TABLES_TO_MIGRATE: TableConfig[] = [
         ],
         householdFilter: true,
     },
-    {
-        table: "credit_card_expenses",
-        displayName: "Credit Card Expenses",
-        fields: [
-            { original: "description", encrypted: "encrypted_description" },
-            { original: "amount", encrypted: "encrypted_amount" },
-        ],
-        householdFilter: true,
-    },
+    // credit_card_expenses removed - table dropped, credit expenses now use expenses.is_credit
     {
         table: "credit_cards",
         displayName: "Credit Cards",

@@ -54,7 +54,7 @@ export const useIncomeSources = (
             name: source.name,
             type: source.type,
             default_amount: source.default_amount.toString(),
-            owner_id: source.owner_id,
+            owner_id: source.created_by || source.owner_id, // Map created_by to owner_id for form
             is_shared: source.is_shared || false,
             co_parent_id: source.co_parent_id || "",
             share_percentage: source.share_percentage?.toString() || "50",
@@ -70,7 +70,7 @@ export const useIncomeSources = (
             name: sourceFormData.name,
             type: sourceFormData.type,
             default_amount: parseFloat(sourceFormData.default_amount),
-            owner_id: sourceFormData.owner_id,
+            created_by: sourceFormData.owner_id, // Map form owner_id to database created_by
             is_shared: sourceFormData.is_shared,
             co_parent_id: sourceFormData.is_shared ? sourceFormData.co_parent_id : null,
             share_percentage: sourceFormData.is_shared ? parseFloat(sourceFormData.share_percentage) : null,

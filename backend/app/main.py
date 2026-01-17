@@ -18,7 +18,7 @@ app.add_middleware(
 )
 
 # Import routers after app creation to avoid circular imports
-from app.routers import health, tax, smart_defaults, llm, api_keys
+from app.routers import health, tax, smart_defaults, llm, api_keys, demo
 
 # Include routers
 app.include_router(health.router, tags=["health"])
@@ -26,6 +26,7 @@ app.include_router(tax.router, prefix="/api/tax", tags=["tax"])
 app.include_router(smart_defaults.router, prefix="/api/defaults", tags=["smart_defaults"])
 app.include_router(llm.router, prefix="/api/llm", tags=["llm"])
 app.include_router(api_keys.router, prefix="/api/api-keys", tags=["api_keys"])
+app.include_router(demo.router, prefix="/api/demo", tags=["demo"])
 
 
 @app.get("/")

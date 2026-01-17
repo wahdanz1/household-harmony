@@ -169,7 +169,7 @@ const Income = () => {
 
     try {
       const incomeSuggestions = await fetchIncomeSuggestions(household.id);
-      if (incomeSuggestions.length === 0) return;
+      if (!incomeSuggestions || incomeSuggestions.length === 0) return;
 
       setSuggestions(incomeSuggestions);
 

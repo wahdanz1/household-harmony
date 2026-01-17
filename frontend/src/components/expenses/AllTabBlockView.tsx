@@ -209,7 +209,7 @@ export const ExpenseBlock = ({
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
     subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string; type?: string }[];
+    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string; category?: string }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
@@ -280,7 +280,7 @@ export const AllTabBlockView = ({
             id: ins.id,
             name: ins.name,
             amount: ins.monthly_cost ?? 0, // Used for calculations
-            category: ins.type, // Insurance type for icon lookup
+            category: ins.category, // Insurance category for icon lookup
             displayAmount: ins.total_amount, // Actual payment amount
             displayLabel, // e.g., "/year"
         };

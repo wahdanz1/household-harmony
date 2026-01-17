@@ -19,11 +19,11 @@ import {
   monthlyExpenseFields,
   subscriptionFields,
   insuranceFields,
-  creditCardExpenseFields,
   sharedExpenseFields
 } from "@/hooks/useEncryptedFields";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
+import { DemoEncryptionCard } from "@/components/demo/DemoEncryptionCard";
 
 interface DashboardData {
   income: number;
@@ -59,7 +59,7 @@ const Dashboard = () => {
   const { decryptRecords: decryptExpenses } = useEncryptedFields(monthlyExpenseFields);
   const { decryptRecords: decryptSubscriptions } = useEncryptedFields(subscriptionFields);
   const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
-  const { decryptRecords: decryptCCExpenses } = useEncryptedFields(creditCardExpenseFields);
+  // Credit card expenses now use expenses table with is_credit=true
   const { decryptRecords: decryptShared } = useEncryptedFields(sharedExpenseFields);
 
   useEffect(() => {
@@ -89,15 +89,13 @@ const Dashboard = () => {
         { data: monthlyExpenses },
         { data: subscriptions },
         { data: insurances },
-        { data: creditCardExpenses },
         { data: sharedExpenses },
       ] = await Promise.all([
         supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
         supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-        supabase.from("subscriptions").select("amount, billing_cycle, billing_month, billing_day").eq("household_id", household.id).eq("is_active", true),
-        supabase.from("insurances").select("total_amount, payment_frequency, is_shared, share_percentage").eq("household_id", household.id).eq("is_active", true),
-        supabase.from("credit_card_expenses").select("amount").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-        supabase.from("shared_expenses").select("amount, paid_by").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+        supabase.from("subscriptions").select("encrypted_amount, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id).eq("is_active", true),
+        supabase.from("insurances").select("encrypted_total_amount, payment_frequency, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true),
+        supabase.from("shared_expenses").select("encrypted_amount, paid_by, is_encrypted").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
       ]);
 
       // Decrypt all data //
@@ -105,7 +103,7 @@ const Dashboard = () => {
       const decryptedExpenses = await decryptExpenses(monthlyExpenses || []);
       const decryptedSubs = await decryptSubscriptions(subscriptions || []);
       const decryptedInsurances = await decryptInsurances(insurances || []);
-      const decryptedCC = await decryptCCExpenses(creditCardExpenses || []);
+      // Credit card expenses now tracked via expenses.is_credit
       const decryptedShared = await decryptShared(sharedExpenses || []);
 
       // Helper to deduplicate recurring items
@@ -216,12 +214,12 @@ const Dashboard = () => {
         insuranceYearly += yearlyAmount;
       });
 
-      const totalCreditCard = decryptedCC.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
+      // Credit card expenses now included in regular monthly_expenses via expenses.is_credit flag
       const totalShared = decryptedShared.reduce((sum: number, item: any) => {
         return sum + (item.paid_by === "user" ? (parseFloat(item.amount) || 0) : -(parseFloat(item.amount) || 0));
       }, 0);
 
-      const totalExpenses = totalMonthlyExpenses + subscriptionsMonthly + insuranceMonthly + totalCreditCard + totalShared;
+      const totalExpenses = totalMonthlyExpenses + subscriptionsMonthly + insuranceMonthly + totalShared;
 
       setData({
         income: totalIncome,
@@ -271,8 +269,8 @@ const Dashboard = () => {
     <div className="space-y-4">
       <PageHeader title="Dashboard" />
 
-      {/* Monthly Review Banner */}
-      {needsReview && (
+      {/* Monthly Review Banner - hidden for demo users (data resets anyway) */}
+      {needsReview && localStorage.getItem('is_demo_mode') !== 'true' && (
         <div
           className="p-4 rounded-lg bg-primary/10 border border-primary/30 flex items-center justify-between cursor-pointer hover:bg-primary/15 transition-colors"
           onClick={() => setReviewWizardOpen(true)}
@@ -288,8 +286,11 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Metric Cards - with reduced opacity when review pending */}
-      <div className={`space-y-3 ${needsReview ? 'opacity-50' : ''} transition-opacity`}>
+      {/* Demo Encryption Showcase - only visible in demo mode */}
+      <DemoEncryptionCard householdId={householdId} />
+
+      {/* Metric Cards - with reduced opacity when review pending (not in demo) */}
+      <div className={`space-y-3 ${needsReview && localStorage.getItem('is_demo_mode') !== 'true' ? 'opacity-50' : ''} transition-opacity`}>
         {/* Row 1: Balance - Full Width, More Prominent */}
         <Card className={`border-2 ${isPositive ? 'border-green-500/40' : 'border-red-500/40'}`}>
           <div className="flex items-center justify-between">

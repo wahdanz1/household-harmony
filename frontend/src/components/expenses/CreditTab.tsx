@@ -5,7 +5,7 @@ import { CreditCardManagement } from "./credit/CreditCardManagement";
 import { CreditCard as CreditCardIcon, Check } from "lucide-react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { ExpenseBlock } from "./AllTabBlockView";
-import { useEncryptedFields, expenseFields, monthlyExpenseFields, creditCardExpenseFields, creditCardFields } from "@/hooks/useEncryptedFields";
+import { useEncryptedFields, expenseFields, monthlyExpenseFields, creditCardFields } from "@/hooks/useEncryptedFields";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { Input } from "@/components/ui/input";
@@ -35,17 +35,7 @@ interface ParseResult {
 // Backend API URL (local dev or Railway)
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-interface CreditCardExpense {
-    id: string;
-    credit_card_id: string;
-    category: string;
-    description: string;
-    amount: number;
-    notes: string | null;
-    credit_cards: {
-        name: string;
-    };
-}
+// CreditCardExpense interface removed - credit expenses now use expenses table with is_credit=true
 
 interface CreditCard {
     id: string;
@@ -73,7 +63,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
     const { household } = useHousehold();
     const { isUnlocked, decrypt, encrypt } = useEncryption();
     const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
-    const [expenses, setExpenses] = useState<CreditCardExpense[]>([]);
+    // Credit expenses now use expenses table with is_credit=true (tracked via budgetedCredit)
     const [budgetedCredit, setBudgetedCredit] = useState<BudgetedCreditExpense[]>([]);
     const [loading, setLoading] = useState(true);
     const [budgetExpanded, setBudgetExpanded] = useState(true);
@@ -85,7 +75,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
 
     const { decryptRecords: decryptExpenses, encryptRecord: encryptMonthlyExpense } = useEncryptedFields(expenseFields);
     const { decryptRecords: decryptMonthlyExpenses } = useEncryptedFields(monthlyExpenseFields);
-    const { decryptRecords: decryptCreditCardExpenses } = useEncryptedFields(creditCardExpenseFields);
+    // creditCardExpenseFields removed - credit expenses now use expenses table
     const { decryptRecords: decryptCreditCards } = useEncryptedFields(creditCardFields);
 
     // Debounce timer ref
@@ -114,12 +104,11 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
 
         const [
             { data: cardsData },
-            { data: expensesData },
             { data: creditCategoriesData },
             { data: monthlyData },
         ] = await Promise.all([
             supabase.from("credit_cards").select("*").eq("household_id", householdId).eq("is_active", true),
-            supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", householdId).gte("month_end", startStr).lte("month_start", endStr),
+            // Credit card expenses now come from expenses table with is_credit=true
             (supabase as any).from("expenses").select("*").eq("household_id", householdId).eq("is_active", true).eq("is_credit", true),
             supabase.from("monthly_expenses").select("*").eq("household_id", householdId).gte("month_end", startStr).lte("month_start", endStr),
         ]);
@@ -132,11 +121,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
         }));
         setCreditCards(decryptedCards);
 
-        // Decrypt credit card expenses
-        const decryptedCCExpenses = await decryptCreditCardExpenses(expensesData || []);
-        setExpenses(decryptedCCExpenses);
-
-        // Decrypt and build budgeted credit items
+        // Build budgeted credit items from expenses with is_credit=true
         if (creditCategoriesData && creditCategoriesData.length > 0) {
             const decryptedCategories = await decryptExpenses(creditCategoriesData);
             const decryptedMonthly = await decryptMonthlyExpenses(monthlyData || []);
@@ -222,11 +207,8 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
         debouncedSave();
     };
 
-    const calculateCardTotal = (cardId: string) => {
-        return expenses
-            .filter(e => e.credit_card_id === cardId)
-            .reduce((sum, e) => sum + e.amount, 0);
-    };
+    // calculateCardTotal removed - credit expenses now tracked via budgeted items
+    // Card spending will be calculated from monthly_expenses linked to is_credit expenses
 
     // Calculate total from edited amounts
     const totalBudgetedCredit = Object.values(editedAmounts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
@@ -382,7 +364,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                         </div>
                         <ParsedTransactionsReview
                             transactions={parseResult.transactions}
-                            existingExpenses={expenses}
+                            existingExpenses={[]} // Legacy expenses removed - credit expenses now use expenses table
                             creditCards={creditCards}
                             householdId={householdId}
                             currency={currency}
@@ -438,7 +420,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 householdId={householdId}
                 currency={currency}
                 creditCards={creditCards}
-                calculateCardTotal={calculateCardTotal}
+                calculateCardTotal={() => totalBudgetedCredit} // Now uses total from budgeted credit expenses
                 onUpdate={fetchData}
             />
         </div>

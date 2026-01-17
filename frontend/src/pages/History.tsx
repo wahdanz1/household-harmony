@@ -101,27 +101,27 @@ const History = () => {
       supabase.from("households").select("currency").eq("id", membership.household_id).single(),
       supabase
         .from("monthly_incomes")
-        .select("*, income_sources(name), profiles(full_name, avatar_url)")
+        .select("*, income_sources(encrypted_name, is_encrypted), profiles(full_name, avatar_url)")
         .eq("household_id", membership.household_id)
         .order("month", { ascending: false }),
       supabase
         .from("monthly_expenses")
-        .select("*, expenses(name), profiles(full_name, avatar_url)")
+        .select("*, profiles(full_name, avatar_url)")
         .eq("household_id", membership.household_id)
         .order("month", { ascending: false }),
       supabase
         .from("savings_allocations")
-        .select("*, savings_goals(name), profiles(full_name, avatar_url)")
+        .select("*, savings_goals(encrypted_name, is_encrypted), profiles(full_name, avatar_url)")
         .eq("household_id", membership.household_id)
         .order("month", { ascending: false }),
       supabase
         .from("subscriptions")
-        .select("*")
+        .select("*, profiles(full_name, avatar_url)")
         .eq("household_id", membership.household_id)
         .order("created_at", { ascending: false }),
       supabase
         .from("insurances")
-        .select("*")
+        .select("*, profiles(full_name, avatar_url)")
         .eq("household_id", membership.household_id)
         .order("created_at", { ascending: false }),
       supabase
@@ -168,7 +168,7 @@ const History = () => {
 
     // Expense transactions
     decryptedExpenses.forEach((item: any) => {
-      const categoryName = item.expenses?.name || "Unknown";
+      const categoryName = item.category || "Unknown";
       allTransactions.push({
         id: item.id,
         type: "expense",
@@ -210,8 +210,8 @@ const History = () => {
         category: item.name,
         amount: parseFloat(item.amount || "0"),
         member: {
-          name: "System",
-          avatar_url: null,
+          name: item.profiles?.full_name || "Unknown",
+          avatar_url: item.profiles?.avatar_url || null,
         },
         notes: `${item.billing_cycle} subscription`,
       });
@@ -229,8 +229,8 @@ const History = () => {
         category: item.name,
         amount: monthlyAmount,
         member: {
-          name: "System",
-          avatar_url: null,
+          name: item.profiles?.full_name || "Unknown",
+          avatar_url: item.profiles?.avatar_url || null,
         },
         notes: `${item.payment_frequency} payment`,
       });

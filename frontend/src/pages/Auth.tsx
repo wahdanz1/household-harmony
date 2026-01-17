@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { useToast } from "@/hooks/use-toast";
 import { JoinHouseholdWizard } from "@/components/JoinHouseholdWizard";
-import { UserPlus, Lock, Shield } from "lucide-react";
+import { UserPlus, Lock, Shield, Sparkles, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { PLACEHOLDERS } from "@/constants/ui";
 import { isEmailAllowed } from "@/config/emailWhitelist";
@@ -47,11 +47,92 @@ const Auth = () => {
   const [signupConfirm, setSignupConfirm] = useState("");
   const [signupFullName, setSignupFullName] = useState("");
   const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoLoadingMessage, setDemoLoadingMessage] = useState("");
 
   const { signIn, signUp, user } = useAuth();
   const { unlockWithPassword, initializeEncryption, isLoading: encryptionLoading } = useEncryption();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Handle demo mode creation with progressive loading states
+  const handleTryDemo = async () => {
+    setDemoLoading(true);
+    const startTime = Date.now();
+
+    // Start with "Waking up" message - will be replaced if response is fast
+    const wakingTimeout = setTimeout(() => {
+      setDemoLoadingMessage("Waking up backend...");
+    }, 500); // Small delay before showing first message
+
+    try {
+      // Call backend to create demo user
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      const response = await fetch(`${backendUrl}/api/demo/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      clearTimeout(wakingTimeout);
+      const elapsed = Date.now() - startTime;
+
+      // If response was fast (<5s), user didn't see "Waking up" long
+      // If slow (>5s), they've been waiting - acknowledge progress
+      if (elapsed < 5000) {
+        setDemoLoadingMessage("Creating demo user...");
+      } else {
+        setDemoLoadingMessage("Backend ready! Creating demo...");
+      }
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to create demo');
+      }
+
+      const { email, password, user_id } = await response.json();
+
+      setDemoLoadingMessage("Setting up household...");
+
+      // Auto-login with demo credentials
+      const { error: signInError, data } = await signIn(email, password);
+
+      if (signInError) {
+        throw new Error(signInError.message);
+      }
+
+      setDemoLoadingMessage("Unlocking encrypted vault...");
+
+      // Unlock vault using REAL encryption flow (backend created encrypted vault)
+      const vaultUnlocked = await unlockWithPassword(password, user_id);
+      if (!vaultUnlocked) {
+        console.warn("Demo vault unlock failed - may not have encrypted data yet");
+      }
+
+      // Mark as demo session
+      localStorage.setItem('is_demo_mode', 'true');
+      localStorage.setItem('demo_tour_active', 'true');
+
+      toast({
+        title: "Welcome to the Demo!",
+        description: "Vault unlocked with real AES-256 encryption. Explore all features!",
+      });
+
+      navigate('/');
+    } catch (error: any) {
+      clearTimeout(wakingTimeout);
+      console.error('Demo creation failed:', error);
+      toast({
+        title: "Demo Creation Failed",
+        description: error.message || "Please try again or contact support.",
+        variant: "destructive",
+      });
+    } finally {
+      setDemoLoading(false);
+      setDemoLoadingMessage("");
+    }
+  };
 
   // Redirect if already logged in
   useEffect(() => {
@@ -108,6 +189,11 @@ const Auth = () => {
           });
         }
       } else if (data?.user) {
+        // Clear any demo mode flags on normal login
+        localStorage.removeItem('is_demo_mode');
+        localStorage.removeItem('demo_tour_active');
+        localStorage.removeItem('demo_banner_dismissed');
+
         // Unlock encryption vault with the same password
         const vaultUnlocked = await unlockWithPassword(loginPassword, data.user.id);
 
@@ -227,8 +313,8 @@ const Auth = () => {
       <div className="gradient-background" />
       <Card className="w-full max-w-md relative z-10">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Economy Tracker</CardTitle>
-          <CardDescription>Manage your household finances together</CardDescription>
+          <CardTitle className="text-2xl">Household Harmony</CardTitle>
+          <CardDescription>Plan and manage all your household finances, together!</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
@@ -320,6 +406,7 @@ const Auth = () => {
           </Tabs>
 
           <div className="mt-6">
+            {/* Join Existing Household - part of actual app flow */}
             <Separator className="my-4" />
             <div className="text-center space-y-2">
               <p className="text-sm text-muted-foreground">
@@ -334,6 +421,39 @@ const Auth = () => {
                 Join Existing Household
               </Button>
             </div>
+
+            {/* Demo Mode - for portfolio visitors */}
+            <div className="relative mt-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Or</span>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full mt-4"
+              onClick={handleTryDemo}
+              disabled={demoLoading}
+            >
+              {demoLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {demoLoadingMessage || "Starting..."}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Try Demo
+                </>
+              )}
+            </Button>
+
+            <p className="text-xs text-center text-muted-foreground mt-2">
+              No signup needed. Backend on free tier - first load may take ~20s
+            </p>
           </div>
         </CardContent>
       </Card>

@@ -7,7 +7,7 @@ import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard
 import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
 import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
-import { DataMigrationCard } from "@/components/settings/DataMigrationCard";
+// import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Home, User, Shield, AlertTriangle } from "lucide-react";
@@ -148,7 +148,7 @@ const Settings = () => {
             <div className={!isUnlocked ? "opacity-50 pointer-events-none select-none grayscale-[0.5] transition-all duration-300" : "transition-all duration-300"}>
               <div className="space-y-6">
                 <ApiKeysCard />
-                <DataMigrationCard />
+                {/* DataMigrationCard removed - legacy migration complete */}
               </div>
             </div>
           </div>

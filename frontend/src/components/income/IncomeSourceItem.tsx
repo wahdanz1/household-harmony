@@ -2,6 +2,7 @@ import { Switch } from "@/components/ui/switch";
 import { Pencil } from "lucide-react";
 import { getIncomeCategoryById } from "@/constants/incomeCategories";
 import { DataListItem } from "@/components/ui/data-list-item";
+import { ShowEncryptedDataButton } from "@/components/demo/ShowEncryptedDataButton";
 
 interface IncomeSourceItemProps {
     source: any;
@@ -61,6 +62,16 @@ export const IncomeSourceItem = ({
                     disabled={isSkipped}
                 />
                 <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
+
+                {/* Show Encrypted Data button - demo only */}
+                <div onClick={(e) => e.stopPropagation()}>
+                    <ShowEncryptedDataButton
+                        recordId={source.id}
+                        tableName="income_sources"
+                        fieldName="encrypted_name"
+                        displayLabel="Name"
+                    />
+                </div>
 
                 {/* Edit icon - desktop only, visible on hover */}
                 <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />

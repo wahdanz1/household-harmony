@@ -67,6 +67,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
             household_id: householdId,
             month: currentMonth,
             source: formData.source || incomeCategories.find(c => c.value === formData.category)?.label || "One-time income",
+            category: formData.category, // Save category to database (new enum field)
             amount: parseFloat(formData.amount),
             description: formData.description || null,
             created_by: user.id,

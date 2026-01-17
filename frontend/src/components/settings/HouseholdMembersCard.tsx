@@ -206,13 +206,18 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
 
         {isOwner && (
           <>
-            <div className="pt-6 border-t">
+            <div className={`pt-6 border-t relative ${localStorage.getItem('is_demo_mode') === 'true' ? 'opacity-50' : ''}`}>
+              {localStorage.getItem('is_demo_mode') === 'true' && (
+                <div className="absolute inset-0 flex items-center justify-center z-10">
+                  <p className="text-sm text-muted-foreground font-medium bg-background/80 px-3 py-1 rounded">This feature is disabled in the demo</p>
+                </div>
+              )}
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3>Invite Members</h3>
                   <p className="text-sm text-muted-foreground">Generate a 6-digit code that expires in 24 hours</p>
                 </div>
-                <Button onClick={() => setShowEmailDialog(true)}>
+                <Button onClick={() => setShowEmailDialog(true)} disabled={localStorage.getItem('is_demo_mode') === 'true'}>
                   Invite Member
                 </Button>
               </div>

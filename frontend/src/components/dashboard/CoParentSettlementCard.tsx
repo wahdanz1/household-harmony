@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { useEncryptedFields, monthlyIncomeFields, insuranceFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
 
 interface CoParentSettlementCardProps {
   householdId: string;
@@ -29,6 +30,10 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth);
   const currentMonthNumber = new Date().getMonth() + 1;
 
+  const { decryptRecords: decryptIncomes } = useEncryptedFields(monthlyIncomeFields);
+  const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
+  const { decryptRecords: decryptShared } = useEncryptedFields(sharedExpenseFields);
+
   const fetchData = async () => {
     const { data: coParentsData } = await supabase
       .from("co_parents")
@@ -40,14 +45,16 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
     const settlementData: Record<string, any> = {};
 
     for (const coParent of coParentsData || []) {
-      const { data: sharedIncomes } = await supabase
+      const { data: sharedIncomesRaw } = await supabase
         .from("monthly_incomes")
-        .select("amount, share_percentage")
+        .select("encrypted_amount, share_percentage, is_encrypted")
         .eq("household_id", householdId)
         .gte("month_end", format(monthStart, "yyyy-MM-dd"))
         .lte("month_start", format(monthEnd, "yyyy-MM-dd"))
         .eq("is_shared", true)
         .eq("co_parent_id", coParent.id);
+
+      const sharedIncomes = (await decryptIncomes(sharedIncomesRaw || [])) as any[];
 
       const incomeReceived = (sharedIncomes || []).reduce((sum, inc) => sum + parseFloat((inc.amount || 0).toString()), 0);
       const yourShareOfIncome = (sharedIncomes || []).reduce((sum, inc) => {
@@ -55,14 +62,16 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
         return sum + (parseFloat((inc.amount || 0).toString()) * sharePercentage / 100);
       }, 0);
 
-      const { data: sharedInsurances } = await supabase
+      const { data: sharedInsurancesRaw } = await supabase
         .from("insurances")
-        .select("total_amount, share_percentage, invoice_month")
+        .select("encrypted_total_amount, share_percentage, invoice_month, is_encrypted")
         .eq("household_id", householdId)
         .eq("is_shared", true)
         .eq("co_parent_id", coParent.id)
         .eq("is_active", true)
         .eq("invoice_month", currentMonthNumber);
+
+      const sharedInsurances = (await decryptInsurances(sharedInsurancesRaw || [])) as any[];
 
       let insurancePaid = 0;
       let theirShareOfInsurance = 0;
@@ -72,13 +81,15 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
         theirShareOfInsurance += parseFloat((ins.total_amount || 0).toString()) * parseFloat((ins.share_percentage || 0).toString()) / 100;
       });
 
-      const { data: sharedExpenses } = await supabase
+      const { data: sharedExpensesRaw } = await supabase
         .from("shared_expenses")
-        .select("amount, paid_by")
+        .select("encrypted_amount, paid_by, is_encrypted")
         .eq("household_id", householdId)
         .eq("co_parent_id", coParent.id)
         .gte("month_end", format(monthStart, "yyyy-MM-dd"))
         .lte("month_start", format(monthEnd, "yyyy-MM-dd"));
+
+      const sharedExpenses = (await decryptShared(sharedExpensesRaw || [])) as any[];
 
       let expensesYouPaid = 0;
       let expensesTheyPaid = 0;

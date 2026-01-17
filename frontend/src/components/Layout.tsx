@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 import MobileNav from "./MobileNav";
 import DesktopNav from "./DesktopNav";
+import { DemoBanner } from "./shared/DemoBanner";
+import { GuidedTour } from "./shared/GuidedTour";
 
 interface LayoutProps {
   children: ReactNode;
@@ -13,10 +15,12 @@ const Layout = ({ children }: LayoutProps) => {
       <DesktopNav />
       <main className="pb-20 md:pb-8 md:pl-64 relative z-10">
         <div className="container max-w-6xl mx-auto px-3 md:px-4 py-4">
+          <DemoBanner />
           {children}
         </div>
       </main>
       <MobileNav />
+      <GuidedTour />
     </div>
   );
 };

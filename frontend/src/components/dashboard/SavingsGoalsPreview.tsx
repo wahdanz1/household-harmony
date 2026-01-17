@@ -4,6 +4,7 @@ import { Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
+import { useEncryptedFields, savingsGoalFields } from "@/hooks/useEncryptedFields";
 
 interface SavingsGoal {
   id: string;
@@ -21,6 +22,7 @@ const SavingsGoalsPreview = ({ currency }: SavingsGoalsPreviewProps) => {
   const { user } = useAuth();
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [loading, setLoading] = useState(true);
+  const { decryptRecords } = useEncryptedFields(savingsGoalFields);
 
   useEffect(() => {
     fetchGoals();
@@ -33,16 +35,19 @@ const SavingsGoalsPreview = ({ currency }: SavingsGoalsPreviewProps) => {
 
     if (!membership) return;
 
-    const { data } = await supabase
+    const householdId = membership.household_id;
+
+    const { data, error } = await supabase
       .from("savings_goals")
-      .select("id, name, target_amount, current_amount, priority")
-      .eq("household_id", membership.household_id)
+      .select("id, encrypted_name, encrypted_target_amount, encrypted_current_amount, priority, is_encrypted")
+      .eq("household_id", householdId)
       .eq("is_active", true)
       .order("priority", { ascending: true })
       .limit(3);
 
     if (data) {
-      setGoals(data as SavingsGoal[]);
+      const decrypted = await decryptRecords(data);
+      setGoals(decrypted as any);
     }
     setLoading(false);
   };
