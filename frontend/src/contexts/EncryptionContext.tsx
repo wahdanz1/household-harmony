@@ -81,6 +81,47 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         };
     }, []);
 
+    // Auto-unlock vault for demo mode on app load
+    useEffect(() => {
+        const autoUnlockDemo = async () => {
+            // Import here to avoid circular dependency
+            const { isDemoMode } = await import('@/utils/demoMode');
+
+            // Only auto-unlock if: demo mode + vault locked + password available
+            const demoPassword = sessionStorage.getItem('demo_password');
+            if (!isDemoMode() || isUnlocked || !demoPassword) {
+                return;
+            }
+
+            // Need user ID from auth
+            const authData = await supabase.auth.getUser();
+            if (!authData.data.user) return;
+
+            console.log('Auto-unlocking demo vault...');
+            // Import the unlock function from encryption service
+            const { unlockVault: unlockFn } = await import('@/services/encryption');
+
+            try {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('encrypted_dek, dek_salt, dek_iv')
+                    .eq('id', authData.data.user.id)
+                    .single();
+
+                if (profile?.encrypted_dek) {
+                    const dek = await unlockFn(demoPassword, profile.encrypted_dek, profile.dek_salt, profile.dek_iv);
+                    dekRef.current = dek;
+                    setIsUnlocked(true);
+                    console.log('Demo vault auto-unlocked successfully');
+                }
+            } catch (error) {
+                console.warn('Demo vault auto-unlock failed:', error);
+            }
+        };
+
+        autoUnlockDemo();
+    }, [isUnlocked]); // Re-run if unlock status changes
+
     // Reset inactivity timer
     const resetInactivityTimer = useCallback(() => {
         setShowLockWarning(false);

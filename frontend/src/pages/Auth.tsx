@@ -111,8 +111,9 @@ const Auth = () => {
         console.warn("Demo vault unlock failed - may not have encrypted data yet");
       }
 
-      // Set demo mode flag
+      // Set demo mode flag and store password for auto-unlock on refresh
       setDemoMode(true);
+      sessionStorage.setItem('demo_password', password); // For auto-unlock
       localStorage.setItem('demo_tour_active', 'true');
 
       toast({
