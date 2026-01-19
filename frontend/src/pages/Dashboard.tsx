@@ -24,6 +24,7 @@ import {
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { DemoEncryptionCard } from "@/components/demo/DemoEncryptionCard";
+import { isDemoMode } from "@/utils/demoMode";
 
 interface DashboardData {
   income: number;
@@ -290,7 +291,7 @@ const Dashboard = () => {
       <DemoEncryptionCard householdId={householdId} />
 
       {/* Metric Cards - with reduced opacity when review pending (not in demo) */}
-      <div className={`space-y-3 ${needsReview && localStorage.getItem('is_demo_mode') !== 'true' ? 'opacity-50' : ''} transition-opacity`}>
+      <div className={`space-y-3 ${needsReview && !isDemoMode() ? 'opacity-50' : ''} transition-opacity`}>
         {/* Row 1: Balance - Full Width, More Prominent */}
         <Card className={`border-2 ${isPositive ? 'border-green-500/40' : 'border-red-500/40'}`}>
           <div className="flex items-center justify-between">

@@ -17,12 +17,10 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { ShowEncryptedDataButton } from "./ShowEncryptedDataButton";
+import { isDemoMode as checkDemoMode } from "@/utils/demoMode";
 
-interface DemoEncryptionCardProps {
-    householdId: string;
-}
-
-export const DemoEncryptionCard = ({ householdId }: DemoEncryptionCardProps) => {
+export const DemoEncryptionCard = ({ householdId }: { householdId: string }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [encryptedSample, setEncryptedSample] = useState<{
         table: string;
@@ -32,7 +30,7 @@ export const DemoEncryptionCard = ({ householdId }: DemoEncryptionCardProps) => 
     const [loading, setLoading] = useState(false);
 
     // Only show in demo mode
-    const isDemoMode = localStorage.getItem("is_demo_mode") === "true";
+    const isDemoMode = checkDemoMode();
     if (!isDemoMode) return null;
 
     const fetchEncryptedSample = async () => {

@@ -12,6 +12,7 @@ import { JoinExistingUserDialog } from "./JoinExistingUserDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { generateHouseholdName } from "@/utils/householdNames";
+import { isDemoMode } from "@/utils/demoMode";
 
 interface HouseholdInfoCardProps {
   household: {
@@ -41,7 +42,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
   const isOwner = userRole === "owner";
   const hasOtherMembers = members.length > 1; // More than just the owner
   const shouldShowJoinButton = !isOwner || !hasOtherMembers; // Show if not owner, or owner with no other members
-  const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
+  const demoMode = isDemoMode();
 
   const handleSaveName = async () => {
     // Validate financial_month_start
@@ -166,8 +167,8 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
                     <Button
                       variant="outline"
                       onClick={() => setShowJoinDialog(true)}
-                      disabled={isDemoMode}
-                      className={isDemoMode ? 'opacity-50 cursor-not-allowed' : ''}
+                      disabled={demoMode}
+                      className={demoMode ? 'opacity-50 cursor-not-allowed' : ''}
                     >
                       <UserPlus className="h-4 w-4 mr-2" />
                       Join Another Household

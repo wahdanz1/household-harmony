@@ -1,3 +1,5 @@
+import { useEncryptedFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
+import { isDemoMode } from "@/utils/demoMode";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -206,8 +208,8 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
 
         {isOwner && (
           <>
-            <div className={`pt-6 border-t relative ${localStorage.getItem('is_demo_mode') === 'true' ? 'opacity-50' : ''}`}>
-              {localStorage.getItem('is_demo_mode') === 'true' && (
+            <div className={`pt-6 border-t relative ${isDemoMode() ? 'opacity-50' : ''}`}>
+              {isDemoMode() && (
                 <div className="absolute inset-0 flex items-center justify-center z-10">
                   <p className="text-sm text-muted-foreground font-medium bg-background/80 px-3 py-1 rounded">This feature is disabled in the demo</p>
                 </div>
@@ -217,7 +219,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                   <h3>Invite Members</h3>
                   <p className="text-sm text-muted-foreground">Generate a 6-digit code that expires in 24 hours</p>
                 </div>
-                <Button onClick={() => setShowEmailDialog(true)} disabled={localStorage.getItem('is_demo_mode') === 'true'}>
+                <Button onClick={() => setShowEmailDialog(true)} disabled={isDemoMode()}>
                   Invite Member
                 </Button>
               </div>

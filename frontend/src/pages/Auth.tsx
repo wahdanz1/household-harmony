@@ -14,6 +14,7 @@ import { UserPlus, Lock, Shield, Sparkles, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { PLACEHOLDERS } from "@/constants/ui";
 import { isEmailAllowed } from "@/config/emailWhitelist";
+import { setDemoMode } from "@/utils/demoMode";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -110,8 +111,8 @@ const Auth = () => {
         console.warn("Demo vault unlock failed - may not have encrypted data yet");
       }
 
-      // Mark as demo session
-      localStorage.setItem('is_demo_mode', 'true');
+      // Set demo mode flag
+      setDemoMode(true);
       localStorage.setItem('demo_tour_active', 'true');
 
       toast({

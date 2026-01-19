@@ -11,13 +11,14 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Mail, MessageCircle } from "lucide-react";
+import { isDemoMode as checkDemoMode } from "@/utils/demoMode";
 
 export const DemoBanner = () => {
     const [dismissed, setDismissed] = useState(
         localStorage.getItem('demo_banner_dismissed') === 'true'
     );
 
-    const isDemoMode = localStorage.getItem('is_demo_mode') === 'true';
+    const isDemoMode = checkDemoMode();
 
     if (!isDemoMode || dismissed) return null;
 
