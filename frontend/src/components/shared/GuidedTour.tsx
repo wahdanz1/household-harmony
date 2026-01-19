@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { X, ArrowRight, Sparkles, Shield, Calculator, FileText, TrendingUp, LucideIcon } from "lucide-react";
+import { X, ArrowRight, Sparkles, Shield, TrendingUp, Home, Users, LucideIcon } from "lucide-react";
 
 interface TourStep {
     id: string;
@@ -14,32 +14,32 @@ const tourSteps: TourStep[] = [
     {
         id: 'welcome',
         title: 'Welcome to Household Harmony',
-        content: 'A Swedish household budgeting app built with privacy-first encryption. I created this to solve the problem of tracking shared expenses, Swedish tax calculations, and co-parent finances - all while keeping your data completely private through client-side encryption. Try all features - data resets when you leave.',
+        content: 'A Swedish household budgeting app built with privacy-first encryption. Track income, expenses, subscriptions, and savings goals for single or multi-user households. Perfect for families managing shared finances and co-parent expenses. All your financial data stays completely private through client-side encryption. Try all features - this demo resets when you leave.',
         icon: Sparkles
     },
     {
         id: 'encryption',
         title: 'Client-Side Encryption',
-        content: 'All financial data is encrypted with AES-256-GCM in your browser before being stored. Click "Show Encrypted Data" buttons to see the real ciphertext stored in the database.',
+        content: 'All sensitive data is encrypted with AES-256-GCM in your browser before reaching the server. Click the eye icons (👁️) next to income and expenses to see the actual encrypted ciphertext stored in the database. Only you (and household members you invite) can decrypt your financial information. Even we can\'t read it.',
         icon: Shield
     },
     {
-        id: 'swedish-tax',
-        title: 'Swedish Tax Calculations',
-        content: 'Progressive tax calculations (32% up to 523,200 SEK, 52% above). Configurable per income source - set your own tax percentage when adding income.',
-        icon: Calculator
+        id: 'multi-user',
+        title: 'Multi-User Households',
+        content: 'Invite family members to collaborate on shared finances. Perfect for couples managing joint expenses, co-parents tracking shared costs, or families splitting bills. Each member gets their own encrypted vault. You control who sees what.',
+        icon: Users
     },
     {
-        id: 'ai-parsing',
-        title: 'AI Invoice Parsing',
-        content: 'Upload PDF invoices to auto-extract transactions. Uses your own API key (Gemini/Groq) - configure in Settings. No API costs for us, full control for you.',
-        icon: FileText
-    },
-    {
-        id: 'smart-defaults',
-        title: 'Smart Defaults',
-        content: 'Variable expenses show 3-month averages, static expenses remember last month. The system learns your patterns to reduce manual entry.',
+        id: 'smart-budgeting',
+        title: 'Smart Budgeting Features',
+        content: 'The app learns your spending patterns. Smart Defaults show 3-month averages for variable expenses. Swedish Financial Months use 25th-24th cycle (standard in Sweden). Track Savings Goals for major purchases. Never forget recurring costs with Subscription Tracking. Reduces manual entry while keeping you in control.',
         icon: TrendingUp
+    },
+    {
+        id: 'coming-soon',
+        title: 'Coming Soon: AI & Automation',
+        content: 'Features in development: 🤖 AI Invoice Parsing for auto-extraction (currently beta for credit cards) | 🇸🇪 Swedish Tax Intelligence with progressive tax calculations (32%/52%) | 📊 Bank Import via CSV/Excel wizard. This demo shows current stable features. Check Settings for experimental tools.',
+        icon: Sparkles
     }
 ];
 
