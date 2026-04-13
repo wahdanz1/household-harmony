@@ -236,6 +236,7 @@ dist-ssr
 # Own files
 COMMANDS.md
 MONOREPO_RESTRUCTURING.md
+PLAN.md
 
 # Local-only schema reference (not for public repo)
 .schema/
