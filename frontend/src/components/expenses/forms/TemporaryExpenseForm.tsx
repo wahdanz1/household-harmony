@@ -4,11 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { format, startOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, temporaryExpenseFields } from "@/hooks/useEncryptedFields";
+import { getCurrentFinancialMonth } from "@/utils/dateUtils";
 
 interface TemporaryExpenseFormProps {
     householdId: string;
@@ -27,6 +28,7 @@ const temporaryCategories = [
 
 export const TemporaryExpenseForm = ({ householdId, onSuccess, onCancel }: TemporaryExpenseFormProps) => {
     const { user } = useAuth();
+    const { financialMonthStart } = useHousehold();
     const { toast } = useToast();
     const { encryptRecord } = useEncryptedFields(temporaryExpenseFields);
     const [formData, setFormData] = useState({
@@ -37,7 +39,7 @@ export const TemporaryExpenseForm = ({ householdId, onSuccess, onCancel }: Tempo
     });
     const [saving, setSaving] = useState(false);
 
-    const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
+    const currentMonth = getCurrentFinancialMonth(financialMonthStart);
 
     const handleSave = async () => {
         if (!user) return;

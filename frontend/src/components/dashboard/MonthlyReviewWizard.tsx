@@ -92,7 +92,7 @@ export const MonthlyReviewWizard = ({
 
         // Build income items
         const incomeItems: IncomeItem[] = decryptedSources.map((source: any) => {
-            const monthlyRecord = decryptedMonthlyIncomes.find((m: any) => m.source_id === source.id);
+            const monthlyRecord = decryptedMonthlyIncomes.find((m: any) => m.income_source_id === source.id);
             return {
                 id: monthlyRecord?.id || `new-${source.id}`,
                 name: source.name,
@@ -147,7 +147,7 @@ export const MonthlyReviewWizard = ({
                 const amount = parseFloat(amounts[`income-${income.source_id}`] || "0");
                 const baseData = {
                     household_id: household.id,
-                    source_id: income.source_id,
+                    income_source_id: income.source_id,
                     month: currentMonth,
                     month_start: startStr,
                     month_end: endStr,
@@ -157,7 +157,7 @@ export const MonthlyReviewWizard = ({
                 const data = await encryptMonthlyIncome(baseData);
 
                 await supabase.from("monthly_incomes").upsert(data, {
-                    onConflict: "household_id,source_id,month",
+                    onConflict: "income_source_id,month",
                 });
             }
 
@@ -176,7 +176,7 @@ export const MonthlyReviewWizard = ({
                 const data = await encryptMonthlyExpense(baseData);
 
                 await supabase.from("monthly_expenses").upsert(data, {
-                    onConflict: "household_id,expense_id,month",
+                    onConflict: "expense_id,month",
                 });
             }
 

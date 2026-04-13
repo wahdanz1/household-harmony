@@ -8,8 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { History as HistoryIcon, TrendingUp, TrendingDown, Target, CreditCard, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
-import { format, startOfMonth, subMonths } from "date-fns";
+import { format, subMonths } from "date-fns";
+import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth, getPreviousFinancialMonth } from "@/utils/dateUtils";
 import {
   useEncryptedFields,
   monthlyIncomeFields,
@@ -41,6 +43,7 @@ interface Transaction {
 const History = () => {
   const { user } = useAuth();
   const { isUnlocked } = useEncryption();
+  const { financialMonthStart } = useHousehold();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [currency, setCurrency] = useState("SEK");
@@ -62,15 +65,19 @@ const History = () => {
   const { decryptRecords: decryptSubscriptions } = useEncryptedFields(subscriptionFields);
   const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
 
-  const monthOptions = [
-    { value: "all", label: "All Time" },
-    { value: format(new Date(), "yyyy-MM"), label: format(new Date(), "MMMM yyyy") },
-    { value: format(subMonths(new Date(), 1), "yyyy-MM"), label: format(subMonths(new Date(), 1), "MMMM yyyy") },
-    { value: format(subMonths(new Date(), 2), "yyyy-MM"), label: format(subMonths(new Date(), 2), "MMMM yyyy") },
-    { value: format(subMonths(new Date(), 3), "yyyy-MM"), label: format(subMonths(new Date(), 3), "MMMM yyyy") },
-    { value: format(subMonths(new Date(), 4), "yyyy-MM"), label: format(subMonths(new Date(), 4), "MMMM yyyy") },
-    { value: format(subMonths(new Date(), 5), "yyyy-MM"), label: format(subMonths(new Date(), 5), "MMMM yyyy") },
-  ];
+  // Build financial month options (current + 5 previous)
+  const monthOptions = (() => {
+    const options = [{ value: "all", label: "All Time" }];
+    let month = getCurrentFinancialMonth(financialMonthStart);
+    for (let i = 0; i < 6; i++) {
+      options.push({
+        value: month,
+        label: formatFinancialMonth(month, financialMonthStart),
+      });
+      month = getPreviousFinancialMonth(month, financialMonthStart);
+    }
+    return options;
+  })();
 
   useEffect(() => {
     fetchData();
@@ -280,8 +287,9 @@ const History = () => {
   // Filter transactions
   const filteredTransactions = transactions.filter((t) => {
     if (selectedMonth !== "all") {
-      const transactionMonth = format(new Date(t.date), "yyyy-MM");
-      if (transactionMonth !== selectedMonth) return false;
+      const { start, end } = getFinancialMonthRange(selectedMonth, financialMonthStart);
+      const txDate = new Date(t.date);
+      if (txDate < start || txDate > end) return false;
     }
     if (selectedCategory !== "all" && t.category !== selectedCategory) return false;
     if (selectedMember !== "all" && t.member.name !== selectedMember) return false;

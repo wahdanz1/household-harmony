@@ -6,11 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Gift, Plus } from "lucide-react";
-import { format, startOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields } from "@/hooks/useEncryptedFields";
+import { getCurrentFinancialMonth } from "@/utils/dateUtils";
 
 // Field config for one-time income encryption
 const oneTimeIncomeFields = [
@@ -36,6 +37,7 @@ interface OneTimeIncomeDialogProps {
 
 export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDialogProps) => {
     const { user } = useAuth();
+    const { financialMonthStart } = useHousehold();
     const { toast } = useToast();
     const { encryptRecord } = useEncryptedFields(oneTimeIncomeFields);
     const [isOpen, setIsOpen] = useState(false);
@@ -47,7 +49,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
         description: "",
     });
 
-    const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
+    const currentMonth = getCurrentFinancialMonth(financialMonthStart);
 
     const resetForm = () => {
         setFormData({
