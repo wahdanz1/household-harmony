@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
@@ -50,8 +50,12 @@ const Expenses = () => {
 
   const financialMonthStart = household?.financial_month_start || 25;
 
-  // Keep these for display purposes only
-  const currentMonth = getCurrentFinancialMonth(financialMonthStart);
+  // Month navigation state
+  const todayMonth = getCurrentFinancialMonth(financialMonthStart);
+  const [selectedMonth, setSelectedMonth] = useState(todayMonth);
+  const isCurrentMonth = selectedMonth === todayMonth;
+
+  const currentMonth = selectedMonth;
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
   // Encryption hooks for expense data
@@ -69,9 +73,9 @@ const Expenses = () => {
       return;
     }
 
-    // Compute dates fresh inside fetchData using current financialMonthStart
+    // Use the selected month (navigable)
     const fms = household?.financial_month_start || 25;
-    const fetchMonth = getCurrentFinancialMonth(fms);
+    const fetchMonth = selectedMonth;
     const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, fms);
     const startStr = format(fetchStart, "yyyy-MM-dd");
     const endStr = format(fetchEnd, "yyyy-MM-dd");
@@ -103,35 +107,41 @@ const Expenses = () => {
     setInsurances(decryptedIns);
     // Credit card expenses now tracked via expenses.is_credit
 
+    // Carry-forward: fetch previous month's data for expenses without records this month
+    const missingCategories = decryptedCategories.filter((cat: any) =>
+      !decryptedMonthly.find((m: any) => m.expense_id === cat.id)
+    );
+
+    let previousMonthExpenses: any[] = [];
+    if (missingCategories.length > 0) {
+      const prevMonth = getPreviousFinancialMonth(fetchMonth, fms);
+      const { start: prevStart, end: prevEnd } = getFinancialMonthRange(prevMonth, fms);
+      const { data: prevData } = await supabase
+        .from("monthly_expenses").select("*")
+        .eq("household_id", household.id)
+        .gte("month_end", format(prevStart, "yyyy-MM-dd"))
+        .lte("month_start", format(prevEnd, "yyyy-MM-dd"));
+      previousMonthExpenses = prevData ? await decryptMonthlyExpenses(prevData) : [];
+    }
+
     // Auto-create monthly_expenses records for categories that don't have them yet
-    // This ensures Dashboard shows all expenses, not just edited categories
+    // Carry forward from previous month's actual values, fall back to default
     const missingRecords: any[] = [];
-    decryptedCategories.forEach((category: any) => {
-      const existing = decryptedMonthly.find((m: any) => m.expense_id === category.id);
-
-      if (!existing && user) {
-        // Calculate the appropriate amount for the missing record
-        let amount = category.default_amount;
-
-        if (category.type === "dynamic") {
-          // Use historical average if available
-          const previousExpenses = decryptedHistorical.filter((h: any) => h.expense_id === category.id);
-          if (previousExpenses.length > 0) {
-            const total = previousExpenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
-            amount = Math.round(total / previousExpenses.length);
-          }
-        }
-
-        missingRecords.push({
-          expense_id: category.id,
-          household_id: household.id,
-          month: fetchMonth,
-          month_start: startStr,
-          month_end: endStr,
-          amount: parseFloat(amount?.toString() || "0"),
-          created_by: user.id,
-        });
-      }
+    missingCategories.forEach((category: any) => {
+      if (!user) return;
+      const prevRecord = previousMonthExpenses.find((m: any) => m.expense_id === category.id);
+      const amount = prevRecord
+        ? parseFloat((prevRecord.amount || "0").toString())
+        : parseFloat((category.default_amount || "0").toString());
+      missingRecords.push({
+        expense_id: category.id,
+        household_id: household.id,
+        month: fetchMonth,
+        month_start: startStr,
+        month_end: endStr,
+        amount,
+        created_by: user.id,
+      });
     });
 
     // Create missing records in batch if any (encrypted)
@@ -147,30 +157,18 @@ const Expenses = () => {
     const initialAmounts: Record<string, string> = {};
     decryptedCategories.forEach((category: any) => {
       const existing = decryptedMonthly.find((m: any) => m.expense_id === category.id);
-
-      // For static expenses, always use the current default amount from the category definition
-      if (category.type === "static") {
-        initialAmounts[category.id] = (category.default_amount || "0").toString();
-      } else if (existing) {
+      if (existing) {
         initialAmounts[category.id] = (existing.amount || "0").toString();
-      } else if (category.type === "dynamic") {
-        const previousExpenses = decryptedHistorical.filter((h: any) => h.expense_id === category.id);
-        if (previousExpenses.length > 0) {
-          const total = previousExpenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
-          const avg = total / previousExpenses.length;
-          initialAmounts[category.id] = Math.round(avg).toString();
-        } else {
-          initialAmounts[category.id] = (category.default_amount || "0").toString();
-        }
       } else {
-        initialAmounts[category.id] = (category.default_amount || "0").toString();
+        const missing = missingRecords.find((r: any) => r.expense_id === category.id);
+        initialAmounts[category.id] = missing ? missing.amount.toString() : (category.default_amount || "0").toString();
       }
     });
 
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [user, household, isUnlocked]);
+  }, [user, household, selectedMonth, isUnlocked]);
 
   useEffect(() => {
     if (household) {
@@ -199,7 +197,7 @@ const Expenses = () => {
 
     // Compute dates fresh at save time
     const fms = household?.financial_month_start || 25;
-    const saveMonth = getCurrentFinancialMonth(fms);
+    const saveMonth = selectedMonth;
     const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, fms);
 
     // Build entries and encrypt them
@@ -390,6 +388,10 @@ const Expenses = () => {
         totalLabel="Total Expenses"
         totalAmount={totalExpenses}
         totalColorClass="text-destructive"
+        month={selectedMonth}
+        onPreviousMonth={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+        onNextMonth={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+        isCurrentMonth={isCurrentMonth}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

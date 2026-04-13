@@ -14,7 +14,7 @@ import { IncomeSourceDialog } from "@/components/income/IncomeSourceDialog";
 import { OneTimeIncomeDialog } from "@/components/income/OneTimeIncomeDialog";
 
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
-import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState, LoadingState } from "@/components/shared/states";
@@ -44,6 +44,11 @@ const Income = () => {
   const [suggestions, setSuggestions] = useState<IncomeSuggestion[]>([]);
   const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
 
+  // Month navigation state
+  const todayMonth = getCurrentFinancialMonth(financialMonthStart);
+  const [selectedMonth, setSelectedMonth] = useState(todayMonth);
+  const isCurrentMonth = selectedMonth === todayMonth;
+
   // Autosave state
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -51,7 +56,7 @@ const Income = () => {
   const amountsRef = useRef<Record<string, string>>({}); // Track latest amounts for autosave
 
   // Keep these for display/header purposes only (will update on re-render)
-  const currentMonth = getCurrentFinancialMonth(financialMonthStart);
+  const currentMonth = selectedMonth;
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
   // Encryption hooks for income data
@@ -67,8 +72,8 @@ const Income = () => {
       return;
     }
 
-    // Compute dates fresh inside fetchData using current financialMonthStart
-    const fetchMonth = getCurrentFinancialMonth(financialMonthStart);
+    // Use the selected month (navigable)
+    const fetchMonth = selectedMonth;
     const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, financialMonthStart);
     const startStr = format(fetchStart, "yyyy-MM-dd");
     const endStr = format(fetchEnd, "yyyy-MM-dd");
@@ -92,22 +97,41 @@ const Income = () => {
 
     setMonthlyIncomes(regularIncomes);
 
+    // Carry-forward: fetch previous month's data if there are sources without records
+    const missingSources = decryptedSources.filter((source: any) =>
+      !decryptedMonthly.find((m: any) => m.income_source_id === source.id)
+    );
+
+    let previousMonthData: any[] = [];
+    if (missingSources.length > 0) {
+      const prevMonth = getPreviousFinancialMonth(fetchMonth, financialMonthStart);
+      const { start: prevStart, end: prevEnd } = getFinancialMonthRange(prevMonth, financialMonthStart);
+      const { data: prevData } = await supabase
+        .from("monthly_incomes").select("*")
+        .eq("household_id", household.id)
+        .gte("month_end", format(prevStart, "yyyy-MM-dd"))
+        .lte("month_start", format(prevEnd, "yyyy-MM-dd"));
+      previousMonthData = prevData ? await decryptIncomes(prevData) : [];
+    }
+
     // Auto-create monthly_incomes records for sources that don't have them yet
-    // This ensures Dashboard shows all income, not just edited sources
+    // Carry forward from previous month's actual values, fall back to source default
     const missingRecords: any[] = [];
-    decryptedSources.forEach((source: any) => {
-      const existing = decryptedMonthly.find((m: any) => m.income_source_id === source.id);
-      if (!existing && user) {
-        missingRecords.push({
-          income_source_id: source.id,
-          household_id: household.id,
-          month: fetchMonth,
-          month_start: startStr,
-          month_end: endStr,
-          amount: parseFloat((source.default_amount || "0").toString()),
-          created_by: user.id,
-        });
-      }
+    missingSources.forEach((source: any) => {
+      if (!user) return;
+      const prevRecord = previousMonthData.find((m: any) => m.income_source_id === source.id);
+      const amount = prevRecord
+        ? parseFloat((prevRecord.amount || "0").toString())
+        : parseFloat((source.default_amount || "0").toString());
+      missingRecords.push({
+        income_source_id: source.id,
+        household_id: household.id,
+        month: fetchMonth,
+        month_start: startStr,
+        month_end: endStr,
+        amount,
+        created_by: user.id,
+      });
     });
 
     // Create missing records in batch if any (encrypted)
@@ -123,12 +147,18 @@ const Income = () => {
     const initialAmounts: Record<string, string> = {};
     decryptedSources.forEach((source: any) => {
       const existing = decryptedMonthly.find((m: any) => m.income_source_id === source.id);
-      initialAmounts[source.id] = existing ? (existing.amount || "0").toString() : (source.default_amount || "0").toString();
+      if (existing) {
+        initialAmounts[source.id] = (existing.amount || "0").toString();
+      } else {
+        // Use the carry-forward amount from missingRecords
+        const missing = missingRecords.find((r: any) => r.income_source_id === source.id);
+        initialAmounts[source.id] = missing ? missing.amount.toString() : (source.default_amount || "0").toString();
+      }
     });
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [household?.id, financialMonthStart, user, isUnlocked]);
+  }, [household?.id, financialMonthStart, selectedMonth, user, isUnlocked]);
 
   useEffect(() => {
     if (!householdLoading && household?.id) {
@@ -245,8 +275,8 @@ const Income = () => {
     // Use amountsRef to get the latest amounts value
     const currentAmounts = amountsRef.current;
 
-    // Compute dates fresh at save time
-    const saveMonth = getCurrentFinancialMonth(financialMonthStart);
+    // Use the selected month for saving
+    const saveMonth = selectedMonth;
     const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, financialMonthStart);
 
     // Build entries and encrypt them
@@ -380,6 +410,10 @@ const Income = () => {
         totalLabel="Total Income"
         totalAmount={totalIncome}
         showSmartDefaults={suggestions.length > 0}
+        month={selectedMonth}
+        onPreviousMonth={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+        onNextMonth={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+        isCurrentMonth={isCurrentMonth}
       />
 
       {/* Add Source Button - matching Expenses style */}
