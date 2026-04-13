@@ -236,3 +236,9 @@ dist-ssr
 # Own files
 COMMANDS.md
 MONOREPO_RESTRUCTURING.md
+
+# Local-only schema reference (not for public repo)
+.schema/
+
+# Supabase temp files
+supabase/.temp/

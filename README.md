@@ -1,75 +1,81 @@
 # Household Harmony
 
-**Swedish Household Budgeting Platform** with intelligent tax calculations and smart financial defaults.
+**Swedish Household Budgeting Platform** with client-side encryption, tax calculations, and LLM-powered invoice parsing.
 
 [![Tech Stack](https://img.shields.io/badge/Stack-React%20%7C%20TypeScript%20%7C%20FastAPI%20%7C%20PostgreSQL-blue?style=flat-square)](https://github.com/wahdanz1/household-harmony)
-[![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial-green?style=flat-square)](LICENSE)
 
 <br/>
 
 ## Overview
 
-Household Harmony is a production-grade household budgeting application designed specifically for Swedish households. Built with modern full-stack architecture, it features intelligent tax calculations, smart financial defaults, and multi-user collaboration capabilities.
+Household Harmony is a household budgeting application built for Swedish households. It supports multi-user collaboration, encrypted financial data, Swedish income tax calculations, and AI-powered credit card statement parsing.
 
-**Note:** This application is in private beta with controlled access. The codebase is public for portfolio and evaluation purposes, but the database schema and production infrastructure are not included in this repository.
+**Note:** This application is in private beta. The codebase is public for portfolio and evaluation purposes, but the database schema and production infrastructure are not included.
 
 ### Core Features
 
 **Financial Management**
-- Multi-user household collaboration with role-based access
-- Income and expense tracking with automatic categorization
-- Subscription management with quarterly and annual billing awareness
-- Insurance tracking with annualized cost calculations
+- Multi-user household collaboration with role-based access (owner/member)
+- Income and expense tracking with categorization
+- Subscription and insurance management with billing cycle awareness
 - Co-parent expense sharing and settlement tracking
+- Monthly records for historical analysis
+- Dashboard with summary metrics and charts
+
+**Client-Side Encryption**
+- Two-tier key system: DEK (Data Encryption Key) + KEK (Key Encryption Key)
+- AES-256-GCM encryption via Web Crypto API in the browser
+- DEK stored only in browser memory — never persisted to disk
+- KEK derived from user password via PBKDF2 (100,000 iterations)
+- Auto-lock after 30 minutes of inactivity with warning modal
 
 **Swedish Tax Intelligence**
-- Built-in Swedish tax calculations and prognosis
-- Automatic tax bracket adjustments
-- Financial month awareness (25th-24th cycles)
-- Municipal tax integration
+- 2025 Swedish income tax brackets (progressive, standard 30%, CSN variable, tax-exempt benefits)
+- Annual tax prognosis showing expected owing/refund
+- Financial month awareness (configurable 25th–24th pay cycles)
 
-**Smart Defaults System**
-- Static vs. dynamic expense detection (variance analysis)
-- 3-month rolling averages for variable costs
-- Historical data-based suggestions
-- Intelligent auto-fill for recurring expenses
+**LLM Invoice Parsing**
+- PDF credit card statement extraction via pdfplumber
+- AI categorization using Claude, Groq, or Gemini (user-provided API keys)
+- Merchant category learning with confidence levels
+- Rate-limited (5 uploads/min) with 5-minute result caching
 
-**User Experience**
-- Responsive design optimized for desktop and mobile
-- Dark mode interface
-- Real-time data synchronization
-- Progressive web app capabilities
+**Demo Mode**
+- Ephemeral demo accounts with pre-populated Swedish household data
+- All demo data encrypted using the same DEK/KEK system as real users
+- Rate-limited to 5 demo accounts per hour per IP
+- Auto-expiring accounts with cleanup endpoint
 
 <br/>
 
 ## Technical Architecture
 
 ### Frontend
-- **React 18** with TypeScript for type-safe development
-- **Vite** for fast development and optimized production builds
-- **Tailwind CSS** + **shadcn/ui** for consistent, accessible UI components
-- **React Router** for client-side routing
-- **Zustand** for lightweight state management
+- **React 18** with TypeScript
+- **Vite** for development and production builds
+- **Tailwind CSS** + **shadcn/ui** (Radix UI primitives) for accessible UI components
+- **React Router v6** for client-side routing with lazy-loaded routes
+- **React Context** for state management (auth, encryption, household)
+- **TanStack React Query** for server state and data fetching
+- **React Hook Form** + **Zod** for form handling and validation
+- **Recharts** for dashboard visualizations
 
 ### Backend
-- **FastAPI** (Python 3.11+) for high-performance async API
-- **uv** for dependency management and virtual environments
-- RESTful API design with automatic OpenAPI documentation
-- JWT-based authentication with secure session handling
+- **FastAPI** (Python 3.11+) for async API
+- **uv** for dependency management
+- **Pydantic v2** for request/response validation
+- **cryptography** library for backend encryption (demo data seeding, API key storage)
+- **pdfplumber** for PDF text extraction
+- Automatic OpenAPI documentation at `/docs`
 
 ### Database & Infrastructure
-- **PostgreSQL** (via Supabase) with Row Level Security (RLS)
-- Real-time subscriptions for collaborative features
-- Optimized indexes for financial queries
-- Database functions for complex calculations
+- **PostgreSQL** via Supabase with Row Level Security (RLS)
+- **Supabase Auth** for JWT-based authentication
+- **Vercel** for frontend hosting (SPA rewrites)
+- **Railway** for backend hosting (NIXPacks builder)
 
-### Deployment
-- **Vercel** for frontend hosting with edge optimization
-- **Railway** for backend API with automatic scaling
-- **GitHub Actions** for CI/CD pipeline
-- Monorepo structure with isolated deployment configurations
-
----
+<br/>
 
 ## Repository Structure
 
@@ -77,29 +83,29 @@ Household Harmony is a production-grade household budgeting application designed
 household-harmony/
 ├── frontend/                 # React + TypeScript application
 │   ├── src/
-│   │   ├── components/      # Reusable UI components
+│   │   ├── components/      # UI components (~112 components)
 │   │   ├── pages/           # Route-level page components
 │   │   ├── contexts/        # React Context providers
-│   │   ├── utils/           # Utility functions and helpers
+│   │   ├── services/        # Encryption, API client
+│   │   ├── utils/           # Utility functions
 │   │   └── types/           # TypeScript type definitions
 │   └── public/              # Static assets
 │
 └── backend/                  # FastAPI application
-    ├── app/
-    │   ├── routes/          # API endpoint definitions
-    │   ├── services/        # Business logic layer
-    │   ├── models/          # Data models and schemas
-    │   └── utils/           # Backend utilities
-    └── tests/               # Backend test suite
+    └── app/
+        ├── routers/         # API endpoint definitions
+        ├── services/        # Business logic (tax, encryption, LLM, demo)
+        ├── models/          # Pydantic schemas
+        └── config.py        # Settings and environment
 ```
 
-**Note:** This is a monorepo with separate deployment configurations for Vercel (frontend) and Railway (backend). Database migrations and schema are not included in this public repository.
+Database migrations and schema are not included in this public repository.
 
 <br/>
 
-## Development Overview
+## Development Setup
 
-This section provides an overview of the development setup. **Note that the full application cannot be run locally without the complete database schema and configuration, which are not public.**
+**Note:** The full application cannot be run locally without the database schema and Supabase configuration, which are not public.
 
 ### Prerequisites
 - Node.js 18+ and npm
@@ -107,25 +113,23 @@ This section provides an overview of the development setup. **Note that the full
 - [uv](https://github.com/astral-sh/uv) (Python package manager)
 - Supabase project with configured schema (not included)
 
-### Frontend Development
+### Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Application runs at `http://localhost:8080`
+Runs at `http://localhost:8080`
 
-### Backend Development
+### Backend
 ```bash
 cd backend
 uv sync
 uv run uvicorn app.main:app --reload --port 8000
 ```
-API documentation available at `http://localhost:8000/docs`
+API docs at `http://localhost:8000/docs`
 
-### Environment Configuration
-
-Environment variables are required but not sufficient for local setup without the database schema.
+### Environment Variables
 
 **Frontend** (`frontend/.env.local`):
 ```env
@@ -146,122 +150,25 @@ ALLOWED_ORIGINS=http://localhost:8080
 
 <br/>
 
-## Database Design
-
-The application uses PostgreSQL with a comprehensive schema designed for household financial management:
-
-**Core Entities:**
-- User profiles and authentication
-- Household management with multi-user support
-- Income sources with type classification (static/variable)
-- Expense tracking (regular, subscriptions, insurance)
-- Monthly records for historical analysis
-- Savings goals and progress tracking
-
-**Key Features:**
-- Row Level Security (RLS) for data isolation
-- Database functions for smart defaults and calculations
-- Optimized indexes for query performance
-- Real-time subscriptions for collaborative features
-
-*Database migrations and complete schema are available upon request for technical evaluation.*
-
-<br/>
-
 ## Key Technical Decisions
 
+### Why client-side encryption?
+Financial data is sensitive. By encrypting on the client with a key derived from the user's password, even the database administrator cannot read the data. The DEK/KEK architecture allows password changes without re-encrypting all data.
+
 ### Why FastAPI?
-- Automatic API documentation with OpenAPI/Swagger
-- Native async/await support for database operations
-- Type hints with Pydantic for request/response validation
-- High performance comparable to Node.js and Go
+Automatic OpenAPI documentation, native async support for database operations, and Pydantic for type-safe request/response validation.
 
 ### Why Supabase?
-- PostgreSQL with built-in authentication and RLS
-- Real-time subscriptions for collaborative features
-- Automatic API generation from database schema
-- Simplified deployment and scaling
+PostgreSQL with built-in authentication, Row Level Security, and a generous free tier. Simplifies auth and database management without vendor lock-in on the data layer.
 
 ### Why Tailwind + shadcn/ui?
-- Utility-first CSS for rapid development
-- No runtime JavaScript overhead
-- Accessible components out of the box
-- Easy customization and theming
-
-### Why Monorepo?
-- Shared TypeScript types between frontend and backend
-- Atomic commits across full-stack features
-- Single source of truth for version control
-- Simplified CI/CD with GitHub Actions
-
-<br/>
-
-## Production Deployment
-
-This application uses a monorepo structure with separate deployments:
-
-### Frontend (Vercel)
-- Root directory: `frontend`
-- Framework preset: Vite
-- Build command: `npm run build`
-- Output directory: `dist`
-
-### Backend (Railway)
-- Root directory: `backend`
-- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Python runtime with uv
-
-Environment variables are configured in respective deployment platforms.
-
-<br/>
-
-## Development Roadmap
-
-**Current Focus:**
-- CSV import wizard for bulk data entry
-- Planning page for multi-month financial forecasting
-- Enhanced subscription warning system
-- Dashboard metric improvements
-
-**Planned Features:**
-- Bill splitting algorithms for shared households
-- Receipt scanning with OCR
-- Bank integration (via Tink API)
-- Budget vs. actual variance reporting
-- Export functionality for record-keeping
-
-<br/>
-
-## Security & Privacy
-
-- JWT-based authentication with secure session handling
-- Row Level Security (RLS) for all database operations
-- Password hashing with bcrypt
-- CORS configuration for cross-origin security
-- Environment-based secret management
-- Regular dependency updates and security audits
-- Controlled access with email whitelist
-
-<br/>
-
-## Code Quality
-
-- TypeScript for type safety across frontend and backend
-- ESLint and Prettier for code consistency
-- Component-driven development with shadcn/ui
-- RESTful API design principles
-- Comprehensive error handling
-- Database query optimization
+Utility-first CSS with accessible, unstyled component primitives (Radix UI). Easy to customize and theme with dark mode support.
 
 <br/>
 
 ## License
 
-**Copyright © 2024-2025 Daniel Wahlgren. All Rights Reserved.**
-
-This software is proprietary and confidential. Unauthorized copying, distribution, or use is strictly prohibited without express written permission from the copyright holder.
-
-This repository is publicly visible for evaluation and portfolio demonstration purposes only.
+**PolyForm Noncommercial License 1.0.0** — free for personal and noncommercial use. See [LICENSE](LICENSE) for full terms.
 
 <br/>
 
@@ -279,7 +186,7 @@ This repository is publicly visible for evaluation and portfolio demonstration p
 [![Discord](https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/users/wahdanz#5803)
 [![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/wahdanz1)
 
-*For access requests, technical inquiries, or collaboration opportunities, reach out via Discord.*
+*For access requests or technical inquiries, reach out via Discord.*
 
 </div>
 
@@ -287,6 +194,6 @@ This repository is publicly visible for evaluation and portfolio demonstration p
 
 <div align="center">
 
-*Full-stack development • React • TypeScript • FastAPI • PostgreSQL*
+*Built with React • TypeScript • FastAPI • PostgreSQL*
 
 </div>
