@@ -60,15 +60,6 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
             {
                 "household_id": household_id,
                 "category": "government_benefits",
-                "encrypted_name": enc("CSN - Studiestöd"),
-                "type": "static",
-                "encrypted_default_amount": enc(8500),
-                "created_by": user_id,
-                "is_encrypted": True
-            },
-            {
-                "household_id": household_id,
-                "category": "government_benefits",
                 "encrypted_name": enc("Barnbidrag"),
                 "type": "static",
                 "encrypted_default_amount": enc(1250),
@@ -237,6 +228,38 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
             }
         ]).execute()
         logger.info("Created encrypted subscriptions")
+        
+        # 5.5. Create insurances - ENCRYPTED
+        supabase.table("insurances").insert([
+            {
+                "household_id": household_id,
+                "encrypted_name": enc("Hemförsäkring (Länsförsäkringar)"),
+                "encrypted_total_amount": enc(2800),
+                "billing_cycle": "yearly",
+                "category": "home",
+                "created_by": user_id,
+                "is_encrypted": True
+            },
+            {
+                "household_id": household_id,
+                "encrypted_name": enc("Bil försäkring (If)"),
+                "encrypted_total_amount": enc(4200),
+                "billing_cycle": "yearly",
+                "category": "vehicle",
+                "created_by": user_id,
+                "is_encrypted": True
+            },
+            {
+                "household_id": household_id,
+                "encrypted_name": enc("Sjukvård tilläggsförsäkring"),
+                "encrypted_total_amount": enc(1800),
+                "billing_cycle": "yearly",
+                "category": "health",
+                "created_by": user_id,
+                "is_encrypted": True
+            }
+        ]).execute()
+        logger.info("Created encrypted insurances")
         
         # 6. Create credit card - ENCRYPTED
         supabase.table("credit_cards").insert({

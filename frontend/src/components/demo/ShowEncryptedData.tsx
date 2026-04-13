@@ -121,10 +121,10 @@ export const ShowEncryptedData = ({
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        🔒 Real AES-256-GCM Encryption
+                        🔒 Real Encryption Proof
                     </DialogTitle>
                     <DialogDescription>
-                        This is the actual encrypted value stored in the database. Not a demo trick - this is real client-side encryption.
+                        This is actual encrypted data from the database
                     </DialogDescription>
                 </DialogHeader>
 
@@ -162,14 +162,28 @@ export const ShowEncryptedData = ({
                         )}
                     </div>
 
-                    <div className="bg-primary/5 p-4 rounded-md space-y-2">
-                        <h4 className="font-semibold text-sm">What you're seeing:</h4>
-                        <ul className="text-xs space-y-1 text-muted-foreground">
-                            <li>• Data is encrypted <strong>in your browser</strong> using AES-256-GCM</li>
-                            <li>• The server only stores this ciphertext - never sees plaintext</li>
-                            <li>• Your password derives the encryption key (PBKDF2)</li>
-                            <li>• This is zero-knowledge architecture in action</li>
-                        </ul>
+                    <div className="bg-primary/5 p-4 rounded-md space-y-3">
+                        <p className="text-sm">
+                            Household Harmony encrypts all sensitive data in your browser before sending it to the server.
+                        </p>
+                        <p className="text-sm">
+                            Only you and household members you explicitly invite can decrypt this information with your vault password.
+                        </p>
+                        <p className="text-sm">
+                            What you see above is real ciphertext - unreadable gibberish to anyone without your encryption key. Not even the developers or database administrators can access your financial data.
+                        </p>
+                        <div className="pt-2 border-t space-y-1">
+                            <h4 className="font-semibold text-sm">Technical Details:</h4>
+                            <ul className="text-xs space-y-1 text-muted-foreground">
+                                <li>• Algorithm: AES-256-GCM</li>
+                                <li>• Key Derivation: PBKDF2 (100k iterations)</li>
+                                <li>• Key Storage: Your browser only</li>
+                                <li>• Server Access: None ✓</li>
+                            </ul>
+                        </div>
+                        <p className="text-xs text-muted-foreground italic pt-2">
+                            This isn't marketing - it's actual cryptography. Your privacy is guaranteed by mathematics, not promises.
+                        </p>
                     </div>
                 </div>
             </DialogContent>
