@@ -6,7 +6,6 @@ import { useEncryptedFields, incomeSourceFields } from "@/hooks/useEncryptedFiel
 interface SourceFormData {
     category: "salary" | "business_income" | "government_benefits" | "investment_income" | "gift" | "other";
     name: string;
-    type: "static" | "variable";
     default_amount: string;
     owner_id: string;
     is_shared: boolean;
@@ -26,7 +25,6 @@ export const useIncomeSources = (
     const [sourceFormData, setSourceFormData] = useState<SourceFormData>({
         category: "salary",
         name: "",
-        type: "static",
         default_amount: "0",
         owner_id: members[0]?.user_id || "",
         is_shared: false,
@@ -38,7 +36,6 @@ export const useIncomeSources = (
         setSourceFormData({
             category: "salary",
             name: "",
-            type: "static",
             default_amount: "0",
             owner_id: members[0]?.user_id || "",
             is_shared: false,
@@ -52,7 +49,6 @@ export const useIncomeSources = (
         setSourceFormData({
             category: source.category,
             name: source.name,
-            type: source.type,
             default_amount: source.default_amount.toString(),
             owner_id: source.created_by || source.owner_id, // Map created_by to owner_id for form
             is_shared: source.is_shared || false,
@@ -68,7 +64,6 @@ export const useIncomeSources = (
             household_id: householdId,
             category: sourceFormData.category,
             name: sourceFormData.name,
-            type: sourceFormData.type,
             default_amount: parseFloat(sourceFormData.default_amount),
             created_by: sourceFormData.owner_id, // Map form owner_id to database created_by
             is_shared: sourceFormData.is_shared,

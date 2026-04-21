@@ -11,7 +11,6 @@ interface IncomeSourceDialogProps {
     sourceFormData: {
         category: "salary" | "business_income" | "government_benefits" | "investment_income" | "gift" | "other";
         name: string;
-        type: "static" | "variable";
         default_amount: string;
         owner_id: string;
         is_shared: boolean;

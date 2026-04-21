@@ -6,7 +6,6 @@ interface EditExpenseDialogProps {
     editingCategoryId: string | null;
     categoryFormData: {
         name: string;
-        type: "static" | "dynamic";
         default_amount: string;
         is_credit?: boolean;
     };
@@ -41,7 +40,6 @@ export const EditExpenseDialog = ({
                     defaultValues={{
                         category: editingCategory?.category,
                         name: categoryFormData.name,
-                        type: categoryFormData.type,
                         default_amount: categoryFormData.default_amount,
                         is_credit: editingCategory?.is_credit ?? categoryFormData.is_credit ?? false,
                     }}

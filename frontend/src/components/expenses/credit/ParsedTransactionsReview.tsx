@@ -143,7 +143,6 @@ export const ParsedTransactionsReview = ({
                         household_id: householdId,
                         category: category,
                         name: expenseName,
-                        type: "dynamic",
                         default_amount: Math.round(amount),
                         created_by: user.id,
                         is_active: true,

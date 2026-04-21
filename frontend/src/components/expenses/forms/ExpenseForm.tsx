@@ -12,7 +12,6 @@ import { EXPENSE_CATEGORIES } from "@/constants/expenseCategories";
 export interface ExpenseFormData {
     category?: string;
     name: string;
-    type: "static" | "dynamic";
     default_amount: string;
     is_credit?: boolean;
 }
@@ -48,7 +47,6 @@ export const ExpenseForm = ({
             ...prev,
             category: defaultValues.category ?? prev.category,
             name: defaultValues.name ?? prev.name,
-            type: defaultValues.type ?? prev.type,
             default_amount: defaultValues.default_amount ?? prev.default_amount,
             is_credit: defaultValues.is_credit ?? prev.is_credit ?? false,
         }));
@@ -106,11 +104,6 @@ export const ExpenseForm = ({
                     placeholder="e.g., Monthly Rent, Weekly Groceries"
                 />
             </div>
-
-            {/* Type field removed - all expenses default to 'dynamic' now */}
-
-
-
 
             {/* Default Amount */}
             <div className="space-y-2">

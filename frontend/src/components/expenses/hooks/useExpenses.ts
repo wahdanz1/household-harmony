@@ -5,7 +5,6 @@ import { useEncryptedFields, expenseFields } from "@/hooks/useEncryptedFields";
 
 interface CategoryFormData {
     name: string;
-    type: "static" | "dynamic";
     default_amount: string;
     is_credit?: boolean;
 }
@@ -21,7 +20,6 @@ export const useExpenses = (
     const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
     const [categoryFormData, setCategoryFormData] = useState<CategoryFormData>({
         name: "",
-        type: "static",
         default_amount: "0",
         is_credit: false,
     });
@@ -29,7 +27,6 @@ export const useExpenses = (
     const resetCategoryForm = () => {
         setCategoryFormData({
             name: "",
-            type: "static",
             default_amount: "0",
             is_credit: false,
         });
@@ -39,7 +36,6 @@ export const useExpenses = (
     const handleEditCategory = (category: any) => {
         setCategoryFormData({
             name: category.name,
-            type: category.type,
             default_amount: category.default_amount.toString(),
             is_credit: category.is_credit ?? false,
         });
@@ -51,7 +47,6 @@ export const useExpenses = (
     const handleSaveCategory = async (submittedData?: any) => {
         // Use submitted data if provided, otherwise fall back to state
         const dataName = submittedData?.name || categoryFormData.name;
-        const dataType = submittedData?.type || categoryFormData.type;
         const dataDefaultAmount = submittedData?.default_amount || categoryFormData.default_amount;
         const dataCategory = submittedData?.category;
         const dataIsCredit = submittedData?.is_credit ?? false;
@@ -59,7 +54,6 @@ export const useExpenses = (
         const baseData: any = {
             household_id: householdId,
             name: dataName,
-            type: dataType,
             default_amount: parseFloat(dataDefaultAmount),
             sort_order: expenseCategories.length,
             is_credit: dataIsCredit,
@@ -126,12 +120,12 @@ export const useExpenses = (
     };
 
     const initializeDefaults = async () => {
-        const defaultCategories: { name: string; category: string; type: "static" | "dynamic"; default_amount: number; sort_order: number; household_id: string }[] = [
-            { name: "Rent", category: "rent", type: "static", default_amount: 0, sort_order: 0, household_id: householdId },
-            { name: "Electricity", category: "electricity", type: "dynamic", default_amount: 0, sort_order: 1, household_id: householdId },
-            { name: "Fuel", category: "fuel", type: "dynamic", default_amount: 0, sort_order: 2, household_id: householdId },
-            { name: "Transport", category: "transport", type: "dynamic", default_amount: 0, sort_order: 3, household_id: householdId },
-            { name: "Groceries", category: "groceries", type: "dynamic", default_amount: 0, sort_order: 4, household_id: householdId },
+        const defaultCategories: { name: string; category: string; default_amount: number; sort_order: number; household_id: string }[] = [
+            { name: "Rent", category: "rent", default_amount: 0, sort_order: 0, household_id: householdId },
+            { name: "Electricity", category: "electricity", default_amount: 0, sort_order: 1, household_id: householdId },
+            { name: "Fuel", category: "fuel", default_amount: 0, sort_order: 2, household_id: householdId },
+            { name: "Transport", category: "transport", default_amount: 0, sort_order: 3, household_id: householdId },
+            { name: "Groceries", category: "groceries", default_amount: 0, sort_order: 4, household_id: householdId },
         ];
 
         // Encrypt each default category before inserting

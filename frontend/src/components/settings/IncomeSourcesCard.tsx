@@ -15,7 +15,6 @@ interface IncomeSource {
   id: string;
   category: string;
   name: string;
-  type: string;
   default_amount: number;
   is_active: boolean;
   owner_id: string;
@@ -42,13 +41,11 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
   const [formData, setFormData] = useState<{
     category: "salary" | "business_income" | "government_benefits" | "investment_income" | "gift" | "other";
     name: string;
-    type: "static" | "variable";
     default_amount: string;
     owner_id: string;
   }>({
     category: "salary",
     name: "",
-    type: "static",
     default_amount: "0",
     owner_id: members[0]?.user_id || "",
   });
@@ -58,7 +55,6 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
     setFormData({
       category: "salary",
       name: "",
-      type: "static",
       default_amount: "0",
       owner_id: members[0]?.user_id || "",
     });
@@ -70,7 +66,6 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
       household_id: householdId,
       category: formData.category,
       name: formData.name,
-      type: formData.type,
       default_amount: parseFloat(formData.default_amount),
       owner_id: formData.owner_id,
     };
@@ -111,7 +106,6 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
     setFormData({
       category: source.category as "salary" | "business_income" | "government_benefits" | "investment_income" | "gift" | "other",
       name: source.name,
-      type: source.type as "static" | "variable",
       default_amount: source.default_amount.toString(),
       owner_id: source.owner_id,
     });
@@ -211,19 +205,6 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
               </div>
 
               <div className="space-y-2">
-                <Label>Type</Label>
-                <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v as typeof formData.type })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="static">Static (Fixed amount)</SelectItem>
-                    <SelectItem value="variable">Variable (Changes monthly)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
                 <Label>Default Amount</Label>
                 <Input
                   type="number"
@@ -251,9 +232,6 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
                 <div className="flex items-center gap-2">
                   <p className="font-medium">{source.name}</p>
                   <Badge variant="outline">{formatCategory(source.category)}</Badge>
-                  <Badge variant={source.type === "static" ? "secondary" : "outline"}>
-                    {source.type}
-                  </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {source.profiles?.full_name || "Unknown"} • {source.default_amount} {currency}

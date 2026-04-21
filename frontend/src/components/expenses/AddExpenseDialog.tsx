@@ -180,7 +180,6 @@ export const AddExpenseDialog = ({ open, onOpenChange, householdId, hasCoParents
                                 defaultValues={{
                                     category: undefined,
                                     name: "",
-                                    type: "dynamic",
                                     default_amount: "0",
                                 }}
                                 onSubmit={handleExpenseSubmit}
