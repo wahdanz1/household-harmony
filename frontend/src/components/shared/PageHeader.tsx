@@ -60,7 +60,7 @@ export const PageHeader = ({
                         {displaySubtitle}
                     </p>
                     {hasNavigation && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onNextMonth} disabled={isCurrentMonth}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onNextMonth}>
                             <ChevronRight className="h-4 w-4" />
                         </Button>
                     )}

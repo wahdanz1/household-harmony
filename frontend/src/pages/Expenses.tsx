@@ -107,29 +107,32 @@ const Expenses = () => {
     setInsurances(decryptedIns);
     // Credit card expenses now tracked via expenses.is_credit
 
-    // Carry-forward: fetch previous month's data for expenses without records this month
+    // Carry-forward: find most recent record per category (from any month before this one)
     const missingCategories = decryptedCategories.filter((cat: any) =>
       !decryptedMonthly.find((m: any) => m.expense_id === cat.id)
     );
 
-    let previousMonthExpenses: any[] = [];
+    const mostRecentByCategory = new Map<string, any>();
     if (missingCategories.length > 0) {
-      const prevMonth = getPreviousFinancialMonth(fetchMonth, fms);
-      const { start: prevStart, end: prevEnd } = getFinancialMonthRange(prevMonth, fms);
-      const { data: prevData } = await supabase
+      const { data: historyData } = await supabase
         .from("monthly_expenses").select("*")
         .eq("household_id", household.id)
-        .gte("month_end", format(prevStart, "yyyy-MM-dd"))
-        .lte("month_start", format(prevEnd, "yyyy-MM-dd"));
-      previousMonthExpenses = prevData ? await decryptMonthlyExpenses(prevData) : [];
+        .lt("month", fetchMonth)
+        .order("month", { ascending: false });
+      const decryptedHistoryFull = historyData ? await decryptMonthlyExpenses(historyData) : [];
+      for (const record of decryptedHistoryFull) {
+        if (record.expense_id && !mostRecentByCategory.has(record.expense_id)) {
+          mostRecentByCategory.set(record.expense_id, record);
+        }
+      }
     }
 
     // Auto-create monthly_expenses records for categories that don't have them yet
-    // Carry forward from previous month's actual values, fall back to default
+    // Carry forward from most recent actual values, fall back to default
     const missingRecords: any[] = [];
     missingCategories.forEach((category: any) => {
       if (!user) return;
-      const prevRecord = previousMonthExpenses.find((m: any) => m.expense_id === category.id);
+      const prevRecord = mostRecentByCategory.get(category.id);
       const amount = prevRecord
         ? parseFloat((prevRecord.amount || "0").toString())
         : parseFloat((category.default_amount || "0").toString());

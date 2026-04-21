@@ -97,29 +97,33 @@ const Income = () => {
 
     setMonthlyIncomes(regularIncomes);
 
-    // Carry-forward: fetch previous month's data if there are sources without records
+    // Carry-forward: find most recent record per source (from any month before this one)
     const missingSources = decryptedSources.filter((source: any) =>
       !decryptedMonthly.find((m: any) => m.income_source_id === source.id)
     );
 
-    let previousMonthData: any[] = [];
+    const mostRecentBySource = new Map<string, any>();
     if (missingSources.length > 0) {
-      const prevMonth = getPreviousFinancialMonth(fetchMonth, financialMonthStart);
-      const { start: prevStart, end: prevEnd } = getFinancialMonthRange(prevMonth, financialMonthStart);
-      const { data: prevData } = await supabase
+      const { data: historyData } = await supabase
         .from("monthly_incomes").select("*")
         .eq("household_id", household.id)
-        .gte("month_end", format(prevStart, "yyyy-MM-dd"))
-        .lte("month_start", format(prevEnd, "yyyy-MM-dd"));
-      previousMonthData = prevData ? await decryptIncomes(prevData) : [];
+        .lt("month", fetchMonth)
+        .order("month", { ascending: false });
+      const decryptedHistory = historyData ? await decryptIncomes(historyData) : [];
+      // First occurrence per source_id is the most recent (already sorted desc)
+      for (const record of decryptedHistory) {
+        if (record.income_source_id && !mostRecentBySource.has(record.income_source_id)) {
+          mostRecentBySource.set(record.income_source_id, record);
+        }
+      }
     }
 
     // Auto-create monthly_incomes records for sources that don't have them yet
-    // Carry forward from previous month's actual values, fall back to source default
+    // Carry forward from most recent actual values, fall back to source default
     const missingRecords: any[] = [];
     missingSources.forEach((source: any) => {
       if (!user) return;
-      const prevRecord = previousMonthData.find((m: any) => m.income_source_id === source.id);
+      const prevRecord = mostRecentBySource.get(source.id);
       const amount = prevRecord
         ? parseFloat((prevRecord.amount || "0").toString())
         : parseFloat((source.default_amount || "0").toString());
