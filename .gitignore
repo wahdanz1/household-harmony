@@ -237,6 +237,8 @@ dist-ssr
 COMMANDS.md
 MONOREPO_RESTRUCTURING.md
 PLAN.md
+project-rules.md
+.claude/
 
 # Local-only schema reference (not for public repo)
 .schema/

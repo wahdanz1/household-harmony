@@ -16,6 +16,9 @@ import { PLACEHOLDERS } from "@/constants/ui";
 import { isEmailAllowed } from "@/config/emailWhitelist";
 import { setDemoMode } from "@/utils/demoMode";
 
+// Feature flag: demo mode is hidden until the monthly review flow is rebuilt
+const DEMO_ENABLED = false;
+
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -424,38 +427,42 @@ const Auth = () => {
               </Button>
             </div>
 
-            {/* Demo Mode - for portfolio visitors */}
-            <div className="relative mt-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">Or</span>
-              </div>
-            </div>
+            {/* Demo Mode - temporarily disabled while monthly review flow is being rebuilt */}
+            {DEMO_ENABLED && (
+              <>
+                <div className="relative mt-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or</span>
+                  </div>
+                </div>
 
-            <Button
-              variant="outline"
-              className="w-full mt-4"
-              onClick={handleTryDemo}
-              disabled={demoLoading}
-            >
-              {demoLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {demoLoadingMessage || "Starting..."}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Try Demo
-                </>
-              )}
-            </Button>
+                <Button
+                  variant="outline"
+                  className="w-full mt-4"
+                  onClick={handleTryDemo}
+                  disabled={demoLoading}
+                >
+                  {demoLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {demoLoadingMessage || "Starting..."}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Try Demo
+                    </>
+                  )}
+                </Button>
 
-            <p className="text-xs text-center text-muted-foreground mt-2">
-              No signup needed. Backend on free tier - first load may take ~20s
-            </p>
+                <p className="text-xs text-center text-muted-foreground mt-2">
+                  No signup needed. Backend on free tier - first load may take ~20s
+                </p>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
