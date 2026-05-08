@@ -2,29 +2,37 @@
 trigger: always_on
 ---
 
-# Tailwind Conventions
+# Tailwind & styling conventions
 
-## Core Principle
-**Utilities for spacing, variants for everything else.**
+## Core principle
+**Styling lives in base components, not at call sites.**
 
-## What Goes in className
+Inline `className` should only carry **layout, spacing, sizing, and responsive utilities** — the things that genuinely vary per usage. Visual styling (colors, borders, hover states, semantic intent) belongs in the component itself, surfaced as a `variant` prop.
+
+If you find yourself writing color or hover utilities at the call site, that's a signal to either:
+- Use an existing variant (`variant="soft"`, `variant="warning"`, etc.), or
+- Add a new variant to the base component if the pattern is reusable.
+
+The only legitimate inline-styling case is a **necessary one-off override** — and even then, prefer extending the variant system if the override might recur.
+
+## What goes in `className`
 - Spacing: `mt-4`, `mb-6`, `gap-3`, `p-4`
 - Sizing: `w-full`, `flex-1`, `h-10`
-- Layout: `col-span-2`, `grid-cols-3`
+- Layout: `col-span-2`, `grid-cols-3`, `flex`, `items-center`
 - Responsive: `sm:hidden`, `md:block`
 
-## What Should Be Variants
+## What should be a variant
 Any combination of:
 - `bg-*` + `border-*` (color themes)
 - `hover:bg-*` (interactive states)
 - `text-*` with semantic meaning (warning, success, etc.)
 
-## When to Create a Variant
-1. Same color pattern appears 2+ times
+## When to create a variant
+1. Same color/state pattern appears 2+ times
 2. Pattern has semantic meaning (warning, success, soft)
-3. Pattern applies to interactive component (Button, Alert, Badge, Card)
+3. Pattern applies to an interactive component (Button, Alert, Badge, Card)
 
-## How to Add a Variant
+## How to add a variant
 ```tsx
 // In component file (e.g., badge.tsx)
 const badgeVariants = cva("...", {
@@ -37,21 +45,29 @@ const badgeVariants = cva("...", {
 });
 ```
 
-## Anti-Patterns to Avoid
+## Anti-patterns
 ```tsx
-// BAD: Color spam on component
+// BAD: visual styling spammed at call site
 <Button className="bg-primary/5 border-primary/20 hover:bg-primary/10">
 
-// GOOD: Use or create variant
+// GOOD: use a variant
 <Button variant="soft">
 ```
 
-## Quick Reference: Available Variants
+```tsx
+// BAD: ad-hoc one-off color override that should be a semantic variant
+<Card className="bg-yellow-500/10 border-yellow-500/30 text-yellow-200">
+
+// GOOD: lift to a variant if it recurs, otherwise use existing semantic variants
+<Card variant="warning">
+```
+
+## Quick reference: available variants
 
 ### Button
 `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`
 
-### Alert  
+### Alert
 `default`, `destructive`, `warning`, `success`
 
 ### Badge

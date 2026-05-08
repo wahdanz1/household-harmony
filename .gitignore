@@ -242,6 +242,10 @@ project-rules.md
 
 # Local-only schema reference (not for public repo)
 .schema/
+frontend/docs/
+
+# TypeScript composite build artifacts
+*.tsbuildinfo
 
 # Supabase temp files
 supabase/.temp/
