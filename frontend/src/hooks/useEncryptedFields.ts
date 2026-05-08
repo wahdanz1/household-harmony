@@ -158,12 +158,6 @@ export const insuranceFields: EncryptionFieldConfig[] = [
     { original: 'provider', encrypted: 'encrypted_provider' },
 ];
 
-export const savingsGoalFields: EncryptionFieldConfig[] = [
-    { original: 'name', encrypted: 'encrypted_name' },
-    { original: 'target_amount', encrypted: 'encrypted_target_amount' },
-    { original: 'current_amount', encrypted: 'encrypted_current_amount' },
-];
-
 export const creditCardExpenseFields: EncryptionFieldConfig[] = [
     { original: 'description', encrypted: 'encrypted_description' },
     { original: 'amount', encrypted: 'encrypted_amount' },

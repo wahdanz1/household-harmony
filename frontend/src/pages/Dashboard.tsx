@@ -7,7 +7,6 @@ import { format } from "date-fns";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Card } from "@/components/ui/card";
-import SavingsGoalsPreview from "@/components/dashboard/SavingsGoalsPreview";
 import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlementCard";
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 import { TrendingUp, TrendingDown, PiggyBank, Repeat, Shield, ClipboardCheck, ChevronRight } from "lucide-react";
@@ -359,9 +358,6 @@ const Dashboard = () => {
       {householdId && coParents.length > 0 && (
         <CoParentSettlementCard householdId={householdId} currency={currency} />
       )}
-
-      {/* Savings Goals */}
-      <SavingsGoalsPreview currency={currency} />
 
       {/* Monthly Review Wizard */}
       <MonthlyReviewWizard

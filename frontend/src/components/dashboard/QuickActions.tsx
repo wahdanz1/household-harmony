@@ -1,4 +1,4 @@
-import { DollarSign, Receipt, Target } from "lucide-react";
+import { DollarSign, Receipt } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const QuickActions = () => {
@@ -22,15 +22,6 @@ const QuickActions = () => {
       bgColor: "bg-red-500/10",
       hoverBg: "hover:bg-red-500/20",
       borderColor: "border-red-500/30",
-    },
-    {
-      label: "Savings",
-      icon: Target,
-      path: "/savings",
-      color: "text-blue-500",
-      bgColor: "bg-blue-500/10",
-      hoverBg: "hover:bg-blue-500/20",
-      borderColor: "border-blue-500/30",
     },
   ];
 

@@ -1,4 +1,4 @@
-import { Home, TrendingUp, TrendingDown, Target, BarChart3, Settings, LogOut } from "lucide-react";
+import { Home, TrendingUp, TrendingDown, Settings, LogOut } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { Button } from "./ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,8 +17,6 @@ const DesktopNav = () => {
     { icon: Home, label: "Dashboard", path: "/" },
     { icon: TrendingUp, label: "Income", path: "/income" },
     { icon: TrendingDown, label: "Expenses", path: "/expenses" },
-    { icon: Target, label: "Savings", path: "/savings" },
-    { icon: BarChart3, label: "History", path: "/history" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 

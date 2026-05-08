@@ -32,7 +32,7 @@ const tourSteps: TourStep[] = [
     {
         id: 'smart-budgeting',
         title: 'Smart Budgeting Features',
-        content: 'The app learns your spending patterns. Smart Defaults show 3-month averages for variable expenses. Swedish Financial Months use 25th-24th cycle (standard in Sweden). Track Savings Goals for major purchases. Never forget recurring costs with Subscription Tracking. Reduces manual entry while keeping you in control.',
+        content: 'The app learns your spending patterns. Smart Defaults show 3-month averages for variable expenses. Swedish Financial Months use 25th-24th cycle (standard in Sweden). Never forget recurring costs with Subscription Tracking. Reduces manual entry while keeping you in control.',
         icon: TrendingUp
     },
     {
