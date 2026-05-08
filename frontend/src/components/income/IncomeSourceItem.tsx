@@ -12,6 +12,7 @@ interface IncomeSourceItemProps {
     onEdit: (source: any) => void;
     onDelete: (sourceId: string) => void;
     status?: 'saved' | 'modified' | 'none';
+    readOnly?: boolean;
 }
 
 export const IncomeSourceItem = ({
@@ -21,6 +22,7 @@ export const IncomeSourceItem = ({
     onAmountChange,
     onEdit,
     status = 'none',
+    readOnly = false,
 }: IncomeSourceItemProps) => {
     const isSkipped = amount === "0";
 
@@ -41,7 +43,7 @@ export const IncomeSourceItem = ({
     };
 
     return (
-        <DataListItem onClick={() => onEdit(source)} className="group">
+        <DataListItem onClick={() => !readOnly && onEdit(source)} className="group">
             {/* Icon + Name */}
             <div className="flex items-center gap-2 flex-1 min-w-0">
                 {Icon && <Icon className="h-4 w-4 shrink-0" style={{ color: cat?.color }} />}
@@ -59,7 +61,7 @@ export const IncomeSourceItem = ({
                     onClick={(e) => e.stopPropagation()}
                     className={`currency-input w-24 sm:w-28 ${getInputUnderlineClass()}`}
                     placeholder="0"
-                    disabled={isSkipped}
+                    disabled={isSkipped || readOnly}
                 />
                 <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
 
@@ -74,7 +76,7 @@ export const IncomeSourceItem = ({
                 </div>
 
                 {/* Edit icon - desktop only, visible on hover */}
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                {!readOnly && <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />}
 
                 {/* Vertical toggle on desktop, horizontal on mobile */}
                 <div
@@ -83,6 +85,7 @@ export const IncomeSourceItem = ({
                 >
                     <Switch
                         checked={!isSkipped}
+                        disabled={readOnly}
                         onCheckedChange={(checked) =>
                             onAmountChange(source.id, checked ? (source.default_amount || 0).toString() : "0")
                         }

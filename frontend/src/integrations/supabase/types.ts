@@ -773,6 +773,38 @@ export type Database = {
           },
         ]
       }
+      monthly_review_status: {
+        Row: {
+          accepted_at: string
+          household_id: string
+          month: string
+          scope: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          household_id: string
+          month: string
+          scope: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          household_id?: string
+          month?: string
+          scope?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_review_status_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       one_time_incomes: {
         Row: {
           category: Database["public"]["Enums"]["one_time_income_category_enum"]

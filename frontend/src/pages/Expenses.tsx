@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddButton } from "@/components/ui/add-button";
-import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield, ClipboardCheck } from "lucide-react";
 import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
@@ -17,6 +18,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
+import { fetchMostRecentByKey } from "@/utils/carryForward";
+import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
@@ -54,6 +57,18 @@ const Expenses = () => {
   const todayMonth = getCurrentFinancialMonth(financialMonthStart);
   const [selectedMonth, setSelectedMonth] = useState(todayMonth);
   const isCurrentMonth = selectedMonth === todayMonth;
+
+  // Monthly review gate
+  const { needsReview, latestFinalizedMonth } = useMonthlyReviewStatus(household?.id, financialMonthStart);
+  const isReadOnly = isCurrentMonth && needsReview;
+  const initialDefaultRef = useRef(false);
+  useEffect(() => {
+    if (initialDefaultRef.current) return;
+    if (needsReview && latestFinalizedMonth && selectedMonth === todayMonth) {
+      setSelectedMonth(latestFinalizedMonth);
+    }
+    initialDefaultRef.current = true;
+  }, [needsReview, latestFinalizedMonth, selectedMonth, todayMonth]);
 
   const currentMonth = selectedMonth;
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
@@ -112,20 +127,14 @@ const Expenses = () => {
       !decryptedMonthly.find((m: any) => m.expense_id === cat.id)
     );
 
-    const mostRecentByCategory = new Map<string, any>();
-    if (missingCategories.length > 0) {
-      const { data: historyData } = await supabase
-        .from("monthly_expenses").select("*")
-        .eq("household_id", household.id)
-        .lt("month", fetchMonth)
-        .order("month", { ascending: false });
-      const decryptedHistoryFull = historyData ? await decryptMonthlyExpenses(historyData) : [];
-      for (const record of decryptedHistoryFull) {
-        if (record.expense_id && !mostRecentByCategory.has(record.expense_id)) {
-          mostRecentByCategory.set(record.expense_id, record);
-        }
-      }
-    }
+    const mostRecentByCategory = await fetchMostRecentByKey({
+      table: "monthly_expenses",
+      keyField: "expense_id",
+      keys: missingCategories.map((c: any) => c.id),
+      householdId: household.id,
+      beforeMonth: fetchMonth,
+      decrypt: decryptMonthlyExpenses,
+    });
 
     // Auto-create monthly_expenses records for categories that don't have them yet
     // Carry forward from most recent actual values, fall back to default
@@ -237,6 +246,7 @@ const Expenses = () => {
 
   // Handle amount change with debounced autosave
   const handleAmountChange = useCallback((categoryId: string, value: string) => {
+    if (isReadOnly) return;
     setAmounts(prev => {
       const newAmounts = { ...prev, [categoryId]: value };
       amountsRef.current = newAmounts; // Keep ref in sync for autosave
@@ -253,7 +263,7 @@ const Expenses = () => {
     autoSaveTimerRef.current = setTimeout(() => {
       handleSave();
     }, 500);
-  }, [handleSave]);
+  }, [handleSave, isReadOnly]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -397,6 +407,21 @@ const Expenses = () => {
         isCurrentMonth={isCurrentMonth}
       />
 
+      {isReadOnly && (
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+          <ClipboardCheck className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <div className="flex-1 text-sm">
+            <p className="font-medium">This month's review hasn't been finalized.</p>
+            <p className="text-xs text-muted-foreground">
+              Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
+            </p>
+          </div>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/">Open Review</Link>
+          </Button>
+        </div>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Only show tabs when there are multiple tabs (Credit or Co-Parent enabled) */}
         {(household?.enable_credit_cards || coParents.length > 0) && (
@@ -423,7 +448,7 @@ const Expenses = () => {
         <TabsContent value="all" className="mt-6 space-y-4">
           {/* Header with Add Button and Saved indicator */}
           <div className="flex justify-between items-center">
-            <AddButton onClick={() => setAddExpenseDialogOpen(true)}>Add Expense</AddButton>
+            <AddButton disabled={isReadOnly} onClick={() => !isReadOnly && setAddExpenseDialogOpen(true)}>Add Expense</AddButton>
             {/* Saved indicator - fade in animation matching Income page */}
             {autoSaveStatus === 'saved' && (
               <span className="text-sm text-primary animate-in fade-in duration-150">
@@ -514,7 +539,7 @@ const Expenses = () => {
               const insurance = insurances.find(i => i.id === id);
               if (insurance) setEditingInsurance(insurance);
             }}
-            onAmountChange={handleAmountChange}
+            onAmountChange={isReadOnly ? undefined : handleAmountChange}
           />
 
           {/* Inactive Items Section */}

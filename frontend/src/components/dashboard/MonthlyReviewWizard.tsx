@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, Clock } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, Clock, ShieldCheck } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,14 +12,13 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields, expenseFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
 import { getCategoryById } from "@/constants/expenseCategories";
+import { fetchMostRecentByKey } from "@/utils/carryForward";
 
-// `monthly_review_status` was added in migration 20260506120000 and is not yet
-// in the generated supabase types. Casts will go away after the next
-// `npx supabase gen types` run.
-type ReviewScope = "income" | "expenses";
+type ReviewScope = "income" | "expenses" | "finalized";
 interface ReviewStatusRow {
     user_id: string;
     scope: ReviewScope;
+    accepted_at: string;
 }
 
 interface MonthlyReviewWizardProps {
@@ -46,6 +46,8 @@ interface ExpenseItem {
     expense_id: string;
 }
 
+const POLL_INTERVAL_MS = 15000;
+
 export const MonthlyReviewWizard = ({
     open,
     onOpenChange,
@@ -53,12 +55,13 @@ export const MonthlyReviewWizard = ({
 }: MonthlyReviewWizardProps) => {
     const { user } = useAuth();
     const { household, members } = useHousehold();
-    const [activeTab, setActiveTab] = useState<ReviewScope>("income");
+    const [activeTab, setActiveTab] = useState<"income" | "expenses">("income");
     const [incomes, setIncomes] = useState<IncomeItem[]>([]);
     const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
     const [amounts, setAmounts] = useState<Record<string, string>>({});
     const [reviewStatus, setReviewStatus] = useState<ReviewStatusRow[]>([]);
     const [savingScope, setSavingScope] = useState<ReviewScope | null>(null);
+    const [confirmFinalize, setConfirmFinalize] = useState(false);
 
     const financialMonthStart = household?.financial_month_start || 25;
     const currentMonth = getCurrentFinancialMonth(financialMonthStart);
@@ -70,14 +73,11 @@ export const MonthlyReviewWizard = ({
     const { decryptRecords: decryptExpenses } = useEncryptedFields(expenseFields);
     const { decryptRecords: decryptMonthlyExpenses, encryptRecord: encryptMonthlyExpense } = useEncryptedFields(monthlyExpenseFields);
 
-    useEffect(() => {
-        if (open && user && household) {
-            fetchData();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, user, household]);
+    // Latest decrypt fns in a ref so polling closure doesn't go stale
+    const decryptRefs = useRef({ decryptMonthlyIncomes, decryptMonthlyExpenses });
+    decryptRefs.current = { decryptMonthlyIncomes, decryptMonthlyExpenses };
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         if (!household || !user) return;
 
         const startStr = format(monthStart, "yyyy-MM-dd");
@@ -95,20 +95,59 @@ export const MonthlyReviewWizard = ({
             // is_credit expenses are reviewed via the Credit tab's PDF flow, not here.
             supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).not("is_credit", "is", true).order("sort_order"),
             supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-            (supabase as any).from("monthly_review_status").select("user_id, scope").eq("household_id", household.id).eq("month", currentMonth),
+            supabase.from("monthly_review_status").select("user_id, scope, accepted_at").eq("household_id", household.id).eq("month", currentMonth),
         ]);
 
         const decryptedSources = await decryptIncomeSources(sourcesData || []);
-        const decryptedMonthlyIncomes = await decryptMonthlyIncomes(monthlyIncomesData || []);
+        const decryptedMonthlyIncomes = await decryptRefs.current.decryptMonthlyIncomes(monthlyIncomesData || []);
         const decryptedCategories = await decryptExpenses(categoriesData || []);
-        const decryptedMonthlyExpenses = await decryptMonthlyExpenses(monthlyExpensesData || []);
+        const decryptedMonthlyExpenses = await decryptRefs.current.decryptMonthlyExpenses(monthlyExpensesData || []);
+
+        // Carry-forward: for sources/categories without a record this month,
+        // fall back to most recent prior record (not the static default).
+        const sourcesNeedingCarry = decryptedSources.filter(
+            (s: any) => !decryptedMonthlyIncomes.find((m: any) => m.income_source_id === s.id)
+        );
+        const expensesNeedingCarry = decryptedCategories.filter(
+            (c: any) => !decryptedMonthlyExpenses.find((m: any) => m.expense_id === c.id)
+        );
+
+        const [incomeCarry, expenseCarry] = await Promise.all([
+            fetchMostRecentByKey({
+                table: "monthly_incomes",
+                keyField: "income_source_id",
+                keys: sourcesNeedingCarry.map((s: any) => s.id),
+                householdId: household.id,
+                beforeMonth: currentMonth,
+                decrypt: decryptRefs.current.decryptMonthlyIncomes,
+            }),
+            fetchMostRecentByKey({
+                table: "monthly_expenses",
+                keyField: "expense_id",
+                keys: expensesNeedingCarry.map((c: any) => c.id),
+                householdId: household.id,
+                beforeMonth: currentMonth,
+                decrypt: decryptRefs.current.decryptMonthlyExpenses,
+            }),
+        ]);
+
+        const resolveAmount = (
+            existing: any | undefined,
+            carryRecord: any | undefined,
+            staticDefault: any
+        ): number => {
+            if (existing) return parseFloat((existing.amount || "0").toString());
+            if (carryRecord) return parseFloat((carryRecord.amount || "0").toString());
+            return parseFloat((staticDefault || "0").toString());
+        };
 
         const incomeItems: IncomeItem[] = decryptedSources.map((source: any) => {
             const monthlyRecord = decryptedMonthlyIncomes.find((m: any) => m.income_source_id === source.id);
+            const amount = resolveAmount(monthlyRecord, incomeCarry.get(source.id), source.default_amount);
             return {
                 id: monthlyRecord?.id || `new-${source.id}`,
                 name: source.name,
-                amount: monthlyRecord?.amount ?? source.default_amount ?? 0,
+                amount,
                 defaultAmount: source.default_amount ?? 0,
                 source_id: source.id,
                 created_by: source.created_by,
@@ -118,10 +157,11 @@ export const MonthlyReviewWizard = ({
 
         const expenseItems: ExpenseItem[] = decryptedCategories.map((category: any) => {
             const monthlyRecord = decryptedMonthlyExpenses.find((m: any) => m.expense_id === category.id);
+            const amount = resolveAmount(monthlyRecord, expenseCarry.get(category.id), category.default_amount);
             return {
                 id: monthlyRecord?.id || `new-${category.id}`,
                 name: category.name,
-                amount: monthlyRecord?.amount ?? category.default_amount ?? 0,
+                amount,
                 defaultAmount: category.default_amount ?? 0,
                 category: category.category,
                 expense_id: category.id,
@@ -132,15 +172,41 @@ export const MonthlyReviewWizard = ({
         setExpenses(expenseItems);
         setReviewStatus((statusData as ReviewStatusRow[]) || []);
 
-        const initialAmounts: Record<string, string> = {};
-        incomeItems.forEach(item => {
-            initialAmounts[`income-${item.source_id}`] = item.amount.toString();
+        setAmounts(prev => {
+            const next: Record<string, string> = { ...prev };
+            // Only seed amounts for keys we don't have yet — never overwrite
+            // a value the user is currently typing.
+            incomeItems.forEach(item => {
+                const key = `income-${item.source_id}`;
+                if (next[key] === undefined) next[key] = item.amount.toString();
+            });
+            expenseItems.forEach(item => {
+                const key = `expense-${item.expense_id}`;
+                if (next[key] === undefined) next[key] = item.amount.toString();
+            });
+            return next;
         });
-        expenseItems.forEach(item => {
-            initialAmounts[`expense-${item.expense_id}`] = item.amount.toString();
-        });
-        setAmounts(initialAmounts);
-    };
+    }, [household, user, monthStart, monthEnd, currentMonth, decryptIncomeSources, decryptExpenses]);
+
+    useEffect(() => {
+        if (open && user && household) {
+            // Reset transient UI state when wizard opens
+            setAmounts({});
+            setConfirmFinalize(false);
+            setActiveTab("income");
+            fetchData();
+        }
+    }, [open, user, household, fetchData]);
+
+    // Poll every 15s while wizard is open so each user sees the other's
+    // acceptances and amount changes without manual refresh.
+    useEffect(() => {
+        if (!open) return;
+        const id = window.setInterval(() => {
+            fetchData();
+        }, POLL_INTERVAL_MS);
+        return () => window.clearInterval(id);
+    }, [open, fetchData]);
 
     const handleAmountChange = (key: string, value: string) => {
         setAmounts(prev => ({ ...prev, [key]: value }));
@@ -148,7 +214,7 @@ export const MonthlyReviewWizard = ({
 
     const writeStatus = async (scope: ReviewScope) => {
         if (!household || !user) return;
-        const { error } = await (supabase as any).from("monthly_review_status").upsert({
+        const { error } = await supabase.from("monthly_review_status").upsert({
             household_id: household.id,
             user_id: user.id,
             month: currentMonth,
@@ -236,18 +302,34 @@ export const MonthlyReviewWizard = ({
         }
     };
 
-    const finalize = () => {
-        onComplete();
-        onOpenChange(false);
+    const finalize = async () => {
+        if (!household || !user) return;
+        setSavingScope("finalized");
+        try {
+            await writeStatus("finalized");
+            toast.success("Review finalized");
+            onComplete();
+            onOpenChange(false);
+        } catch (error: any) {
+            console.error("Error finalizing:", error);
+            toast.error(error.message || "Failed to finalize");
+        } finally {
+            setSavingScope(null);
+        }
     };
 
     const incomeAcceptedUserIds = new Set(reviewStatus.filter(r => r.scope === "income").map(r => r.user_id));
     const expensesVerified = reviewStatus.some(r => r.scope === "expenses");
+    const finalizedRow = reviewStatus.find(r => r.scope === "finalized");
+    const isFinalized = !!finalizedRow;
     const myIncomeAccepted = incomeAcceptedUserIds.has(user?.id || "");
     const allMembersAcceptedIncome = members.length > 0 && members.every(m => incomeAcceptedUserIds.has(m.user_id));
-    const canFinalize = allMembersAcceptedIncome && expensesVerified;
+    const canFinalize = allMembersAcceptedIncome && expensesVerified && !isFinalized;
     const pendingIncomeMembers = members.filter(m => !incomeAcceptedUserIds.has(m.user_id));
     const myIncomeCount = incomes.filter(i => i.isMine).length;
+    const finalizerName = isFinalized
+        ? members.find(m => m.user_id === finalizedRow!.user_id)?.profiles?.full_name || "A household member"
+        : null;
 
     const totalIncome = incomes.reduce((sum, item) => sum + parseFloat(amounts[`income-${item.source_id}`] || "0"), 0);
     const totalExpenses = expenses.reduce((sum, item) => sum + parseFloat(amounts[`expense-${item.expense_id}`] || "0"), 0);
@@ -265,6 +347,19 @@ export const MonthlyReviewWizard = ({
                     </DialogDescription>
                 </DialogHeader>
 
+                {isFinalized && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/30 text-sm">
+                        <ShieldCheck className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
+                        <div>
+                            <p className="font-medium">Review finalized</p>
+                            <p className="text-xs text-muted-foreground">
+                                Finalized by {finalizerName} on {format(new Date(finalizedRow!.accepted_at), "MMM d, HH:mm")}.
+                                Use the Income or Expenses page to make corrections.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/50">
                     <div className="flex items-center gap-4 text-sm">
                         <span className="text-green-500 font-medium">+{totalIncome.toFixed(0)} {currency}</span>
@@ -275,7 +370,7 @@ export const MonthlyReviewWizard = ({
                     </span>
                 </div>
 
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ReviewScope)} className="flex-1 overflow-hidden flex flex-col">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "income" | "expenses")} className="flex-1 overflow-hidden flex flex-col">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="income" className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4" />
@@ -293,6 +388,7 @@ export const MonthlyReviewWizard = ({
                         {incomes.map(item => {
                             const otherMember = !item.isMine ? members.find(m => m.user_id === item.created_by) : null;
                             const ownerName = otherMember?.profiles?.full_name || "Other member";
+                            const editable = item.isMine && !isFinalized;
                             return (
                                 <div key={item.source_id} className={`flex items-center justify-between p-3 rounded-lg border bg-background/50 ${item.isMine ? 'border-border' : 'border-border/40 opacity-60'}`}>
                                     <div className="flex items-center gap-2">
@@ -307,7 +403,7 @@ export const MonthlyReviewWizard = ({
                                     <div className="flex items-center gap-2">
                                         <input
                                             type="number"
-                                            disabled={!item.isMine}
+                                            disabled={!editable}
                                             value={amounts[`income-${item.source_id}`] || "0"}
                                             onChange={(e) => handleAmountChange(`income-${item.source_id}`, e.target.value)}
                                             className={`w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:cursor-not-allowed ${Math.abs(parseFloat(amounts[`income-${item.source_id}`] || "0") - item.defaultAmount) < 0.01
@@ -338,9 +434,10 @@ export const MonthlyReviewWizard = ({
                                     <div className="flex items-center gap-2">
                                         <input
                                             type="number"
+                                            disabled={isFinalized}
                                             value={amounts[`expense-${item.expense_id}`] || "0"}
                                             onChange={(e) => handleAmountChange(`expense-${item.expense_id}`, e.target.value)}
-                                            className={`w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 ${Math.abs(parseFloat(amounts[`expense-${item.expense_id}`] || "0") - item.defaultAmount) < 0.01
+                                            className={`w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:cursor-not-allowed ${Math.abs(parseFloat(amounts[`expense-${item.expense_id}`] || "0") - item.defaultAmount) < 0.01
                                                 ? 'border-green-500'
                                                 : 'border-lime-400'
                                                 }`}
@@ -353,93 +450,111 @@ export const MonthlyReviewWizard = ({
                     </TabsContent>
                 </Tabs>
 
-                <div className="pt-4 border-t border-border space-y-3">
-                    {activeTab === "income" ? (
-                        <Button
-                            onClick={acceptIncome}
-                            disabled={savingScope !== null || myIncomeCount === 0}
-                            className="w-full"
-                            size="lg"
-                            variant={myIncomeAccepted ? "outline" : "default"}
-                        >
-                            <Check className="h-4 w-4 mr-2" />
-                            {savingScope === "income" ? "Saving..." : myIncomeAccepted ? "Re-accept my income" : "Accept my income"}
-                        </Button>
-                    ) : (
-                        <Button
-                            onClick={verifyExpenses}
-                            disabled={savingScope !== null}
-                            className="w-full"
-                            size="lg"
-                            variant={expensesVerified ? "outline" : "default"}
-                        >
-                            <Check className="h-4 w-4 mr-2" />
-                            {savingScope === "expenses" ? "Saving..." : expensesVerified ? "Re-verify expenses" : "Verify expenses"}
-                        </Button>
-                    )}
+                {!isFinalized && (
+                    <div className="pt-4 border-t border-border space-y-3">
+                        {activeTab === "income" ? (
+                            <Button
+                                onClick={acceptIncome}
+                                disabled={savingScope !== null || myIncomeCount === 0}
+                                className="w-full"
+                                size="lg"
+                                variant={myIncomeAccepted ? "outline" : "default"}
+                            >
+                                <Check className="h-4 w-4 mr-2" />
+                                {savingScope === "income" ? "Saving..." : myIncomeAccepted ? "Re-accept my income" : "Accept my income"}
+                            </Button>
+                        ) : (
+                            <Button
+                                onClick={verifyExpenses}
+                                disabled={savingScope !== null}
+                                className="w-full"
+                                size="lg"
+                                variant={expensesVerified ? "outline" : "default"}
+                            >
+                                <Check className="h-4 w-4 mr-2" />
+                                {savingScope === "expenses" ? "Saving..." : expensesVerified ? "Re-verify expenses" : "Verify expenses"}
+                            </Button>
+                        )}
 
-                    {!canFinalize && (myIncomeAccepted || expensesVerified) && (
-                        <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground">
-                            <Clock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                            <div className="space-y-1">
-                                {!expensesVerified && <p>Expenses still need to be verified.</p>}
-                                {pendingIncomeMembers.length > 0 && (
-                                    <p>
-                                        Waiting on {pendingIncomeMembers.map(m => m.profiles?.full_name || "a member").join(", ")} to accept income.
-                                    </p>
-                                )}
+                        {!canFinalize && (myIncomeAccepted || expensesVerified) && (
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground">
+                                <Clock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                                <div className="space-y-1">
+                                    {!expensesVerified && <p>Expenses still need to be verified.</p>}
+                                    {pendingIncomeMembers.length > 0 && (
+                                        <p>
+                                            Waiting on {pendingIncomeMembers.map(m => m.profiles?.full_name || "a member").join(", ")} to accept income.
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    <Button
-                        onClick={finalize}
-                        disabled={!canFinalize}
-                        className="w-full"
-                        size="lg"
-                        variant={canFinalize ? "default" : "secondary"}
-                    >
-                        <Check className="h-4 w-4 mr-2" />
-                        Finalize review
-                    </Button>
-                </div>
+                        {canFinalize && (
+                            <label className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border border-border/50 cursor-pointer">
+                                <Checkbox
+                                    checked={confirmFinalize}
+                                    onCheckedChange={(v) => setConfirmFinalize(v === true)}
+                                    className="mt-0.5"
+                                />
+                                <span className="text-xs text-muted-foreground leading-snug">
+                                    I confirm this month's review is complete. The Income and Expenses
+                                    pages will switch to this month after finalizing. Further changes
+                                    happen on those pages, not here.
+                                </span>
+                            </label>
+                        )}
+
+                        <Button
+                            onClick={finalize}
+                            disabled={!canFinalize || !confirmFinalize || savingScope !== null}
+                            className="w-full"
+                            size="lg"
+                            variant={canFinalize && confirmFinalize ? "default" : "secondary"}
+                        >
+                            <ShieldCheck className="h-4 w-4 mr-2" />
+                            {savingScope === "finalized" ? "Finalizing..." : "Finalize review"}
+                        </Button>
+                    </div>
+                )}
             </DialogContent>
         </Dialog>
     );
 };
 
 /**
- * Banner gating: review is "done" when every household member has accepted
- * income AND expenses have been verified for the current financial month.
+ * Banner gating: review is "done" once the month has been finalized.
+ * Returns the latest finalized month so consumers (Income/Expenses pages)
+ * can decide which month to default to.
  */
 export function useMonthlyReviewStatus(householdId: string | undefined, financialMonthStart: number = 25) {
     const [needsReview, setNeedsReview] = useState(false);
-    const { members } = useHousehold();
+    const [latestFinalizedMonth, setLatestFinalizedMonth] = useState<string | null>(null);
     const currentMonth = getCurrentFinancialMonth(financialMonthStart);
 
     const refresh = useCallback(async () => {
-        if (!householdId || members.length === 0) {
+        if (!householdId) {
             setNeedsReview(false);
+            setLatestFinalizedMonth(null);
             return;
         }
 
-        const { data } = await (supabase as any)
+        const { data } = await supabase
             .from("monthly_review_status")
-            .select("user_id, scope")
+            .select("month, scope")
             .eq("household_id", householdId)
-            .eq("month", currentMonth);
+            .eq("scope", "finalized")
+            .order("month", { ascending: false });
 
-        const status = (data as ReviewStatusRow[]) || [];
-        const incomeAcceptedUserIds = new Set(status.filter(r => r.scope === "income").map(r => r.user_id));
-        const expensesVerified = status.some(r => r.scope === "expenses");
-        const allAcceptedIncome = members.every(m => incomeAcceptedUserIds.has(m.user_id));
-
-        setNeedsReview(!(allAcceptedIncome && expensesVerified));
-    }, [householdId, currentMonth, members]);
+        const finalized = (data as { month: string }[]) || [];
+        const latest = finalized[0]?.month ?? null;
+        setLatestFinalizedMonth(latest);
+        setNeedsReview(latest !== currentMonth);
+    }, [householdId, currentMonth]);
 
     useEffect(() => {
         refresh();
     }, [refresh]);
 
-    return { needsReview, markAsReviewed: refresh };
+    return { needsReview, latestFinalizedMonth, markAsReviewed: refresh };
 }

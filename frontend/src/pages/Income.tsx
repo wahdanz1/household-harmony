@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { AddButton } from "@/components/ui/add-button";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, AlertCircle } from "lucide-react";
+import { TrendingUp, AlertCircle, ClipboardCheck } from "lucide-react";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -15,6 +16,8 @@ import { OneTimeIncomeDialog } from "@/components/income/OneTimeIncomeDialog";
 
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
 import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
+import { fetchMostRecentByKey } from "@/utils/carryForward";
+import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState, LoadingState } from "@/components/shared/states";
@@ -48,6 +51,21 @@ const Income = () => {
   const todayMonth = getCurrentFinancialMonth(financialMonthStart);
   const [selectedMonth, setSelectedMonth] = useState(todayMonth);
   const isCurrentMonth = selectedMonth === todayMonth;
+
+  // Monthly review gate: editing the current month is locked until the
+  // review for that month has been finalized. Past/future months stay editable.
+  const { needsReview, latestFinalizedMonth } = useMonthlyReviewStatus(household?.id, financialMonthStart);
+  const isReadOnly = isCurrentMonth && needsReview;
+  const initialDefaultRef = useRef(false);
+  useEffect(() => {
+    // On first load, if the current month is unfinalized and there's a previous
+    // finalized month, default to that so users see the last "locked in" data.
+    if (initialDefaultRef.current) return;
+    if (needsReview && latestFinalizedMonth && selectedMonth === todayMonth) {
+      setSelectedMonth(latestFinalizedMonth);
+    }
+    initialDefaultRef.current = true;
+  }, [needsReview, latestFinalizedMonth, selectedMonth, todayMonth]);
 
   // Autosave state
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -102,21 +120,14 @@ const Income = () => {
       !decryptedMonthly.find((m: any) => m.income_source_id === source.id)
     );
 
-    const mostRecentBySource = new Map<string, any>();
-    if (missingSources.length > 0) {
-      const { data: historyData } = await supabase
-        .from("monthly_incomes").select("*")
-        .eq("household_id", household.id)
-        .lt("month", fetchMonth)
-        .order("month", { ascending: false });
-      const decryptedHistory = historyData ? await decryptIncomes(historyData) : [];
-      // First occurrence per source_id is the most recent (already sorted desc)
-      for (const record of decryptedHistory) {
-        if (record.income_source_id && !mostRecentBySource.has(record.income_source_id)) {
-          mostRecentBySource.set(record.income_source_id, record);
-        }
-      }
-    }
+    const mostRecentBySource = await fetchMostRecentByKey({
+      table: "monthly_incomes",
+      keyField: "income_source_id",
+      keys: missingSources.map((s: any) => s.id),
+      householdId: household.id,
+      beforeMonth: fetchMonth,
+      decrypt: decryptIncomes,
+    });
 
     // Auto-create monthly_incomes records for sources that don't have them yet
     // Carry forward from most recent actual values, fall back to source default
@@ -252,6 +263,7 @@ const Income = () => {
 
   // Handle amount change - track modifications and trigger autosave
   const handleAmountChange = (sourceId: string, value: string) => {
+    if (isReadOnly) return;
     const newAmounts = { ...amounts, [sourceId]: value };
     setAmounts(newAmounts);
     amountsRef.current = newAmounts; // Keep ref in sync for autosave
@@ -420,15 +432,31 @@ const Income = () => {
         isCurrentMonth={isCurrentMonth}
       />
 
+      {isReadOnly && (
+        <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+          <ClipboardCheck className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <div className="flex-1 text-sm">
+            <p className="font-medium">This month's review hasn't been finalized.</p>
+            <p className="text-xs text-muted-foreground">
+              Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
+            </p>
+          </div>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/">Open Review</Link>
+          </Button>
+        </div>
+      )}
+
       {/* Add Source Button - matching Expenses style */}
       <div className="flex justify-between items-center">
         <div className="flex gap-2">
           <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
+            if (isReadOnly) return;
             setSourceDialogOpen(open);
             if (!open) resetSourceForm();
           }}>
             <DialogTrigger asChild>
-              <AddButton>Add Source</AddButton>
+              <AddButton disabled={isReadOnly}>Add Source</AddButton>
             </DialogTrigger>
             <IncomeSourceDialog
               open={sourceDialogOpen}
@@ -445,7 +473,7 @@ const Income = () => {
               onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
             />
           </Dialog>
-          <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />
+          {!isReadOnly && <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />}
         </div>
         {/* Saved indicator - right aligned */}
         {autoSaveStatus === 'saved' && (
@@ -504,6 +532,7 @@ const Income = () => {
                   onEdit={handleEditSource}
                   onDelete={handleDeleteSource}
                   status={status}
+                  readOnly={isReadOnly}
                 />
               );
             })}
