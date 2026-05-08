@@ -4,24 +4,30 @@ export interface ExpenseCategory {
     id: string;
     label: string;
     icon: LucideIcon;
-    color: string;
+    /** Hue in degrees (0-360) — drives theme-adaptive color-mix tint. */
+    hue?: number;
 }
 
+/**
+ * Hue palette (from chlorophyll design language):
+ *   housing 50, food 80, transport 200, energy 30, health 150,
+ *   phone 260, media 320, card 240, insurance 100, work 60, family 20
+ */
 export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
-    { id: 'rent', label: 'Rent', icon: Home, color: '#8B5CF6' },
-    { id: 'internet', label: 'Internet', icon: Wifi, color: '#3B82F6' },
-    { id: 'phone_plan', label: 'Phone Plan', icon: Smartphone, color: '#10B981' },
-    { id: 'electricity', label: 'Electricity', icon: Zap, color: '#F59E0B' },
-    { id: 'groceries', label: 'Groceries', icon: ShoppingCart, color: '#EF4444' },
-    { id: 'dining_out', label: 'Dining Out', icon: UtensilsCrossed, color: '#EC4899' },
-    { id: 'entertainment', label: 'Entertainment', icon: Film, color: '#8B5CF6' },
-    { id: 'shopping', label: 'Shopping', icon: ShoppingBag, color: '#F97316' },
-    { id: 'fuel', label: 'Fuel', icon: Fuel, color: '#14B8A6' },
-    { id: 'travel', label: 'Travel', icon: Plane, color: '#06B6D4' },
-    { id: 'car_repairs', label: 'Car Repairs', icon: Wrench, color: '#6366F1' },
-    { id: 'credit_card', label: 'Credit Card', icon: CreditCard, color: '#A855F7' },
-    { id: 'healthcare', label: 'Healthcare', icon: Heart, color: '#EF4444' },
-    { id: 'other', label: 'Other', icon: Sparkles, color: '#64748B' }
+    { id: 'rent', label: 'Rent', icon: Home, hue: 50 },
+    { id: 'internet', label: 'Internet', icon: Wifi, hue: 200 },
+    { id: 'phone_plan', label: 'Phone Plan', icon: Smartphone, hue: 260 },
+    { id: 'electricity', label: 'Electricity', icon: Zap, hue: 30 },
+    { id: 'groceries', label: 'Groceries', icon: ShoppingCart, hue: 80 },
+    { id: 'dining_out', label: 'Dining Out', icon: UtensilsCrossed, hue: 80 },
+    { id: 'entertainment', label: 'Entertainment', icon: Film, hue: 320 },
+    { id: 'shopping', label: 'Shopping', icon: ShoppingBag, hue: 320 },
+    { id: 'fuel', label: 'Fuel', icon: Fuel, hue: 200 },
+    { id: 'travel', label: 'Travel', icon: Plane, hue: 200 },
+    { id: 'car_repairs', label: 'Car Repairs', icon: Wrench, hue: 200 },
+    { id: 'credit_card', label: 'Credit Card', icon: CreditCard, hue: 240 },
+    { id: 'healthcare', label: 'Healthcare', icon: Heart, hue: 150 },
+    { id: 'other', label: 'Other', icon: Sparkles },
 ];
 
 export const getCategoryById = (id: string): ExpenseCategory | undefined => {
@@ -33,7 +39,6 @@ export const getCategoryIcon = (categoryId: string): LucideIcon => {
     return category?.icon || Sparkles;
 };
 
-export const getCategoryColor = (categoryId: string): string => {
-    const category = getCategoryById(categoryId);
-    return category?.color || '#64748B';
+export const getCategoryHue = (categoryId: string): number | undefined => {
+    return getCategoryById(categoryId)?.hue;
 };

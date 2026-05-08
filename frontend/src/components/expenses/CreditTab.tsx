@@ -311,7 +311,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 <div className="flex items-center justify-between">
                     <div>
                         <h3 className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-yellow-500" />
+                            <Sparkles className="h-5 w-5 text-warning" />
                             Credit Card Assistant
                         </h3>
                         <p className="text-sm text-muted-foreground">Upload your bank statement and let Gemini do the work</p>
@@ -384,7 +384,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                     title="Budgeted Credit Expenses"
                     total={totalBudgetedCredit}
                     currency={currency}
-                    icon={<CreditCardIcon className="h-5 w-5 text-purple-500" />}
+                    icon={<CreditCardIcon className="h-5 w-5 text-accent-purple" />}
                     items={budgetedCredit.map(item => ({
                         id: item.id,
                         name: item.name,
@@ -394,12 +394,12 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                     }))}
                     editable={true}
                     onAmountChange={handleAmountChange}
-                    colorClass="text-purple-500"
+                    colorClass="text-accent-purple"
                     headerMetrics={
                         saveStatus !== 'idle' ? (
                             <div className="flex items-center gap-1 text-xs animate-in fade-in">
                                 {saveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> <span className="text-muted-foreground">Saving...</span></>}
-                                {saveStatus === "saved" && <><Check className="h-3 w-3 text-green-500" /> <span className="text-green-500">Saved</span></>}
+                                {saveStatus === "saved" && <><Check className="h-3 w-3 text-success" /> <span className="text-success">Saved</span></>}
                             </div>
                         ) : undefined
                     }

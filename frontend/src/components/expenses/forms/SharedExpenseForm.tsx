@@ -9,7 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
-import { getCurrentFinancialMonth } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { format } from "date-fns";
 
 interface SharedExpenseFormProps {
     householdId: string;
@@ -33,6 +34,7 @@ export const SharedExpenseForm = ({ householdId, onSuccess, onCancel }: SharedEx
     const [saving, setSaving] = useState(false);
 
     const currentMonth = getCurrentFinancialMonth(financialMonthStart);
+    const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
     useEffect(() => {
         const fetchCoParents = async () => {
@@ -57,6 +59,8 @@ export const SharedExpenseForm = ({ householdId, onSuccess, onCancel }: SharedEx
             household_id: householdId,
             co_parent_id: formData.co_parent_id,
             month: currentMonth,
+            month_start: format(monthStart, "yyyy-MM-dd"),
+            month_end: format(monthEnd, "yyyy-MM-dd"),
             description: formData.description,
             amount: parseFloat(formData.amount),
             notes: formData.notes,

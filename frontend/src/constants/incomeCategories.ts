@@ -4,16 +4,16 @@ export interface IncomeCategory {
     id: string;
     label: string;
     icon: LucideIcon;
-    color: string;
+    hue?: number;
 }
 
 export const INCOME_CATEGORIES: IncomeCategory[] = [
-    { id: 'salary', label: 'Salary', icon: Briefcase, color: '#10B981' },
-    { id: 'business_income', label: 'Business', icon: TrendingUp, color: '#3B82F6' },
-    { id: 'government_benefits', label: 'Government Benefits', icon: HandCoins, color: '#8B5CF6' },
-    { id: 'investment_income', label: 'Investments', icon: PiggyBank, color: '#F59E0B' },
-    { id: 'gift', label: 'Gift', icon: Gift, color: '#EC4899' },
-    { id: 'other', label: 'Other', icon: Sparkles, color: '#64748B' }
+    { id: 'salary', label: 'Salary', icon: Briefcase, hue: 60 },
+    { id: 'business_income', label: 'Business', icon: TrendingUp, hue: 60 },
+    { id: 'government_benefits', label: 'Government Benefits', icon: HandCoins, hue: 100 },
+    { id: 'investment_income', label: 'Investments', icon: PiggyBank, hue: 240 },
+    { id: 'gift', label: 'Gift', icon: Gift, hue: 20 },
+    { id: 'other', label: 'Other', icon: Sparkles },
 ];
 
 export const getIncomeCategoryById = (id: string): IncomeCategory | undefined => {
@@ -25,7 +25,6 @@ export const getIncomeCategoryIcon = (categoryId: string): LucideIcon => {
     return category?.icon || Sparkles;
 };
 
-export const getIncomeCategoryColor = (categoryId: string): string => {
-    const category = getIncomeCategoryById(categoryId);
-    return category?.color || '#64748B';
+export const getIncomeCategoryHue = (categoryId: string): number | undefined => {
+    return getIncomeCategoryById(categoryId)?.hue;
 };

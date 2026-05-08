@@ -105,9 +105,9 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
             if (!open) resetForm();
         }}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="h-10">
-                    <Gift className="h-4 w-4 mr-2" />
-                    One-Time Income
+                <Button variant="outline" size="lg" className="w-full justify-center gap-2">
+                    <Gift className="h-4 w-4" />
+                    One-time income
                 </Button>
             </DialogTrigger>
             <DialogContent>

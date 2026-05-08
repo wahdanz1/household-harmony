@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle, Sparkles } from "lucide-react";
+import { CatIcon } from "@/components/ui/cat-icon";
 import { useState } from "react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
@@ -72,11 +73,11 @@ export const ExpenseBlock = ({
 
     // Severity styling for the block border
     const severityBorderClass = severity === 'danger'
-        ? 'border-red-500 border-2'
+        ? 'border-destructive border-2'
         : severity === 'warning'
-            ? 'border-yellow-500 border-2'  // Quarterly - yellow for distinction from orange
+            ? 'border-warning border-2'  // Quarterly
             : severity === 'upcoming'
-                ? 'border-orange-500 border-2'  // Yearly next month - orange
+                ? 'border-alert border-2'  // Yearly next month
                 : 'border border-primary/20';
 
     return (
@@ -98,9 +99,9 @@ export const ExpenseBlock = ({
                     {severity !== 'default' && severityMessage && (
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <div className={`shrink-0 ${severity === 'danger' ? 'text-red-500'
-                                    : severity === 'upcoming' ? 'text-orange-500'
-                                        : 'text-yellow-500'  // warning (quarterly) - yellow to match border
+                                <div className={`shrink-0 ${severity === 'danger' ? 'text-destructive'
+                                    : severity === 'upcoming' ? 'text-alert'
+                                        : 'text-warning'  // warning (quarterly)
                                     }`}>
                                     <AlertTriangle className="h-5 w-5" />
                                 </div>
@@ -145,8 +146,8 @@ export const ExpenseBlock = ({
                                         onItemClick?.(item.id);
                                     }}
                                 >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        {Icon && <Icon className="h-4 w-4 shrink-0" style={{ color: cat?.color }} />}
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={28} />
                                         <span className={`font-medium text-sm sm:text-base truncate ${
                                             // Color name based on billing cycle and due status
                                             item.billingCycle === 'monthly' || !item.billingCycle
@@ -168,8 +169,8 @@ export const ExpenseBlock = ({
                                                     }}
                                                     onClick={(e) => e.stopPropagation()}
                                                     className={`currency-input w-20 sm:w-24 ${item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
-                                                        ? 'border-green-500'
-                                                        : 'border-lime-400'
+                                                        ? 'border-success'
+                                                        : 'border-warning'
                                                         }`}
                                                     placeholder="0"
                                                 />
@@ -181,8 +182,8 @@ export const ExpenseBlock = ({
                                                 ? 'text-foreground' // White for monthly
                                                 : item.isDue
                                                     ? item.billingCycle === 'yearly'
-                                                        ? 'text-red-500' // Red for yearly due
-                                                        : 'text-yellow-500' // Yellow for quarterly due
+                                                        ? 'text-destructive' // Yearly due
+                                                        : 'text-warning' // Quarterly due
                                                     : 'text-muted-foreground' // Muted otherwise
                                                 }`}>
                                                 {item.displayAmount.toFixed(0)} {currency}{item.displayLabel}
@@ -312,7 +313,7 @@ export const AllTabBlockView = ({
                     title="Expenses"
                     total={expensesTotal}
                     currency={currency}
-                    icon={<Home className="h-5 w-5 text-blue-500" />}
+                    icon={<Home className="h-5 w-5 text-info" />}
                     items={expenses}
                     onItemClick={onExpenseClick}
                     editable={!!onAmountChange}
@@ -326,7 +327,7 @@ export const AllTabBlockView = ({
                     title="Subscriptions"
                     total={subscriptionsTotal}
                     currency={currency}
-                    icon={<Repeat className="h-5 w-5 text-purple-500" />}
+                    icon={<Repeat className="h-5 w-5 text-accent-purple" />}
                     items={subscriptionItems}
                     categoryType="subscription"
                     onItemClick={onSubscriptionClick}
@@ -356,7 +357,7 @@ export const AllTabBlockView = ({
                     title="Insurances"
                     total={insuranceTotal}
                     currency={currency}
-                    icon={<Shield className="h-5 w-5 text-amber-500" />}
+                    icon={<Shield className="h-5 w-5 text-warning" />}
                     items={insuranceItems}
                     categoryType="insurance"
                     onItemClick={onInsuranceClick}

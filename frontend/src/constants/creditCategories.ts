@@ -2,13 +2,13 @@ import { ShoppingCart, Fuel, ShoppingBag, UtensilsCrossed, Film, Wrench, Plane, 
 import { CategoryConfig } from "@/utils/categoryHelpers";
 
 export const creditCategories: CategoryConfig[] = [
-    { value: "groceries", label: "Groceries", icon: ShoppingCart, color: "#EF4444" },
-    { value: "fuel", label: "Fuel", icon: Fuel, color: "#14B8A6" },
-    { value: "shopping", label: "Shopping", icon: ShoppingBag, color: "#F97316" },
-    { value: "dining_out", label: "Dining Out", icon: UtensilsCrossed, color: "#EC4899" },
-    { value: "entertainment", label: "Entertainment", icon: Film, color: "#8B5CF6" },
-    { value: "car_repairs", label: "Car Repairs", icon: Wrench, color: "#6366F1" },
-    { value: "travel", label: "Travel", icon: Plane, color: "#06B6D4" },
-    { value: "healthcare", label: "Healthcare", icon: Heart, color: "#EF4444" },
-    { value: "other", label: "Other", icon: MoreHorizontal, color: "#64748B" },
+    { value: "groceries", label: "Groceries", icon: ShoppingCart, hue: 80 },
+    { value: "fuel", label: "Fuel", icon: Fuel, hue: 200 },
+    { value: "shopping", label: "Shopping", icon: ShoppingBag, hue: 320 },
+    { value: "dining_out", label: "Dining Out", icon: UtensilsCrossed, hue: 80 },
+    { value: "entertainment", label: "Entertainment", icon: Film, hue: 320 },
+    { value: "car_repairs", label: "Car Repairs", icon: Wrench, hue: 200 },
+    { value: "travel", label: "Travel", icon: Plane, hue: 200 },
+    { value: "healthcare", label: "Healthcare", icon: Heart, hue: 150 },
+    { value: "other", label: "Other", icon: MoreHorizontal },
 ];

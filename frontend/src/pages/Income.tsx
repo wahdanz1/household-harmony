@@ -2,9 +2,15 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { AddButton } from "@/components/ui/add-button";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, AlertCircle, ClipboardCheck } from "lucide-react";
+import { TrendingUp, AlertCircle, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { MonthChip } from "@/components/ui/month-chip";
+import { Money, fmtKr } from "@/components/ui/money";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { TaxPrognosisModal } from "@/components/income/TaxPrognosisModal";
+import { getTaxPrognosis } from "@/services/tax";
+import type { IncomeForTax, TaxPrognosisResult } from "@/types/api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -16,11 +22,11 @@ import { OneTimeIncomeDialog } from "@/components/income/OneTimeIncomeDialog";
 
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
 import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
-import { fetchMostRecentByKey } from "@/utils/carryForward";
+import { fetchHistoryByKey } from "@/utils/carryForward";
+import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 
-import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState, LoadingState } from "@/components/shared/states";
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/hooks/useEncryptedFields";
 
@@ -38,6 +44,49 @@ const Income = () => {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Tax prognosis state
+  const [prognosisOpen, setPrognosisOpen] = useState(false);
+  const [prognosisLoading, setPrognosisLoading] = useState(false);
+  const [prognosis, setPrognosis] = useState<TaxPrognosisResult | null>(null);
+
+  const handleViewPrognosis = async () => {
+    setPrognosisOpen(true);
+    setPrognosisLoading(true);
+    setPrognosis(null);
+    try {
+      const incomesForTax: IncomeForTax[] = incomeSources
+        .filter((s: any) => s.is_active !== false && s.tax_type)
+        .map((s: any) => ({
+          gross_monthly: parseFloat(amounts[s.id] || s.default_amount || "0") || 0,
+          tax_type: s.tax_type,
+          custom_rate: s.custom_tax_rate ?? undefined,
+        }))
+        .filter(i => i.gross_monthly > 0);
+
+      if (incomesForTax.length === 0) {
+        toast({
+          title: "No taxable income",
+          description: "Add an active income source with a tax type to see a prognosis.",
+          variant: "destructive",
+        });
+        setPrognosisOpen(false);
+        return;
+      }
+
+      const result = await getTaxPrognosis(incomesForTax);
+      setPrognosis(result);
+    } catch (err) {
+      toast({
+        title: "Couldn't fetch prognosis",
+        description: err instanceof Error ? err.message : "Try again in a moment.",
+        variant: "destructive",
+      });
+      setPrognosisOpen(false);
+    } finally {
+      setPrognosisLoading(false);
+    }
+  };
 
   // Month navigation state
   const todayMonth = getCurrentFinancialMonth(financialMonthStart);
@@ -131,7 +180,7 @@ const Income = () => {
       !decryptedMonthly.find((m: any) => m.income_source_id === source.id)
     );
 
-    const mostRecentBySource = await fetchMostRecentByKey({
+    const historyBySource = await fetchHistoryByKey({
       table: "monthly_incomes",
       keyField: "income_source_id",
       keys: missingSources.map((s: any) => s.id),
@@ -140,14 +189,16 @@ const Income = () => {
       decrypt: decryptIncomes,
     });
 
-    // Auto-create monthly_incomes records for sources that don't have them yet
-    // Carry forward from most recent actual values, fall back to source default
+    // Auto-create monthly_incomes records for sources that don't have them yet.
+    // Smart defaults: stable history → last month; variable → 3-month avg;
+    // no history → fall back to source default.
     const missingRecords: any[] = [];
     missingSources.forEach((source: any) => {
       if (!user) return;
-      const prevRecord = mostRecentBySource.get(source.id);
-      const amount = prevRecord
-        ? parseFloat((prevRecord.amount || "0").toString())
+      const history = historyBySource.get(source.id) ?? [];
+      const smart = computeSmartDefault(history);
+      const amount = smart.source != null
+        ? smart.value
         : parseFloat((source.default_amount || "0").toString());
       missingRecords.push({
         income_source_id: source.id,
@@ -354,11 +405,46 @@ const Income = () => {
   };
 
   const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0);
+  const currencyCode = household?.currency || "SEK";
+  const activeSourceCount = incomeSources.filter(s => s.is_active !== false).length;
+
+  // Header rendered for any state
+  const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
+  const monthLabel = format(monthEndDate, "MMM yyyy");
+  const header = (
+    <div className="flex items-end justify-between gap-4">
+      <h1 className="text-[28px] sm:text-[32px] font-bold tracking-tight text-ink leading-none">
+        Income
+      </h1>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+          aria-label="Previous month"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <MonthChip value={monthLabel} />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          disabled={isCurrentMonth}
+          onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+          aria-label="Next month"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <PageHeader title="Income Management" />
+      <div className="space-y-5">
+        {header}
         <LoadingState />
       </div>
     );
@@ -366,51 +452,81 @@ const Income = () => {
 
   if (!isUnlocked) {
     return (
-      <div className="space-y-4">
-        <PageHeader title="Income Management" />
+      <div className="space-y-5">
+        {header}
         <VaultLockedAlert />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Income Management"
-        totalLabel="Total Income"
-        totalAmount={totalIncome}
-        showSmartDefaults={false}
-        month={selectedMonth}
-        onPreviousMonth={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
-        onNextMonth={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
-        isCurrentMonth={isCurrentMonth}
-      />
+    <div className="space-y-5">
+      {header}
+
+      {/* Hero — total monthly income */}
+      <Card>
+        <p className="text-xs font-medium text-muted-foreground tracking-wide">
+          Total income per month
+        </p>
+        <div className="mt-1">
+          <Money
+            v={totalIncome}
+            currency={currencyCode}
+            size="4xl"
+            weight={600}
+            color="accent"
+            className="tracking-tighter"
+          />
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {activeSourceCount} active {activeSourceCount === 1 ? "source" : "sources"} · {fmtKr(totalIncome * 12, currencyCode)} per year
+        </p>
+        {activeSourceCount > 0 && (
+          <button
+            type="button"
+            onClick={handleViewPrognosis}
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-accent-dk hover:underline focus:outline-none focus-visible:underline"
+          >
+            <Calculator className="h-3.5 w-3.5" />
+            View annual tax prognosis
+          </button>
+        )}
+      </Card>
 
       {isReadOnly && (
-        <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
-          <ClipboardCheck className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-          <div className="flex-1 text-sm">
-            <p className="font-medium">This month's review hasn't been finalized.</p>
-            <p className="text-xs text-muted-foreground">
-              Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
-            </p>
+        <Alert variant="warning">
+          <ClipboardCheck className="h-4 w-4" />
+          <div className="flex items-start justify-between gap-3 flex-1">
+            <div className="flex-1">
+              <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
+              <AlertDescription>
+                Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
+              </AlertDescription>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/">Open Review</Link>
+            </Button>
           </div>
-          <Button asChild size="sm" variant="outline">
-            <Link to="/">Open Review</Link>
-          </Button>
-        </div>
+        </Alert>
       )}
 
-      {/* Add Source Button - matching Expenses style */}
-      <div className="flex justify-between items-center">
-        <div className="flex gap-2">
+      {/* Action row — Add source + One-time income */}
+      <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
             if (isReadOnly) return;
             setSourceDialogOpen(open);
             if (!open) resetSourceForm();
           }}>
             <DialogTrigger asChild>
-              <AddButton disabled={isReadOnly}>Add Source</AddButton>
+              <Button
+                size="lg"
+                disabled={isReadOnly}
+                className="w-full justify-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add source
+              </Button>
             </DialogTrigger>
             <IncomeSourceDialog
               open={sourceDialogOpen}
@@ -429,16 +545,17 @@ const Income = () => {
           </Dialog>
           {!isReadOnly && <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />}
         </div>
-        {/* Saved indicator - right aligned */}
-        {autoSaveStatus === 'saved' && (
-          <span className="text-sm text-primary animate-in fade-in duration-150">
-            ✓ Saved
-          </span>
-        )}
-        {autoSaveStatus === 'error' && (
-          <span className="text-sm text-destructive">
-            Failed to save
-          </span>
+        {(autoSaveStatus === 'saved' || autoSaveStatus === 'error') && (
+          <div className="flex justify-end">
+            {autoSaveStatus === 'saved' && (
+              <span className="flex items-center gap-1 text-sm text-accent animate-in fade-in duration-150">
+                <Check className="h-4 w-4" /> Saved
+              </span>
+            )}
+            {autoSaveStatus === 'error' && (
+              <span className="text-sm text-destructive">Failed to save</span>
+            )}
+          </div>
         )}
       </div>
 
@@ -446,7 +563,7 @@ const Income = () => {
       <Card className="overflow-hidden">
         {/* Block Header */}
         <div className="flex items-center gap-3">
-          <TrendingUp className="h-5 w-5 text-green-500" />
+          <TrendingUp className="h-5 w-5 text-success" />
           <div>
             <h3>Income</h3>
             <p className="text-xs text-muted-foreground">
@@ -496,16 +613,12 @@ const Income = () => {
 
 
 
-      {/* Total Monthly Income Bar - matching Expenses style with border */}
-      <div className="bg-primary/10 rounded-lg p-4 border border-primary/20">
-        <div className="flex items-center justify-between">
-          <span className="font-semibold">Total Monthly Income</span>
-          <span className="text-2xl font-bold text-green-500">
-            {totalIncome.toFixed(0)} {household?.currency || "SEK"}
-          </span>
-        </div>
-      </div>
-
+      <TaxPrognosisModal
+        open={prognosisOpen}
+        onOpenChange={setPrognosisOpen}
+        prognosis={prognosis}
+        loading={prognosisLoading}
+      />
     </div >
   );
 };

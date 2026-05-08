@@ -9,7 +9,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Copy, CheckCircle2 } from "lucide-react";
+import { Eye, Copy, CheckCircle2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -121,7 +121,8 @@ export const ShowEncryptedData = ({
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        🔒 Real Encryption Proof
+                        <Lock className="h-5 w-5" />
+                        Real Encryption Proof
                     </DialogTitle>
                     <DialogDescription>
                         This is actual encrypted data from the database
@@ -152,7 +153,7 @@ export const ShowEncryptedData = ({
                                         onClick={handleCopy}
                                     >
                                         {copied ? (
-                                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                            <CheckCircle2 className="h-4 w-4 text-success" />
                                         ) : (
                                             <Copy className="h-4 w-4" />
                                         )}
@@ -178,7 +179,7 @@ export const ShowEncryptedData = ({
                                 <li>• Algorithm: AES-256-GCM</li>
                                 <li>• Key Derivation: PBKDF2 (100k iterations)</li>
                                 <li>• Key Storage: Your browser only</li>
-                                <li>• Server Access: None ✓</li>
+                                <li>• Server Access: None</li>
                             </ul>
                         </div>
                         <p className="text-xs text-muted-foreground italic pt-2">

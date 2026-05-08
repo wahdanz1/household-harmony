@@ -4,27 +4,48 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Button — chlorophyll system
+ *
+ * Variants: primary, secondary, ghost, destructive, accentSoft, link, outline (legacy alias)
+ * Sizes:    sm (36×rounded-10), default/md (44×rounded-12), lg (52×rounded-14), icon (44×44)
+ *
+ * The primary variant is the only one that uses the saturated accent fill.
+ * `accentSoft` is the soft-accent variant for empty-state CTAs and secondary affordances.
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium border border-input ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  [
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap font-semibold tracking-tight",
+    "transition-all duration-100",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
+    "disabled:pointer-events-none disabled:opacity-50",
+    "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+    "active:translate-y-[1px]",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80 border-primary/50",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive/50",
-        outline: "bg-background hover:bg-primary/10 hover:text-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-primary/10",
-        ghost: "border-transparent hover:border-input hover:bg-muted/50 hover:text-foreground",
-        link: "text-primary underline-offset-4 hover:underline border-transparent",
+        primary: "bg-accent text-accent-ink border border-accent-dk hover:bg-accent/90",
+        secondary: "bg-surface text-ink border border-line hover:bg-surface-2",
+        ghost: "bg-transparent text-ink border border-transparent hover:bg-surface-2",
+        destructive: "bg-surface text-danger border border-line hover:bg-danger/10",
+        accentSoft: "bg-accent-tint text-accent-dk border border-transparent hover:bg-accent-tint/80",
+        link: "text-accent-dk underline-offset-4 hover:underline border-transparent bg-transparent",
+
+        // Legacy aliases — keep call sites working during migration
+        default: "bg-accent text-accent-ink border border-accent-dk hover:bg-accent/90",
+        outline: "bg-surface text-ink border border-line hover:bg-surface-2",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        sm: "h-9 px-3.5 text-[13px] rounded-[10px]",
+        default: "h-11 px-4 text-[15px] rounded-[12px]",
+        md: "h-11 px-4 text-[15px] rounded-[12px]",
+        lg: "h-[52px] px-5 text-base rounded-[14px]",
+        icon: "h-11 w-11 rounded-[12px]",
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: "primary",
       size: "default",
     },
   },

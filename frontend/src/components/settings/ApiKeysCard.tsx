@@ -268,7 +268,7 @@ export const ApiKeysCard = () => {
                 </div>
 
                 {hasKey && (
-                    <div className="mt-4 flex items-center gap-2 text-sm text-green-500">
+                    <div className="mt-4 flex items-center gap-2 text-sm text-success">
                         <Check className="h-4 w-4" />
                         <span>{currentConfig.name} API key configured</span>
                     </div>

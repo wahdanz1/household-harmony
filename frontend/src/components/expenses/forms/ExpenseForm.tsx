@@ -132,7 +132,7 @@ export const ExpenseForm = ({
             {/* Credit Card Toggle */}
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50">
                 <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-purple-500" />
+                    <CreditCard className="h-4 w-4 text-accent-purple" />
                     <div>
                         <Label htmlFor="is-credit" className="text-sm font-medium cursor-pointer">Credit Card Expense</Label>
                         <p className="text-xs text-muted-foreground">Track this as a credit card expense</p>

@@ -37,3 +37,41 @@ export async function fetchMostRecentByKey(params: {
     }
     return result;
 }
+
+/**
+ * Build a map of `<keyField> -> most recent N records` (sorted month-desc)
+ * from before `beforeMonth`. Used for Smart Defaults — the consumer feeds
+ * the records into `computeSmartDefault()` to get an avg-vs-last-month suggestion.
+ */
+export async function fetchHistoryByKey(params: {
+    table: "monthly_incomes" | "monthly_expenses";
+    keyField: "income_source_id" | "expense_id";
+    keys: string[];
+    householdId: string;
+    beforeMonth: string;
+    decrypt: DecryptFn;
+    limit?: number;
+}): Promise<Map<string, any[]>> {
+    const { table, keyField, keys, householdId, beforeMonth, decrypt, limit = 3 } = params;
+    const result = new Map<string, any[]>();
+    if (keys.length === 0) return result;
+
+    const { data } = await supabase
+        .from(table)
+        .select("*")
+        .eq("household_id", householdId)
+        .lt("month", beforeMonth)
+        .order("month", { ascending: false });
+
+    const decrypted = data ? await decrypt(data) : [];
+    for (const record of decrypted) {
+        const key = record[keyField];
+        if (!key) continue;
+        const list = result.get(key) ?? [];
+        if (list.length < limit) {
+            list.push(record);
+            result.set(key, list);
+        }
+    }
+    return result;
+}

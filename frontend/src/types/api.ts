@@ -1,25 +1,8 @@
 // API Types for Backend Integration
 
-// Smart Defaults
-export interface IncomeSuggestion {
-    income_source_id: string;
-    suggested_amount: number;
-    source: 'last_month' | 'average_3_months';
-    confidence: 'high' | 'medium' | 'low';
-}
-
-export interface ExpenseSuggestion {
-    expense_id: string;
-    suggested_amount: number;
-    source: 'last_month' | 'average_3_months';
-    confidence: 'high' | 'medium' | 'low';
-}
-
-export interface SmartDefaultsResponse {
-    suggestions: IncomeSuggestion[] | ExpenseSuggestion[];
-    month: string;
-    household_id: string;
-}
+// Smart Defaults — see services/smartDefaults.ts. The legacy backend-served
+// IncomeSuggestion / ExpenseSuggestion types were removed when defaults moved
+// fully client-side (encrypted records can't be aggregated server-side).
 
 // Tax Calculations
 export interface IncomeForTax {

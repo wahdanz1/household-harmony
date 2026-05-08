@@ -3,11 +3,13 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-const cardVariants = cva("card-surface text-card-foreground", {
+const cardVariants = cva("text-ink", {
   variants: {
     variant: {
-      default: "",
-      muted: "bg-muted/30 border-muted-foreground/20",
+      default: "rounded-[14px] border border-line bg-surface p-4 md:p-5",
+      muted: "rounded-[14px] border border-line bg-surface-2 p-4 md:p-5",
+      cta: "rounded-[14px] border border-accent/30 bg-accent-tint p-4 md:p-5 hover:bg-accent-tint/80 cursor-pointer transition-colors",
+      flush: "rounded-[14px] border border-line bg-surface overflow-hidden",
     },
   },
   defaultVariants: {

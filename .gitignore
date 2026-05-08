@@ -249,3 +249,6 @@ frontend/docs/
 
 # Supabase temp files
 supabase/.temp/
+
+# Design reference prototype (Claude Design handoff — local only)
+design-reference/

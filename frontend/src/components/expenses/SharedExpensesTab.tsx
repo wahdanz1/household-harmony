@@ -1,9 +1,14 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Money } from "@/components/ui/money";
 import { CoParentManagement } from "./shared/CoParentManagement";
 import { SharedExpensesList } from "./shared/SharedExpensesList";
+import { SharedExpenseForm } from "./forms/SharedExpenseForm";
 import { useEncryptedFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
 
 interface SharedExpense {
@@ -32,6 +37,7 @@ interface SharedExpensesTabProps {
 export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd }: SharedExpensesTabProps) => {
   const [coParents, setCoParents] = useState<CoParent[]>([]);
   const [expenses, setExpenses] = useState<SharedExpense[]>([]);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const { decryptRecords: decryptSharedExpenses } = useEncryptedFields(sharedExpenseFields);
 
   const fetchData = async () => {
@@ -68,34 +74,55 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
   }, {} as Record<string, SharedExpense[]>);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Combined Summary and Management Card */}
       <Card>
-        <CardContent>
-          <div className="grid gap-8 md:grid-cols-2">
-            {/* Summary Section */}
-            <div className="space-y-4">
-              <div>
-                <h3>Shared Expenses Summary</h3>
-                <p className="text-sm text-muted-foreground">Track expenses you share with co-parents</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total this month</p>
-                <p className="text-3xl font-bold text-warning">
-                  {totalSharedExpenses.toFixed(0)} {currency}
-                </p>
-              </div>
+        <div className="grid gap-4 md:gap-6 md:grid-cols-2">
+          {/* Summary Section */}
+          <div className="space-y-4">
+            <div>
+              <h3>Shared Expenses Summary</h3>
+              <p className="text-sm text-muted-foreground">Track expenses you share with co-parents</p>
             </div>
-
-            {/* Co-Parent Management Section */}
-            <CoParentManagement
-              householdId={householdId}
-              coParents={coParents}
-              onUpdate={fetchData}
-            />
+            <div>
+              <p className="text-sm text-muted-foreground">Total this month</p>
+              <Money v={totalSharedExpenses} currency={currency} size="3xl" weight={600} className="tracking-tight" />
+            </div>
           </div>
-        </CardContent>
+
+          {/* Co-Parent Management Section */}
+          <CoParentManagement
+            householdId={householdId}
+            coParents={coParents}
+            onUpdate={fetchData}
+          />
+        </div>
       </Card>
+
+      {/* Add shared expense action */}
+      {coParents.length > 0 && (
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="lg" className="w-full justify-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add shared expense
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>New shared expense</DialogTitle>
+            </DialogHeader>
+            <SharedExpenseForm
+              householdId={householdId}
+              onSuccess={() => {
+                setAddDialogOpen(false);
+                fetchData();
+              }}
+              onCancel={() => setAddDialogOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
 
       {coParents.length === 0 ? null : (
         <SharedExpensesList

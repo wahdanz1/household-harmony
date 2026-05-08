@@ -49,10 +49,10 @@ export const DevTimeTravel = () => {
     return (
         <div className="fixed bottom-4 right-4 z-50">
             {open ? (
-                <div className="bg-background border-2 border-amber-500/60 rounded-lg shadow-xl p-4 w-80 space-y-3">
+                <div className="bg-background border-2 border-warning/60 rounded-lg shadow-xl p-4 w-80 space-y-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-amber-500" />
+                            <Clock className="h-4 w-4 text-warning" />
                             <span className="font-semibold text-sm">Dev: Time Travel</span>
                         </div>
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOpen(false)}>
@@ -65,7 +65,7 @@ export const DevTimeTravel = () => {
                             <span className="opacity-70">Effective today:</span>{" "}
                             <span className="font-mono">{format(effectiveNow, "yyyy-MM-dd")}</span>
                             {isOverridden && (
-                                <span className="ml-2 text-amber-500 font-medium">(overridden)</span>
+                                <span className="ml-2 text-warning font-medium">(overridden)</span>
                             )}
                         </div>
                         <div>
@@ -106,10 +106,10 @@ export const DevTimeTravel = () => {
                     onClick={() => setOpen(true)}
                     size="icon"
                     variant="outline"
-                    className={`h-10 w-10 rounded-full shadow-lg ${isOverridden ? "border-amber-500 bg-amber-500/10" : ""}`}
+                    className={`h-10 w-10 rounded-full shadow-lg ${isOverridden ? "border-warning bg-warning/10" : ""}`}
                     title={isOverridden ? `Time travel active: ${current}` : "Open time travel"}
                 >
-                    <Clock className={`h-4 w-4 ${isOverridden ? "text-amber-500" : ""}`} />
+                    <Clock className={`h-4 w-4 ${isOverridden ? "text-warning" : ""}`} />
                 </Button>
             )}
         </div>

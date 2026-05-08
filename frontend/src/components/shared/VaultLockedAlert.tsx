@@ -14,12 +14,12 @@ export const VaultLockedAlert = ({
     return (
         <Alert variant="warning" className={`flex items-center justify-between p-4 ${className}`}>
             <div className="flex items-center gap-4">
-                <div className="p-2 rounded-full bg-amber-500/10 shrink-0">
-                    <AlertTriangle className="h-6 w-6 stroke-amber-500" />
+                <div className="p-2 rounded-full bg-warning/10 shrink-0">
+                    <AlertTriangle className="h-6 w-6 stroke-warning" />
                 </div>
                 <div>
                     <AlertTitle className="text-lg font-semibold mb-1">Vault Locked</AlertTitle>
-                    <AlertDescription className="text-base text-amber-500/90">
+                    <AlertDescription className="text-base text-warning/90">
                         {description}
                     </AlertDescription>
                 </div>
@@ -27,7 +27,7 @@ export const VaultLockedAlert = ({
 
             <VaultUnlockButton
                 variant="outline"
-                className="h-10 px-6 ml-4 border-amber-500/50 hover:bg-amber-500/20 hover:text-amber-500 text-base font-medium whitespace-nowrap"
+                className="h-10 px-6 ml-4 border-warning/50 hover:bg-warning/20 hover:text-warning text-base font-medium whitespace-nowrap"
             />
         </Alert>
     );

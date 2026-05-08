@@ -20,7 +20,7 @@ const tourSteps: TourStep[] = [
     {
         id: 'encryption',
         title: 'Client-Side Encryption',
-        content: 'All sensitive data is encrypted with AES-256-GCM in your browser before reaching the server. Click the eye icons (👁️) next to income and expenses to see the actual encrypted ciphertext stored in the database. Only you (and household members you invite) can decrypt your financial information. Even we can\'t read it.',
+        content: 'All sensitive data is encrypted with AES-256-GCM in your browser before reaching the server. Click the eye icons next to income and expenses to see the actual encrypted ciphertext stored in the database. Only you (and household members you invite) can decrypt your financial information. Even we can\'t read it.',
         icon: Shield
     },
     {
@@ -38,7 +38,7 @@ const tourSteps: TourStep[] = [
     {
         id: 'coming-soon',
         title: 'Coming Soon: AI & Automation',
-        content: 'Features in development: 🤖 AI Invoice Parsing for auto-extraction (currently beta for credit cards) | 🇸🇪 Swedish Tax Intelligence with progressive tax calculations (32%/52%) | 📊 Bank Import via CSV/Excel wizard. This demo shows current stable features. Check Settings for experimental tools.',
+        content: 'Features in development: AI Invoice Parsing for auto-extraction (currently beta for credit cards), Swedish Tax Intelligence with progressive tax calculations (32%/52%), and Bank Import via CSV/Excel wizard. This demo shows current stable features. Check Settings for experimental tools.',
         icon: Sparkles
     }
 ];

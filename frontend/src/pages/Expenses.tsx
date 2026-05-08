@@ -4,7 +4,10 @@ import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddButton } from "@/components/ui/add-button";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield, ClipboardCheck } from "lucide-react";
+import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { MonthChip } from "@/components/ui/month-chip";
+import { Money } from "@/components/ui/money";
 import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
@@ -16,9 +19,9 @@ import { useExpenses } from "@/components/expenses/hooks/useExpenses";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import { PageHeader } from "@/components/shared/PageHeader";
 import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
-import { fetchMostRecentByKey } from "@/utils/carryForward";
+import { fetchHistoryByKey } from "@/utils/carryForward";
+import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
@@ -151,7 +154,7 @@ const Expenses = () => {
       !decryptedMonthly.find((m: any) => m.expense_id === cat.id)
     );
 
-    const mostRecentByCategory = await fetchMostRecentByKey({
+    const historyByCategory = await fetchHistoryByKey({
       table: "monthly_expenses",
       keyField: "expense_id",
       keys: missingCategories.map((c: any) => c.id),
@@ -160,14 +163,16 @@ const Expenses = () => {
       decrypt: decryptMonthlyExpenses,
     });
 
-    // Auto-create monthly_expenses records for categories that don't have them yet
-    // Carry forward from most recent actual values, fall back to default
+    // Auto-create monthly_expenses records for categories that don't have them yet.
+    // Smart defaults: stable history → last month; variable → 3-month avg;
+    // no history → fall back to category default.
     const missingRecords: any[] = [];
     missingCategories.forEach((category: any) => {
       if (!user) return;
-      const prevRecord = mostRecentByCategory.get(category.id);
-      const amount = prevRecord
-        ? parseFloat((prevRecord.amount || "0").toString())
+      const history = historyByCategory.get(category.id) ?? [];
+      const smart = computeSmartDefault(history);
+      const amount = smart.source != null
+        ? smart.value
         : parseFloat((category.default_amount || "0").toString());
       missingRecords.push({
         expense_id: category.id,
@@ -405,10 +410,43 @@ const Expenses = () => {
   // Credit card expenses now included in regular expenses via is_credit flag
   const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal;
 
+  // Header rendered for any state
+  const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
+  const monthLabel = format(monthEndDate, "MMM yyyy");
+  const header = (
+    <div className="flex items-end justify-between gap-4">
+      <h1 className="text-[28px] sm:text-[32px] font-bold tracking-tight text-ink leading-none">
+        Expenses
+      </h1>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+          aria-label="Previous month"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <MonthChip value={monthLabel} />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          disabled={isCurrentMonth}
+          onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+          aria-label="Next month"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
-      <div className="space-y-4">
-        <PageHeader title="Expense Management" />
+      <div className="space-y-5">
+        {header}
         <LoadingState />
       </div>
     );
@@ -416,39 +454,40 @@ const Expenses = () => {
 
   if (!isUnlocked) {
     return (
-      <div className="space-y-4">
-        <PageHeader title="Expense Management" />
+      <div className="space-y-5">
+        {header}
         <VaultLockedAlert />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Expense Management"
-        totalLabel="Total Expenses"
-        totalAmount={totalExpenses}
-        totalColorClass="text-destructive"
-        month={selectedMonth}
-        onPreviousMonth={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
-        onNextMonth={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
-        isCurrentMonth={isCurrentMonth}
-      />
+    <div className="space-y-5">
+      {header}
+
+      {/* Total bar */}
+      <div className="rounded-[14px] border border-line bg-surface px-4 py-3.5 flex items-baseline justify-between">
+        <span className="text-sm text-muted-foreground font-medium">
+          Total expenses
+        </span>
+        <Money v={totalExpenses} currency={household?.currency || "SEK"} size="2xl" weight={600} />
+      </div>
 
       {isReadOnly && (
-        <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
-          <ClipboardCheck className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-          <div className="flex-1 text-sm">
-            <p className="font-medium">This month's review hasn't been finalized.</p>
-            <p className="text-xs text-muted-foreground">
-              Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
-            </p>
+        <Alert variant="warning">
+          <ClipboardCheck className="h-4 w-4" />
+          <div className="flex items-start justify-between gap-3 flex-1">
+            <div className="flex-1">
+              <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
+              <AlertDescription>
+                Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
+              </AlertDescription>
+            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/">Open Review</Link>
+            </Button>
           </div>
-          <Button asChild size="sm" variant="outline">
-            <Link to="/">Open Review</Link>
-          </Button>
-        </div>
+        </Alert>
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -480,8 +519,8 @@ const Expenses = () => {
             <AddButton disabled={isReadOnly} onClick={() => !isReadOnly && setAddExpenseDialogOpen(true)}>Add Expense</AddButton>
             {/* Saved indicator - fade in animation matching Income page */}
             {autoSaveStatus === 'saved' && (
-              <span className="text-sm text-primary animate-in fade-in duration-150">
-                ✓ Saved
+              <span className="flex items-center gap-1 text-sm text-primary animate-in fade-in duration-150">
+                <Check className="h-4 w-4" /> Saved
               </span>
             )}
             {autoSaveStatus === 'error' && (

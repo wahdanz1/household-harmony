@@ -143,7 +143,7 @@ export const DemoEncryptionCard = ({ householdId }: { householdId: string }) => 
                             </div>
                             <div>
                                 <span className="text-muted-foreground">Server Access:</span>
-                                <p className="font-medium text-green-500">None</p>
+                                <p className="font-medium text-success">None</p>
                             </div>
                         </div>
 

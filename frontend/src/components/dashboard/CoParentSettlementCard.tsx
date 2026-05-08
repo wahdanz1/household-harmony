@@ -183,7 +183,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
         return (
           <div
             key={coParent.id}
-            className={`bg-muted/40 rounded-lg border ${isOwing ? 'border-amber-500/30' : 'border-green-500/30'}`}
+            className={`bg-muted/40 rounded-lg border ${isOwing ? 'border-warning/30' : 'border-success/30'}`}
           >
             {/* Header - Always Visible */}
             <div
@@ -192,7 +192,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <HandCoins className={`h-5 w-5 ${isOwing ? 'text-amber-500' : 'text-green-500'}`} />
+                  <HandCoins className={`h-5 w-5 ${isOwing ? 'text-warning' : 'text-success'}`} />
                   <div>
                     <p className="font-medium">Settlement with {coParent.name}</p>
                     <p className="text-xs text-muted-foreground">{format(new Date(currentMonth), "MMMM yyyy")}</p>
@@ -200,7 +200,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className={`text-lg font-bold ${isOwing ? 'text-amber-500' : 'text-green-500'}`}>
+                    <p className={`text-lg font-bold ${isOwing ? 'text-warning' : 'text-success'}`}>
                       {isOwing ? '' : '+'}{Math.abs(settlement.netAmount).toFixed(0)} {currency}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -223,7 +223,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                   {/* Income Section */}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Shared Income Received</span>
-                    <span className="text-green-500">+{settlement.incomeReceived.toFixed(0)} {currency}</span>
+                    <span className="text-success">+{settlement.incomeReceived.toFixed(0)} {currency}</span>
                   </div>
                   <div className="flex justify-between text-xs pl-4">
                     <span className="text-muted-foreground">
@@ -243,7 +243,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                         <span className="text-muted-foreground">
                           Their {((settlement.theirShareOfInsurance / settlement.insurancePaid) * 100).toFixed(0)}% credit
                         </span>
-                        <span className="text-green-500">+{settlement.theirShareOfInsurance.toFixed(0)} {currency}</span>
+                        <span className="text-success">+{settlement.theirShareOfInsurance.toFixed(0)} {currency}</span>
                       </div>
                     </>
                   )}
@@ -252,14 +252,14 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                   {settlement.expensesTheyPaid > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Expenses they paid (your 50%)</span>
-                      <span className="text-green-500">+{(settlement.expensesTheyPaid / 2).toFixed(0)} {currency}</span>
+                      <span className="text-success">+{(settlement.expensesTheyPaid / 2).toFixed(0)} {currency}</span>
                     </div>
                   )}
 
                   {settlement.expensesYouPaid > 0 && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Expenses you paid (their 50%)</span>
-                      <span className="text-red-500">-{(settlement.expensesYouPaid / 2).toFixed(0)} {currency}</span>
+                      <span className="text-destructive">-{(settlement.expensesYouPaid / 2).toFixed(0)} {currency}</span>
                     </div>
                   )}
                 </div>

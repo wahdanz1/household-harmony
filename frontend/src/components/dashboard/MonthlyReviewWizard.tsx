@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, LockOpen, ShieldCheck, RotateCw } from "lucide-react";
+import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, LockOpen, ShieldCheck, RotateCw, Sparkles } from "lucide-react";
+import { CatIcon } from "@/components/ui/cat-icon";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +14,8 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields, expenseFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
 import { getCategoryById } from "@/constants/expenseCategories";
-import { fetchMostRecentByKey } from "@/utils/carryForward";
+import { fetchHistoryByKey } from "@/utils/carryForward";
+import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 
 type ReviewScope = "income" | "expenses" | "finalized";
@@ -161,7 +163,7 @@ export const MonthlyReviewWizard = ({
         );
 
         const [incomeCarry, expenseCarry] = await Promise.all([
-            fetchMostRecentByKey({
+            fetchHistoryByKey({
                 table: "monthly_incomes",
                 keyField: "income_source_id",
                 keys: sourcesNeedingCarry.map((s: any) => s.id),
@@ -169,7 +171,7 @@ export const MonthlyReviewWizard = ({
                 beforeMonth: currentMonth,
                 decrypt: decryptRefs.current.decryptMonthlyIncomes,
             }),
-            fetchMostRecentByKey({
+            fetchHistoryByKey({
                 table: "monthly_expenses",
                 keyField: "expense_id",
                 keys: expensesNeedingCarry.map((c: any) => c.id),
@@ -181,11 +183,12 @@ export const MonthlyReviewWizard = ({
 
         const resolveAmount = (
             existing: any | undefined,
-            carryRecord: any | undefined,
+            history: any[] | undefined,
             staticDefault: any
         ): number => {
             if (existing) return parseFloat((existing.amount || "0").toString());
-            if (carryRecord) return parseFloat((carryRecord.amount || "0").toString());
+            const smart = computeSmartDefault(history ?? []);
+            if (smart.source != null) return smart.value;
             return parseFloat((staticDefault || "0").toString());
         };
 
@@ -441,16 +444,16 @@ export const MonthlyReviewWizard = ({
                 )}
 
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "income" | "expenses")} className="flex-1 overflow-hidden flex flex-col">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList>
                         <TabsTrigger value="income" className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4" />
                             Income
-                            {myIncomeAccepted && <Check className="h-3 w-3 text-green-500" />}
+                            {myIncomeAccepted && <Check className="h-3 w-3 text-success" />}
                         </TabsTrigger>
                         <TabsTrigger value="expenses" className="flex items-center gap-2">
                             <TrendingDown className="h-4 w-4" />
                             Expenses
-                            {expensesVerified && <Check className="h-3 w-3 text-green-500" />}
+                            {expensesVerified && <Check className="h-3 w-3 text-success" />}
                         </TabsTrigger>
                     </TabsList>
 
@@ -476,7 +479,7 @@ export const MonthlyReviewWizard = ({
                                             <button
                                                 type="button"
                                                 onClick={() => toggleUnlock(item.source_id)}
-                                                className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors flex-shrink-0 ${isUnlocked ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/30' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                                                className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors flex-shrink-0 ${isUnlocked ? 'bg-warning/20 text-warning hover:bg-warning/30' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
                                                 title={isUnlocked ? `Lock — ${ownerName}'s value still saves` : `Unlock to enter ${ownerName}'s value`}
                                                 aria-label={isUnlocked ? "Lock item" : "Unlock to edit"}
                                             >
@@ -491,8 +494,8 @@ export const MonthlyReviewWizard = ({
                                             value={amounts[`income-${item.source_id}`] || "0"}
                                             onChange={(e) => handleAmountChange(`income-${item.source_id}`, e.target.value)}
                                             className={`w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:cursor-not-allowed ${Math.abs(parseFloat(amounts[`income-${item.source_id}`] || "0") - item.defaultAmount) < 0.01
-                                                ? 'border-green-500'
-                                                : 'border-lime-400'
+                                                ? 'border-success'
+                                                : 'border-warning'
                                                 }`}
                                         />
                                         <span className="text-sm text-muted-foreground w-10">{currency}</span>
@@ -510,9 +513,9 @@ export const MonthlyReviewWizard = ({
                             const cat = item.category ? getCategoryById(item.category) : null;
                             const Icon = cat?.icon;
                             return (
-                                <div key={item.expense_id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-background/50">
-                                    <div className="flex items-center gap-2">
-                                        {Icon && <Icon className="h-4 w-4" style={{ color: cat?.color }} />}
+                                <div key={item.expense_id} className="flex items-center justify-between p-3 rounded-lg border border-line bg-surface">
+                                    <div className="flex items-center gap-3">
+                                        <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={28} />
                                         <span className="text-sm font-medium">{item.name}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -522,8 +525,8 @@ export const MonthlyReviewWizard = ({
                                             value={amounts[`expense-${item.expense_id}`] || "0"}
                                             onChange={(e) => handleAmountChange(`expense-${item.expense_id}`, e.target.value)}
                                             className={`w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:cursor-not-allowed ${Math.abs(parseFloat(amounts[`expense-${item.expense_id}`] || "0") - item.defaultAmount) < 0.01
-                                                ? 'border-green-500'
-                                                : 'border-lime-400'
+                                                ? 'border-success'
+                                                : 'border-warning'
                                                 }`}
                                         />
                                         <span className="text-sm text-muted-foreground w-10">{currency}</span>
@@ -549,7 +552,7 @@ export const MonthlyReviewWizard = ({
                                                 {m.profiles?.avatar_url && <AvatarImage src={m.profiles.avatar_url} alt={name} />}
                                                 <AvatarFallback className="text-[9px] font-medium">{initials}</AvatarFallback>
                                             </Avatar>
-                                            <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${accepted ? "bg-green-500" : "bg-amber-500"}`} />
+                                            <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${accepted ? "bg-success" : "bg-warning"}`} />
                                         </div>
                                     );
                                 })}
@@ -557,7 +560,7 @@ export const MonthlyReviewWizard = ({
                             <div className="h-5 w-px bg-border/60 mx-1" />
                             <span className="text-muted-foreground font-medium">Expenses</span>
                             <span
-                                className={`h-3 w-3 rounded-full ${expensesVerified ? "bg-green-500" : "bg-amber-500"}`}
+                                className={`h-3 w-3 rounded-full ${expensesVerified ? "bg-success" : "bg-warning"}`}
                                 title={expensesVerified ? "Verified" : "Pending"}
                             />
                             <button

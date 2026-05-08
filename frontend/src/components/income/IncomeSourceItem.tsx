@@ -1,7 +1,8 @@
 import { Switch } from "@/components/ui/switch";
-import { Pencil } from "lucide-react";
+import { Pencil, Sparkles } from "lucide-react";
 import { getIncomeCategoryById } from "@/constants/incomeCategories";
 import { DataListItem } from "@/components/ui/data-list-item";
+import { CatIcon } from "@/components/ui/cat-icon";
 import { ShowEncryptedDataButton } from "@/components/demo/ShowEncryptedDataButton";
 
 interface IncomeSourceItemProps {
@@ -27,16 +28,16 @@ export const IncomeSourceItem = ({
     const isSkipped = amount === "0";
 
     const cat = getIncomeCategoryById(source.category);
-    const Icon = cat?.icon;
+    const Icon = cat?.icon || Sparkles;
 
     // Bottom underline on input: shows save status
     const getInputUnderlineClass = () => {
         if (isSkipped) return 'border-border';
         switch (status) {
             case 'saved':
-                return 'border-green-500';
+                return 'border-success';
             case 'modified':
-                return 'border-lime-400';
+                return 'border-warning';
             default:
                 return 'border-border';
         }
@@ -45,8 +46,8 @@ export const IncomeSourceItem = ({
     return (
         <DataListItem onClick={() => !readOnly && onEdit(source)} className="group">
             {/* Icon + Name */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-                {Icon && <Icon className="h-4 w-4 shrink-0" style={{ color: cat?.color }} />}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+                <CatIcon icon={Icon} hue={cat?.hue} size={32} />
                 <p className={`font-medium text-sm sm:text-base truncate ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
                     {source.name}
                 </p>

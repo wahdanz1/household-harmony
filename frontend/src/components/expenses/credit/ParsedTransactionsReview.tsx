@@ -199,9 +199,9 @@ export const ParsedTransactionsReview = ({
 
     const getConfidenceColor = (confidence: string) => {
         switch (confidence) {
-            case "HIGH": return "bg-green-500/20 text-green-500 border-green-500/50";
-            case "MEDIUM": return "bg-yellow-500/20 text-yellow-500 border-yellow-500/50";
-            case "LOW": return "bg-red-500/20 text-red-500 border-red-500/50";
+            case "HIGH": return "bg-success/20 text-success border-success/50";
+            case "MEDIUM": return "bg-warning/20 text-warning border-warning/50";
+            case "LOW": return "bg-destructive/20 text-destructive border-destructive/50";
             default: return "bg-muted text-muted-foreground";
         }
     };

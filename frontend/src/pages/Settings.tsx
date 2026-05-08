@@ -9,11 +9,11 @@ import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
 // import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Home, User, Shield, AlertTriangle } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Home, User, Shield } from "lucide-react";
 import { useEncryption } from "@/contexts/EncryptionContext";
-import { VaultUnlockButton } from "@/components/shared/VaultUnlockDialog";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { LoadingState } from "@/components/shared/states";
 
 const Settings = () => {
@@ -56,11 +56,8 @@ const Settings = () => {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <PageHeader
-          title="Settings"
-          subtitle="Manage your household and preferences"
-        />
+      <div className="space-y-5">
+        <SettingsHeader />
         <LoadingState />
       </div>
     );
@@ -75,11 +72,8 @@ const Settings = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Settings"
-        subtitle="Manage your household and preferences"
-      />
+    <div className="space-y-5">
+      <SettingsHeader />
 
       <Tabs defaultValue="general" className="w-full">
         <TabsList>
@@ -119,31 +113,25 @@ const Settings = () => {
         </TabsContent>
 
         <TabsContent value="personal" className="mt-6">
-          <PersonalSettingsCard />
+          <div className="space-y-6">
+            <PersonalSettingsCard />
+            <Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold">Appearance</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Switch between light and dark mode.
+                  </p>
+                </div>
+                <ThemeToggle showLabel />
+              </div>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="security" className="mt-6">
           <div className="space-y-6">
-            {!isUnlocked && (
-              <Alert variant="warning" className="mb-6 flex items-center justify-between p-4">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 rounded-full bg-amber-500/10 shrink-0">
-                    <AlertTriangle className="h-6 w-6 stroke-amber-500" />
-                  </div>
-                  <div>
-                    <AlertTitle className="text-lg font-semibold mb-1">Vault Locked</AlertTitle>
-                    <AlertDescription className="text-base text-amber-500/90">
-                      Your vault is locked. Please unlock it to view and manage sensitive data.
-                    </AlertDescription>
-                  </div>
-                </div>
-
-                <VaultUnlockButton
-                  variant="outline"
-                  className="h-10 px-6 ml-4 border-amber-500/50 hover:bg-amber-500/20 hover:text-amber-500 text-base font-medium whitespace-nowrap"
-                />
-              </Alert>
-            )}
+            {!isUnlocked && <VaultLockedAlert className="mb-6" />}
 
             <div className={!isUnlocked ? "opacity-50 pointer-events-none select-none grayscale-[0.5] transition-all duration-300" : "transition-all duration-300"}>
               <div className="space-y-6">
@@ -157,5 +145,16 @@ const Settings = () => {
     </div>
   );
 };
+
+const SettingsHeader = () => (
+  <div>
+    <h1 className="text-[28px] sm:text-[32px] font-bold tracking-tight text-ink leading-none">
+      Settings
+    </h1>
+    <p className="mt-2 text-sm text-muted-foreground">
+      Manage your household and preferences
+    </p>
+  </div>
+);
 
 export default Settings;

@@ -314,16 +314,15 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative">
-      <div className="gradient-background" />
-      <Card className="w-full max-w-md relative z-10">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-bg">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Household Harmony</CardTitle>
           <CardDescription>Plan and manage all your household finances, together!</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList>
               <TabsTrigger value="login">Login</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
             </TabsList>

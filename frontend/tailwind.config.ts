@@ -1,7 +1,17 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * Token integration:
+ * - Tokens are stored as raw OKLCH triplets in CSS (`--accent: 0.56 0.13 152;`).
+ * - Tailwind wraps them with `oklch(var(--name) / <alpha-value>)` so opacity
+ *   modifiers (e.g. `bg-accent/80`) work natively.
+ * - Pre-composed translucent vars (e.g. `--bg-trans`) are exposed as direct
+ *   var-only colors and don't support opacity modifiers.
+ */
+const oklchVar = (name: string) => `oklch(var(${name}) / <alpha-value>)`;
+
 export default {
-  darkMode: "class",
+  darkMode: ["class", '[data-theme="dark"]'],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
   theme: {
@@ -13,85 +23,129 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['"DM Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ['"DM Mono"', "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+      },
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        // ─────────────────────────────────────────────
+        // New design tokens (chlorophyll system)
+        // ─────────────────────────────────────────────
+        bg: oklchVar("--bg"),
+        surface: oklchVar("--surface"),
+        "surface-2": oklchVar("--surface-2"),
+        ink: oklchVar("--ink"),
+        "ink-2": oklchVar("--ink-2"),
+        muted: oklchVar("--muted"),
+        line: oklchVar("--line"),
+        "line-2": oklchVar("--line-2"),
+        accent: {
+          DEFAULT: oklchVar("--accent"),
+          dk: oklchVar("--accent-dk"),
+          tint: oklchVar("--accent-tint"),
+          ink: oklchVar("--accent-ink"),
+        },
+        danger: oklchVar("--danger"),
+        warn: oklchVar("--warn"),
+
+        // Pre-composed translucent (no alpha modifier)
+        "bg-trans": "var(--bg-trans)",
+
+        // ─────────────────────────────────────────────
+        // Backwards-compat aliases (old names → new tokens)
+        // Keep these until all primitives + pages migrate
+        // ─────────────────────────────────────────────
+        border: oklchVar("--border"),
+        input: oklchVar("--input"),
+        ring: oklchVar("--ring"),
+        background: oklchVar("--background"),
+        foreground: oklchVar("--foreground"),
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: oklchVar("--primary"),
+          foreground: oklchVar("--primary-foreground"),
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: oklchVar("--secondary"),
+          foreground: oklchVar("--secondary-foreground"),
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: oklchVar("--destructive"),
+          foreground: oklchVar("--destructive-foreground"),
         },
         success: {
-          DEFAULT: "hsl(var(--success))",
-          foreground: "hsl(var(--success-foreground))",
+          DEFAULT: oklchVar("--success"),
+          foreground: oklchVar("--success-foreground"),
         },
         warning: {
-          DEFAULT: "hsl(var(--warning))",
-          foreground: "hsl(var(--warning-foreground))",
+          DEFAULT: oklchVar("--warning"),
+          foreground: oklchVar("--warning-foreground"),
+        },
+        alert: {
+          DEFAULT: oklchVar("--alert"),
+          foreground: oklchVar("--alert-foreground"),
+        },
+        info: {
+          DEFAULT: oklchVar("--info"),
+          foreground: oklchVar("--info-foreground"),
+        },
+        "accent-purple": {
+          DEFAULT: oklchVar("--accent-purple"),
+          foreground: oklchVar("--accent-purple-foreground"),
+        },
+        // Old "muted" Tailwind name stays as a color object so `bg-muted` etc.
+        // keeps working — points at surface-2 (the visual it always represented).
+        // `text-muted-foreground` resolves via .foreground → --muted (text color).
+        muted: {
+          DEFAULT: oklchVar("--muted-bg"),
+          foreground: oklchVar("--muted-foreground"),
         },
         popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          DEFAULT: oklchVar("--popover"),
+          foreground: oklchVar("--popover-foreground"),
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: oklchVar("--card"),
+          foreground: oklchVar("--card-foreground"),
         },
         sidebar: {
-          DEFAULT: "hsl(var(--sidebar-background))",
-          foreground: "hsl(var(--sidebar-foreground))",
-          primary: "hsl(var(--sidebar-primary))",
-          "primary-foreground": "hsl(var(--sidebar-primary-foreground))",
-          accent: "hsl(var(--sidebar-accent))",
-          "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
-          border: "hsl(var(--sidebar-border))",
-          ring: "hsl(var(--sidebar-ring))",
+          DEFAULT: oklchVar("--sidebar-background"),
+          foreground: oklchVar("--sidebar-foreground"),
+          primary: oklchVar("--sidebar-primary"),
+          "primary-foreground": oklchVar("--sidebar-primary-foreground"),
+          accent: oklchVar("--sidebar-accent"),
+          "accent-foreground": oklchVar("--sidebar-accent-foreground"),
+          border: oklchVar("--sidebar-border"),
+          ring: oklchVar("--sidebar-ring"),
         },
       },
       borderRadius: {
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 6px)",
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "hh-rise": {
+          from: { transform: "translateY(100%)" },
+          to: { transform: "translateY(0)" },
+        },
+        "hh-fade": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "hh-rise": "hh-rise 240ms cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "hh-fade": "hh-fade 180ms ease",
       },
     },
   },

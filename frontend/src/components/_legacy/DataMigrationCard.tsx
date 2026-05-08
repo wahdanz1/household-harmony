@@ -346,13 +346,13 @@ export const DataMigrationCard = () => {
                                     <div key={status.table} className="flex items-center justify-between py-1">
                                         <span className="flex items-center gap-2">
                                             {status.status === "running" && (
-                                                <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
+                                                <Loader2 className="h-3 w-3 animate-spin text-info" />
                                             )}
                                             {status.status === "done" && (
-                                                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                                <CheckCircle2 className="h-3 w-3 text-success" />
                                             )}
                                             {status.status === "error" && (
-                                                <AlertTriangle className="h-3 w-3 text-red-500" />
+                                                <AlertTriangle className="h-3 w-3 text-destructive" />
                                             )}
                                             {status.status === "pending" && (
                                                 <Database className="h-3 w-3 text-muted-foreground" />

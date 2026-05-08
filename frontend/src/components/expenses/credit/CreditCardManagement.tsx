@@ -238,13 +238,13 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, calcu
                                         <div className="space-y-2">
                                             <div className="flex justify-between text-sm">
                                                 <span className="font-medium">{total.toFixed(0)} / {limit.toFixed(0)} {currency}</span>
-                                                <span className={remaining < 0 ? "text-destructive" : "text-green-600"}>
+                                                <span className={remaining < 0 ? "text-destructive" : "text-success"}>
                                                     {remaining >= 0 ? `${remaining.toFixed(0)} ${currency} left` : `${Math.abs(remaining).toFixed(0)} ${currency} over`}
                                                 </span>
                                             </div>
                                             <div className="w-full bg-secondary rounded-full h-2">
                                                 <div
-                                                    className={`h-2 rounded-full transition-all ${percentage > 100 ? "bg-destructive" : percentage > 80 ? "bg-orange-500" : "bg-green-600"}`}
+                                                    className={`h-2 rounded-full transition-all ${percentage > 100 ? "bg-destructive" : percentage > 80 ? "bg-alert" : "bg-success"}`}
                                                     style={{ width: `${Math.min(percentage, 100)}%` }}
                                                 />
                                             </div>

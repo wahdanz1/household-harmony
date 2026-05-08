@@ -5,7 +5,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { formatSEK, getTaxStatusColor, getTaxStatusIcon } from "@/services/tax";
+import { formatSEK, getTaxStatusColor } from "@/services/tax";
 import type { TaxPrognosisResult } from "@/types/api";
 import { TrendingUp, TrendingDown, AlertCircle, CheckCircle } from "lucide-react";
 
@@ -26,8 +26,8 @@ export const TaxPrognosisModal = ({
 
     const StatusIcon = prognosis?.status === 'owing' ? AlertCircle : CheckCircle;
     const statusColorClass = prognosis?.status === 'owing'
-        ? 'text-red-500 bg-red-500/10 border-red-500/20'
-        : 'text-green-500 bg-green-500/10 border-green-500/20';
+        ? 'text-destructive bg-destructive/10 border-destructive/20'
+        : 'text-success bg-success/10 border-success/20';
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
