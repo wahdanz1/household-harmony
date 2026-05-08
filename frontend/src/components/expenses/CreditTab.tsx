@@ -108,8 +108,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
             { data: monthlyData },
         ] = await Promise.all([
             supabase.from("credit_cards").select("*").eq("household_id", householdId).eq("is_active", true),
-            // Credit card expenses now come from expenses table with is_credit=true
-            (supabase as any).from("expenses").select("*").eq("household_id", householdId).eq("is_active", true).eq("is_credit", true),
+            supabase.from("expenses").select("*").eq("household_id", householdId).eq("is_active", true).eq("is_credit", true),
             supabase.from("monthly_expenses").select("*").eq("household_id", householdId).gte("month_end", startStr).lte("month_start", endStr),
         ]);
 
