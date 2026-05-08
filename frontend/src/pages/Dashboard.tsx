@@ -532,7 +532,7 @@ const DashboardHeader = ({ firstName, monthLabel }: DashboardHeaderProps) => (
       <p className="text-[11.5px] font-semibold text-muted-foreground tracking-[0.08em] uppercase">
         Hi {firstName}
       </p>
-      <h1 className="mt-0.5 text-[28px] sm:text-[32px] font-bold tracking-tight text-ink leading-none">
+      <h1 className="mt-0.5">
         Dashboard
       </h1>
     </div>

@@ -124,7 +124,7 @@ export const CoParentManagement = ({ householdId, coParents, onUpdate }: CoParen
                             <Users className="h-5 w-5" />
                             Manage Co-Parents
                         </h3>
-                        <p className="text-sm text-muted-foreground mt-1.5">Add and manage people you share expenses with</p>
+                        <p className="text-muted-foreground">Add and manage people you share expenses with</p>
                     </div>
                     <Dialog open={coParentDialogOpen} onOpenChange={(open) => {
                         setCoParentDialogOpen(open);

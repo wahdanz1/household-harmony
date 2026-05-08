@@ -9,7 +9,7 @@ import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
 // import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Home, User, Shield } from "lucide-react";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
@@ -116,15 +116,15 @@ const Settings = () => {
           <div className="space-y-6">
             <PersonalSettingsCard />
             <Card>
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">Appearance</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Switch between light and dark mode.
-                  </p>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1.5 flex-1">
+                    <CardTitle>Appearance</CardTitle>
+                    <CardDescription>Switch between light and dark mode.</CardDescription>
+                  </div>
+                  <ThemeToggle showLabel />
                 </div>
-                <ThemeToggle showLabel />
-              </div>
+              </CardHeader>
             </Card>
           </div>
         </TabsContent>
@@ -148,10 +148,8 @@ const Settings = () => {
 
 const SettingsHeader = () => (
   <div>
-    <h1 className="text-[28px] sm:text-[32px] font-bold tracking-tight text-ink leading-none">
-      Settings
-    </h1>
-    <p className="mt-2 text-sm text-muted-foreground">
+    <h1>Settings</h1>
+    <p className="text-muted-foreground">
       Manage your household and preferences
     </p>
   </div>

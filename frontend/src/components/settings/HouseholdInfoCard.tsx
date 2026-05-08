@@ -127,7 +127,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between">
-          <div className="space-y-1 flex-1">
+          <div className="space-y-1.5 flex-1">
             <div className="flex items-center gap-2">
               <Home className="h-5 w-5 text-primary" />
               <CardTitle>Household Information</CardTitle>
@@ -152,7 +152,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
         {/* Household Name Display */}
         <div>
           <h2>{household.name}</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-muted-foreground">
             {isOwner ? "You are the owner" : "You are a member"}
           </p>
         </div>

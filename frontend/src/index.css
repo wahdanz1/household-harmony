@@ -118,9 +118,20 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Typography Hierarchy - Zero Class Default */
+  /*
+   * Typography Hierarchy — Zero Class Default
+   *
+   * Headings carry no built-in margin-bottom so they don't fight flex/grid
+   * layouts. Spacing under a heading comes from sibling combinators below:
+   *   h1 + p, h1 + .subtitle  → 8px
+   *   h2 + p                  → 8px
+   *   h3 + p                  → 6px
+   *   h4 + p                  → 4px
+   * Card primitives use CardHeader's `space-y-2` for the same effect within
+   * card layouts (see components/ui/card.tsx).
+   */
   h1 {
-    @apply text-3xl font-bold tracking-tight scroll-m-20;
+    @apply text-[28px] sm:text-[32px] font-bold tracking-tight text-ink leading-none scroll-m-20;
   }
 
   h2 {
@@ -137,6 +148,20 @@
 
   p {
     @apply leading-7 text-sm;
+  }
+
+  /* Heading → adjacent description spacing — applies to direct siblings */
+  h1 + p, h1 + .subtitle {
+    @apply mt-2;
+  }
+  h2 + p, h2 + .subtitle {
+    @apply mt-2;
+  }
+  h3 + p, h3 + .subtitle {
+    @apply mt-1.5;
+  }
+  h4 + p, h4 + .subtitle {
+    @apply mt-1;
   }
 
   /* Optimized for financial data readability */

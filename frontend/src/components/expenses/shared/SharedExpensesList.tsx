@@ -189,7 +189,7 @@ export const SharedExpensesList = ({
                         <ShoppingBag className="h-5 w-5" />
                         Shared Expenses
                     </CardTitle>
-                    <CardDescription className="mt-1.5">Items purchased that are shared with co-parents</CardDescription>
+                    <CardDescription>Items purchased that are shared with co-parents</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <Dialog open={isOpen} onOpenChange={(open) => {

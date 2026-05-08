@@ -141,7 +141,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
           <TrendingUp className="h-5 w-5 text-success" />
           Income Sources
         </CardTitle>
-        <CardDescription className="mt-1.5">Define your household's income sources</CardDescription>
+        <CardDescription>Define your household's income sources</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <Dialog open={isOpen} onOpenChange={(open) => {

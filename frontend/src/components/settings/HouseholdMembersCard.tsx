@@ -166,7 +166,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
           <Users className="h-5 w-5 text-primary" />
           Household Members
         </CardTitle>
-        <CardDescription className="mt-1.5">Manage who has access to this household</CardDescription>
+        <CardDescription>Manage who has access to this household</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">

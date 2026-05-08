@@ -415,9 +415,7 @@ const Expenses = () => {
   const monthLabel = format(monthEndDate, "MMM yyyy");
   const header = (
     <div className="flex items-end justify-between gap-4">
-      <h1 className="text-[28px] sm:text-[32px] font-bold tracking-tight text-ink leading-none">
-        Expenses
-      </h1>
+      <h1>Expenses</h1>
       <div className="flex items-center gap-1">
         <Button
           variant="ghost"
