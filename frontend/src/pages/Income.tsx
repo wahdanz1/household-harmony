@@ -22,11 +22,7 @@ import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWiza
 
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState, LoadingState } from "@/components/shared/states";
-import { fetchIncomeSuggestions, getSuggestionBorderColor } from "@/services/smartDefaults";
-
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/hooks/useEncryptedFields";
-
-import type { IncomeSuggestion } from "@/types/api";
 
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
@@ -42,11 +38,6 @@ const Income = () => {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-
-  // Auto-fill state
-  const [suggestions, setSuggestions] = useState<IncomeSuggestion[]>([]);
-  const [appliedSuggestions, setAppliedSuggestions] = useState<Set<string>>(new Set());
 
   // Month navigation state
   const todayMonth = getCurrentFinancialMonth(financialMonthStart);
@@ -71,7 +62,6 @@ const Income = () => {
   // Autosave state
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const hasAutoFilledRef = useRef(false);
   const amountsRef = useRef<Record<string, string>>({}); // Track latest amounts for autosave
 
   // Keep these for display/header purposes only (will update on re-render)
@@ -175,7 +165,12 @@ const Income = () => {
       const encryptedRecords = await Promise.all(
         missingRecords.map(record => encryptIncome(record))
       );
-      await supabase.from("monthly_incomes").insert(encryptedRecords);
+      // Use upsert with ignoreDuplicates so concurrent fetchData runs (e.g.
+      // React strict-mode double effects, or rapid navigation) don't 409.
+      await supabase.from("monthly_incomes").upsert(encryptedRecords, {
+        onConflict: "income_source_id,month",
+        ignoreDuplicates: true,
+      });
     }
 
     // Note: Don't set 'saved' status on initial load - only after actual user edits
@@ -202,20 +197,10 @@ const Income = () => {
     }
   }, [householdLoading, fetchData, location.key]); // location.key changes on each navigation
 
-  // Auto-fill on page load when no saved income for current month
-  useEffect(() => {
-    // Only auto-fill once, when we have data loaded and no saved income
-    if (
-      !loading &&
-      !hasAutoFilledRef.current &&
-      household?.id &&
-      incomeSources.length > 0 &&
-      monthlyIncomes.length === 0 // No saved income for current month
-    ) {
-      hasAutoFilledRef.current = true;
-      handleAutoFill(true);
-    }
-  }, [loading, household?.id, incomeSources.length, monthlyIncomes.length]);
+  // Smart Defaults backend call removed — the service was disabled during
+  // the encryption migration and never restored. Client-side carry-forward
+  // (above, in fetchData) now handles seeding amounts from the most recent
+  // month with data, which is more useful anyway.
 
   const {
     sourceDialogOpen,
@@ -229,58 +214,6 @@ const Income = () => {
     resetSourceForm,
   } = useIncomeSources(household?.id || "", members, fetchData);
 
-  // Auto-fill handler - fetches suggestions from backend
-  const handleAutoFill = async (showToast = true) => {
-    if (!household?.id || !incomeSources.length) return;
-
-    try {
-      const incomeSuggestions = await fetchIncomeSuggestions(household.id);
-      if (!incomeSuggestions || incomeSuggestions.length === 0) return;
-
-      setSuggestions(incomeSuggestions);
-
-      // Apply suggestions to form
-      const newAmounts = { ...amounts };
-      const newApplied = new Set<string>();
-
-      incomeSuggestions.forEach((suggestion) => {
-        const source = incomeSources.find(s => s.id === suggestion.income_source_id);
-        if (source) {
-          newAmounts[suggestion.income_source_id] = suggestion.suggested_amount.toString();
-          newApplied.add(suggestion.income_source_id);
-        }
-      });
-
-      setAmounts(newAmounts);
-      setAppliedSuggestions(newApplied);
-
-      if (showToast && incomeSuggestions.length > 0) {
-        toast({
-          title: "Smart defaults applied",
-          description: `Pre-filled ${incomeSuggestions.length} income sources from historical data`,
-        });
-      }
-    } catch (error) {
-      console.error('Auto-fill failed:', error);
-      // Silently fail - user can still enter amounts manually
-    }
-  };
-
-  // Get border color for an income source input
-  const getBorderClass = (sourceId: string): string => {
-    const suggestion = suggestions.find(s => s.income_source_id === sourceId);
-    if (!suggestion) return '';
-
-    // Check if user modified the suggestion
-    const originalSuggestion = suggestion.suggested_amount.toString();
-    const currentValue = amounts[sourceId];
-
-    if (appliedSuggestions.has(sourceId) && currentValue !== originalSuggestion) {
-      return getSuggestionBorderColor('user_modified');
-    }
-
-    return getSuggestionBorderColor(suggestion.source);
-  };
 
   // Handle amount change - track modifications and trigger autosave
   const handleAmountChange = (sourceId: string, value: string) => {
@@ -446,7 +379,7 @@ const Income = () => {
         title="Income Management"
         totalLabel="Total Income"
         totalAmount={totalIncome}
-        showSmartDefaults={suggestions.length > 0}
+        showSmartDefaults={false}
         month={selectedMonth}
         onPreviousMonth={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
         onNextMonth={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}

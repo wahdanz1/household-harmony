@@ -185,7 +185,12 @@ const Expenses = () => {
       const encryptedRecords = await Promise.all(
         missingRecords.map(record => encryptExpense(record))
       );
-      await supabase.from("monthly_expenses").insert(encryptedRecords);
+      // Use upsert with ignoreDuplicates so concurrent fetchData runs (e.g.
+      // React strict-mode double effects, or rapid navigation) don't 409.
+      await supabase.from("monthly_expenses").upsert(encryptedRecords, {
+        onConflict: "expense_id,month",
+        ignoreDuplicates: true,
+      });
     }
 
     // Note: Don't set 'saved' status on initial load - only after actual user edits

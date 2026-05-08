@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, Clock, ShieldCheck } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, LockOpen, ShieldCheck, RotateCw } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,8 +48,6 @@ interface ExpenseItem {
     expense_id: string;
 }
 
-const POLL_INTERVAL_MS = 15000;
-
 export const MonthlyReviewWizard = ({
     open,
     onOpenChange,
@@ -63,10 +62,43 @@ export const MonthlyReviewWizard = ({
     const [reviewStatus, setReviewStatus] = useState<ReviewStatusRow[]>([]);
     const [savingScope, setSavingScope] = useState<ReviewScope | null>(null);
     const [confirmFinalize, setConfirmFinalize] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const manualRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await fetchData();
+        } finally {
+            // Brief delay so the spinner is visible even on fast networks
+            setTimeout(() => setRefreshing(false), 200);
+        }
+    };
+    // Per-item override allowing the current user to edit another household
+    // member's income source. Useful when reviewing together from a single
+    // device — e.g. Daniel updates Sarah's salary while she's looking. The
+    // value gets saved, but Sarah still has to log in and click "Accept my
+    // income" to formally mark her side accepted.
+    const [unlockedItems, setUnlockedItems] = useState<Set<string>>(new Set());
+
+    const toggleUnlock = (sourceId: string) => {
+        setUnlockedItems(prev => {
+            const next = new Set(prev);
+            if (next.has(sourceId)) next.delete(sourceId);
+            else next.add(sourceId);
+            return next;
+        });
+    };
 
     const financialMonthStart = household?.financial_month_start || 25;
     const currentMonth = getCurrentFinancialMonth(financialMonthStart);
-    const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
+    // Memoize the Date range — without this, monthStart/monthEnd are new
+    // references on every render, which makes any useCallback/useEffect that
+    // depends on them re-fire on every render and triggers an infinite refetch
+    // loop (5 queries × however many renders/sec).
+    const { start: monthStart, end: monthEnd } = useMemo(
+        () => getFinancialMonthRange(currentMonth, financialMonthStart),
+        [currentMonth, financialMonthStart]
+    );
     const currency = household?.currency || "SEK";
 
     const { decryptRecords: decryptIncomeSources } = useEncryptedFields(incomeSourceFields);
@@ -204,42 +236,62 @@ export const MonthlyReviewWizard = ({
         });
     }, [household, user, monthStart, monthEnd, currentMonth, decryptIncomeSources, decryptExpenses]);
 
+    // Reset transient UI state ONLY when the wizard transitions to open.
+    // Don't include `user` or `household` here — those refs can change (e.g.
+    // when the tab regains focus and Supabase refreshes the auth session),
+    // and resetting amounts would briefly flash all inputs to 0 before the
+    // refetch repopulates them.
     useEffect(() => {
-        if (open && user && household) {
-            // Reset transient UI state when wizard opens
-            setAmounts({});
+        if (open) {
             setConfirmFinalize(false);
             setActiveTab("income");
+        }
+    }, [open]);
+
+    // Refetch data when wizard opens or when its inputs (household/user)
+    // legitimately change. fetchData itself is memoized; setAmounts inside
+    // it only seeds keys that don't exist yet, so user-typed values survive.
+    useEffect(() => {
+        if (open && user && household) {
             fetchData();
         }
     }, [open, user, household, fetchData]);
 
-    // Poll every 15s while wizard is open so each user sees the other's
-    // acceptances and amount changes without manual refresh. Skip ticks
-    // while the outage monitor is tripped — the user has already been
-    // shown a banner and we don't want to pile on failed requests.
+    // No background polling — refetch only when the wizard regains focus
+    // (user came back to this tab) or when the user explicitly clicks the
+    // refresh button. Cross-device "live" updates aren't worth the request
+    // overhead for a 2-person household; manual refresh covers the rare case
+    // of "Sarah just told me she's done, let me re-check".
     useEffect(() => {
         if (!open) return;
-        const id = window.setInterval(() => {
-            if (isDown()) return;
-            fetchData();
-        }, POLL_INTERVAL_MS);
-        return () => window.clearInterval(id);
+
+        const onVisibilityChange = () => {
+            if (!document.hidden && !isDown()) fetchData();
+        };
+        document.addEventListener("visibilitychange", onVisibilityChange);
+
+        return () => {
+            document.removeEventListener("visibilitychange", onVisibilityChange);
+        };
     }, [open, fetchData]);
 
     const handleAmountChange = (key: string, value: string) => {
         setAmounts(prev => ({ ...prev, [key]: value }));
     };
 
-    const writeStatus = async (scope: ReviewScope) => {
+    const writeStatus = async (scope: ReviewScope, userIds?: string[]) => {
         if (!household || !user) return;
-        const { error } = await supabase.from("monthly_review_status").upsert({
+        const ids = userIds && userIds.length > 0 ? userIds : [user.id];
+        const rows = ids.map(uid => ({
             household_id: household.id,
-            user_id: user.id,
+            user_id: uid,
             month: currentMonth,
             scope,
             accepted_at: new Date().toISOString(),
-        }, { onConflict: "household_id,user_id,month,scope" });
+        }));
+        const { error } = await supabase.from("monthly_review_status").upsert(rows, {
+            onConflict: "household_id,user_id,month,scope",
+        });
         if (error) throw error;
     };
 
@@ -251,8 +303,12 @@ export const MonthlyReviewWizard = ({
         const endStr = format(monthEnd, "yyyy-MM-dd");
 
         try {
-            const myIncomes = incomes.filter(i => i.isMine);
-            for (const income of myIncomes) {
+            // Save my own income items + any items I've unlocked for editing
+            // on someone else's behalf. Their owner still needs to log in and
+            // click Accept to mark their status row though — we can't write
+            // status on behalf of another user (RLS).
+            const itemsToSave = incomes.filter(i => i.isMine || unlockedItems.has(i.source_id));
+            for (const income of itemsToSave) {
                 const amount = parseFloat(amounts[`income-${income.source_id}`] || "0");
                 const baseData = {
                     household_id: household.id,
@@ -261,7 +317,9 @@ export const MonthlyReviewWizard = ({
                     month_start: startStr,
                     month_end: endStr,
                     amount,
-                    created_by: user.id,
+                    // Preserve original creator for items not owned by me;
+                    // only stamp my id on my own rows.
+                    created_by: income.isMine ? user.id : income.created_by,
                 };
                 const data = await encryptMonthlyIncome(baseData);
                 const { error } = await supabase.from("monthly_incomes").upsert(data, {
@@ -270,9 +328,17 @@ export const MonthlyReviewWizard = ({
                 if (error) throw error;
             }
 
-            await writeStatus("income");
+            // Mark me as accepted, plus the owners of any items I unlocked
+            // (we're reviewing together — they don't need to log in again).
+            const unlockedOwners = incomes
+                .filter(i => unlockedItems.has(i.source_id) && !i.isMine)
+                .map(i => i.created_by);
+            const acceptedUserIds = Array.from(new Set([user.id, ...unlockedOwners]));
+            await writeStatus("income", acceptedUserIds);
 
             toast.success("Income accepted");
+            // Clear unlocked-items state — they've been saved + accepted
+            setUnlockedItems(new Set());
             await fetchData();
             setActiveTab("expenses");
         } catch (error: any) {
@@ -344,15 +410,10 @@ export const MonthlyReviewWizard = ({
     const myIncomeAccepted = incomeAcceptedUserIds.has(user?.id || "");
     const allMembersAcceptedIncome = members.length > 0 && members.every(m => incomeAcceptedUserIds.has(m.user_id));
     const canFinalize = allMembersAcceptedIncome && expensesVerified && !isFinalized;
-    const pendingIncomeMembers = members.filter(m => !incomeAcceptedUserIds.has(m.user_id));
     const myIncomeCount = incomes.filter(i => i.isMine).length;
     const finalizerName = isFinalized
         ? members.find(m => m.user_id === finalizedRow!.user_id)?.profiles?.full_name || "A household member"
         : null;
-
-    const totalIncome = incomes.reduce((sum, item) => sum + parseFloat(amounts[`income-${item.source_id}`] || "0"), 0);
-    const totalExpenses = expenses.reduce((sum, item) => sum + parseFloat(amounts[`expense-${item.expense_id}`] || "0"), 0);
-    const balance = totalIncome - totalExpenses;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -362,7 +423,7 @@ export const MonthlyReviewWizard = ({
                         <ClipboardCheck className="h-5 w-5 text-primary" /> Monthly Review
                     </DialogTitle>
                     <DialogDescription>
-                        {formatFinancialMonth(currentMonth, financialMonthStart)} • Review your income and expenses
+                        {formatFinancialMonth(currentMonth, financialMonthStart)}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -378,16 +439,6 @@ export const MonthlyReviewWizard = ({
                         </div>
                     </div>
                 )}
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/50">
-                    <div className="flex items-center gap-4 text-sm">
-                        <span className="text-green-500 font-medium">+{totalIncome.toFixed(0)} {currency}</span>
-                        <span className="text-red-500 font-medium">-{totalExpenses.toFixed(0)} {currency}</span>
-                    </div>
-                    <span className={`font-bold ${balance >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        = {balance >= 0 ? '+' : ''}{balance.toFixed(0)} {currency}
-                    </span>
-                </div>
 
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "income" | "expenses")} className="flex-1 overflow-hidden flex flex-col">
                     <TabsList className="grid w-full grid-cols-2">
@@ -405,21 +456,35 @@ export const MonthlyReviewWizard = ({
 
                     <TabsContent value="income" className="flex-1 overflow-y-auto mt-4 space-y-2">
                         {incomes.map(item => {
-                            const otherMember = !item.isMine ? members.find(m => m.user_id === item.created_by) : null;
-                            const ownerName = otherMember?.profiles?.full_name || "Other member";
-                            const editable = item.isMine && !isFinalized;
+                            const ownerMember = members.find(m => m.user_id === item.created_by);
+                            const ownerName = ownerMember?.profiles?.full_name || (item.isMine ? "You" : "Other member");
+                            const ownerInitials = ownerName.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+                            const isUnlocked = unlockedItems.has(item.source_id);
+                            const editable = !isFinalized && (item.isMine || isUnlocked);
+                            const showsLockButton = !item.isMine && !isFinalized;
                             return (
-                                <div key={item.source_id} className={`flex items-center justify-between p-3 rounded-lg border bg-background/50 ${item.isMine ? 'border-border' : 'border-border/40 opacity-60'}`}>
-                                    <div className="flex items-center gap-2">
-                                        {!item.isMine && <Lock className="h-3 w-3 text-muted-foreground" />}
-                                        <div>
-                                            <span className="text-sm font-medium">{item.name}</span>
-                                            {!item.isMine && (
-                                                <p className="text-[10px] text-muted-foreground">{ownerName}</p>
-                                            )}
-                                        </div>
+                                <div key={item.source_id} className={`flex items-center gap-3 p-3 rounded-lg border bg-background/50 ${editable ? 'border-border' : 'border-border/40'} ${!item.isMine && !isUnlocked ? 'opacity-70' : ''}`}>
+                                    <Avatar className="h-8 w-8 flex-shrink-0" title={item.isMine ? "Your income" : ownerName}>
+                                        {ownerMember?.profiles?.avatar_url && (
+                                            <AvatarImage src={ownerMember.profiles.avatar_url} alt={ownerName} />
+                                        )}
+                                        <AvatarFallback className="text-[10px] font-medium">{ownerInitials}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                                        <span className="text-sm font-medium truncate" title={item.name}>{item.name}</span>
+                                        {showsLockButton && (
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleUnlock(item.source_id)}
+                                                className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors flex-shrink-0 ${isUnlocked ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/30' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                                                title={isUnlocked ? `Lock — ${ownerName}'s value still saves` : `Unlock to enter ${ownerName}'s value`}
+                                                aria-label={isUnlocked ? "Lock item" : "Unlock to edit"}
+                                            >
+                                                {isUnlocked ? <LockOpen className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                                            </button>
+                                        )}
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-shrink-0">
                                         <input
                                             type="number"
                                             disabled={!editable}
@@ -435,8 +500,8 @@ export const MonthlyReviewWizard = ({
                                 </div>
                             );
                         })}
-                        {myIncomeCount === 0 && (
-                            <p className="text-sm text-muted-foreground text-center py-6">You don't have any income sources to review.</p>
+                        {incomes.length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center py-6">No income sources configured for this household.</p>
                         )}
                     </TabsContent>
 
@@ -471,17 +536,68 @@ export const MonthlyReviewWizard = ({
 
                 {!isFinalized && (
                     <div className="pt-4 border-t border-border space-y-3">
-                        {activeTab === "income" ? (
-                            <Button
-                                onClick={acceptIncome}
-                                disabled={savingScope !== null || myIncomeCount === 0}
-                                className="w-full"
-                                size="lg"
-                                variant={myIncomeAccepted ? "outline" : "default"}
+                        <div className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/20 border border-border/40 text-xs">
+                            <span className="text-muted-foreground font-medium">Income</span>
+                            <div className="flex items-center gap-1.5">
+                                {members.map(m => {
+                                    const accepted = incomeAcceptedUserIds.has(m.user_id);
+                                    const name = m.profiles?.full_name || "Member";
+                                    const initials = name.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+                                    return (
+                                        <div key={m.user_id} className="relative" title={`${name} — ${accepted ? "accepted" : "pending"}`}>
+                                            <Avatar className="h-7 w-7">
+                                                {m.profiles?.avatar_url && <AvatarImage src={m.profiles.avatar_url} alt={name} />}
+                                                <AvatarFallback className="text-[9px] font-medium">{initials}</AvatarFallback>
+                                            </Avatar>
+                                            <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${accepted ? "bg-green-500" : "bg-amber-500"}`} />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="h-5 w-px bg-border/60 mx-1" />
+                            <span className="text-muted-foreground font-medium">Expenses</span>
+                            <span
+                                className={`h-3 w-3 rounded-full ${expensesVerified ? "bg-green-500" : "bg-amber-500"}`}
+                                title={expensesVerified ? "Verified" : "Pending"}
+                            />
+                            <button
+                                type="button"
+                                onClick={manualRefresh}
+                                disabled={refreshing}
+                                className="ml-auto h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/70 transition-colors flex-shrink-0 disabled:opacity-50"
+                                title="Refresh — pull the latest from the server"
+                                aria-label="Refresh"
                             >
-                                <Check className="h-4 w-4 mr-2" />
-                                {savingScope === "income" ? "Saving..." : myIncomeAccepted ? "Re-accept my income" : "Accept my income"}
-                            </Button>
+                                <RotateCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                            </button>
+                        </div>
+
+                        {activeTab === "income" ? (
+                            <div className="space-y-1">
+                                <Button
+                                    onClick={acceptIncome}
+                                    disabled={savingScope !== null || (myIncomeCount === 0 && unlockedItems.size === 0)}
+                                    className="w-full"
+                                    size="lg"
+                                    variant={myIncomeAccepted ? "outline" : "default"}
+                                >
+                                    <Check className="h-4 w-4 mr-2" />
+                                    {savingScope === "income"
+                                        ? "Saving..."
+                                        : myIncomeAccepted
+                                            ? unlockedItems.size > 0 ? "Re-accept incomes" : "Re-accept my income"
+                                            : unlockedItems.size > 0 && myIncomeCount === 0
+                                                ? "Save edits"
+                                                : unlockedItems.size > 0
+                                                    ? "Accept incomes"
+                                                    : "Accept my income"}
+                                </Button>
+                                {unlockedItems.size > 0 && (
+                                    <p className="text-[11px] text-muted-foreground text-center">
+                                        You'll also accept on behalf of the unlocked income{unlockedItems.size > 1 ? "s" : ""}.
+                                    </p>
+                                )}
+                            </div>
                         ) : (
                             <Button
                                 onClick={verifyExpenses}
@@ -495,45 +611,32 @@ export const MonthlyReviewWizard = ({
                             </Button>
                         )}
 
-                        {!canFinalize && (myIncomeAccepted || expensesVerified) && (
-                            <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40 border border-border/50 text-xs text-muted-foreground">
-                                <Clock className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                                <div className="space-y-1">
-                                    {!expensesVerified && <p>Expenses still need to be verified.</p>}
-                                    {pendingIncomeMembers.length > 0 && (
-                                        <p>
-                                            Waiting on {pendingIncomeMembers.map(m => m.profiles?.full_name || "a member").join(", ")} to accept income.
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
                         {canFinalize && (
-                            <label className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border border-border/50 cursor-pointer">
-                                <Checkbox
-                                    checked={confirmFinalize}
-                                    onCheckedChange={(v) => setConfirmFinalize(v === true)}
-                                    className="mt-0.5"
-                                />
-                                <span className="text-xs text-muted-foreground leading-snug">
-                                    I confirm this month's review is complete. The Income and Expenses
-                                    pages will switch to this month after finalizing. Further changes
-                                    happen on those pages, not here.
-                                </span>
-                            </label>
-                        )}
+                            <>
+                                <label className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border border-border/50 cursor-pointer">
+                                    <Checkbox
+                                        checked={confirmFinalize}
+                                        onCheckedChange={(v) => setConfirmFinalize(v === true)}
+                                        className="mt-0.5"
+                                    />
+                                    <span className="text-xs text-muted-foreground leading-snug">
+                                        I confirm this month's review is complete. The Income and Expenses
+                                        pages will switch to this month after finalizing. Further changes
+                                        happen on those pages, not here.
+                                    </span>
+                                </label>
 
-                        <Button
-                            onClick={finalize}
-                            disabled={!canFinalize || !confirmFinalize || savingScope !== null}
-                            className="w-full"
-                            size="lg"
-                            variant={canFinalize && confirmFinalize ? "default" : "secondary"}
-                        >
-                            <ShieldCheck className="h-4 w-4 mr-2" />
-                            {savingScope === "finalized" ? "Finalizing..." : "Finalize review"}
-                        </Button>
+                                <Button
+                                    onClick={finalize}
+                                    disabled={!confirmFinalize || savingScope !== null}
+                                    className="w-full"
+                                    size="lg"
+                                >
+                                    <ShieldCheck className="h-4 w-4 mr-2" />
+                                    {savingScope === "finalized" ? "Finalizing..." : "Finalize review"}
+                                </Button>
+                            </>
+                        )}
                     </div>
                 )}
             </DialogContent>
