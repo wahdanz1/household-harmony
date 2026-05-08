@@ -19,6 +19,7 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
 import { fetchMostRecentByKey } from "@/utils/carryForward";
+import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
@@ -88,6 +89,12 @@ const Expenses = () => {
       return;
     }
 
+    // Skip fetch entirely while the outage monitor is tripped.
+    if (isDown()) {
+      setLoading(false);
+      return;
+    }
+
     // Use the selected month (navigable)
     const fms = household?.financial_month_start || 25;
     const fetchMonth = selectedMonth;
@@ -95,19 +102,36 @@ const Expenses = () => {
     const startStr = format(fetchStart, "yyyy-MM-dd");
     const endStr = format(fetchEnd, "yyyy-MM-dd");
 
+    let results;
+    try {
+      results = await Promise.all([
+        supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
+        supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+        supabase.from("monthly_expenses").select("*").eq("household_id", household.id).lt("month_start", startStr),
+        supabase.from("subscriptions").select("*").eq("household_id", household.id),
+        supabase.from("insurances").select("*").eq("household_id", household.id),
+      ]);
+    } catch (err) {
+      reportFailure(err);
+      setLoading(false);
+      return;
+    }
+
+    const firstError = results.find(r => r.error)?.error;
+    if (firstError) {
+      reportFailure(firstError);
+      setLoading(false);
+      return;
+    }
+    reportSuccess();
+
     const [
       { data: categoriesData },
       { data: monthlyData },
       { data: historicalData },
       { data: subscriptionsData },
       { data: insurancesData },
-    ] = await Promise.all([
-      supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
-      supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-      supabase.from("monthly_expenses").select("*").eq("household_id", household.id).lt("month_start", startStr),
-      supabase.from("subscriptions").select("*").eq("household_id", household.id),
-      supabase.from("insurances").select("*").eq("household_id", household.id),
-    ]);
+    ] = results;
 
     // Decrypt sensitive fields (if encrypted)
     const decryptedCategories = await decryptExpenses(categoriesData || []);

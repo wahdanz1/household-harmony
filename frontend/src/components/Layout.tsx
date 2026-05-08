@@ -3,6 +3,7 @@ import MobileNav from "./MobileNav";
 import DesktopNav from "./DesktopNav";
 import { DemoBanner } from "./shared/DemoBanner";
 import { GuidedTour } from "./shared/GuidedTour";
+import { OutageBanner } from "./shared/OutageBanner";
 import { DevTimeTravel } from "./dev/DevTimeTravel";
 
 interface LayoutProps {
@@ -22,6 +23,7 @@ const Layout = ({ children }: LayoutProps) => {
       </main>
       <MobileNav />
       <GuidedTour />
+      <OutageBanner />
       <DevTimeTravel />
     </div>
   );

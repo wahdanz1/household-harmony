@@ -13,6 +13,7 @@ import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth 
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields, expenseFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { fetchMostRecentByKey } from "@/utils/carryForward";
+import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 
 type ReviewScope = "income" | "expenses" | "finalized";
 interface ReviewStatusRow {
@@ -83,20 +84,35 @@ export const MonthlyReviewWizard = ({
         const startStr = format(monthStart, "yyyy-MM-dd");
         const endStr = format(monthEnd, "yyyy-MM-dd");
 
+        let results;
+        try {
+            results = await Promise.all([
+                supabase.from("income_sources").select("*").eq("household_id", household.id).eq("is_active", true),
+                supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+                // is_credit expenses are reviewed via the Credit tab's PDF flow, not here.
+                supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).not("is_credit", "is", true).order("sort_order"),
+                supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+                supabase.from("monthly_review_status").select("user_id, scope, accepted_at").eq("household_id", household.id).eq("month", currentMonth),
+            ]);
+        } catch (err) {
+            reportFailure(err);
+            return;
+        }
+
+        const firstError = results.find(r => r.error)?.error;
+        if (firstError) {
+            reportFailure(firstError);
+            return;
+        }
+        reportSuccess();
+
         const [
             { data: sourcesData },
             { data: monthlyIncomesData },
             { data: categoriesData },
             { data: monthlyExpensesData },
             { data: statusData },
-        ] = await Promise.all([
-            supabase.from("income_sources").select("*").eq("household_id", household.id).eq("is_active", true),
-            supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-            // is_credit expenses are reviewed via the Credit tab's PDF flow, not here.
-            supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).not("is_credit", "is", true).order("sort_order"),
-            supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-            supabase.from("monthly_review_status").select("user_id, scope, accepted_at").eq("household_id", household.id).eq("month", currentMonth),
-        ]);
+        ] = results;
 
         const decryptedSources = await decryptIncomeSources(sourcesData || []);
         const decryptedMonthlyIncomes = await decryptRefs.current.decryptMonthlyIncomes(monthlyIncomesData || []);
@@ -199,10 +215,13 @@ export const MonthlyReviewWizard = ({
     }, [open, user, household, fetchData]);
 
     // Poll every 15s while wizard is open so each user sees the other's
-    // acceptances and amount changes without manual refresh.
+    // acceptances and amount changes without manual refresh. Skip ticks
+    // while the outage monitor is tripped — the user has already been
+    // shown a banner and we don't want to pile on failed requests.
     useEffect(() => {
         if (!open) return;
         const id = window.setInterval(() => {
+            if (isDown()) return;
             fetchData();
         }, POLL_INTERVAL_MS);
         return () => window.clearInterval(id);

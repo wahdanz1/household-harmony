@@ -24,6 +24,7 @@ import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { DemoEncryptionCard } from "@/components/demo/DemoEncryptionCard";
 import { isDemoMode } from "@/utils/demoMode";
+import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 
 interface DashboardData {
   income: number;
@@ -76,6 +77,12 @@ const Dashboard = () => {
         return;
       }
 
+      // Skip fetch entirely while the outage monitor is tripped.
+      if (isDown()) {
+        setLoading(false);
+        return;
+      }
+
       setHouseholdId(household.id);
 
       const fms = household?.financial_month_start || 25;
@@ -84,19 +91,36 @@ const Dashboard = () => {
       const startStr = format(fetchStart, "yyyy-MM-dd");
       const endStr = format(fetchEnd, "yyyy-MM-dd");
 
+      let results;
+      try {
+        results = await Promise.all([
+          supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+          supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+          supabase.from("subscriptions").select("encrypted_amount, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id).eq("is_active", true),
+          supabase.from("insurances").select("encrypted_total_amount, payment_frequency, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true),
+          supabase.from("shared_expenses").select("encrypted_amount, paid_by, is_encrypted").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+        ]);
+      } catch (err) {
+        reportFailure(err);
+        setLoading(false);
+        return;
+      }
+
+      const firstError = results.find(r => r.error)?.error;
+      if (firstError) {
+        reportFailure(firstError);
+        setLoading(false);
+        return;
+      }
+      reportSuccess();
+
       const [
         { data: monthlyIncomes },
         { data: monthlyExpenses },
         { data: subscriptions },
         { data: insurances },
         { data: sharedExpenses },
-      ] = await Promise.all([
-        supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-        supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-        supabase.from("subscriptions").select("encrypted_amount, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id).eq("is_active", true),
-        supabase.from("insurances").select("encrypted_total_amount, payment_frequency, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true),
-        supabase.from("shared_expenses").select("encrypted_amount, paid_by, is_encrypted").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-      ]);
+      ] = results;
 
       // Decrypt all data //
       const decryptedIncomes = await decryptIncomes(monthlyIncomes || []);

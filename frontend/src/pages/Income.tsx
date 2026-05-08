@@ -17,6 +17,7 @@ import { OneTimeIncomeDialog } from "@/components/income/OneTimeIncomeDialog";
 import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
 import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
 import { fetchMostRecentByKey } from "@/utils/carryForward";
+import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -90,19 +91,39 @@ const Income = () => {
       return;
     }
 
+    // Skip fetch entirely while the outage monitor is tripped.
+    if (isDown()) {
+      setLoading(false);
+      return;
+    }
+
     // Use the selected month (navigable)
     const fetchMonth = selectedMonth;
     const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, financialMonthStart);
     const startStr = format(fetchStart, "yyyy-MM-dd");
     const endStr = format(fetchEnd, "yyyy-MM-dd");
 
-    const [
-      { data: sourcesData },
-      { data: monthlyData },
-    ] = await Promise.all([
-      supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", household.id).eq("is_active", true).order("created_at", { ascending: true }),
-      supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-    ]);
+    let sourcesResult, monthlyResult;
+    try {
+      [sourcesResult, monthlyResult] = await Promise.all([
+        supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", household.id).eq("is_active", true).order("created_at", { ascending: true }),
+        supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+      ]);
+    } catch (err) {
+      reportFailure(err);
+      setLoading(false);
+      return;
+    }
+
+    if (sourcesResult.error || monthlyResult.error) {
+      reportFailure(sourcesResult.error || monthlyResult.error);
+      setLoading(false);
+      return;
+    }
+    reportSuccess();
+
+    const { data: sourcesData } = sourcesResult;
+    const { data: monthlyData } = monthlyResult;
 
     // Decrypt sensitive fields (if encrypted)
     const decryptedSources = await decryptSources(sourcesData || []);
