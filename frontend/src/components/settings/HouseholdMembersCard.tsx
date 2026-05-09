@@ -51,8 +51,18 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
 
+  // Cryptographically random invite code over an unambiguous alphabet
+  // (no 0/O/1/I/L). 8 chars over 32 symbols ≈ 1.1 trillion possibilities,
+  // so brute-forcing the active invite space is no longer feasible.
   const generateInviteCode = () => {
-    return Math.random().toString().slice(2, 8).padStart(6, '0');
+    const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    let out = "";
+    for (let i = 0; i < bytes.length; i++) {
+      out += ALPHABET[bytes[i] % ALPHABET.length];
+    }
+    return out;
   };
 
   const handleGenerateInvite = async () => {
@@ -217,7 +227,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3>Invite Members</h3>
-                  <p className="text-sm text-muted-foreground">Generate a 6-digit code that expires in 24 hours</p>
+                  <p className="text-sm text-muted-foreground">Generate an 8-character code that expires in 24 hours</p>
                 </div>
                 <Button onClick={() => setShowEmailDialog(true)} disabled={isDemoMode()}>
                   Invite Member

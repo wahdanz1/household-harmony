@@ -37,10 +37,10 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
     };
 
     const handleValidateCode = async () => {
-        if (!inviteCode || inviteCode.length !== 6) {
+        if (!inviteCode || inviteCode.length !== 8) {
             toast({
                 title: "Invalid Code",
-                description: "Please enter a valid 6-digit invite code",
+                description: "Please enter a valid 8-character invite code",
                 variant: "destructive",
             });
             return;
@@ -48,12 +48,14 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
 
         setLoading(true);
 
-        // Fetch invite and household info
+        // Fetch invite and household info — expiration enforced server-side.
+        const nowIso = new Date().toISOString();
         const { data: invite, error: inviteError } = await supabase
             .from("household_invites")
             .select("*, households(*)")
             .eq("invite_code", inviteCode.toUpperCase())
             .eq("is_active", true)
+            .gt("expires_at", nowIso)
             .maybeSingle();
 
         if (inviteError || !invite) {
@@ -158,7 +160,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
                         <DialogHeader>
                             <DialogTitle>Join Another Household</DialogTitle>
                             <DialogDescription>
-                                Enter the 6-digit invite code to join a household
+                                Enter the 8-character invite code to join a household
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
@@ -166,10 +168,10 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
                                 <Label htmlFor="invite-code">Invite Code</Label>
                                 <Input
                                     id="invite-code"
-                                    placeholder="ABC123"
+                                    placeholder="ABCD2345"
                                     value={inviteCode}
                                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                                    maxLength={6}
+                                    maxLength={8}
                                     className="text-center text-2xl font-mono tracking-widest"
                                 />
                             </div>
@@ -181,7 +183,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
                             <Button variant="outline" onClick={() => onOpenChange(false)}>
                                 Cancel
                             </Button>
-                            <Button onClick={handleValidateCode} disabled={loading || inviteCode.length !== 6}>
+                            <Button onClick={handleValidateCode} disabled={loading || inviteCode.length !== 8}>
                                 {loading ? "Validating..." : "Continue"}
                                 <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Check, Users, ArrowRight, ArrowLeft } from "lucide-react";
 import { PLACEHOLDERS } from "@/constants/ui";
 import { isEmailAllowed } from "@/config/emailWhitelist";
+import { passwordSchema } from "@/config/passwordSchema";
 
 interface JoinHouseholdWizardProps {
     open: boolean;
@@ -48,10 +49,10 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
     };
 
     const handleValidateCode = async () => {
-        if (!inviteCode || inviteCode.length !== 6) {
+        if (!inviteCode || inviteCode.length !== 8) {
             toast({
                 title: "Invalid Code",
-                description: "Please enter a valid 6-digit invite code",
+                description: "Please enter a valid 8-character invite code",
                 variant: "destructive",
             });
             return;
@@ -59,12 +60,16 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
 
         setLoading(true);
 
-        // Fetch invite and household info
+        // Fetch invite and household info. Expiration is enforced here as
+        // well — relying only on the "expired" badge in the owner UI would
+        // let a stale-but-active invite still be redeemed.
+        const nowIso = new Date().toISOString();
         const { data: invite, error: inviteError } = await supabase
             .from("household_invites")
             .select("*, households(*)")
             .eq("invite_code", inviteCode.toUpperCase())
             .eq("is_active", true)
+            .gt("expires_at", nowIso)
             .single();
 
         if (inviteError || !invite) {
@@ -136,10 +141,13 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        if (password.length < 6) {
+        // Same strength as the regular signup flow — this password derives the
+        // KEK for the AES-256-GCM vault, so weakening it weakens encryption.
+        const passwordCheck = passwordSchema.safeParse(password);
+        if (!passwordCheck.success) {
             toast({
                 title: "Weak Password",
-                description: "Password must be at least 6 characters",
+                description: passwordCheck.error.errors[0].message,
                 variant: "destructive",
             });
             return;
@@ -180,7 +188,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                         <DialogHeader>
                             <DialogTitle>Join Existing Household</DialogTitle>
                             <DialogDescription>
-                                Enter the 6-digit invite code you received
+                                Enter the 8-character invite code you received
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
@@ -188,10 +196,10 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                                 <Label htmlFor="invite-code">Invite Code</Label>
                                 <Input
                                     id="invite-code"
-                                    placeholder="ABC123"
+                                    placeholder="ABCD2345"
                                     value={inviteCode}
                                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                                    maxLength={6}
+                                    maxLength={8}
                                     className="text-center text-2xl font-mono tracking-widest"
                                 />
                             </div>
@@ -200,7 +208,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                             <Button variant="outline" onClick={() => onOpenChange(false)}>
                                 Cancel
                             </Button>
-                            <Button onClick={handleValidateCode} disabled={loading || inviteCode.length !== 6}>
+                            <Button onClick={handleValidateCode} disabled={loading || inviteCode.length !== 8}>
                                 {loading ? "Validating..." : "Continue"}
                                 <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>

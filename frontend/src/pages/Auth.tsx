@@ -14,6 +14,7 @@ import { UserPlus, Lock, Shield, Sparkles, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { PLACEHOLDERS } from "@/constants/ui";
 import { isEmailAllowed } from "@/config/emailWhitelist";
+import { passwordSchema } from "@/config/passwordSchema";
 import { setDemoMode } from "@/utils/demoMode";
 
 // Feature flag: demo mode is hidden until the monthly review flow is rebuilt
@@ -23,14 +24,6 @@ const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
-
-// Strong password requirements for new accounts (encryption security)
-const passwordSchema = z.string()
-  .min(12, "Password must be at least 12 characters for encryption security")
-  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-  .regex(/[0-9]/, "Password must contain at least one number")
-  .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character");
 
 const signupSchema = z.object({
   email: z.string().email("Invalid email address"),

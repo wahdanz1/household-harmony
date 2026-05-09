@@ -11,7 +11,7 @@ export const PLACEHOLDERS = {
     FULL_NAME: "John Doe",
 
     // Code placeholders
-    INVITE_CODE: "123456",
+    INVITE_CODE: "ABCD2345",
 } as const;
 
 export const LABELS = {
