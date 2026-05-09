@@ -1,5 +1,6 @@
 """LLM service for invoice parsing with multi-provider support."""
 
+import asyncio
 import hashlib
 import io
 import json
@@ -33,6 +34,12 @@ _CACHE_MAX_ENTRIES = 1_000  # bound memory growth
 _rate_limiter: dict[str, list[float]] = {}
 RATE_LIMIT_WINDOW = 60  # 1 minute
 RATE_LIMIT_MAX = 5  # 5 requests per minute
+
+# PDF extraction limits — bound CPU/memory exposure to malformed or
+# decompression-bomb PDFs. The 10 MB upload cap doesn't bound page count or
+# extraction time on its own.
+PDF_MAX_PAGES = 50
+PDF_EXTRACT_TIMEOUT_SECONDS = 30
 
 
 def _get_cache_key(pdf_bytes: bytes, user_id: str) -> str:
@@ -87,25 +94,48 @@ def check_rate_limit(user_id: str) -> bool:
     return False
 
 
-def extract_text_from_pdf(pdf_bytes: bytes) -> str:
-    """Extract text content from PDF using pdfplumber."""
-    logger.info(f"Extracting text from PDF ({len(pdf_bytes)} bytes)")
-    text_parts = []
-    
+def _extract_text_sync(pdf_bytes: bytes) -> str:
+    """Blocking PDF text extraction. Runs inside a worker thread."""
+    text_parts: list[str] = []
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        page_count = len(pdf.pages)
+        if page_count > PDF_MAX_PAGES:
+            raise ValueError(
+                f"PDF has too many pages ({page_count}). Maximum is {PDF_MAX_PAGES}."
+            )
+        logger.info("PDF has %d pages", page_count)
+        for i, page in enumerate(pdf.pages):
+            page_text = page.extract_text()
+            if page_text:
+                text_parts.append(page_text)
+                logger.info("Page %d: extracted %d chars", i + 1, len(page_text))
+    return "\n".join(text_parts)
+
+
+async def extract_text_from_pdf(pdf_bytes: bytes) -> str:
+    """Extract text from a PDF with a hard time + page budget.
+
+    pdfplumber is CPU-bound and blocking, so we run it in a worker thread and
+    cancel after `PDF_EXTRACT_TIMEOUT_SECONDS`. This caps both DoS exposure
+    (decompression bombs, pathological PDFs) and the impact on the event loop.
+    """
+    logger.info("Extracting text from PDF (%d bytes)", len(pdf_bytes))
     try:
-        with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-            logger.info(f"PDF has {len(pdf.pages)} pages")
-            for i, page in enumerate(pdf.pages):
-                page_text = page.extract_text()
-                if page_text:
-                    text_parts.append(page_text)
-                    logger.info(f"Page {i+1}: extracted {len(page_text)} chars")
-    except Exception as e:
-        logger.error(f"PDF extraction failed: {e}", exc_info=True)
+        result = await asyncio.wait_for(
+            asyncio.to_thread(_extract_text_sync, pdf_bytes),
+            timeout=PDF_EXTRACT_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("PDF extraction timed out after %ds", PDF_EXTRACT_TIMEOUT_SECONDS)
+        raise ValueError("PDF took too long to process. Try a smaller or simpler file.")
+    except ValueError:
+        # User-safe message (e.g. page-count cap). Re-raise as-is.
         raise
-    
-    result = "\n".join(text_parts)
-    logger.info(f"Total extracted text: {len(result)} chars")
+    except Exception:
+        logger.exception("PDF extraction failed")
+        raise ValueError("Could not read this PDF. It may be corrupt or unsupported.")
+
+    logger.info("Total extracted text: %d chars", len(result))
     return result
 
 
@@ -369,7 +399,7 @@ async def parse_invoice(
         
         # 2. Extract text
         logger.info("Step 2: Extracting text from PDF")
-        text = extract_text_from_pdf(pdf_bytes)
+        text = await extract_text_from_pdf(pdf_bytes)
         if not text.strip():
             raise ValueError("Could not extract any text from PDF. Is it a scanned image?")
         

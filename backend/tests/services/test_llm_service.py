@@ -1,19 +1,21 @@
 """Tests for LLM service — rate limiting, caching, PDF extraction, prompt building, and merchant learning."""
 
 import time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.models.llm import LLMTransactionResponse, ParsedInvoiceResponse, Transaction
+from app.models.llm import ParsedInvoiceResponse, Transaction
 from app.services.llm_service import (
+    PDF_MAX_PAGES,
     _build_extraction_prompt,
     _check_cache,
     _get_cache_key,
+    _rate_limiter,
     _response_cache,
     _set_cache,
     check_rate_limit,
-    _rate_limiter,
+    extract_text_from_pdf,
 )
 
 
@@ -158,3 +160,74 @@ class TestPromptBuilding:
         assert '"language"' in prompt
         assert '"transactions"' in prompt
         assert '"confidence"' in prompt
+
+
+# ---------------------------------------------------------------------------
+# PDF extraction guardrails
+# ---------------------------------------------------------------------------
+
+class TestPdfExtractionGuards:
+    """Verify the page-count cap, timeout budget, and safe error surfacing
+    around `pdfplumber.open`. We mock pdfplumber to avoid building real PDFs
+    (no extra test-only deps) and to make timeout behaviour deterministic.
+    """
+
+    @staticmethod
+    def _fake_pdf(page_count: int, page_text: str = "Sample text"):
+        """Build a context-manager double matching pdfplumber's surface."""
+        page = MagicMock()
+        page.extract_text.return_value = page_text
+        pdf = MagicMock()
+        pdf.pages = [page] * page_count
+        cm = MagicMock()
+        cm.__enter__ = lambda self: pdf
+        cm.__exit__ = lambda self, *args: False
+        return cm
+
+    @pytest.mark.asyncio
+    async def test_normal_pdf_extracts(self):
+        with patch(
+            "app.services.llm_service.pdfplumber.open",
+            return_value=self._fake_pdf(2, "Hello world"),
+        ):
+            result = await extract_text_from_pdf(b"%PDF-1.4 stub")
+        assert "Hello world" in result
+
+    @pytest.mark.asyncio
+    async def test_too_many_pages_rejected(self):
+        with patch(
+            "app.services.llm_service.pdfplumber.open",
+            return_value=self._fake_pdf(PDF_MAX_PAGES + 1),
+        ):
+            with pytest.raises(ValueError, match="too many pages"):
+                await extract_text_from_pdf(b"%PDF-1.4 stub")
+
+    @pytest.mark.asyncio
+    async def test_at_page_limit_passes(self):
+        with patch(
+            "app.services.llm_service.pdfplumber.open",
+            return_value=self._fake_pdf(PDF_MAX_PAGES),
+        ):
+            result = await extract_text_from_pdf(b"%PDF-1.4 stub")
+        assert isinstance(result, str)
+
+    @pytest.mark.asyncio
+    async def test_unparseable_input_returns_safe_message(self):
+        """Internal pdfplumber errors must not leak to the client."""
+        with pytest.raises(ValueError, match="corrupt|unsupported|too long"):
+            await extract_text_from_pdf(b"definitely not a pdf")
+
+    @pytest.mark.asyncio
+    async def test_extraction_timeout_surfaces_safe_error(self, monkeypatch):
+        import app.services.llm_service as svc
+
+        monkeypatch.setattr(svc, "PDF_EXTRACT_TIMEOUT_SECONDS", 0.05)
+
+        def slow(_bytes):
+            time.sleep(1)
+            return ""
+
+        monkeypatch.setattr(svc, "_extract_text_sync", slow)
+
+        with pytest.raises(ValueError, match="too long"):
+            await svc.extract_text_from_pdf(b"anything")
