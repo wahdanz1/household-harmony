@@ -59,7 +59,7 @@ interface DashboardData {
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const { household, members, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
+  const { household, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
   const { isUnlocked } = useEncryption();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -86,10 +86,6 @@ const Dashboard = () => {
   const { decryptRecords: decryptSubscriptions } = useEncryptedFields(subscriptionFields);
   const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
   const { decryptRecords: decryptShared } = useEncryptedFields(sharedExpenseFields);
-
-  // Greeting — first name from household member profile (or fallback)
-  const me = members.find(m => m.user_id === user?.id);
-  const firstName = (me?.profiles?.full_name || "").trim().split(/\s+/)[0] || "there";
 
   // Current financial month label for the chip
   const currentMonth = getCurrentFinancialMonth(financialMonthStart);
@@ -298,7 +294,7 @@ const Dashboard = () => {
   if (householdLoading || loading) {
     return (
       <div className="space-y-5">
-        <DashboardHeader firstName={firstName} monthLabel={monthLabel} />
+        <DashboardHeader monthLabel={monthLabel} />
         <LoadingState />
       </div>
     );
@@ -307,7 +303,7 @@ const Dashboard = () => {
   if (!isUnlocked) {
     return (
       <div className="space-y-5">
-        <DashboardHeader firstName={firstName} monthLabel={monthLabel} />
+        <DashboardHeader monthLabel={monthLabel} hideMonthChip />
         <VaultLockedAlert />
       </div>
     );
@@ -323,7 +319,7 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-5">
-      <DashboardHeader firstName={firstName} monthLabel={monthLabel} />
+      <DashboardHeader monthLabel={monthLabel} />
 
       {/* Monthly Review Banner */}
       {needsReview && !isDemoMode() && (
@@ -522,21 +518,14 @@ const Dashboard = () => {
 };
 
 interface DashboardHeaderProps {
-  firstName: string;
   monthLabel: string;
+  hideMonthChip?: boolean;
 }
 
-const DashboardHeader = ({ firstName, monthLabel }: DashboardHeaderProps) => (
-  <div className="flex items-end justify-between gap-4">
-    <div>
-      <p className="text-[11.5px] font-semibold text-muted-foreground tracking-[0.08em] uppercase">
-        Hi {firstName}
-      </p>
-      <h1 className="mt-0.5">
-        Dashboard
-      </h1>
-    </div>
-    <MonthChip value={monthLabel} />
+const DashboardHeader = ({ monthLabel, hideMonthChip = false }: DashboardHeaderProps) => (
+  <div className="flex items-center justify-between gap-4">
+    <h1>Dashboard</h1>
+    {!hideMonthChip && <MonthChip value={monthLabel} />}
   </div>
 );
 

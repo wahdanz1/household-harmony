@@ -408,41 +408,43 @@ const Income = () => {
   const currencyCode = household?.currency || "SEK";
   const activeSourceCount = incomeSources.filter(s => s.is_active !== false).length;
 
-  // Header rendered for any state
+  // Header — month nav hidden when there's no data to navigate (locked state).
   const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
   const monthLabel = format(monthEndDate, "MMM yyyy");
-  const header = (
-    <div className="flex items-end justify-between gap-4">
+  const renderHeader = (showMonthNav: boolean) => (
+    <div className="flex items-center justify-between gap-4">
       <h1>Income</h1>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
-          aria-label="Previous month"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <MonthChip value={monthLabel} />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          disabled={isCurrentMonth}
-          onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
-          aria-label="Next month"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      {showMonthNav && (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <MonthChip value={monthLabel} />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            disabled={isCurrentMonth}
+            onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+            aria-label="Next month"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 
   if (loading) {
     return (
       <div className="space-y-5">
-        {header}
+        {renderHeader(false)}
         <LoadingState />
       </div>
     );
@@ -451,7 +453,7 @@ const Income = () => {
   if (!isUnlocked) {
     return (
       <div className="space-y-5">
-        {header}
+        {renderHeader(false)}
         <VaultLockedAlert />
       </div>
     );
@@ -459,7 +461,7 @@ const Income = () => {
 
   return (
     <div className="space-y-5">
-      {header}
+      {renderHeader(true)}
 
       {/* Hero — total monthly income */}
       <Card>

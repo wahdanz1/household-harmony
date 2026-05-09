@@ -411,41 +411,43 @@ const Expenses = () => {
   // Credit card expenses now included in regular expenses via is_credit flag
   const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal;
 
-  // Header rendered for any state
+  // Header — month nav hidden when there's no data to navigate (locked state).
   const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
   const monthLabel = format(monthEndDate, "MMM yyyy");
-  const header = (
-    <div className="flex items-end justify-between gap-4">
+  const renderHeader = (showMonthNav: boolean) => (
+    <div className="flex items-center justify-between gap-4">
       <h1>Expenses</h1>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
-          aria-label="Previous month"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <MonthChip value={monthLabel} />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          disabled={isCurrentMonth}
-          onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
-          aria-label="Next month"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      {showMonthNav && (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <MonthChip value={monthLabel} />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            disabled={isCurrentMonth}
+            onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+            aria-label="Next month"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 
   if (loading) {
     return (
       <div className="space-y-5">
-        {header}
+        {renderHeader(false)}
         <LoadingState />
       </div>
     );
@@ -454,7 +456,7 @@ const Expenses = () => {
   if (!isUnlocked) {
     return (
       <div className="space-y-5">
-        {header}
+        {renderHeader(false)}
         <VaultLockedAlert />
       </div>
     );
@@ -462,7 +464,7 @@ const Expenses = () => {
 
   return (
     <div className="space-y-5">
-      {header}
+      {renderHeader(true)}
 
       {/* Total bar */}
       <div className="rounded-[14px] border border-line bg-surface px-5 py-4 flex items-center justify-between gap-3">

@@ -63,6 +63,18 @@ const Settings = () => {
     );
   }
 
+  // Gate the entire page behind vault unlock — household members, invites,
+  // profile data, and API keys are all sensitive and shouldn't be visible
+  // to anyone who hasn't authenticated for the session.
+  if (!isUnlocked) {
+    return (
+      <div className="space-y-5">
+        <SettingsHeader />
+        <VaultLockedAlert />
+      </div>
+    );
+  }
+
   if (!household) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -131,14 +143,7 @@ const Settings = () => {
 
         <TabsContent value="security" className="mt-6">
           <div className="space-y-6">
-            {!isUnlocked && <VaultLockedAlert className="mb-6" />}
-
-            <div className={!isUnlocked ? "opacity-50 pointer-events-none select-none grayscale-[0.5] transition-all duration-300" : "transition-all duration-300"}>
-              <div className="space-y-6">
-                <ApiKeysCard />
-                {/* DataMigrationCard removed - legacy migration complete */}
-              </div>
-            </div>
+            <ApiKeysCard />
           </div>
         </TabsContent>
       </Tabs>
@@ -147,11 +152,8 @@ const Settings = () => {
 };
 
 const SettingsHeader = () => (
-  <div>
+  <div className="flex items-center justify-between gap-4">
     <h1>Settings</h1>
-    <p className="text-muted-foreground">
-      Manage your household and preferences
-    </p>
   </div>
 );
 
