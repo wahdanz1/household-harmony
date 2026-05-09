@@ -234,13 +234,15 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 return;
             }
 
-            // Prepare FormData with PDF file
+            // Prepare FormData with PDF file. household_id travels in the body
+            // (not the URL) so the server derives user_id from the JWT only.
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('household_id', household.id);
 
             // Call backend API
             const response = await fetch(
-                `${API_BASE_URL}/api/llm/parse-invoice?user_id=${user.id}&household_id=${household.id}`,
+                `${API_BASE_URL}/api/llm/parse-invoice`,
                 {
                     method: 'POST',
                     headers: {

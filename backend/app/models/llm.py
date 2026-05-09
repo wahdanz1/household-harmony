@@ -36,12 +36,22 @@ class ParsedInvoiceResponse(BaseModel):
     cached: bool = Field(default=False, description="Whether result was from cache")
 
 
+class MerchantMappingRequest(BaseModel):
+    """Client request for saving a merchant category mapping.
+
+    `user_id` is derived from the verified JWT, never trusted from the body.
+    """
+    merchant_name: str = Field(..., min_length=1, max_length=200)
+    category: str = Field(..., min_length=1, max_length=64)
+    household_id: str = Field(..., description="Household ID the mapping belongs to")
+
+
 class MerchantMapping(BaseModel):
-    """Request model for saving merchant category mappings."""
-    merchant_name: str = Field(..., description="Name of the merchant")
-    category: str = Field(..., description="Category to associate with merchant")
-    user_id: str = Field(..., description="User ID")
-    household_id: str = Field(..., description="Household ID")
+    """Internal model passed to the service layer with verified user_id."""
+    merchant_name: str
+    category: str
+    user_id: str
+    household_id: str
 
 
 class LLMTransactionResponse(BaseModel):

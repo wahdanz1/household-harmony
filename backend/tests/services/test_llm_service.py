@@ -48,12 +48,18 @@ def _make_response(**kwargs) -> ParsedInvoiceResponse:
 # ---------------------------------------------------------------------------
 
 class TestCacheKey:
-    def test_same_content_same_key(self):
+    def test_same_content_same_user_same_key(self):
         pdf = b"fake pdf content"
-        assert _get_cache_key(pdf) == _get_cache_key(pdf)
+        assert _get_cache_key(pdf, "user-1") == _get_cache_key(pdf, "user-1")
 
     def test_different_content_different_key(self):
-        assert _get_cache_key(b"pdf-a") != _get_cache_key(b"pdf-b")
+        assert _get_cache_key(b"pdf-a", "user-1") != _get_cache_key(b"pdf-b", "user-1")
+
+    def test_same_content_different_users_different_keys(self):
+        """Cache must be scoped per-user — sharing the same PDF must not
+        leak parsed transactions across accounts."""
+        pdf = b"identical pdf content"
+        assert _get_cache_key(pdf, "user-a") != _get_cache_key(pdf, "user-b")
 
 
 # ---------------------------------------------------------------------------

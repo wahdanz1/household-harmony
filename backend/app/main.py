@@ -1,21 +1,44 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+
 from app.config import settings
 
 app = FastAPI(
     title="Household Harmony API",
     version="1.0.0",
-    description="Backend API for Household Harmony budgeting app with Swedish tax intelligence and smart defaults"
+    description="Backend API for Household Harmony budgeting app with Swedish tax intelligence and smart defaults",
 )
 
-# CORS configuration
+# CORS — pinned origins, explicit methods/headers. Wildcards combined with
+# `allow_credentials=True` are unsafe and Starlette silently downgrades them.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Admin-Secret"],
+    max_age=600,
 )
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Defense-in-depth headers for the API surface."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        if settings.ENVIRONMENT == "production":
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Import routers after app creation to avoid circular imports
 from app.routers import health, tax, smart_defaults, llm, api_keys, demo

@@ -107,9 +107,10 @@ export const ApiKeysCard = () => {
                 return;
             }
 
-            // Call backend API to save encrypted key
+            // Call backend API to save encrypted key. user_id is derived from
+            // the JWT server-side; household_id travels in the body.
             const response = await fetch(
-                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys?user_id=${user.id}&household_id=${household.id}`,
+                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys`,
                 {
                     method: "POST",
                     headers: {
@@ -119,6 +120,7 @@ export const ApiKeysCard = () => {
                     body: JSON.stringify({
                         api_key: apiKey,
                         provider: provider,
+                        household_id: household.id,
                     }),
                 }
             );
@@ -149,7 +151,7 @@ export const ApiKeysCard = () => {
             }
 
             const response = await fetch(
-                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys/${provider}?user_id=${user.id}`,
+                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys/${provider}`,
                 {
                     method: "DELETE",
                     headers: {

@@ -22,9 +22,12 @@ from app.models.llm import (
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# In-memory cache for parsed results (TTL: 5 minutes)
+# In-memory cache for parsed results (TTL: 5 minutes). Keyed by
+# (user_id, sha256(pdf)) so two users uploading the same document do not
+# share parsed transactions or any leaked merchant context.
 _response_cache: dict[str, tuple[ParsedInvoiceResponse, float]] = {}
 CACHE_TTL_SECONDS = 300  # 5 minutes
+_CACHE_MAX_ENTRIES = 1_000  # bound memory growth
 
 # Rate limiter: track requests per user
 _rate_limiter: dict[str, list[float]] = {}
@@ -32,9 +35,10 @@ RATE_LIMIT_WINDOW = 60  # 1 minute
 RATE_LIMIT_MAX = 5  # 5 requests per minute
 
 
-def _get_cache_key(pdf_bytes: bytes) -> str:
-    """Generate cache key from PDF content hash."""
-    return hashlib.sha256(pdf_bytes).hexdigest()
+def _get_cache_key(pdf_bytes: bytes, user_id: str) -> str:
+    """Generate a per-user cache key from PDF content hash."""
+    digest = hashlib.sha256(pdf_bytes).hexdigest()
+    return f"{user_id}:{digest}"
 
 
 def _check_cache(cache_key: str) -> Optional[ParsedInvoiceResponse]:
@@ -56,7 +60,10 @@ def _check_cache(cache_key: str) -> Optional[ParsedInvoiceResponse]:
 
 
 def _set_cache(cache_key: str, response: ParsedInvoiceResponse) -> None:
-    """Store response in cache."""
+    """Store response in cache, evicting the oldest entry if at capacity."""
+    if cache_key not in _response_cache and len(_response_cache) >= _CACHE_MAX_ENTRIES:
+        oldest = min(_response_cache.items(), key=lambda kv: kv[1][1])
+        _response_cache.pop(oldest[0], None)
     _response_cache[cache_key] = (response, time.time())
 
 
@@ -352,8 +359,9 @@ async def parse_invoice(
     start_time = time.time()
     
     try:
-        # 1. Check cache
-        cache_key = _get_cache_key(pdf_bytes)
+        # 1. Check cache (per-user key — two users uploading the same PDF
+        #    must not share parsed results)
+        cache_key = _get_cache_key(pdf_bytes, user_id)
         cached = _check_cache(cache_key)
         if cached:
             logger.info("Returning cached response")
