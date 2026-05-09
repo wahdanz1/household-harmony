@@ -1,8 +1,4 @@
-"""Tests for JWT verification and admin secret gating.
-
-These guard the security-critical fact that backend endpoints derive
-`user_id` from the verified token, never from a request parameter.
-"""
+"""Tests for JWT verification and admin secret gating."""
 
 import time
 from unittest.mock import MagicMock, patch
@@ -87,16 +83,13 @@ class TestGetCurrentUser:
         assert exc.value.status_code == 401
 
     def test_wrong_audience_rejected(self):
-        """Service-role tokens have aud != 'authenticated' and must be refused."""
         token = _make_token({"aud": "service_role"})
         with pytest.raises(HTTPException) as exc:
             get_current_user(_creds(token))
         assert exc.value.status_code == 401
 
     def test_alg_none_rejected(self):
-        """Classic JWT 'alg: none' attack — must be rejected."""
         unsigned = jwt.encode({"sub": "attacker", "aud": "authenticated"}, "", algorithm="HS256")
-        # Strip the signature portion to simulate alg=none
         header, payload, _ = unsigned.split(".")
         with pytest.raises(HTTPException) as exc:
             get_current_user(_creds(f"{header}.{payload}."))
@@ -125,7 +118,6 @@ class TestVerifyHouseholdMember:
             verify_household_member("user-1", "household-1")  # no exception
 
     def test_non_member_rejected_with_404(self):
-        """Returns 404 (not 403) so attackers cannot enumerate household ids."""
         with self._patch_supabase([]):
             with pytest.raises(HTTPException) as exc:
                 verify_household_member("user-1", "household-1")
@@ -151,7 +143,6 @@ class TestRequireAdminSecret:
         assert exc.value.status_code == 401
 
     def test_unconfigured_admin_secret_denies_all(self, patch_jwt_secret):
-        """No admin secret in env -> endpoint disabled, even with header."""
         patch_jwt_secret.ADMIN_SECRET = ""
         with pytest.raises(HTTPException) as exc:
             require_admin_secret("anything")

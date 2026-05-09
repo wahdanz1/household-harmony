@@ -58,8 +58,6 @@ class TestCacheKey:
         assert _get_cache_key(b"pdf-a", "user-1") != _get_cache_key(b"pdf-b", "user-1")
 
     def test_same_content_different_users_different_keys(self):
-        """Cache must be scoped per-user — sharing the same PDF must not
-        leak parsed transactions across accounts."""
         pdf = b"identical pdf content"
         assert _get_cache_key(pdf, "user-a") != _get_cache_key(pdf, "user-b")
 
@@ -167,14 +165,8 @@ class TestPromptBuilding:
 # ---------------------------------------------------------------------------
 
 class TestPdfExtractionGuards:
-    """Verify the page-count cap, timeout budget, and safe error surfacing
-    around `pdfplumber.open`. We mock pdfplumber to avoid building real PDFs
-    (no extra test-only deps) and to make timeout behaviour deterministic.
-    """
-
     @staticmethod
     def _fake_pdf(page_count: int, page_text: str = "Sample text"):
-        """Build a context-manager double matching pdfplumber's surface."""
         page = MagicMock()
         page.extract_text.return_value = page_text
         pdf = MagicMock()
@@ -213,7 +205,6 @@ class TestPdfExtractionGuards:
 
     @pytest.mark.asyncio
     async def test_unparseable_input_returns_safe_message(self):
-        """Internal pdfplumber errors must not leak to the client."""
         with pytest.raises(ValueError, match="corrupt|unsupported|too long"):
             await extract_text_from_pdf(b"definitely not a pdf")
 

@@ -48,9 +48,6 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
 
         setLoading(true);
 
-        // Use the lookup RPC — household_invites is no longer publicly
-        // queryable. The RPC returns the household preview (name, currency,
-        // member display info) without exposing the table itself.
         const { data, error } = await supabase.rpc("lookup_active_invite", {
             invite_code_in: inviteCode.toUpperCase(),
         });
@@ -77,7 +74,6 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
             }>;
         };
 
-        // "Already a member" is also re-checked server-side by redeem_invite.
         const { data: existingMember } = await supabase
             .from("household_members")
             .select("id")
@@ -116,8 +112,6 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
 
         setLoading(true);
 
-        // Single atomic RPC: validates the invite, inserts the membership,
-        // and consumes the invite in one transaction.
         const { error } = await supabase.rpc("redeem_invite", {
             invite_code_in: inviteCode.toUpperCase(),
         });

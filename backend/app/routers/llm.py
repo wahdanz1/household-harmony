@@ -53,7 +53,6 @@ async def parse_invoice_endpoint(
     try:
         return await parse_invoice(pdf_bytes, user.id, household_id)
     except ValueError as e:
-        # Known, user-safe errors (no API key, rate limits, validation).
         error_msg = str(e)
         if "No LLM API key" in error_msg:
             raise HTTPException(status_code=401, detail=error_msg)

@@ -100,15 +100,12 @@ export const ApiKeysCard = () => {
 
         setSaving(true);
         try {
-            // Get the current session for auth header
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 toast.error("Please log in again");
                 return;
             }
 
-            // Call backend API to save encrypted key. user_id is derived from
-            // the JWT server-side; household_id travels in the body.
             const response = await fetch(
                 `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys`,
                 {

@@ -10,8 +10,6 @@ app = FastAPI(
     description="Backend API for Household Harmony budgeting app with Swedish tax intelligence and smart defaults",
 )
 
-# CORS — pinned origins, explicit methods/headers. Wildcards combined with
-# `allow_credentials=True` are unsafe and Starlette silently downgrades them.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins_list,
@@ -23,8 +21,6 @@ app.add_middleware(
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Defense-in-depth headers for the API surface."""
-
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
@@ -40,10 +36,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Import routers after app creation to avoid circular imports
+# Imported after app creation to avoid circular imports.
 from app.routers import health, tax, smart_defaults, llm, api_keys, demo
 
-# Include routers
 app.include_router(health.router, tags=["health"])
 app.include_router(tax.router, prefix="/api/tax", tags=["tax"])
 app.include_router(smart_defaults.router, prefix="/api/defaults", tags=["smart_defaults"])

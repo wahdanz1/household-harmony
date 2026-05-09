@@ -23,27 +23,19 @@ from app.models.llm import (
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# In-memory cache for parsed results (TTL: 5 minutes). Keyed by
-# (user_id, sha256(pdf)) so two users uploading the same document do not
-# share parsed transactions or any leaked merchant context.
 _response_cache: dict[str, tuple[ParsedInvoiceResponse, float]] = {}
-CACHE_TTL_SECONDS = 300  # 5 minutes
-_CACHE_MAX_ENTRIES = 1_000  # bound memory growth
+CACHE_TTL_SECONDS = 300
+_CACHE_MAX_ENTRIES = 1_000
 
-# Rate limiter: track requests per user
 _rate_limiter: dict[str, list[float]] = {}
-RATE_LIMIT_WINDOW = 60  # 1 minute
-RATE_LIMIT_MAX = 5  # 5 requests per minute
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX = 5
 
-# PDF extraction limits — bound CPU/memory exposure to malformed or
-# decompression-bomb PDFs. The 10 MB upload cap doesn't bound page count or
-# extraction time on its own.
 PDF_MAX_PAGES = 50
 PDF_EXTRACT_TIMEOUT_SECONDS = 30
 
 
 def _get_cache_key(pdf_bytes: bytes, user_id: str) -> str:
-    """Generate a per-user cache key from PDF content hash."""
     digest = hashlib.sha256(pdf_bytes).hexdigest()
     return f"{user_id}:{digest}"
 
@@ -67,7 +59,6 @@ def _check_cache(cache_key: str) -> Optional[ParsedInvoiceResponse]:
 
 
 def _set_cache(cache_key: str, response: ParsedInvoiceResponse) -> None:
-    """Store response in cache, evicting the oldest entry if at capacity."""
     if cache_key not in _response_cache and len(_response_cache) >= _CACHE_MAX_ENTRIES:
         oldest = min(_response_cache.items(), key=lambda kv: kv[1][1])
         _response_cache.pop(oldest[0], None)
@@ -95,7 +86,6 @@ def check_rate_limit(user_id: str) -> bool:
 
 
 def _extract_text_sync(pdf_bytes: bytes) -> str:
-    """Blocking PDF text extraction. Runs inside a worker thread."""
     text_parts: list[str] = []
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         page_count = len(pdf.pages)
@@ -113,12 +103,7 @@ def _extract_text_sync(pdf_bytes: bytes) -> str:
 
 
 async def extract_text_from_pdf(pdf_bytes: bytes) -> str:
-    """Extract text from a PDF with a hard time + page budget.
-
-    pdfplumber is CPU-bound and blocking, so we run it in a worker thread and
-    cancel after `PDF_EXTRACT_TIMEOUT_SECONDS`. This caps both DoS exposure
-    (decompression bombs, pathological PDFs) and the impact on the event loop.
-    """
+    """Extract text from a PDF with a page cap and time budget."""
     logger.info("Extracting text from PDF (%d bytes)", len(pdf_bytes))
     try:
         result = await asyncio.wait_for(
@@ -129,7 +114,6 @@ async def extract_text_from_pdf(pdf_bytes: bytes) -> str:
         logger.warning("PDF extraction timed out after %ds", PDF_EXTRACT_TIMEOUT_SECONDS)
         raise ValueError("PDF took too long to process. Try a smaller or simpler file.")
     except ValueError:
-        # User-safe message (e.g. page-count cap). Re-raise as-is.
         raise
     except Exception:
         logger.exception("PDF extraction failed")
@@ -389,8 +373,6 @@ async def parse_invoice(
     start_time = time.time()
     
     try:
-        # 1. Check cache (per-user key — two users uploading the same PDF
-        #    must not share parsed results)
         cache_key = _get_cache_key(pdf_bytes, user_id)
         cached = _check_cache(cache_key)
         if cached:

@@ -1,62 +1,26 @@
--- Security RLS lockdown.
---
--- Postgres combines multiple RLS policies on the same operation with OR, so a
--- single overly-permissive policy bypasses every strict one beside it. This
--- migration drops the loose policies and replaces the public-by-design
--- read paths (invite preview, whitelist check, invite redemption) with
--- SECURITY DEFINER RPCs that scope each call to a single, code-gated lookup
--- — no table enumeration possible.
---
--- Coordinated with frontend changes in JoinHouseholdWizard, JoinExistingUserDialog,
--- AuthContext.signUpAndJoinHousehold, and emailWhitelist.ts. Push the migration
--- and the frontend together; mid-state will break the join + signup flows.
+-- Tighten RLS by dropping permissive policies and routing pre-auth /
+-- cross-household reads through SECURITY DEFINER RPCs.
 
--- ---------------------------------------------------------------------------
--- 1. households — drop "view all" and "create as anyone" leftovers.
--- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Allow viewing all households" ON public.households;
 DROP POLICY IF EXISTS "Allow creating households for removed members" ON public.households;
 DROP POLICY IF EXISTS "Users can view households with valid invites" ON public.households;
 
--- ---------------------------------------------------------------------------
--- 2. household_invites — drop unauthenticated bulk-read.
--- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Anyone can view pending invites by code" ON public.household_invites;
 
--- ---------------------------------------------------------------------------
--- 3. household_members — drop the INSERT policy missing user_id = auth.uid().
---    Drop the SELECT-via-invite (replaced by the lookup RPC).
--- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Allow signup with valid invite" ON public.household_members;
 DROP POLICY IF EXISTS "Users can view members via valid invite" ON public.household_members;
 
--- ---------------------------------------------------------------------------
--- 4. profiles — drop the SELECT-via-invite (replaced by the lookup RPC,
---    which never returns encryption columns).
--- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Users can view profiles via valid invite" ON public.profiles;
 
--- ---------------------------------------------------------------------------
--- 5. email_whitelist — drop world-read.
--- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Allow public read access" ON public.email_whitelist;
 
--- ---------------------------------------------------------------------------
--- 6. merchant_categories — add the missing DELETE policy so users can remove
---    their own learned mappings.
--- ---------------------------------------------------------------------------
 CREATE POLICY "Users can delete their own merchant mappings"
     ON public.merchant_categories FOR DELETE
     USING (auth.uid() = user_id);
 
--- ---------------------------------------------------------------------------
--- 7. RPC: lookup_active_invite(invite_code_in)
---
--- Returns the household preview (name, currency, member display info, the
--- invited_email if email-locked) ONLY when the caller knows the exact code.
--- Anonymous or authenticated callers can use it; rate-limit at the proxy if
--- needed. Encryption columns are deliberately excluded from the projection.
--- ---------------------------------------------------------------------------
+
+-- Returns the household preview for a known invite code. Encryption columns
+-- are deliberately excluded from the projection.
 CREATE OR REPLACE FUNCTION public.lookup_active_invite(invite_code_in text)
 RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
@@ -91,20 +55,15 @@ $$;
 REVOKE ALL ON FUNCTION public.lookup_active_invite(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.lookup_active_invite(text) TO anon, authenticated;
 
--- ---------------------------------------------------------------------------
--- 8. RPC: redeem_invite(invite_code_in)
---
--- Atomically validates an invite (active, not expired, optionally email-locked
--- to the caller), inserts the membership, and marks the invite consumed.
--- Replaces direct INSERT into household_members + UPDATE of household_invites
--- so the email-lock can be enforced server-side and the consume is one txn.
+
+-- Atomically validates an invite (active, not expired, email-lock matches the
+-- caller), inserts the membership, and marks the invite consumed.
 --
 -- Errors:
---   not_authenticated     — no session
---   invite_not_found      — wrong/expired/inactive code
---   email_mismatch        — invite is email-locked to a different address
---   already_member        — caller already belongs to the household
--- ---------------------------------------------------------------------------
+--   not_authenticated  — no session
+--   invite_not_found   — wrong/expired/inactive code
+--   email_mismatch     — invite is email-locked to a different address
+--   already_member     — caller already belongs to the household
 CREATE OR REPLACE FUNCTION public.redeem_invite(invite_code_in text)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -164,13 +123,7 @@ $$;
 REVOKE ALL ON FUNCTION public.redeem_invite(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.redeem_invite(text) TO authenticated;
 
--- ---------------------------------------------------------------------------
--- 9. RPC: is_email_whitelisted(email_in)
---
--- Returns a single boolean — confirms eligibility without exposing the table.
--- Email enumeration is still possible one query at a time; rate-limit at the
--- proxy and move to a server-side signup hook for full protection.
--- ---------------------------------------------------------------------------
+
 CREATE OR REPLACE FUNCTION public.is_email_whitelisted(email_in text)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public

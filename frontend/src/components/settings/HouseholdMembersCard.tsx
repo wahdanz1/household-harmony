@@ -51,10 +51,8 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
 
-  // Cryptographically random invite code over an unambiguous alphabet
-  // (no 0/O/1/I/L). 8 chars over 32 symbols ≈ 1.1 trillion possibilities,
-  // so brute-forcing the active invite space is no longer feasible.
   const generateInviteCode = () => {
+    // Alphabet excludes 0/O/1/I/L to avoid handwriting/transcription confusion.
     const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
     const bytes = new Uint8Array(8);
     crypto.getRandomValues(bytes);

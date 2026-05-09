@@ -37,17 +37,14 @@ class ParsedInvoiceResponse(BaseModel):
 
 
 class MerchantMappingRequest(BaseModel):
-    """Client request for saving a merchant category mapping.
-
-    `user_id` is derived from the verified JWT, never trusted from the body.
-    """
+    """Client-supplied fields for saving a merchant category mapping."""
     merchant_name: str = Field(..., min_length=1, max_length=200)
     category: str = Field(..., min_length=1, max_length=64)
-    household_id: str = Field(..., description="Household ID the mapping belongs to")
+    household_id: str
 
 
 class MerchantMapping(BaseModel):
-    """Internal model passed to the service layer with verified user_id."""
+    """Internal model with the resolved user_id."""
     merchant_name: str
     category: str
     user_id: str

@@ -46,10 +46,7 @@ class PrognosisResponse(BaseModel):
 
 @router.post("/calculate", response_model=TaxCalculationResponse)
 async def calculate_tax(request: TaxCalculationRequest, _user: CurrentUser):
-    """Calculate monthly tax for a single income source.
-
-    Authentication required to prevent anonymous abuse of the compute endpoint.
-    """
+    """Calculate monthly tax for a single income source."""
     try:
         tax_type_enum = TaxType(request.tax_type)
         gross_decimal = Decimal(str(request.gross_monthly))

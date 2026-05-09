@@ -60,10 +60,6 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
 
         setLoading(true);
 
-        // The household_invites table is no longer publicly readable. The
-        // RPC takes the exact code, returns only the household preview the
-        // wizard needs (no encryption columns, no full member rows), and
-        // can't be enumerated.
         const { data, error } = await supabase.rpc("lookup_active_invite", {
             invite_code_in: inviteCode.toUpperCase(),
         });
@@ -122,7 +118,6 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        // Validate email matches invite if invite is email-locked
         if (household?.invited_email && email.toLowerCase() !== household.invited_email.toLowerCase()) {
             toast({
                 title: "Email Mismatch",
@@ -132,7 +127,6 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        // Check email whitelist
         const isAllowed = await isEmailAllowed(email);
         if (!isAllowed) {
             toast({
@@ -152,8 +146,6 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        // Same strength as the regular signup flow — this password derives the
-        // KEK for the AES-256-GCM vault, so weakening it weakens encryption.
         const passwordCheck = passwordSchema.safeParse(password);
         if (!passwordCheck.success) {
             toast({

@@ -12,8 +12,7 @@ class Settings(BaseSettings):
     # Encryption
     ENCRYPTION_MASTER_KEY: str = ""  # Fernet key for API key encryption
 
-    # Shared secret for cron/maintenance endpoints (e.g. demo cleanup).
-    # Empty disables those endpoints entirely.
+    # Shared secret for cron/maintenance endpoints. Empty disables them.
     ADMIN_SECRET: str = ""
 
     # Environment

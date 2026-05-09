@@ -17,12 +17,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Per-IP rate limit for anonymous demo creation. In-memory; OK for a single
-# instance, would need Redis for horizontal scale.
+# In-memory per-IP buckets — single-instance only.
 _rate_limiter: Dict[str, list[float]] = {}
-RATE_LIMIT_WINDOW = 3600  # 1 hour
+RATE_LIMIT_WINDOW = 3600
 RATE_LIMIT_MAX = 5
-_RATE_LIMITER_MAX_KEYS = 10_000  # cap memory growth
+_RATE_LIMITER_MAX_KEYS = 10_000
 
 
 class DemoUserResponse(BaseModel):
@@ -33,13 +32,7 @@ class DemoUserResponse(BaseModel):
 
 
 def _client_ip(request: Request) -> str:
-    """Resolve client IP, honouring `X-Forwarded-For` set by the platform proxy.
-
-    Railway/Vercel terminate TLS and forward the real client IP in
-    `X-Forwarded-For` (comma-separated, leftmost is the original client). Using
-    `request.client.host` directly would key every request to the proxy IP,
-    making the rate limit a global bucket.
-    """
+    """Real client IP from `X-Forwarded-For` (leftmost), else direct peer."""
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         first = forwarded.split(",")[0].strip()
@@ -52,7 +45,6 @@ def check_rate_limit(ip: str) -> bool:
     """Return True if the IP is over the limit."""
     now = time.time()
 
-    # Bound memory: when full, drop the entry with the oldest most-recent hit.
     if ip not in _rate_limiter and len(_rate_limiter) >= _RATE_LIMITER_MAX_KEYS:
         oldest = min(_rate_limiter.items(), key=lambda kv: max(kv[1]) if kv[1] else 0)
         _rate_limiter.pop(oldest[0], None)
@@ -146,10 +138,7 @@ async def create_demo_user(request: Request):
 async def cleanup_old_demo_users(
     x_admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
 ):
-    """Delete demo users older than 24 hours.
-
-    Gated behind `ADMIN_SECRET` — intended for cron/scheduler invocation only.
-    """
+    """Delete demo users older than 24 hours. Admin-gated."""
     require_admin_secret(x_admin_secret)
 
     try:
@@ -198,7 +187,7 @@ async def cleanup_old_demo_users(
 async def get_demo_user_count(
     x_admin_secret: str | None = Header(default=None, alias="X-Admin-Secret"),
 ):
-    """Operational metric — demo user count. Admin-gated."""
+    """Demo user count. Admin-gated."""
     require_admin_secret(x_admin_secret)
 
     try:

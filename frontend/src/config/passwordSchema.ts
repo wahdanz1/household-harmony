@@ -1,12 +1,6 @@
 import { z } from "zod";
 
-/**
- * Single source of truth for new-account password strength.
- *
- * The same string is used as the KEK passphrase for the AES-256-GCM vault,
- * so a weak password directly weakens the encryption — every signup path
- * (regular signup, invite-join) must use this schema.
- */
+/** Password requirements for new accounts. Doubles as the vault KEK passphrase. */
 export const passwordSchema = z
     .string()
     .min(12, "Password must be at least 12 characters for encryption security")

@@ -82,10 +82,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: signUpError };
     }
 
-    // Single atomic RPC: re-validates the invite (active, not expired,
-    // email-locked match), inserts the membership, marks the invite consumed.
-    // Replaces the previous direct-insert + manual-update pair so the
-    // email-lock can no longer be skipped client-side.
     const { error: redeemError } = await supabase.rpc("redeem_invite", {
       invite_code_in: inviteCode.toUpperCase(),
     });
@@ -94,8 +90,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: redeemError };
     }
 
-    // Tear down any default household the signup trigger may have spun up,
-    // so the user lands in the invited household only.
+    // The signup trigger may have provisioned a default household — drop it
+    // so the user lands in the invited one only.
     const { data: ownedHouseholds } = await supabase
       .from("households")
       .select("id")

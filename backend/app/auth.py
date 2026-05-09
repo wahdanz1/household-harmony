@@ -1,11 +1,4 @@
-"""JWT verification for Supabase auth tokens.
-
-The backend uses Supabase's service role key to talk to the database, so RLS
-is bypassed — every endpoint must therefore verify the caller's identity from
-the JWT and derive `user_id` from the verified token, never from a query
-parameter or request body. Membership in a given household is verified
-against `household_members` before any cross-user data is touched.
-"""
+"""JWT verification for Supabase auth tokens."""
 
 from typing import Annotated
 
@@ -63,7 +56,7 @@ CurrentUser = Annotated[AuthenticatedUser, Depends(get_current_user)]
 def verify_household_member(user_id: str, household_id: str) -> None:
     """Raise 404 unless `user_id` is a member of `household_id`.
 
-    Returning 404 (not 403) avoids leaking whether the household exists.
+    404 (not 403) so callers cannot enumerate household ids.
     """
     supabase = get_supabase_client()
     result = (
@@ -79,11 +72,7 @@ def verify_household_member(user_id: str, household_id: str) -> None:
 
 
 def require_admin_secret(secret_header: str | None) -> None:
-    """Gate maintenance endpoints (cron, cleanup) behind a shared secret.
-
-    Compared in constant time. If `ADMIN_SECRET` is not configured, the
-    endpoint is denied — no implicit "open in dev" mode.
-    """
+    """Gate an endpoint behind `ADMIN_SECRET`. Fails closed when unset."""
     import hmac
 
     expected = settings.ADMIN_SECRET
