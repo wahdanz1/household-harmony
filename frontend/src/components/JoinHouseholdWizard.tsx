@@ -60,19 +60,15 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
 
         setLoading(true);
 
-        // Fetch invite and household info. Expiration is enforced here as
-        // well — relying only on the "expired" badge in the owner UI would
-        // let a stale-but-active invite still be redeemed.
-        const nowIso = new Date().toISOString();
-        const { data: invite, error: inviteError } = await supabase
-            .from("household_invites")
-            .select("*, households(*)")
-            .eq("invite_code", inviteCode.toUpperCase())
-            .eq("is_active", true)
-            .gt("expires_at", nowIso)
-            .single();
+        // The household_invites table is no longer publicly readable. The
+        // RPC takes the exact code, returns only the household preview the
+        // wizard needs (no encryption columns, no full member rows), and
+        // can't be enumerated.
+        const { data, error } = await supabase.rpc("lookup_active_invite", {
+            invite_code_in: inviteCode.toUpperCase(),
+        });
 
-        if (inviteError || !invite) {
+        if (error || !data) {
             toast({
                 title: "Invalid Code",
                 description: "This invite code is invalid or has expired",
@@ -82,19 +78,34 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        // Fetch household members
-        const { data: membersData } = await supabase
-            .from("household_members")
-            .select("*, profiles(full_name, avatar_url)")
-            .eq("household_id", invite.household_id);
+        const preview = data as {
+            household_id: string;
+            household_name: string;
+            household_currency: string;
+            invited_email: string | null;
+            members: Array<{
+                role: string;
+                full_name: string | null;
+                avatar_url: string | null;
+            }>;
+        };
 
-        // Store household with invited_email from invite
-        setHousehold({ ...invite.households, invited_email: invite.invited_email });
-        setMembers(membersData || []);
+        setHousehold({
+            id: preview.household_id,
+            name: preview.household_name,
+            currency: preview.household_currency,
+            invited_email: preview.invited_email,
+        });
+        setMembers(
+            preview.members.map((m, idx) => ({
+                id: String(idx),
+                role: m.role,
+                profiles: { full_name: m.full_name, avatar_url: m.avatar_url },
+            }))
+        );
 
-        // Pre-fill email if invite is email-locked
-        if (invite.invited_email) {
-            setEmail(invite.invited_email);
+        if (preview.invited_email) {
+            setEmail(preview.invited_email);
         }
 
         setStep(2);
@@ -155,12 +166,21 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
 
         setLoading(true);
 
-        const { error } = await signUpAndJoinHousehold(email, password, fullName, household.id);
+        const { error } = await signUpAndJoinHousehold(email, password, fullName, inviteCode);
 
         if (error) {
+            const message =
+                error.message === "email_mismatch"
+                    ? "This invite is for a different email address."
+                    : error.message === "invite_not_found"
+                    ? "This invite is no longer valid."
+                    : error.message === "already_member"
+                    ? "You are already a member of this household."
+                    : error.message || "Failed to create account";
+
             toast({
                 title: "Sign Up Failed",
-                description: error.message || "Failed to create account",
+                description: message,
                 variant: "destructive",
             });
             setLoading(false);

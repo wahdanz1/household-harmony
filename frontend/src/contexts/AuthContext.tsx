@@ -8,7 +8,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any; data: { user: User | null } | null }>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any; data: { user: User | null } | null }>;
-  signUpAndJoinHousehold: (email: string, password: string, fullName: string, householdId: string) => Promise<{ error: any }>;
+  signUpAndJoinHousehold: (email: string, password: string, fullName: string, inviteCode: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -63,10 +63,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error, data: data ? { user: data.user } : null };
   };
 
-  const signUpAndJoinHousehold = async (email: string, password: string, fullName: string, householdId: string) => {
+  const signUpAndJoinHousehold = async (email: string, password: string, fullName: string, inviteCode: string) => {
     const redirectUrl = `${window.location.origin}/`;
 
-    // Create the user account
     const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -74,7 +73,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName,
-          skip_default_household: true, // Signal to not create default household
+          skip_default_household: true,
         },
       },
     });
@@ -83,29 +82,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: signUpError };
     }
 
-    // Add user to the specified household
-    const { error: memberError } = await supabase
-      .from("household_members")
-      .insert({
-        household_id: householdId,
-        user_id: authData.user.id,
-        role: "member",
-      });
+    // Single atomic RPC: re-validates the invite (active, not expired,
+    // email-locked match), inserts the membership, marks the invite consumed.
+    // Replaces the previous direct-insert + manual-update pair so the
+    // email-lock can no longer be skipped client-side.
+    const { error: redeemError } = await supabase.rpc("redeem_invite", {
+      invite_code_in: inviteCode.toUpperCase(),
+    });
 
-    if (memberError) {
-      return { error: memberError };
+    if (redeemError) {
+      return { error: redeemError };
     }
 
-    // Clean up: Delete any auto-created default household
-    // This happens when a user joins before signup - the trigger creates a default household
-    // but we want them in the invited household instead
+    // Tear down any default household the signup trigger may have spun up,
+    // so the user lands in the invited household only.
     const { data: ownedHouseholds } = await supabase
       .from("households")
       .select("id")
       .eq("owner_id", authData.user.id);
 
     if (ownedHouseholds && ownedHouseholds.length > 0) {
-      // Delete the auto-created household and its membership
       for (const household of ownedHouseholds) {
         await supabase
           .from("household_members")
@@ -119,16 +115,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .eq("id", household.id);
       }
     }
-
-    // Update invite status to accepted and deactivate
-    await supabase
-      .from("household_invites")
-      .update({
-        status: "accepted",
-        is_active: false
-      })
-      .eq("household_id", householdId)
-      .eq("is_active", true);
 
     return { error: null };
   };

@@ -250,5 +250,11 @@ frontend/docs/
 # Supabase temp files
 supabase/.temp/
 
+# Local-only schema audits (read-only DB dumps)
+*.audit.sql
+
+# Local-only security notes (specifics of past/open vulns — keep private)
+SECURITY_AUDIT.md
+
 # Design reference prototype (Claude Design handoff — local only)
 design-reference/

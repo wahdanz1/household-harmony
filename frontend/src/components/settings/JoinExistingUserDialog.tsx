@@ -48,17 +48,14 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
 
         setLoading(true);
 
-        // Fetch invite and household info — expiration enforced server-side.
-        const nowIso = new Date().toISOString();
-        const { data: invite, error: inviteError } = await supabase
-            .from("household_invites")
-            .select("*, households(*)")
-            .eq("invite_code", inviteCode.toUpperCase())
-            .eq("is_active", true)
-            .gt("expires_at", nowIso)
-            .maybeSingle();
+        // Use the lookup RPC — household_invites is no longer publicly
+        // queryable. The RPC returns the household preview (name, currency,
+        // member display info) without exposing the table itself.
+        const { data, error } = await supabase.rpc("lookup_active_invite", {
+            invite_code_in: inviteCode.toUpperCase(),
+        });
 
-        if (inviteError || !invite) {
+        if (error || !data) {
             toast({
                 title: "Invalid Code",
                 description: "This invite code is invalid or has expired",
@@ -68,11 +65,23 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
             return;
         }
 
-        // Check if user is already in this household
+        const preview = data as {
+            household_id: string;
+            household_name: string;
+            household_currency: string;
+            invited_email: string | null;
+            members: Array<{
+                role: string;
+                full_name: string | null;
+                avatar_url: string | null;
+            }>;
+        };
+
+        // "Already a member" is also re-checked server-side by redeem_invite.
         const { data: existingMember } = await supabase
             .from("household_members")
-            .select("*")
-            .eq("household_id", invite.household_id)
+            .select("id")
+            .eq("household_id", preview.household_id)
             .eq("user_id", user?.id)
             .maybeSingle();
 
@@ -86,14 +95,18 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
             return;
         }
 
-        // Fetch household members
-        const { data: membersData } = await supabase
-            .from("household_members")
-            .select("*, profiles(full_name, avatar_url)")
-            .eq("household_id", invite.household_id);
-
-        setHousehold(invite.households);
-        setMembers(membersData || []);
+        setHousehold({
+            id: preview.household_id,
+            name: preview.household_name,
+            currency: preview.household_currency,
+        });
+        setMembers(
+            preview.members.map((m, idx) => ({
+                id: String(idx),
+                role: m.role,
+                profiles: { full_name: m.full_name, avatar_url: m.avatar_url },
+            }))
+        );
         setStep(2);
         setLoading(false);
     };
@@ -103,34 +116,30 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
 
         setLoading(true);
 
-        // Simply add new member role (owner role remains intact)
-        const { error: insertError } = await supabase
-            .from('household_members')
-            .insert({
-                household_id: household.id,
-                user_id: user.id,
-                role: 'member'
-            });
+        // Single atomic RPC: validates the invite, inserts the membership,
+        // and consumes the invite in one transaction.
+        const { error } = await supabase.rpc("redeem_invite", {
+            invite_code_in: inviteCode.toUpperCase(),
+        });
 
-        if (insertError) {
+        if (error) {
+            const message =
+                error.message === "email_mismatch"
+                    ? "This invite is for a different email address."
+                    : error.message === "invite_not_found"
+                    ? "This invite is no longer valid."
+                    : error.message === "already_member"
+                    ? "You are already a member of this household."
+                    : "Failed to join household";
+
             toast({
                 title: "Error",
-                description: "Failed to join household",
+                description: message,
                 variant: "destructive",
             });
             setLoading(false);
             return;
         }
-
-        // Update invite status to accepted and deactivate
-        await supabase
-            .from("household_invites")
-            .update({
-                status: "accepted",
-                is_active: false
-            })
-            .eq("household_id", household.id)
-            .eq("is_active", true);
 
         toast({
             title: "Success!",
@@ -141,7 +150,6 @@ export const JoinExistingUserDialog = ({ open, onOpenChange, onSuccess }: JoinEx
         onOpenChange(false);
         setLoading(false);
 
-        // Refresh the page to load new household data
         if (onSuccess) {
             onSuccess();
         } else {
