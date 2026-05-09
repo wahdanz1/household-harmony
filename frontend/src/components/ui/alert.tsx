@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
  * className on Alert (e.g. items-start for tall multi-line bodies).
  */
 const alertVariants = cva(
-  "relative w-full rounded-lg border p-4 md:p-5 flex items-center gap-3 [&>svg]:size-5 [&>svg]:shrink-0",
+  "relative w-full rounded-lg border p-4 md:p-5 flex items-start gap-3 [&>svg]:size-5 [&>svg]:shrink-0 [&>svg]:mt-0.5",
   {
     variants: {
       variant: {
