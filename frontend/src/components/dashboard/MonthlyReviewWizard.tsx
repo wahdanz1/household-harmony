@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { MoneyInput } from "@/components/ui/money-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, LockOpen, ShieldCheck, RotateCw, Sparkles } from "lucide-react";
@@ -488,18 +489,19 @@ export const MonthlyReviewWizard = ({
                                             </button>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                        <input
-                                            type="number"
+                                    <div className="flex-shrink-0">
+                                        <MoneyInput
+                                            value={parseFloat(amounts[`income-${item.source_id}`] || "0")}
+                                            currency={currency}
                                             disabled={!editable}
-                                            value={amounts[`income-${item.source_id}`] || "0"}
-                                            onChange={(e) => handleAmountChange(`income-${item.source_id}`, e.target.value)}
-                                            className={`w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:cursor-not-allowed ${Math.abs(parseFloat(amounts[`income-${item.source_id}`] || "0") - item.defaultAmount) < 0.01
-                                                ? 'border-success'
-                                                : 'border-warning'
-                                                }`}
+                                            status={
+                                                Math.abs(parseFloat(amounts[`income-${item.source_id}`] || "0") - item.defaultAmount) < 0.01
+                                                    ? "saved"
+                                                    : "modified"
+                                            }
+                                            onChange={(v) => handleAmountChange(`income-${item.source_id}`, v.toString())}
+                                            widthClassName="w-24"
                                         />
-                                        <span className="text-sm text-muted-foreground w-10">{currency}</span>
                                     </div>
                                 </div>
                             );
@@ -519,19 +521,18 @@ export const MonthlyReviewWizard = ({
                                         <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={28} />
                                         <span className="text-sm font-medium">{item.name}</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="number"
-                                            disabled={isFinalized}
-                                            value={amounts[`expense-${item.expense_id}`] || "0"}
-                                            onChange={(e) => handleAmountChange(`expense-${item.expense_id}`, e.target.value)}
-                                            className={`w-24 text-right text-lg font-semibold bg-transparent border-0 border-b-2 focus:outline-none focus:border-primary rounded-none px-2 py-1 disabled:cursor-not-allowed ${Math.abs(parseFloat(amounts[`expense-${item.expense_id}`] || "0") - item.defaultAmount) < 0.01
-                                                ? 'border-success'
-                                                : 'border-warning'
-                                                }`}
-                                        />
-                                        <span className="text-sm text-muted-foreground w-10">{currency}</span>
-                                    </div>
+                                    <MoneyInput
+                                        value={parseFloat(amounts[`expense-${item.expense_id}`] || "0")}
+                                        currency={currency}
+                                        disabled={isFinalized}
+                                        status={
+                                            Math.abs(parseFloat(amounts[`expense-${item.expense_id}`] || "0") - item.defaultAmount) < 0.01
+                                                ? "saved"
+                                                : "modified"
+                                        }
+                                        onChange={(v) => handleAmountChange(`expense-${item.expense_id}`, v.toString())}
+                                        widthClassName="w-24"
+                                    />
                                 </div>
                             );
                         })}

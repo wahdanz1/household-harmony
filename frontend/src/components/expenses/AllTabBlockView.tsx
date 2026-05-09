@@ -1,6 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle, Sparkles } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
+import { Money } from "@/components/ui/money";
+import { MoneyInput } from "@/components/ui/money-input";
+import { RowItem } from "@/components/ui/row-item";
 import { useState } from "react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
@@ -72,37 +75,37 @@ export const ExpenseBlock = ({
     };
 
     // Severity styling for the block border
-    const severityBorderClass = severity === 'danger'
-        ? 'border-destructive border-2'
+    const severityBorder = severity === 'danger'
+        ? 'border-destructive'
         : severity === 'warning'
-            ? 'border-warning border-2'  // Quarterly
+            ? 'border-warning'
             : severity === 'upcoming'
-                ? 'border-alert border-2'  // Yearly next month
-                : 'border border-primary/20';
+                ? 'border-alert'
+                : 'border-line';
+    const severityWidth = severity !== 'default' ? 'border-2' : 'border';
+    const severityIconColor = severity === 'danger'
+        ? 'text-destructive'
+        : severity === 'upcoming'
+            ? 'text-alert'
+            : 'text-warning';
 
     return (
-        <div
-            className={`rounded-lg bg-muted/40 overflow-hidden ${severityBorderClass}`}
-        >
-            {/* Header row - always clickable to expand */}
+        <div className={`rounded-[14px] bg-surface overflow-hidden ${severityBorder} ${severityWidth}`}>
+            {/* Header row */}
             <div
-                className="p-3 sm:p-4 cursor-pointer hover:bg-muted/60 transition-colors"
+                className="px-4 py-4 sm:px-5 cursor-pointer hover:bg-surface-2 transition-colors"
                 onClick={() => items.length > 0 && setIsExpanded(!isExpanded)}
             >
                 <div className="flex items-center gap-3">
                     <div className="shrink-0">{icon}</div>
                     <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground truncate">{title}</p>
-                        <p className="text-xs text-muted-foreground">{items.length} items</p>
+                        <p className="font-medium text-ink truncate">{title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{items.length} items</p>
                     </div>
-                    {/* Warning indicator with tooltip */}
                     {severity !== 'default' && severityMessage && (
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <div className={`shrink-0 ${severity === 'danger' ? 'text-destructive'
-                                    : severity === 'upcoming' ? 'text-alert'
-                                        : 'text-warning'  // warning (quarterly)
-                                    }`}>
+                                <div className={`shrink-0 ${severityIconColor}`}>
                                     <AlertTriangle className="h-5 w-5" />
                                 </div>
                             </TooltipTrigger>
@@ -111,96 +114,98 @@ export const ExpenseBlock = ({
                             </TooltipContent>
                         </Tooltip>
                     )}
-                    <p className={`text-xl font-bold whitespace-nowrap ${colorClass}`}>
-                        {total.toFixed(0)} {currency}
-                    </p>
+                    <Money
+                        v={total}
+                        currency={currency}
+                        size="lg"
+                        weight={600}
+                        className={colorClass}
+                    />
                     {items.length > 0 && (
                         <div className="shrink-0 text-muted-foreground">
                             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </div>
                     )}
                 </div>
-                {/* Header metrics - always visible below the title row */}
                 {headerMetrics && (
-                    <div className="mt-2 ml-8">
+                    <div className="mt-2 ml-9">
                         {headerMetrics}
                     </div>
                 )}
             </div>
 
-            {/* Expanded content */}
+            {/* Expanded items list — flush rows with thin separators */}
             {isExpanded && items.length > 0 && (
-                <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-border">
+                <div className="border-t border-line-2">
+                    {items.map((item, idx) => {
+                        const cat = getCategoryInfo(item.category);
+                        const Icon = cat?.icon;
+                        const isLast = idx === items.length - 1;
 
-                    {/* Items list */}
-                    <div className="pt-3 space-y-2">
-                        {items.map((item) => {
-                            const cat = getCategoryInfo(item.category);
-                            const Icon = cat?.icon;
-                            return (
-                                <div
-                                    key={item.id}
-                                    className="list-row-compact text-sm hover:bg-background/60 cursor-pointer group transition-colors"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onItemClick?.(item.id);
-                                    }}
-                                >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={28} />
-                                        <span className={`font-medium text-sm sm:text-base truncate ${
-                                            // Color name based on billing cycle and due status
-                                            item.billingCycle === 'monthly' || !item.billingCycle
-                                                ? 'text-foreground' // White for monthly
-                                                : item.isDue
-                                                    ? 'text-foreground' // White when due
-                                                    : 'text-muted-foreground' // Muted otherwise
-                                            }`}>{item.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {editable && onAmountChange ? (
-                                            <div className="relative flex items-center gap-1">
-                                                <input
-                                                    type="number"
-                                                    value={item.amount.toFixed(0)}
-                                                    onChange={(e) => {
-                                                        e.stopPropagation();
-                                                        onAmountChange(item.id, e.target.value);
-                                                    }}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    className={`currency-input w-20 sm:w-24 ${item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
-                                                        ? 'border-success'
-                                                        : 'border-warning'
-                                                        }`}
-                                                    placeholder="0"
-                                                />
-                                                <span className="text-sm text-muted-foreground shrink-0">{currency}</span>
-                                            </div>
-                                        ) : item.displayAmount !== undefined ? (
-                                            // Custom display with billing cycle colors
-                                            <span className={`font-medium whitespace-nowrap ${item.billingCycle === 'monthly' || !item.billingCycle
-                                                ? 'text-foreground' // White for monthly
-                                                : item.isDue
-                                                    ? item.billingCycle === 'yearly'
-                                                        ? 'text-destructive' // Yearly due
-                                                        : 'text-warning' // Quarterly due
-                                                    : 'text-muted-foreground' // Muted otherwise
-                                                }`}>
-                                                {item.displayAmount.toFixed(0)} {currency}{item.displayLabel}
-                                            </span>
-                                        ) : (
-                                            // Default display (calculated amount)
-                                            <>
-                                                <span className="font-medium whitespace-nowrap">{(item.amount ?? 0).toFixed(0)}</span>
-                                                <span className="text-xs text-muted-foreground min-w-[28px]">{currency}</span>
-                                            </>
-                                        )}
-                                        <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                                    </div>
+                        // Display color when not editable: muted unless monthly or due
+                        const displayColor = item.displayAmount !== undefined
+                            ? item.billingCycle === 'monthly' || !item.billingCycle
+                                ? 'text-ink'
+                                : item.isDue
+                                    ? item.billingCycle === 'yearly' ? 'text-destructive' : 'text-warning'
+                                    : 'text-muted-foreground'
+                            : 'text-ink';
+
+                        const inputStatus =
+                            item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
+                                ? 'saved'
+                                : 'modified';
+
+                        return (
+                            <RowItem
+                                key={item.id}
+                                last={isLast}
+                                onClick={() => onItemClick?.(item.id)}
+                                className="group"
+                            >
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={32} />
+                                    <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue
+                                        ? 'text-ink'
+                                        : 'text-muted-foreground'
+                                        }`}>{item.name}</span>
                                 </div>
-                            );
-                        })}
-                    </div>
+                                <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                    {editable && onAmountChange ? (
+                                        <MoneyInput
+                                            value={item.amount}
+                                            currency={currency}
+                                            status={inputStatus}
+                                            size="base"
+                                            widthClassName="w-20 sm:w-24"
+                                            onChange={(v) => onAmountChange(item.id, v.toString())}
+                                        />
+                                    ) : item.displayAmount !== undefined ? (
+                                        <span className="flex items-baseline gap-1">
+                                            <Money
+                                                v={item.displayAmount}
+                                                currency={currency}
+                                                size="base"
+                                                weight={500}
+                                                className={displayColor}
+                                            />
+                                            {item.displayLabel && (
+                                                <span className="text-xs text-muted-foreground">{item.displayLabel}</span>
+                                            )}
+                                        </span>
+                                    ) : (
+                                        <Money
+                                            v={item.amount ?? 0}
+                                            currency={currency}
+                                            size="base"
+                                            weight={500}
+                                        />
+                                    )}
+                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                </div>
+                            </RowItem>
+                        );
+                    })}
                 </div>
             )}
         </div>

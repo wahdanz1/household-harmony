@@ -1,7 +1,8 @@
 import { Switch } from "@/components/ui/switch";
 import { Pencil, Sparkles } from "lucide-react";
 import { getIncomeCategoryById } from "@/constants/incomeCategories";
-import { DataListItem } from "@/components/ui/data-list-item";
+import { RowItem } from "@/components/ui/row-item";
+import { MoneyInput } from "@/components/ui/money-input";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ShowEncryptedDataButton } from "@/components/demo/ShowEncryptedDataButton";
 
@@ -14,6 +15,8 @@ interface IncomeSourceItemProps {
     onDelete: (sourceId: string) => void;
     status?: 'saved' | 'modified' | 'none';
     readOnly?: boolean;
+    /** Set true on the last item of the list to drop the bottom divider. */
+    last?: boolean;
 }
 
 export const IncomeSourceItem = ({
@@ -24,27 +27,22 @@ export const IncomeSourceItem = ({
     onEdit,
     status = 'none',
     readOnly = false,
+    last = false,
 }: IncomeSourceItemProps) => {
     const isSkipped = amount === "0";
 
     const cat = getIncomeCategoryById(source.category);
     const Icon = cat?.icon || Sparkles;
 
-    // Bottom underline on input: shows save status
-    const getInputUnderlineClass = () => {
-        if (isSkipped) return 'border-border';
-        switch (status) {
-            case 'saved':
-                return 'border-success';
-            case 'modified':
-                return 'border-warning';
-            default:
-                return 'border-border';
-        }
-    };
+    const inputStatus =
+        isSkipped ? "default" : status === "saved" ? "saved" : status === "modified" ? "modified" : "default";
 
     return (
-        <DataListItem onClick={() => !readOnly && onEdit(source)} className="group">
+        <RowItem
+            onClick={() => !readOnly && onEdit(source)}
+            last={last}
+            className="group"
+        >
             {/* Icon + Name */}
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <CatIcon icon={Icon} hue={cat?.hue} size={32} />
@@ -53,47 +51,37 @@ export const IncomeSourceItem = ({
                 </p>
             </div>
 
-            {/* Input + Currency + Edit (desktop hover) + Toggle */}
-            <div className="flex items-center gap-2 shrink-0">
-                <input
-                    type="number"
+            {/* Amount input + actions */}
+            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <MoneyInput
                     value={amount || ""}
-                    onChange={(e) => onAmountChange(source.id, e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className={`currency-input w-24 sm:w-28 ${getInputUnderlineClass()}`}
-                    placeholder="0"
+                    currency={currency}
+                    status={inputStatus}
                     disabled={isSkipped || readOnly}
+                    onChange={(v) => onAmountChange(source.id, v.toString())}
+                    aria-label={`${source.name} amount`}
                 />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
 
-                {/* Show Encrypted Data button - demo only */}
-                <div onClick={(e) => e.stopPropagation()}>
-                    <ShowEncryptedDataButton
-                        recordId={source.id}
-                        tableName="income_sources"
-                        fieldName="encrypted_name"
-                        displayLabel="Name"
-                    />
-                </div>
+                <ShowEncryptedDataButton
+                    recordId={source.id}
+                    tableName="income_sources"
+                    fieldName="encrypted_name"
+                    displayLabel="Name"
+                />
 
-                {/* Edit icon - desktop only, visible on hover */}
-                {!readOnly && <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />}
+                {!readOnly && (
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                )}
 
-                {/* Vertical toggle on desktop, horizontal on mobile */}
-                <div
-                    className="flex items-center justify-center"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <Switch
-                        checked={!isSkipped}
-                        disabled={readOnly}
-                        onCheckedChange={(checked) =>
-                            onAmountChange(source.id, checked ? (source.default_amount || 0).toString() : "0")
-                        }
-                        className="sm:-rotate-90 data-[state=unchecked]:bg-muted"
-                    />
-                </div>
+                <Switch
+                    checked={!isSkipped}
+                    disabled={readOnly}
+                    onCheckedChange={(checked) =>
+                        onAmountChange(source.id, checked ? (source.default_amount || 0).toString() : "0")
+                    }
+                    className="sm:-rotate-90 data-[state=unchecked]:bg-muted"
+                />
             </div>
-        </DataListItem>
+        </RowItem>
     );
 };

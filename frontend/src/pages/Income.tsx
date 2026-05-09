@@ -556,20 +556,15 @@ const Income = () => {
       </div>
 
       {/* Monthly Income Block */}
-      <Card className="overflow-hidden">
-        {/* Block Header */}
-        <div className="flex items-center gap-3">
-          <TrendingUp className="h-5 w-5 text-success" />
-          <div>
-            <h3>Income</h3>
-            <p className="text-xs text-muted-foreground">
-              {incomeSources.length} {incomeSources.length === 1 ? 'source' : 'sources'}
-            </p>
+      {incomeSources.length === 0 ? (
+        <Card>
+          <div className="flex items-center gap-3">
+            <TrendingUp className="h-5 w-5 text-success" />
+            <div>
+              <h3>Income</h3>
+              <p className="text-xs text-muted-foreground">No sources yet</p>
+            </div>
           </div>
-        </div>
-
-        {/* Income Sources List */}
-        {incomeSources.length === 0 ? (
           <div className="mt-4">
             <EmptyState
               icon={AlertCircle}
@@ -577,12 +572,24 @@ const Income = () => {
               description='Click "Add Source" to get started'
             />
           </div>
-        ) : (
-          <div className="mt-4 space-y-2">
-            {incomeSources.map((source) => {
-              const currentAmount = amounts[source.id];
+        </Card>
+      ) : (
+        <Card variant="flush">
+          {/* Block Header */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-line-2">
+            <TrendingUp className="h-5 w-5 text-success" />
+            <div>
+              <h3>Income</h3>
+              <p className="text-xs text-muted-foreground">
+                {incomeSources.length} {incomeSources.length === 1 ? 'source' : 'sources'}
+              </p>
+            </div>
+          </div>
 
-              // Status: green = using default, lime = manually overridden
+          {/* Income Sources List — flush rows with dividers */}
+          <div>
+            {incomeSources.map((source, idx) => {
+              const currentAmount = amounts[source.id];
               let status: 'saved' | 'modified' | 'none' = 'none';
               if (currentAmount !== undefined) {
                 const defaultStr = (source.default_amount || 0).toString();
@@ -600,12 +607,13 @@ const Income = () => {
                   onDelete={handleDeleteSource}
                   status={status}
                   readOnly={isReadOnly}
+                  last={idx === incomeSources.length - 1}
                 />
               );
             })}
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
 
 
 
