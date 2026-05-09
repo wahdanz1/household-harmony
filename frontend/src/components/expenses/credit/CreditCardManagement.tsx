@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Money } from "@/components/ui/money";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -236,10 +237,23 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, calcu
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <div className="flex justify-between text-sm">
-                                                <span className="font-medium">{total.toFixed(0)} / {limit.toFixed(0)} {currency}</span>
-                                                <span className={remaining < 0 ? "text-destructive" : "text-success"}>
-                                                    {remaining >= 0 ? `${remaining.toFixed(0)} ${currency} left` : `${Math.abs(remaining).toFixed(0)} ${currency} over`}
+                                            <div className="flex justify-between items-baseline text-sm">
+                                                <span className="flex items-baseline gap-1">
+                                                    <Money v={total} currency={currency} size="sm" weight={600} />
+                                                    <span className="text-muted-foreground">/</span>
+                                                    <Money v={limit} currency={currency} size="sm" weight={500} color="muted" />
+                                                </span>
+                                                <span className="flex items-baseline gap-1">
+                                                    <Money
+                                                        v={Math.abs(remaining)}
+                                                        currency={currency}
+                                                        size="sm"
+                                                        weight={500}
+                                                        color={remaining < 0 ? "danger" : "accent"}
+                                                    />
+                                                    <span className={remaining < 0 ? "text-destructive" : "text-accent"}>
+                                                        {remaining >= 0 ? "left" : "over"}
+                                                    </span>
                                                 </span>
                                             </div>
                                             <div className="w-full bg-secondary rounded-full h-2">

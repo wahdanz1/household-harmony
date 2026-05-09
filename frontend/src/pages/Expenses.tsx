@@ -5,9 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AddButton } from "@/components/ui/add-button";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight } from "lucide-react";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthChip } from "@/components/ui/month-chip";
 import { Money } from "@/components/ui/money";
+import { CatIcon } from "@/components/ui/cat-icon";
 import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
@@ -464,7 +465,7 @@ const Expenses = () => {
       {header}
 
       {/* Total bar */}
-      <div className="rounded-[14px] border border-line bg-surface px-4 py-3.5 flex items-baseline justify-between">
+      <div className="rounded-[14px] border border-line bg-surface px-5 py-4 flex items-center justify-between gap-3">
         <span className="text-sm text-muted-foreground font-medium">
           Total expenses
         </span>
@@ -473,18 +474,16 @@ const Expenses = () => {
 
       {isReadOnly && (
         <Alert variant="warning">
-          <ClipboardCheck className="h-4 w-4" />
-          <div className="flex items-start justify-between gap-3 flex-1">
-            <div className="flex-1">
-              <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
-              <AlertDescription>
-                Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
-              </AlertDescription>
-            </div>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/">Open Review</Link>
-            </Button>
-          </div>
+          <ClipboardCheck />
+          <AlertContent>
+            <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
+            <AlertDescription>
+              Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
+            </AlertDescription>
+          </AlertContent>
+          <Button asChild size="sm" variant="outline" className="shrink-0">
+            <Link to="/">Open Review</Link>
+          </Button>
         </Alert>
       )}
 
@@ -610,9 +609,10 @@ const Expenses = () => {
 
           {/* Inactive Items Section */}
           {(subscriptions.some(s => !s.is_active) || insurances.some(i => !i.is_active)) && (
-            <div className="mt-6 pt-4 border-t border-border/50">
-              <h3>
-                <Moon className="h-4 w-4 opacity-60 inline mr-2" /> Inactive Items
+            <div className="mt-6 pt-5 border-t border-line">
+              <h3 className="mb-3 flex items-center gap-2">
+                <Moon className="h-4 w-4 opacity-60" />
+                Inactive Items
               </h3>
               <div className="space-y-2">
                 {subscriptions.filter(s => !s.is_active).map(sub => {
@@ -624,14 +624,17 @@ const Expenses = () => {
                       className="list-row-inactive"
                       onClick={() => setEditingSubscription(sub)}
                     >
-                      <div className="flex items-center gap-2">
-                        <SubIcon className="h-4 w-4" style={{ color: subCat?.color ? `${subCat.color}80` : undefined }} />
+                      <div className="flex items-center gap-3">
+                        <CatIcon icon={SubIcon} hue={subCat?.hue} size={28} />
                         <span className="text-sm">{sub.name}</span>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {sub.amount} {household?.currency}/
-                        {sub.billing_cycle === 'yearly' ? 'year' : sub.billing_cycle === 'quarterly' ? 'quarter' : 'month'}
-                      </span>
+                      <Money
+                        v={sub.amount}
+                        currency={household?.currency || "SEK"}
+                        size="sm"
+                        weight={500}
+                        color="muted"
+                      />
                     </div>
                   );
                 })}
@@ -644,13 +647,17 @@ const Expenses = () => {
                       className="list-row-inactive"
                       onClick={() => setEditingInsurance(ins)}
                     >
-                      <div className="flex items-center gap-2">
-                        <InsIcon className="h-4 w-4" style={{ color: insCat?.color ? `${insCat.color}80` : undefined }} />
+                      <div className="flex items-center gap-3">
+                        <CatIcon icon={InsIcon} hue={insCat?.hue} size={28} />
                         <span className="text-sm">{ins.name}</span>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {ins.total_amount} {household?.currency}/{ins.payment_frequency === 'yearly' ? 'year' : 'period'}
-                      </span>
+                      <Money
+                        v={ins.total_amount}
+                        currency={household?.currency || "SEK"}
+                        size="sm"
+                        weight={500}
+                        color="muted"
+                      />
                     </div>
                   );
                 })}

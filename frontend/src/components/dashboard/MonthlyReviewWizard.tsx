@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, LockOpen, ShieldCheck, RotateCw, Sparkles } from "lucide-react";
@@ -431,16 +432,16 @@ export const MonthlyReviewWizard = ({
                 </DialogHeader>
 
                 {isFinalized && (
-                    <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/10 border border-primary/30 text-sm">
-                        <ShieldCheck className="h-4 w-4 mt-0.5 text-primary flex-shrink-0" />
-                        <div>
-                            <p className="font-medium">Review finalized</p>
-                            <p className="text-xs text-muted-foreground">
+                    <Alert variant="success">
+                        <ShieldCheck />
+                        <AlertContent>
+                            <AlertTitle>Review finalized</AlertTitle>
+                            <AlertDescription>
                                 Finalized by {finalizerName} on {format(new Date(finalizedRow!.accepted_at), "MMM d, HH:mm")}.
                                 Use the Income or Expenses page to make corrections.
-                            </p>
-                        </div>
-                    </div>
+                            </AlertDescription>
+                        </AlertContent>
+                    </Alert>
                 )}
 
                 <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "income" | "expenses")} className="flex-1 overflow-hidden flex flex-col">

@@ -3,7 +3,7 @@ import { useLocation, Link } from "react-router-dom";
 import { AddButton } from "@/components/ui/add-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TrendingUp, AlertCircle, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthChip } from "@/components/ui/month-chip";
 import { Money, fmtKr } from "@/components/ui/money";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
@@ -493,18 +493,16 @@ const Income = () => {
 
       {isReadOnly && (
         <Alert variant="warning">
-          <ClipboardCheck className="h-4 w-4" />
-          <div className="flex items-start justify-between gap-3 flex-1">
-            <div className="flex-1">
-              <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
-              <AlertDescription>
-                Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
-              </AlertDescription>
-            </div>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/">Open Review</Link>
-            </Button>
-          </div>
+          <ClipboardCheck />
+          <AlertContent>
+            <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
+            <AlertDescription>
+              Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
+            </AlertDescription>
+          </AlertContent>
+          <Button asChild size="sm" variant="outline" className="shrink-0">
+            <Link to="/">Open Review</Link>
+          </Button>
         </Alert>
       )}
 

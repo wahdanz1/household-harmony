@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertContent, AlertDescription } from "@/components/ui/alert";
 import { Lock, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -73,7 +73,9 @@ export const VaultUnlockDialog = ({ open, onOpenChange, onSuccess }: VaultUnlock
                 <div className="space-y-4 pt-4">
                     {error && (
                         <Alert variant="destructive">
-                            <AlertDescription>{error}</AlertDescription>
+                            <AlertContent>
+                                <AlertDescription>{error}</AlertDescription>
+                            </AlertContent>
                         </Alert>
                     )}
 

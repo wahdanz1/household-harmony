@@ -10,7 +10,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertContent, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Shield, CheckCircle2, AlertTriangle, Loader2, Database, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -324,11 +324,13 @@ export const DataMigrationCard = () => {
                     </>
                 ) : totalUnencrypted === 0 ? (
                     <Alert variant="success">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <AlertTitle>All Data Encrypted</AlertTitle>
-                        <AlertDescription>
-                            Congratulations! All your data is already encrypted.
-                        </AlertDescription>
+                        <CheckCircle2 />
+                        <AlertContent>
+                            <AlertTitle>All Data Encrypted</AlertTitle>
+                            <AlertDescription>
+                                Congratulations! All your data is already encrypted.
+                            </AlertDescription>
+                        </AlertContent>
                     </Alert>
                 ) : (
                     <>
@@ -390,11 +392,13 @@ export const DataMigrationCard = () => {
 
                         {allDone && (
                             <Alert variant="success">
-                                <CheckCircle2 className="h-4 w-4" />
-                                <AlertTitle>Migration Complete</AlertTitle>
-                                <AlertDescription>
-                                    All {totalMigrated} records have been encrypted successfully.
-                                </AlertDescription>
+                                <CheckCircle2 />
+                                <AlertContent>
+                                    <AlertTitle>Migration Complete</AlertTitle>
+                                    <AlertDescription>
+                                        All {totalMigrated} records have been encrypted successfully.
+                                    </AlertDescription>
+                                </AlertContent>
                             </Alert>
                         )}
                     </>

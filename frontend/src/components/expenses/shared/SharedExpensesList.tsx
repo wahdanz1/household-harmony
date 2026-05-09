@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Money } from "@/components/ui/money";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -288,8 +289,10 @@ export const SharedExpensesList = ({
 
                         return (
                             <div key={coParent.id} className="space-y-2">
-                                <h3 className="text-sm text-muted-foreground">
-                                    {coParent.name} - {total.toFixed(0)} {currency}
+                                <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                    <span>{coParent.name}</span>
+                                    <span aria-hidden>·</span>
+                                    <Money v={total} currency={currency} size="sm" weight={500} color="muted" />
                                 </h3>
                                 {coParentExpenses.map((expense) => (
                                     <DataListItem

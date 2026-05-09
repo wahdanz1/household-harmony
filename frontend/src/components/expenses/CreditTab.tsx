@@ -317,15 +317,14 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                         <p className="text-sm text-muted-foreground">Upload your bank statement and let Gemini do the work</p>
                     </div>
                     <Button
-                        variant="outline"
+                        variant="accentSoft"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={parsing}
-                        className="bg-primary/5 border-primary/20 hover:bg-primary/10"
                     >
                         {parsing ? (
-                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Parsing PDF...</>
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Parsing PDF...</>
                         ) : (
-                            <><FileUp className="h-4 w-4 mr-2" /> Import from PDF</>
+                            <><FileUp className="h-4 w-4" /> Import from PDF</>
                         )}
                     </Button>
                     <input

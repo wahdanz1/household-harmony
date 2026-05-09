@@ -1,5 +1,6 @@
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertContent, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { VaultUnlockButton } from "@/components/shared/VaultUnlockDialog";
 
 interface VaultLockedAlertProps {
@@ -9,25 +10,18 @@ interface VaultLockedAlertProps {
 
 export const VaultLockedAlert = ({
     description = "Your vault is locked. Please unlock it to view and manage sensitive data.",
-    className
+    className,
 }: VaultLockedAlertProps) => {
     return (
-        <Alert variant="warning" className={`flex items-center justify-between p-4 ${className}`}>
-            <div className="flex items-center gap-4">
-                <div className="p-2 rounded-full bg-warning/10 shrink-0">
-                    <AlertTriangle className="h-6 w-6 stroke-warning" />
-                </div>
-                <div>
-                    <AlertTitle className="text-lg font-semibold mb-1">Vault Locked</AlertTitle>
-                    <AlertDescription className="text-base text-warning/90">
-                        {description}
-                    </AlertDescription>
-                </div>
-            </div>
-
+        <Alert variant="warning" className={cn("[&>svg]:size-6", className)}>
+            <AlertTriangle />
+            <AlertContent>
+                <AlertTitle className="text-base">Vault Locked</AlertTitle>
+                <AlertDescription>{description}</AlertDescription>
+            </AlertContent>
             <VaultUnlockButton
                 variant="outline"
-                className="h-10 px-6 ml-4 border-warning/50 hover:bg-warning/20 hover:text-warning text-base font-medium whitespace-nowrap"
+                className="shrink-0 border-warning/50 hover:bg-warning/20 hover:text-warning"
             />
         </Alert>
     );

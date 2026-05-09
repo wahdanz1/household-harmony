@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertContent, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, X } from "lucide-react";
 import {
@@ -29,15 +29,14 @@ export const DemoBanner = () => {
 
     return (
         <Alert variant="warning" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <div className="flex items-start justify-between flex-1">
-                <div className="flex-1">
-                    <AlertTitle>Demo Mode</AlertTitle>
-                    <AlertDescription className="mt-1">
-                        You're exploring with sample data. All features work, including encryption, but data resets after 24h.
-                    </AlertDescription>
-                </div>
-                <div className="flex gap-2 ml-4">
+            <AlertCircle />
+            <AlertContent>
+                <AlertTitle>Demo Mode</AlertTitle>
+                <AlertDescription>
+                    You're exploring with sample data. All features work, including encryption, but data resets after 24h.
+                </AlertDescription>
+            </AlertContent>
+            <div className="flex gap-2 shrink-0">
                     <Dialog>
                         <DialogTrigger asChild>
                             <Button size="sm" variant="default">
@@ -90,7 +89,6 @@ export const DemoBanner = () => {
                     >
                         <X className="h-4 w-4" />
                     </Button>
-                </div>
             </div>
         </Alert>
     );
