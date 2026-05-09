@@ -4,6 +4,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- script-src hash below pins the inline theme script. Regenerate on edit. -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'sha256-qZFQHHsWZii+WmLPYodMObOdwMt/M25UxUr9XO78dYA=';
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src 'self' https://fonts.gstatic.com data:;
+    img-src 'self' data: https:;
+    connect-src 'self' https://*.supabase.co https://api.groq.com https://generativelanguage.googleapis.com https://*.railway.app;
+    frame-ancestors 'none';
+    base-uri 'self';
+    form-action 'self';
+  " />
+
   <title>Household Harmony - Track, plan & save!</title>
   <meta name="description"
     content="Streamlined household economy management for couples and families. Track shared finances with minimal effort." />
