@@ -107,15 +107,22 @@ async def create_demo_user(request: Request):
                 "email": email,
                 "full_name": "Demo User",
                 "is_demo": True,
-                "encrypted_dek": vault_keys["encrypted_dek"],
-                "dek_salt": vault_keys["dek_salt"],
-                "dek_iv": vault_keys["dek_iv"],
-                "encryption_version": 1,
             }
         ).execute()
 
         if not profile_result:
             raise RuntimeError("Failed to update profile")
+
+        supabase.table("user_vault_keys").upsert(
+            {
+                "user_id": user_id,
+                "encrypted_dek": vault_keys["encrypted_dek"],
+                "dek_salt": vault_keys["dek_salt"],
+                "dek_iv": vault_keys["dek_iv"],
+                "encryption_version": 1,
+            },
+            on_conflict="user_id",
+        ).execute()
 
         household_id = await seed_demo_household(user_id, vault_keys["raw_dek"])
         logger.info("Demo user provisioned: %s (household %s)", user_id, household_id)
