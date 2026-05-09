@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertContent, AlertDescription } from "@/components/ui/alert";
-import { Lock, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { Lock, LockOpen, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -138,8 +139,22 @@ export const VaultUnlockButton = ({ onSuccess, variant = "default", className }:
 
     return (
         <>
-            <Button variant={variant} onClick={() => setDialogOpen(true)} className={className}>
-                <Lock className="h-4 w-4 mr-2" />
+            <Button
+                variant={variant}
+                onClick={() => setDialogOpen(true)}
+                className={cn("group", className)}
+            >
+                {/* Icon swap on hover: Lock → LockOpen via cross-fade */}
+                <span className="relative inline-flex h-4 w-4 shrink-0">
+                    <Lock
+                        aria-hidden
+                        className="absolute inset-0 h-4 w-4 transition-opacity duration-200 group-hover:opacity-0"
+                    />
+                    <LockOpen
+                        aria-hidden
+                        className="absolute inset-0 h-4 w-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                    />
+                </span>
                 Unlock Vault
             </Button>
             <VaultUnlockDialog

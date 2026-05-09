@@ -13,7 +13,7 @@ export const VaultLockedAlert = ({
     className,
 }: VaultLockedAlertProps) => {
     return (
-        <Alert variant="warning" className={cn("[&>svg]:size-6", className)}>
+        <Alert variant="warning" className={cn("flex-wrap [&>svg]:size-6", className)}>
             <AlertTriangle />
             <AlertContent>
                 <AlertTitle className="text-base">Vault Locked</AlertTitle>
@@ -21,7 +21,7 @@ export const VaultLockedAlert = ({
             </AlertContent>
             <VaultUnlockButton
                 variant="outline"
-                className="shrink-0 border-warning/50 hover:bg-warning/20 hover:text-warning"
+                className="w-full sm:w-auto sm:shrink-0 border-warning/50 hover:bg-warning/20 hover:text-warning"
             />
         </Alert>
     );
