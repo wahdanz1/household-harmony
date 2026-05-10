@@ -7,6 +7,7 @@ import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard
 import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
 import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
+import { ResetDataCard } from "@/components/settings/ResetDataCard";
 // import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -120,6 +121,12 @@ const Settings = () => {
               enableCreditCards={household.enable_credit_cards || false}
               enableSharedExpenses={household.enable_shared_expenses ?? true}
               onUpdate={fetchData}
+            />
+            <ResetDataCard
+              householdId={household.id}
+              householdName={household.name}
+              isOwner={userRole === "owner"}
+              onComplete={fetchData}
             />
           </div>
         </TabsContent>
