@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
     ArrowLeft, ArrowRight, Check, Plus, Sparkles,
-    TrendingUp, Home, Repeat, Shield,
+    TrendingUp, Home, Repeat, Shield, ToggleRight, CreditCard, Users,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
@@ -47,9 +48,42 @@ interface HouseholdSetupWizardProps {
     onComplete: () => void;
 }
 
-type StepKey = "income" | "expense" | "subscription" | "insurance";
+type StepKey = "features" | "income" | "expense" | "subscription" | "insurance";
+
+type FeatureKey = "credit_cards" | "shared_expenses";
+
+interface FeatureToggle {
+    key: FeatureKey;
+    column: "enable_credit_cards" | "enable_shared_expenses";
+    title: string;
+    description: string;
+    icon: any;
+}
+
+const FEATURES: FeatureToggle[] = [
+    {
+        key: "credit_cards",
+        column: "enable_credit_cards",
+        title: "Credit cards",
+        description: "Track credit-card spend and import PDF invoices. Adds a Credit tab on Expenses.",
+        icon: CreditCard,
+    },
+    {
+        key: "shared_expenses",
+        column: "enable_shared_expenses",
+        title: "Shared with co-parent",
+        description: "Split expenses with an ex-partner or co-guardian. Adds a Shared tab on Expenses.",
+        icon: Users,
+    },
+];
 
 const STEPS: { key: StepKey; title: string; description: string; icon: any }[] = [
+    {
+        key: "features",
+        title: "Features",
+        description: "Pick what you want to track. You can always change this later in Settings.",
+        icon: ToggleRight,
+    },
     {
         key: "income",
         title: "Income sources",
@@ -95,9 +129,14 @@ export const HouseholdSetupWizard = ({
         const id = window.setInterval(tick, 60_000);
         return () => window.clearInterval(id);
     }, [open, resetInactivityTimer]);
-    const [items, setItems] = useState<Record<StepKey, any[]>>({
+    const [items, setItems] = useState<Record<Exclude<StepKey, "features">, any[]>>({
         income: [], expense: [], subscription: [], insurance: [],
     });
+    const [featureState, setFeatureState] = useState<Record<FeatureKey, boolean>>({
+        credit_cards: false,
+        shared_expenses: true,
+    });
+    const [savingFeatures, setSavingFeatures] = useState(false);
     const [addOpen, setAddOpen] = useState(false);
     const [finishing, setFinishing] = useState(false);
 
@@ -132,8 +171,39 @@ export const HouseholdSetupWizard = ({
         if (open) {
             setStepIdx(0);
             fetchAll();
+            (async () => {
+                const { data } = await supabase
+                    .from("households")
+                    .select("enable_credit_cards, enable_shared_expenses")
+                    .eq("id", householdId)
+                    .single();
+                if (data) {
+                    setFeatureState({
+                        credit_cards: !!data.enable_credit_cards,
+                        shared_expenses: data.enable_shared_expenses ?? true,
+                    });
+                }
+            })();
         }
     }, [open, householdId, isUnlocked]);
+
+    const persistFeatures = async () => {
+        setSavingFeatures(true);
+        try {
+            const { error } = await supabase
+                .from("households")
+                .update({
+                    enable_credit_cards: featureState.credit_cards,
+                    enable_shared_expenses: featureState.shared_expenses,
+                })
+                .eq("id", householdId);
+            if (error) throw error;
+        } catch (err: any) {
+            toast.error(err.message || "Failed to save features");
+        } finally {
+            setSavingFeatures(false);
+        }
+    };
 
     const handleFinish = async () => {
         setFinishing(true);
@@ -147,7 +217,8 @@ export const HouseholdSetupWizard = ({
         }
     };
 
-    const stepItems = items[step.key];
+    const isFeatureStep = step.key === "features";
+    const stepItems = isFeatureStep ? [] : items[step.key as Exclude<StepKey, "features">];
     const hasAny = stepItems.length > 0;
 
     return (
@@ -170,7 +241,29 @@ export const HouseholdSetupWizard = ({
                 </DialogHeader>
 
                 <div className="space-y-3 py-2">
-                    {stepItems.length === 0 ? (
+                    {isFeatureStep ? (
+                        <ul className="space-y-2">
+                            {FEATURES.map((f) => {
+                                const Icon = f.icon;
+                                return (
+                                    <li
+                                        key={f.key}
+                                        className="flex items-start gap-3 p-3 rounded-lg border border-line"
+                                    >
+                                        <Icon className="h-5 w-5 text-info shrink-0 mt-0.5" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium">{f.title}</p>
+                                            <p className="text-sm text-muted-foreground">{f.description}</p>
+                                        </div>
+                                        <Switch
+                                            checked={featureState[f.key]}
+                                            onCheckedChange={(v) => setFeatureState((s) => ({ ...s, [f.key]: v }))}
+                                        />
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    ) : stepItems.length === 0 ? (
                         <Card className="p-6 text-center text-sm text-muted-foreground border-dashed">
                             Nothing added yet. You can add what you have or skip this step.
                         </Card>
@@ -183,21 +276,23 @@ export const HouseholdSetupWizard = ({
                                 >
                                     <span className="font-medium truncate">{it.name}</span>
                                     <span className="text-sm text-muted-foreground tabular-nums">
-                                        {summariseAmount(step.key, it)}
+                                        {summariseAmount(step.key as Exclude<StepKey, "features">, it)}
                                     </span>
                                 </li>
                             ))}
                         </ul>
                     )}
 
-                    <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => setAddOpen(true)}
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        {hasAny ? `Add another ${step.title.slice(0, -1).toLowerCase()}` : `Add ${step.title.slice(0, -1).toLowerCase()}`}
-                    </Button>
+                    {!isFeatureStep && (
+                        <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() => setAddOpen(true)}
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            {hasAny ? `Add another ${step.title.slice(0, -1).toLowerCase()}` : `Add ${step.title.slice(0, -1).toLowerCase()}`}
+                        </Button>
+                    )}
                 </div>
 
                 <DialogFooter className="flex-row justify-between sm:justify-between">
@@ -215,32 +310,40 @@ export const HouseholdSetupWizard = ({
                             {finishing ? "Finishing…" : "Finish setup"}
                         </Button>
                     ) : (
-                        <Button onClick={() => setStepIdx((i) => i + 1)}>
-                            {hasAny ? "Continue" : "Skip"}
+                        <Button
+                            disabled={isFeatureStep && savingFeatures}
+                            onClick={async () => {
+                                if (isFeatureStep) await persistFeatures();
+                                setStepIdx((i) => i + 1);
+                            }}
+                        >
+                            {isFeatureStep ? "Continue" : (hasAny ? "Continue" : "Skip")}
                             <ArrowRight className="h-4 w-4 ml-2" />
                         </Button>
                     )}
                 </DialogFooter>
             </DialogContent>
 
-            <AddItemDialog
-                open={addOpen}
-                onOpenChange={setAddOpen}
-                stepKey={step.key}
-                householdId={householdId}
-                userId={user?.id ?? ""}
-                members={members}
-                financialMonthStart={financialMonthStart}
-                onAdded={async () => {
-                    await fetchAll();
-                    setAddOpen(false);
-                }}
-            />
+            {!isFeatureStep && (
+                <AddItemDialog
+                    open={addOpen}
+                    onOpenChange={setAddOpen}
+                    stepKey={step.key as Exclude<StepKey, "features">}
+                    householdId={householdId}
+                    userId={user?.id ?? ""}
+                    members={members}
+                    financialMonthStart={financialMonthStart}
+                    onAdded={async () => {
+                        await fetchAll();
+                        setAddOpen(false);
+                    }}
+                />
+            )}
         </Dialog>
     );
 };
 
-function summariseAmount(stepKey: StepKey, item: any): string {
+function summariseAmount(stepKey: Exclude<StepKey, "features">, item: any): string {
     const v = Number(item.default_amount ?? item.amount ?? item.total_amount ?? 0);
     if (Number.isNaN(v)) return "";
     if (stepKey === "subscription" && item.billing_cycle && item.billing_cycle !== "monthly") {
@@ -257,7 +360,7 @@ function summariseAmount(stepKey: StepKey, item: any): string {
 interface AddItemDialogProps {
     open: boolean;
     onOpenChange: (v: boolean) => void;
-    stepKey: StepKey;
+    stepKey: Exclude<StepKey, "features">;
     householdId: string;
     userId: string;
     members: HouseholdSetupWizardProps["members"];
