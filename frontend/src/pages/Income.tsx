@@ -634,6 +634,8 @@ const Income = () => {
             is_shared: editingSource.is_shared,
             co_parent_id: editingSource.co_parent_id,
             share_percentage: editingSource.share_percentage,
+            tax_type: editingSource.tax_type,
+            custom_tax_rate: editingSource.custom_tax_rate,
           } : undefined}
           onSuccess={fetchData}
         />

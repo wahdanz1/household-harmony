@@ -20,6 +20,7 @@ import {
     monthlyIncomeFields,
 } from "@/hooks/useEncryptedFields";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { computeMonthlyNet, TAX_TYPE_LABELS, type TaxType } from "@/utils/taxMath";
 
 const INCOME_CATEGORIES = [
     { value: "salary", label: "Salary" },
@@ -40,6 +41,8 @@ interface InitialValues {
     is_shared?: boolean;
     co_parent_id?: string | null;
     share_percentage?: number | string | null;
+    tax_type?: TaxType | null;
+    custom_tax_rate?: number | string | null;
 }
 
 interface IncomeFormDialogProps {
@@ -62,6 +65,8 @@ const blankForm = (defaultOwnerId: string): InitialValues => ({
     is_shared: false,
     co_parent_id: "",
     share_percentage: "50",
+    tax_type: "no_tax",
+    custom_tax_rate: "",
 });
 
 export const IncomeFormDialog = ({
@@ -103,6 +108,10 @@ export const IncomeFormDialog = ({
                 is_shared: !!form.is_shared,
                 co_parent_id: form.is_shared ? (form.co_parent_id || null) : null,
                 share_percentage: form.is_shared ? parseFloat(String(form.share_percentage ?? 50)) : null,
+                tax_type: form.tax_type ?? "no_tax",
+                custom_tax_rate: form.tax_type === "csn_variable"
+                    ? parseFloat(String(form.custom_tax_rate ?? 0)) || 0
+                    : null,
             };
             const encryptedSource = await encryptSource(baseData);
 
@@ -225,7 +234,7 @@ export const IncomeFormDialog = ({
                     )}
 
                     <div className="space-y-2">
-                        <Label>Monthly amount (kr)</Label>
+                        <Label>Monthly amount, gross (kr)</Label>
                         <Input
                             type="number"
                             inputMode="numeric"
@@ -234,6 +243,56 @@ export const IncomeFormDialog = ({
                             placeholder="0"
                         />
                     </div>
+
+                    <div className="space-y-2">
+                        <Label>Tax</Label>
+                        <Select
+                            value={form.tax_type ?? "no_tax"}
+                            onValueChange={(v) => setForm({ ...form, tax_type: v as TaxType })}
+                        >
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                {(Object.keys(TAX_TYPE_LABELS) as TaxType[]).map((t) => (
+                                    <SelectItem key={t} value={t}>{TAX_TYPE_LABELS[t]}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {form.tax_type === "csn_variable" && (
+                        <div className="space-y-2">
+                            <Label>Tax rate (%)</Label>
+                            <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={String(form.custom_tax_rate ?? "")}
+                                onChange={(e) => setForm({ ...form, custom_tax_rate: e.target.value })}
+                                placeholder="e.g. 30"
+                            />
+                        </div>
+                    )}
+
+                    {(() => {
+                        const gross = parseFloat(String(form.default_amount ?? 0)) || 0;
+                        if (gross <= 0 || form.tax_type === "no_tax" || !form.tax_type) return null;
+                        const customRate = form.custom_tax_rate
+                            ? parseFloat(String(form.custom_tax_rate)) || 0
+                            : 0;
+                        const { net, tax, effectiveRate } = computeMonthlyNet(gross, form.tax_type, customRate);
+                        return (
+                            <div className="rounded-md border border-line bg-surface-2 px-3 py-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Estimated tax</span>
+                                    <span className="tabular-nums">−{Math.round(tax).toLocaleString("sv-SE")} kr ({Math.round(effectiveRate * 100)}%)</span>
+                                </div>
+                                <div className="flex justify-between mt-1 font-medium">
+                                    <span>Net (take-home)</span>
+                                    <span className="tabular-nums">{Math.round(net).toLocaleString("sv-SE")} kr</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {coParents.length > 0 && (
                         <>
