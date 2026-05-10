@@ -36,11 +36,14 @@ interface CreditCardManagementProps {
     /** Controlled Add-card dialog open state (optional). Falls back to internal state. */
     addOpen?: boolean;
     onAddOpenChange?: (open: boolean) => void;
+    /** Render only the Add/Edit/Delete dialogs, no panel UI. Used by the empty
+     *  state when the panel is replaced by a richer EmptyStateCard. */
+    dialogOnly?: boolean;
 }
 
 export const CreditCardManagement = ({
     householdId, currency, creditCards, calculateCardTotal, onUpdate,
-    addOpen, onAddOpenChange,
+    addOpen, onAddOpenChange, dialogOnly = false,
 }: CreditCardManagementProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
@@ -148,7 +151,11 @@ export const CreditCardManagement = ({
     };
 
     return (
-        <>
+        <Dialog open={cardDialogOpen} onOpenChange={(open) => {
+            setCardDialogOpen(open);
+            if (!open) resetCardForm();
+        }}>
+            {!dialogOnly && (
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
@@ -159,50 +166,12 @@ export const CreditCardManagement = ({
                             </CardTitle>
                             <CardDescription>Add and manage your credit cards with monthly limits</CardDescription>
                         </div>
-                        <Dialog open={cardDialogOpen} onOpenChange={(open) => {
-                            setCardDialogOpen(open);
-                            if (!open) resetCardForm();
-                        }}>
-                            <DialogTrigger asChild>
-                                <Button>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Credit Card
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>{editingCardId ? "Edit" : "Add"} Credit Card</DialogTitle>
-                                    <DialogDescription>
-                                        Configure a credit card with a monthly spending limit
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label>Card Name</Label>
-                                        <Input
-                                            value={cardFormData.name}
-                                            onChange={(e) => setCardFormData({ ...cardFormData, name: e.target.value })}
-                                            placeholder="e.g., Norwegian Bank, Visa Gold"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label>Monthly Limit</Label>
-                                        <Input
-                                            type="number"
-                                            value={cardFormData.monthly_limit}
-                                            onChange={(e) => setCardFormData({ ...cardFormData, monthly_limit: e.target.value })}
-                                            placeholder="0"
-                                        />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button onClick={handleSaveCard}>
-                                        {editingCardId ? "Update" : "Add"}
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
+                        <DialogTrigger asChild>
+                            <Button>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Credit Card
+                            </Button>
+                        </DialogTrigger>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -281,8 +250,42 @@ export const CreditCardManagement = ({
                     )}
                 </CardContent>
             </Card>
+            )}
 
-            {/* Delete Confirmation Dialog */}
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{editingCardId ? "Edit" : "Add"} Credit Card</DialogTitle>
+                    <DialogDescription>
+                        Configure a credit card with a monthly spending limit
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Card Name</Label>
+                        <Input
+                            value={cardFormData.name}
+                            onChange={(e) => setCardFormData({ ...cardFormData, name: e.target.value })}
+                            placeholder="e.g., Norwegian Bank, Visa Gold"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Monthly Limit</Label>
+                        <Input
+                            type="number"
+                            value={cardFormData.monthly_limit}
+                            onChange={(e) => setCardFormData({ ...cardFormData, monthly_limit: e.target.value })}
+                            placeholder="0"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleSaveCard}>
+                        {editingCardId ? "Update" : "Add"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+
             <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -297,6 +300,6 @@ export const CreditCardManagement = ({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </>
+        </Dialog>
     );
 };

@@ -331,6 +331,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                     onUpdate={fetchData}
                     addOpen={addCardOpen}
                     onAddOpenChange={setAddCardOpen}
+                    dialogOnly
                 />
             </div>
         );
