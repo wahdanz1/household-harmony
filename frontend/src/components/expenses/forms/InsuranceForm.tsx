@@ -20,6 +20,7 @@ const insuranceTypes = [
     { value: "home", label: "Home Insurance", color: "#3B82F6" },
     { value: "car", label: "Car Insurance", color: "#EF4444" },
     { value: "health", label: "Health Insurance", color: "#10B981" },
+    { value: "child", label: "Child Insurance", color: "#EC4899" },
     { value: "life", label: "Life Insurance", color: "#8B5CF6" },
     { value: "pet", label: "Pet Insurance", color: "#F59E0B" },
     { value: "travel", label: "Travel Insurance", color: "#06B6D4" },

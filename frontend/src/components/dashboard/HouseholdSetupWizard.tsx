@@ -83,8 +83,16 @@ export const HouseholdSetupWizard = ({
     onComplete,
 }: HouseholdSetupWizardProps) => {
     const { user } = useAuth();
-    const { isUnlocked } = useEncryption();
+    const { isUnlocked, resetInactivityTimer } = useEncryption();
     const [stepIdx, setStepIdx] = useState(0);
+
+    useEffect(() => {
+        if (!open) return;
+        const tick = () => resetInactivityTimer();
+        tick();
+        const id = window.setInterval(tick, 60_000);
+        return () => window.clearInterval(id);
+    }, [open, resetInactivityTimer]);
     const [items, setItems] = useState<Record<StepKey, any[]>>({
         income: [], expense: [], subscription: [], insurance: [],
     });

@@ -81,6 +81,7 @@ const Dashboard = () => {
   const [planning, setPlanning] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentFinancialMonth(financialMonthStart));
   const [householdHasSeedData, setHouseholdHasSeedData] = useState<boolean | null>(null);
+  const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [data, setData] = useState<DashboardData>({
     income: 0,
@@ -321,10 +322,13 @@ const Dashboard = () => {
   useEffect(() => {
     const checkSeedData = async () => {
       if (!household?.id || !isUnlocked) return;
-      const [{ count: incomeCount }, { count: expenseCount }] = await Promise.all([
+      const [{ count: incomeCount }, { count: expenseCount }, { count: priorExpenseCount }, { count: priorIncomeCount }] = await Promise.all([
         supabase.from("income_sources").select("id", { count: "exact", head: true }).eq("household_id", household.id),
         supabase.from("expenses").select("id", { count: "exact", head: true }).eq("household_id", household.id),
+        supabase.from("monthly_expenses").select("id", { count: "exact", head: true }).eq("household_id", household.id).lt("month", todayMonth),
+        supabase.from("monthly_incomes").select("id", { count: "exact", head: true }).eq("household_id", household.id).lt("month", todayMonth),
       ]);
+      setHasPriorMonthData((priorExpenseCount ?? 0) > 0 || (priorIncomeCount ?? 0) > 0);
       const hasSeed = (incomeCount ?? 0) > 0 || (expenseCount ?? 0) > 0;
       setHouseholdHasSeedData(hasSeed);
 
@@ -441,7 +445,7 @@ const Dashboard = () => {
       )}
 
       {/* Monthly Review Banner — suppressed while the household has no data yet */}
-      {needsReview && !isDemoMode() && householdHasSeedData !== false && (
+      {needsReview && !isDemoMode() && householdHasSeedData !== false && hasPriorMonthData && (
         <Card
           variant="cta"
           className="flex items-center justify-between"
@@ -462,7 +466,7 @@ const Dashboard = () => {
       <DemoEncryptionCard householdId={householdId} />
 
       {householdHasSeedData !== false && (
-      <div className={`space-y-5 ${needsReview && !isDemoMode() ? "opacity-50" : ""} transition-opacity`}>
+      <div className={`space-y-5 ${needsReview && !isDemoMode() && hasPriorMonthData ? "opacity-50" : ""} transition-opacity`}>
         {/* HERO — survival on top, after-savings below */}
         <Card variant="flush">
           <div className="p-5 border-b border-line-2">

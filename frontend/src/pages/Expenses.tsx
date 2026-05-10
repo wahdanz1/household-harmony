@@ -648,7 +648,7 @@ const Expenses = () => {
                 monthly_cost: monthlyAmount,
                 total_amount: ins.total_amount,
                 payment_frequency: ins.payment_frequency,
-                type: ins.category, // Pass category for icon lookup
+                category: ins.category,
               };
             })}
             subscriptionsTotal={subscriptionsTotal}
