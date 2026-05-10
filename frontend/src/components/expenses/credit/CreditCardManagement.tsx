@@ -33,12 +33,23 @@ interface CreditCardManagementProps {
     creditCards: CreditCard[];
     calculateCardTotal?: (cardId: string) => number;
     onUpdate: () => void;
+    /** Controlled Add-card dialog open state (optional). Falls back to internal state. */
+    addOpen?: boolean;
+    onAddOpenChange?: (open: boolean) => void;
 }
 
-export const CreditCardManagement = ({ householdId, currency, creditCards, calculateCardTotal, onUpdate }: CreditCardManagementProps) => {
+export const CreditCardManagement = ({
+    householdId, currency, creditCards, calculateCardTotal, onUpdate,
+    addOpen, onAddOpenChange,
+}: CreditCardManagementProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
-    const [cardDialogOpen, setCardDialogOpen] = useState(false);
+    const [internalCardDialogOpen, setInternalCardDialogOpen] = useState(false);
+    const cardDialogOpen = addOpen ?? internalCardDialogOpen;
+    const setCardDialogOpen = (v: boolean) => {
+        if (onAddOpenChange) onAddOpenChange(v);
+        else setInternalCardDialogOpen(v);
+    };
     const [editingCardId, setEditingCardId] = useState<string | null>(null);
     const [cardFormData, setCardFormData] = useState({
         name: "",

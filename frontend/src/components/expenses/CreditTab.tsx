@@ -14,8 +14,9 @@ import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileUp, Loader2, Sparkles } from "lucide-react";
+import { FileUp, Loader2 } from "lucide-react";
 import { ParsedTransactionsReview } from "./credit/ParsedTransactionsReview";
+import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
 
 // Backend API response type
 interface ParseResult {
@@ -72,6 +73,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
     const [parsing, setParsing] = useState(false);
     const [parseResult, setParseResult] = useState<ParseResult | null>(null);
+    const [addCardOpen, setAddCardOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { decryptRecords: decryptExpenses, encryptRecord: encryptMonthlyExpense } = useEncryptedFields(expenseFields);
@@ -310,17 +312,40 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
         return <VaultLockedAlert className="mt-6" />;
     }
 
+    if (creditCards.length === 0) {
+        return (
+            <div className="space-y-6">
+                <EmptyStateCard
+                    icon={CreditCardIcon}
+                    iconClassName="text-accent-purple"
+                    headline="No credit cards yet"
+                    description="Add a credit card to import its monthly invoice and have categories filled in for you."
+                    primaryLabel="Add your first credit card"
+                    onPrimary={() => setAddCardOpen(true)}
+                    hideWizardLink
+                />
+                <CreditCardManagement
+                    householdId={householdId}
+                    currency={currency}
+                    creditCards={creditCards}
+                    onUpdate={fetchData}
+                    addOpen={addCardOpen}
+                    onAddOpenChange={setAddCardOpen}
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
-            {/* Magic PDF Import Section */}
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <div>
                         <h3 className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-warning" />
-                            Credit Card Assistant
+                            <FileUp className="h-5 w-5 text-info" />
+                            Import credit card invoice
                         </h3>
-                        <p className="text-sm text-muted-foreground">Upload your bank statement and let Gemini do the work</p>
+                        <p className="text-sm text-muted-foreground">Upload your monthly statement to fill in actuals.</p>
                     </div>
                     <Button
                         variant="accentSoft"
@@ -330,7 +355,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                         {parsing ? (
                             <><Loader2 className="h-4 w-4 animate-spin" /> Parsing PDF...</>
                         ) : (
-                            <><FileUp className="h-4 w-4" /> Import from PDF</>
+                            <><FileUp className="h-4 w-4" /> Import PDF</>
                         )}
                     </Button>
                     <input
@@ -339,7 +364,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                         onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) handleFileSelect(file);
-                            e.target.value = ''; // Reset to allow same file re-upload
+                            e.target.value = '';
                         }}
                         accept=".pdf"
                         className="hidden"
@@ -383,8 +408,6 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 )}
             </div>
 
-            {/* Budgeted Credit Expenses Section */}
-            {/* Budgeted Credit Expenses Section */}
             {budgetedCredit.length > 0 && (
                 <ExpenseBlock
                     title="Credit Card Spend"
@@ -413,20 +436,11 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 />
             )}
 
-            {budgetedCredit.length === 0 && creditCards.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                    <CreditCardIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No credit expenses configured.</p>
-                    <p className="text-sm mt-2">Mark expense categories as "Credit Card Expense" to track them here.</p>
-                </div>
-            )}
-
-            {/* Credit Card Management */}
             <CreditCardManagement
                 householdId={householdId}
                 currency={currency}
                 creditCards={creditCards}
-                calculateCardTotal={() => totalBudgetedCredit} // Now uses total from budgeted credit expenses
+                calculateCardTotal={() => totalBudgetedCredit}
                 onUpdate={fetchData}
             />
         </div>
