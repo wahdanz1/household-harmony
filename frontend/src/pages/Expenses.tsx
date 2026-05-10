@@ -32,7 +32,7 @@ import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
-import { LoadingState } from "@/components/shared/states";
+import { ExpensesPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 
 const Expenses = () => {
   const { user } = useAuth();
@@ -461,12 +461,7 @@ const Expenses = () => {
   );
 
   if (loading) {
-    return (
-      <div className="space-y-5">
-        {renderHeader(false)}
-        <LoadingState />
-      </div>
-    );
+    return <ExpensesPageSkeleton />;
   }
 
   if (!isUnlocked) {

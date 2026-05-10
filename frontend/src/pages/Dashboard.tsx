@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { planMonth } from "@/services/monthlyPlanning";
 import { toast } from "sonner";
-import { LoadingState } from "@/components/shared/states";
+import { DashboardSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 import {
   useEncryptedFields,
   monthlyIncomeFields,
@@ -345,12 +345,7 @@ const Dashboard = () => {
 
   // ─── Loading + locked states ─────────────────────────────────
   if (householdLoading || loading) {
-    return (
-      <div className="space-y-5">
-        <DashboardHeader monthLabel={monthLabel} />
-        <LoadingState />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (!isUnlocked) {

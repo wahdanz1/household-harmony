@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { FileUp, Loader2 } from "lucide-react";
 import { ParsedTransactionsReview } from "./credit/ParsedTransactionsReview";
 import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
+import { CreditTabSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 
 // Backend API response type
 interface ParseResult {
@@ -305,7 +306,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
     };
 
     if (loading) {
-        return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
+        return <CreditTabSkeleton />;
     }
 
     if (!isUnlocked) {

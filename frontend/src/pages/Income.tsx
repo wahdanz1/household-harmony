@@ -27,7 +27,7 @@ import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 
-import { LoadingState } from "@/components/shared/states";
+import { IncomePageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/hooks/useEncryptedFields";
 
@@ -455,12 +455,7 @@ const Income = () => {
   );
 
   if (loading) {
-    return (
-      <div className="space-y-5">
-        {renderHeader(false)}
-        <LoadingState />
-      </div>
-    );
+    return <IncomePageSkeleton />;
   }
 
   if (!isUnlocked) {
