@@ -394,14 +394,6 @@ export const AllTabBlockView = ({
                 />
             )}
 
-            {grandTotal > 0 && (
-                <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-                    <div className="flex items-center justify-between">
-                        <p className="font-semibold text-lg">Total Monthly Expenses</p>
-                        <p className="text-2xl font-bold text-destructive">{grandTotal.toFixed(0)} {currency}</p>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

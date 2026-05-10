@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthChip } from "@/components/ui/month-chip";
-import { Money } from "@/components/ui/money";
+import { Money, fmtKr } from "@/components/ui/money";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
 import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
@@ -511,12 +511,24 @@ const Expenses = () => {
       {renderHeader(hasAnyCategory)}
 
       {hasAnyCategory && (
-        <div className="rounded-[14px] border border-line bg-surface px-5 py-4 flex items-center justify-between gap-3">
-          <span className="text-sm text-muted-foreground font-medium">
-            Total expenses
-          </span>
-          <Money v={totalExpenses} currency={household?.currency || "SEK"} size="2xl" weight={600} />
-        </div>
+        <Card>
+          <p className="text-xs font-medium text-muted-foreground tracking-wide">
+            Total expenses per month
+          </p>
+          <div className="mt-1">
+            <Money
+              v={totalExpenses}
+              currency={household?.currency || "SEK"}
+              size="4xl"
+              weight={600}
+              color="danger"
+              className="tracking-tighter"
+            />
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {expenseCategories.length} {expenseCategories.length === 1 ? "category" : "categories"} · {fmtKr(totalExpenses * 12, household?.currency || "SEK")} per year
+          </p>
+        </Card>
       )}
 
       {isReadOnly && hasAnyCategory && (
