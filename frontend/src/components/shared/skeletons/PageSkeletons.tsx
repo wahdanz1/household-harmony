@@ -1,17 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 
-const headerRow = (
-    <div className="flex items-center justify-between gap-4">
-        <Skeleton className="h-9 w-36" />
-        <div className="flex items-center gap-1">
-            <Skeleton className="h-9 w-9 rounded-md" />
-            <Skeleton className="h-9 w-28 rounded-full" />
-            <Skeleton className="h-9 w-9 rounded-md" />
-        </div>
-    </div>
-);
-
 const skeletonRow = (key: number, last = false) => (
     <div
         key={key}
@@ -27,7 +16,6 @@ const skeletonRow = (key: number, last = false) => (
 
 export const DashboardSkeleton = () => (
     <div className="space-y-5">
-        {headerRow}
         <Card variant="flush">
             <div className="p-5 border-b border-line-2 space-y-3">
                 <Skeleton className="h-3 w-32" />
@@ -55,7 +43,6 @@ export const DashboardSkeleton = () => (
 
 export const IncomePageSkeleton = () => (
     <div className="space-y-5">
-        {headerRow}
         <Card>
             <div className="space-y-2">
                 <Skeleton className="h-3 w-32" />
@@ -75,7 +62,6 @@ export const IncomePageSkeleton = () => (
 
 export const ExpensesPageSkeleton = () => (
     <div className="space-y-5">
-        {headerRow}
         <div className="rounded-[14px] border border-line bg-surface px-5 py-4 flex items-center justify-between">
             <Skeleton className="h-4 w-28" />
             <Skeleton className="h-7 w-24" />

@@ -345,7 +345,12 @@ const Dashboard = () => {
 
   // ─── Loading + locked states ─────────────────────────────────
   if (householdLoading || loading) {
-    return <DashboardSkeleton />;
+    return (
+      <div className="space-y-5">
+        <DashboardHeader monthLabel={monthLabel} hideMonthChip />
+        <DashboardSkeleton />
+      </div>
+    );
   }
 
   if (!isUnlocked) {

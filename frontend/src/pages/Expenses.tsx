@@ -461,7 +461,12 @@ const Expenses = () => {
   );
 
   if (loading) {
-    return <ExpensesPageSkeleton />;
+    return (
+      <div className="space-y-5">
+        {renderHeader(false)}
+        <ExpensesPageSkeleton />
+      </div>
+    );
   }
 
   if (!isUnlocked) {

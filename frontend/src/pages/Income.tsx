@@ -455,7 +455,12 @@ const Income = () => {
   );
 
   if (loading) {
-    return <IncomePageSkeleton />;
+    return (
+      <div className="space-y-5">
+        {renderHeader(false)}
+        <IncomePageSkeleton />
+      </div>
+    );
   }
 
   if (!isUnlocked) {
