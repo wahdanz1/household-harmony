@@ -1,0 +1,19 @@
+{
+  "title": "Inställningar",
+  "tabs": {
+    "general": "Allmänt",
+    "personal": "Personligt",
+    "security": "Säkerhet"
+  },
+  "appearance": {
+    "title": "Utseende",
+    "description": "Växla mellan ljust och mörkt läge."
+  },
+  "language": {
+    "title": "Språk",
+    "description": "Välj vilket språk som används i appen.",
+    "english": "English",
+    "swedish": "Svenska"
+  },
+  "noHousehold": "Inget hushåll hittades"
+}

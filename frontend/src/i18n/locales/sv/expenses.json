@@ -1,0 +1,21 @@
+{
+  "title": "Utgifter",
+  "totalBar": {
+    "label": "Totala utgifter"
+  },
+  "tabs": {
+    "all": "Alla",
+    "credit": "Kredit",
+    "coParent": "Medförälder"
+  },
+  "actions": {
+    "addExpense": "Lägg till utgift"
+  },
+  "inactive": {
+    "heading": "Inaktiva poster"
+  },
+  "groups": {
+    "subscriptions": "Prenumerationer",
+    "insurance": "Försäkringar"
+  }
+}

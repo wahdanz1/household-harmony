@@ -1,0 +1,43 @@
+{
+  "title": "Översikt",
+  "planCta": {
+    "title": "Planera {{month}}",
+    "description": "Tar med förra månadens utfall som budget för den här månaden.",
+    "button": "Planera den här månaden",
+    "planning": "Planerar…",
+    "successWithCount_one": "Planerade {{count}} post för {{month}}",
+    "successWithCount_other": "Planerade {{count}} poster för {{month}}",
+    "nothingToCarry": "Inget att föra över från förra månaden.",
+    "failure": "Kunde inte planera månaden"
+  },
+  "reviewBanner": {
+    "title": "Ny månad! Granska din ekonomi",
+    "description": "Bekräfta att inkomster och utgifter är uppdaterade"
+  },
+  "hero": {
+    "afterBills": "Efter fasta räkningar",
+    "afterSavings": "Efter sparande",
+    "incomeUsed": "{{percent}} % av inkomsten använd"
+  },
+  "split": {
+    "income": "Inkomster",
+    "expenses": "Utgifter"
+  },
+  "sections": {
+    "recurring": "Återkommande",
+    "recentActivity": "Senaste händelser"
+  },
+  "tiles": {
+    "subscriptions": "Prenumerationer",
+    "insurance": "Försäkringar",
+    "perMonth": "per månad",
+    "coParentShares": "Delat med {{name}}",
+    "coParentFallback": "Medförälder",
+    "settlementBelow": "se avräkning nedan"
+  },
+  "activity": {
+    "shared": "Delad utgift",
+    "oneTimeIncome": "Engångsinkomst",
+    "sharedFallbackName": "Delad utgift"
+  }
+}

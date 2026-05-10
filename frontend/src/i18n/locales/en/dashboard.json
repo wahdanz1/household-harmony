@@ -1,0 +1,43 @@
+{
+  "title": "Dashboard",
+  "planCta": {
+    "title": "Plan {{month}}",
+    "description": "Carries last month's actuals into this month's budgets.",
+    "button": "Plan this month",
+    "planning": "Planning…",
+    "successWithCount_one": "Planned {{count}} item for {{month}}",
+    "successWithCount_other": "Planned {{count}} items for {{month}}",
+    "nothingToCarry": "Nothing to carry forward from last month.",
+    "failure": "Failed to plan month"
+  },
+  "reviewBanner": {
+    "title": "New month! Review your finances",
+    "description": "Confirm your income and expenses are up to date"
+  },
+  "hero": {
+    "afterBills": "After mandatory bills",
+    "afterSavings": "After savings",
+    "incomeUsed": "{{percent}}% of income used"
+  },
+  "split": {
+    "income": "Income",
+    "expenses": "Expenses"
+  },
+  "sections": {
+    "recurring": "Recurring",
+    "recentActivity": "Recent activity"
+  },
+  "tiles": {
+    "subscriptions": "Subscriptions",
+    "insurance": "Insurance",
+    "perMonth": "per month",
+    "coParentShares": "{{name}} shares",
+    "coParentFallback": "Co-parent",
+    "settlementBelow": "see settlement below"
+  },
+  "activity": {
+    "shared": "Shared expense",
+    "oneTimeIncome": "One-time income",
+    "sharedFallbackName": "Shared expense"
+  }
+}

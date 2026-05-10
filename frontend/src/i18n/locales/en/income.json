@@ -1,0 +1,40 @@
+{
+  "title": "Income",
+  "hero": {
+    "totalLabel": "Total income per month",
+    "summary_one": "{{count}} active source · {{yearly}} per year",
+    "summary_other": "{{count}} active sources · {{yearly}} per year",
+    "viewPrognosis": "View annual tax prognosis"
+  },
+  "actions": {
+    "addSource": "Add source",
+    "addOneTime": "Add one-time income"
+  },
+  "block": {
+    "title": "Income",
+    "noSources": "No sources yet",
+    "sources_one": "{{count}} source",
+    "sources_other": "{{count}} sources"
+  },
+  "empty": {
+    "title": "No income sources configured",
+    "description": "Click \"Add Source\" to get started"
+  },
+  "prognosis": {
+    "noTaxableTitle": "No taxable income",
+    "noTaxableDescription": "Add an active income source with a tax type to see a prognosis.",
+    "fetchFailedTitle": "Couldn't fetch prognosis",
+    "fetchFailedDescription": "Try again in a moment."
+  },
+  "oneTime": {
+    "validation": "Name and amount are required",
+    "addedTitle": "Success",
+    "addedDescription": "One-time income added",
+    "deletedDescription": "One-time income deleted",
+    "addFailed": "Failed to add one-time income",
+    "deleteFailed": "Failed to delete one-time income"
+  },
+  "save": {
+    "failed": "Failed to save income data"
+  }
+}

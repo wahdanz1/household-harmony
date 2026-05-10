@@ -1,0 +1,54 @@
+{
+  "appName": "Household Harmony",
+  "nav": {
+    "dashboard": "Översikt",
+    "income": "Inkomster",
+    "expenses": "Utgifter",
+    "settings": "Inställningar"
+  },
+  "actions": {
+    "save": "Spara",
+    "saving": "Sparar…",
+    "saved": "Sparat",
+    "cancel": "Avbryt",
+    "delete": "Ta bort",
+    "edit": "Redigera",
+    "add": "Lägg till",
+    "close": "Stäng",
+    "confirm": "Bekräfta",
+    "retry": "Försök igen",
+    "openReview": "Öppna granskning",
+    "returnHome": "Tillbaka till start",
+    "seeAll": "Visa alla →"
+  },
+  "status": {
+    "loading": "Laddar…",
+    "saved": "Sparat",
+    "saveFailed": "Kunde inte spara"
+  },
+  "month": {
+    "previous": "Föregående månad",
+    "next": "Nästa månad",
+    "today": "Idag",
+    "yesterday": "Igår",
+    "daysAgo": "{{count}} d sedan"
+  },
+  "money": {
+    "perMonth": "per månad",
+    "perYear": "per år",
+    "perYearShort": "{{amount}}/år"
+  },
+  "vault": {
+    "lockedTitle": "Valvet är låst",
+    "lockedDescription": "Lås upp valvet för att se den här sidan.",
+    "unlock": "Lås upp valvet"
+  },
+  "review": {
+    "lockedTitle": "Månadens granskning är inte slutförd.",
+    "lockedDescription": "Ändringar är låsta tills den månatliga granskningen är klar. Använd guiden på Översikt för att granska och slutföra."
+  },
+  "errors": {
+    "generic": "Ett oväntat fel uppstod. Försök igen.",
+    "title": "Fel"
+  }
+}
