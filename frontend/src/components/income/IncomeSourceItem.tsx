@@ -9,6 +9,8 @@ import { ShowEncryptedDataButton } from "@/components/demo/ShowEncryptedDataButt
 interface IncomeSourceItemProps {
     source: any;
     amount: string;
+    /** Realised amount confirmed for this month, if known. Drives the variance badge. */
+    actualAmount?: number;
     currency: string;
     onAmountChange: (sourceId: string, value: string) => void;
     onEdit: (source: any) => void;
@@ -22,6 +24,7 @@ interface IncomeSourceItemProps {
 export const IncomeSourceItem = ({
     source,
     amount,
+    actualAmount,
     currency,
     onAmountChange,
     onEdit,
@@ -61,6 +64,22 @@ export const IncomeSourceItem = ({
                     onChange={(v) => onAmountChange(source.id, v.toString())}
                     aria-label={`${source.name} amount`}
                 />
+
+                {actualAmount !== undefined && Math.round(actualAmount) !== Math.round(parseFloat(amount || "0")) && (() => {
+                    const variance = actualAmount - parseFloat(amount || "0");
+                    const moreReceived = variance > 0;
+                    return (
+                        <span
+                            className={`text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded ${moreReceived
+                                ? "bg-success/10 text-success"
+                                : "bg-destructive/10 text-destructive"
+                                }`}
+                            title={`Actual: ${Math.round(actualAmount)} ${currency}`}
+                        >
+                            {moreReceived ? "+" : "−"}{Math.abs(Math.round(variance))} {currency}
+                        </span>
+                    );
+                })()}
 
                 <ShowEncryptedDataButton
                     recordId={source.id}

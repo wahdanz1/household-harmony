@@ -599,11 +599,18 @@ const Income = () => {
                 status = currentAmount === defaultStr ? 'saved' : 'modified';
               }
 
+              const monthly = monthlyIncomes.find((m: any) => m.income_source_id === source.id);
+              const rawActual = monthly?.actual_amount;
+              const actualAmount = rawActual !== undefined && rawActual !== null
+                ? Number(rawActual)
+                : undefined;
+
               return (
                 <IncomeSourceItem
                   key={source.id}
                   source={source}
                   amount={amounts[source.id] || (source.default_amount || "0").toString()}
+                  actualAmount={actualAmount}
                   currency={household?.currency || "SEK"}
                   onAmountChange={handleAmountChange}
                   onEdit={handleEditSource}

@@ -533,13 +533,21 @@ const Expenses = () => {
 
           {/* Expense Blocks View */}
           <AllTabBlockView
-            expenses={expenseCategories.map(cat => ({
-              id: cat.id,
-              name: cat.name,
-              amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
-              defaultAmount: parseFloat(cat.default_amount || '0'),
-              category: cat.category,
-            })).sort((a, b) => b.amount - a.amount)}
+            expenses={expenseCategories.map(cat => {
+              const monthly = monthlyExpenses.find((m: any) => m.expense_id === cat.id);
+              const rawActual = monthly?.actual_amount;
+              const actualAmount = rawActual !== undefined && rawActual !== null
+                ? Number(rawActual)
+                : undefined;
+              return {
+                id: cat.id,
+                name: cat.name,
+                amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
+                defaultAmount: parseFloat(cat.default_amount || '0'),
+                actualAmount,
+                category: cat.category,
+              };
+            }).sort((a, b) => b.amount - a.amount)}
             subscriptions={subscriptions.filter(s => s.is_active).map(sub => {
               // Calculate if this subscription is due in current financial month
               let isDue = false;
