@@ -10,6 +10,8 @@ import { MonthChip } from "@/components/ui/month-chip";
 import { Money } from "@/components/ui/money";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
+import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
+import { Home } from "lucide-react";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
@@ -63,9 +65,21 @@ const Expenses = () => {
   const [selectedMonth, setSelectedMonth] = useState(todayMonth);
   const isCurrentMonth = selectedMonth === todayMonth;
 
-  // Monthly review gate
+  // The review gate only applies once a previous financial month exists with
+  // data — fresh households on their very first month aren't asked to review
+  // anything yet.
   const { needsReview, latestFinalizedMonth } = useMonthlyReviewStatus(household?.id, financialMonthStart);
-  const isReadOnly = isCurrentMonth && needsReview;
+  const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
+  useEffect(() => {
+    if (!household?.id) return;
+    supabase
+      .from("monthly_expenses")
+      .select("id", { count: "exact", head: true })
+      .eq("household_id", household.id)
+      .lt("month", todayMonth)
+      .then(({ count }) => setHasPriorMonthData((count ?? 0) > 0));
+  }, [household?.id, todayMonth]);
+  const isReadOnly = isCurrentMonth && needsReview && hasPriorMonthData;
   const initialDefaultRef = useRef(false);
   useEffect(() => {
     if (initialDefaultRef.current) return;
@@ -518,10 +532,19 @@ const Expenses = () => {
         )}
 
         <TabsContent value="all" className="mt-6 space-y-4">
-          {/* Header with Add Button and Saved indicator */}
+          {!hasAnyCategory ? (
+            <EmptyStateCard
+              icon={Home}
+              iconClassName="text-info"
+              headline="No expenses yet"
+              description="Add rent, utilities, phone plans, and other recurring bills."
+              primaryLabel="Add your first expense"
+              onPrimary={() => setAddExpenseDialogOpen(true)}
+            />
+          ) : (
+          <>
           <div className="flex justify-between items-center">
             <AddButton disabled={isReadOnly} onClick={() => !isReadOnly && setAddExpenseDialogOpen(true)}>Add Expense</AddButton>
-            {/* Saved indicator - fade in animation matching Income page */}
             {autoSaveStatus === 'saved' && (
               <span className="flex items-center gap-1 text-sm text-primary animate-in fade-in duration-150">
                 <Check className="h-4 w-4" /> Saved
@@ -534,7 +557,6 @@ const Expenses = () => {
             )}
           </div>
 
-          {/* Expense Blocks View */}
           <AllTabBlockView
             expenses={expenseCategories.map(cat => {
               const monthly = monthlyExpenses.find((m: any) => m.expense_id === cat.id);
@@ -678,6 +700,8 @@ const Expenses = () => {
                 })}
               </div>
             </div>
+          )}
+          </>
           )}
         </TabsContent>
 

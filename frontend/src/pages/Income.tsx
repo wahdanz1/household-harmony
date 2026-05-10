@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { AddButton } from "@/components/ui/add-button";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, AlertCircle, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
+import { TrendingUp, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthChip } from "@/components/ui/month-chip";
 import { Money, fmtKr } from "@/components/ui/money";
@@ -27,7 +27,8 @@ import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 
-import { EmptyState, LoadingState } from "@/components/shared/states";
+import { LoadingState } from "@/components/shared/states";
+import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/hooks/useEncryptedFields";
 
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
@@ -93,10 +94,21 @@ const Income = () => {
   const [selectedMonth, setSelectedMonth] = useState(todayMonth);
   const isCurrentMonth = selectedMonth === todayMonth;
 
-  // Monthly review gate: editing the current month is locked until the
-  // review for that month has been finalized. Past/future months stay editable.
+  // The review gate only applies once a previous financial month exists with
+  // data — fresh households on their very first month aren't asked to review
+  // anything yet.
   const { needsReview, latestFinalizedMonth } = useMonthlyReviewStatus(household?.id, financialMonthStart);
-  const isReadOnly = isCurrentMonth && needsReview;
+  const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
+  useEffect(() => {
+    if (!household?.id) return;
+    supabase
+      .from("monthly_incomes")
+      .select("id", { count: "exact", head: true })
+      .eq("household_id", household.id)
+      .lt("month", todayMonth)
+      .then(({ count }) => setHasPriorMonthData((count ?? 0) > 0));
+  }, [household?.id, todayMonth]);
+  const isReadOnly = isCurrentMonth && needsReview && hasPriorMonthData;
   const initialDefaultRef = useRef(false);
   useEffect(() => {
     // On first load, if the current month is unfinalized and there's a previous
@@ -512,24 +524,70 @@ const Income = () => {
         </Alert>
       )}
 
-      {/* Action row — Add source + One-time income */}
-      <div className="space-y-2">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {hasAnySource && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
+              if (isReadOnly) return;
+              setSourceDialogOpen(open);
+              if (!open) resetSourceForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button
+                  size="lg"
+                  disabled={isReadOnly}
+                  className="w-full justify-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add source
+                </Button>
+              </DialogTrigger>
+              <IncomeSourceDialog
+                open={sourceDialogOpen}
+                editingSourceId={editingSourceId}
+                sourceFormData={sourceFormData}
+                members={members}
+                coParents={coParents}
+                onOpenChange={(open) => {
+                  setSourceDialogOpen(open);
+                  if (!open) resetSourceForm();
+                }}
+                onFormDataChange={setSourceFormData}
+                onSave={handleSaveSource}
+                onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
+              />
+            </Dialog>
+            {!isReadOnly && <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />}
+          </div>
+          {(autoSaveStatus === 'saved' || autoSaveStatus === 'error') && (
+            <div className="flex justify-end">
+              {autoSaveStatus === 'saved' && (
+                <span className="flex items-center gap-1 text-sm text-accent animate-in fade-in duration-150">
+                  <Check className="h-4 w-4" /> Saved
+                </span>
+              )}
+              {autoSaveStatus === 'error' && (
+                <span className="text-sm text-destructive">Failed to save</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!hasAnySource ? (
+        <>
+          <EmptyStateCard
+            icon={TrendingUp}
+            iconClassName="text-success"
+            headline="No income sources yet"
+            description="Add your salary, CSN, or any other recurring income."
+            primaryLabel="Add your first source"
+            onPrimary={() => setSourceDialogOpen(true)}
+          />
           <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
-            if (isReadOnly) return;
             setSourceDialogOpen(open);
             if (!open) resetSourceForm();
           }}>
-            <DialogTrigger asChild>
-              <Button
-                size="lg"
-                disabled={isReadOnly}
-                className="w-full justify-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add source
-              </Button>
-            </DialogTrigger>
             <IncomeSourceDialog
               open={sourceDialogOpen}
               editingSourceId={editingSourceId}
@@ -545,40 +603,7 @@ const Income = () => {
               onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
             />
           </Dialog>
-          {!isReadOnly && <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />}
-        </div>
-        {(autoSaveStatus === 'saved' || autoSaveStatus === 'error') && (
-          <div className="flex justify-end">
-            {autoSaveStatus === 'saved' && (
-              <span className="flex items-center gap-1 text-sm text-accent animate-in fade-in duration-150">
-                <Check className="h-4 w-4" /> Saved
-              </span>
-            )}
-            {autoSaveStatus === 'error' && (
-              <span className="text-sm text-destructive">Failed to save</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Monthly Income Block */}
-      {incomeSources.length === 0 ? (
-        <Card>
-          <div className="flex items-center gap-3">
-            <TrendingUp className="h-5 w-5 text-success" />
-            <div>
-              <h3>Income</h3>
-              <p className="text-xs text-muted-foreground">No sources yet</p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <EmptyState
-              icon={AlertCircle}
-              title="No income sources configured"
-              description='Click "Add Source" to get started'
-            />
-          </div>
-        </Card>
+        </>
       ) : (
         <Card variant="flush">
           {/* Block Header */}
