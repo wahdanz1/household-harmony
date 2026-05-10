@@ -1,4 +1,4 @@
-import { Home, TrendingUp, TrendingDown, Settings, LogOut } from "lucide-react";
+import { Home, Wallet, HandCoins, Settings, LogOut } from "lucide-react";
 import { NavLink } from "./NavLink";
 import { Button } from "./ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,10 +21,9 @@ const DesktopNav = () => {
   const initial = firstName.charAt(0).toUpperCase() || "·";
 
   const navItems = [
-    { icon: Home, label: "Dashboard", path: "/" },
-    { icon: TrendingDown, label: "Expenses", path: "/expenses" },
-    { icon: TrendingUp, label: "Income", path: "/income" },
-    { icon: Settings, label: "Settings", path: "/settings" },
+    { icon: Home, label: "Overview", path: "/" },
+    { icon: Wallet, label: "Expenses", path: "/expenses" },
+    { icon: HandCoins, label: "Income", path: "/income" },
   ];
 
   return (
@@ -66,6 +65,16 @@ const DesktopNav = () => {
               <div className="text-[13px] font-semibold text-ink truncate">{firstName}</div>
               <div className="text-[11px] text-muted-foreground truncate">Logged in</div>
             </div>
+            <Button
+              onClick={() => navigate("/settings")}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              aria-label="Settings"
+              title="Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
           </div>
         )}
         <Button

@@ -676,7 +676,7 @@ interface DashboardHeaderProps {
 
 const DashboardHeader = ({ monthLabel, hideMonthChip = false, onPrev, onNext, onJumpToToday }: DashboardHeaderProps) => (
   <div className="flex items-center justify-between gap-4">
-    <h1>Dashboard</h1>
+    <h1>Overview</h1>
     {!hideMonthChip && (
       <div className="flex items-center gap-1">
         {onPrev && (

@@ -1,11 +1,11 @@
-import { Home, TrendingUp, TrendingDown, Settings } from "lucide-react";
+import { Home, Wallet, HandCoins, Settings } from "lucide-react";
 import { NavLink } from "./NavLink";
 
 const MobileNav = () => {
   const navItems = [
-    { icon: Home, label: "Dashboard", path: "/" },
-    { icon: TrendingDown, label: "Expenses", path: "/expenses" },
-    { icon: TrendingUp, label: "Income", path: "/income" },
+    { icon: Home, label: "Overview", path: "/" },
+    { icon: Wallet, label: "Expenses", path: "/expenses" },
+    { icon: HandCoins, label: "Income", path: "/income" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
