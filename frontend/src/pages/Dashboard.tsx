@@ -679,23 +679,31 @@ interface DashboardHeaderProps {
 }
 
 const DashboardHeader = ({ monthLabel, hideMonthChip = false, onPrev, onNext, onJumpToToday }: DashboardHeaderProps) => (
-  <div className="flex items-center justify-between gap-4">
+  <div className="flex items-center justify-between gap-4 min-h-9">
     <h1>Overview</h1>
-    {!hideMonthChip && (
-      <div className="flex items-center gap-1">
-        {onPrev && (
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onPrev} aria-label="Previous month">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        )}
-        <MonthChip value={monthLabel} onClick={onJumpToToday} />
-        {onNext && (
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onNext} aria-label="Next month">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-    )}
+    <div className={`flex items-center gap-1 ${hideMonthChip ? 'invisible' : ''}`}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9"
+        disabled={hideMonthChip || !onPrev}
+        onClick={onPrev}
+        aria-label="Previous month"
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <MonthChip value={monthLabel} onClick={onJumpToToday} />
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-9 w-9"
+        disabled={hideMonthChip || !onNext}
+        onClick={onNext}
+        aria-label="Next month"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
   </div>
 );
 

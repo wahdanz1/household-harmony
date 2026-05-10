@@ -1,10 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box } from "lucide-react";
+import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box, Plus } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { Money } from "@/components/ui/money";
 import { MoneyInput } from "@/components/ui/money-input";
 import { RowItem } from "@/components/ui/row-item";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
@@ -28,6 +28,7 @@ interface ExpenseItem {
     isDue?: boolean; // Is this subscription due in the current financial month?
     hasSpecialFields?: boolean; // Electricity/Rent - needs dialog to edit
     subject?: { name: string; type: string };
+    inactive?: boolean;
 }
 
 const SUBJECT_ICON: Record<string, any> = {
@@ -62,6 +63,7 @@ interface ExpenseBlockProps {
     onItemClick?: (id: string) => void;
     onAmountChange?: (id: string, amount: string) => void;
     editable?: boolean;
+    onAdd?: () => void;
 }
 
 /**
@@ -81,8 +83,20 @@ export const ExpenseBlock = ({
     onItemClick,
     onAmountChange,
     editable = false,
+    onAdd,
 }: ExpenseBlockProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const blockRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isExpanded) return;
+        if (typeof window === "undefined") return;
+        if (!window.matchMedia("(max-width: 640px)").matches) return;
+        const id = window.setTimeout(() => {
+            blockRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 320);
+        return () => window.clearTimeout(id);
+    }, [isExpanded]);
 
     // Helper to get category info based on type
     const getCategoryInfo = (category: string | undefined) => {
@@ -112,11 +126,11 @@ export const ExpenseBlock = ({
             : 'text-warning';
 
     return (
-        <div className={`rounded-[14px] bg-surface overflow-hidden ${severityBorder} ${severityWidth}`}>
+        <div ref={blockRef} className={`rounded-[14px] bg-surface overflow-hidden ${severityBorder} ${severityWidth}`}>
             {/* Header row */}
             <div
                 className="px-4 py-4 sm:px-5 cursor-pointer hover:bg-surface-2 transition-colors"
-                onClick={() => items.length > 0 && setIsExpanded(!isExpanded)}
+                onClick={() => (items.length > 0 || onAdd) && setIsExpanded(!isExpanded)}
             >
                 <div className="flex items-center gap-3">
                     <div className="shrink-0">{icon}</div>
@@ -143,7 +157,7 @@ export const ExpenseBlock = ({
                         weight={600}
                         className={colorClass}
                     />
-                    {items.length > 0 && (
+                    {(items.length > 0 || onAdd) && (
                         <div className="shrink-0 text-muted-foreground">
                             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </div>
@@ -156,9 +170,12 @@ export const ExpenseBlock = ({
                 )}
             </div>
 
-            {/* Expanded items list — flush rows with thin separators */}
-            {isExpanded && items.length > 0 && (
-                <div className="border-t border-line-2">
+            {(items.length > 0 || onAdd) && (
+                <div
+                    className={`grid transition-all duration-300 ease-out ${isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+                >
+                    <div className="overflow-hidden">
+                        <div className="border-t border-line-2">
                     {items.map((item, idx) => {
                         const cat = getCategoryInfo(item.category);
                         const Icon = cat?.icon;
@@ -183,7 +200,7 @@ export const ExpenseBlock = ({
                                 key={item.id}
                                 last={isLast}
                                 onClick={() => onItemClick?.(item.id)}
-                                className="group"
+                                className={`group ${item.inactive ? "opacity-50" : ""}`}
                             >
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
                                     <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={32} />
@@ -246,6 +263,18 @@ export const ExpenseBlock = ({
                             </RowItem>
                         );
                     })}
+                            {onAdd && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onAdd(); }}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 sm:px-5 sm:py-3.5 text-sm font-medium text-muted-foreground hover:bg-surface-2 hover:text-ink transition-colors"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Add {title.toLowerCase().replace(/s$/, "")}
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
@@ -254,8 +283,8 @@ export const ExpenseBlock = ({
 
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean; subject?: { name: string; type: string } }[];
-    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string; category?: string; subject?: { name: string; type: string } }[];
+    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean; subject?: { name: string; type: string }; inactive?: boolean }[];
+    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string; category?: string; subject?: { name: string; type: string }; inactive?: boolean }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
@@ -263,6 +292,8 @@ interface AllTabBlockViewProps {
     onExpenseClick?: (id: string) => void;
     onSubscriptionClick?: (id: string) => void;
     onInsuranceClick?: (id: string) => void;
+    onAddSubscription?: () => void;
+    onAddInsurance?: () => void;
     onAmountChange?: (id: string, amount: string) => void;
 }
 
@@ -280,6 +311,8 @@ export const AllTabBlockView = ({
     onExpenseClick,
     onSubscriptionClick,
     onInsuranceClick,
+    onAddSubscription,
+    onAddInsurance,
     onAmountChange,
 }: AllTabBlockViewProps) => {
     const expensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
@@ -303,12 +336,13 @@ export const AllTabBlockView = ({
             id: sub.id,
             name: sub.name,
             amount: sub.billing_cycle === 'yearly' ? parseFloat(sub.amount.toString()) / 12 : parseFloat(sub.amount.toString()),
-            category: sub.category, // Pass through for icon lookup
+            category: sub.category,
             displayAmount: actualAmount,
             displayLabel,
             billingCycle: sub.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
             isDue: sub.isDue,
             subject: sub.subject,
+            inactive: sub.inactive,
         };
     });
 
@@ -326,11 +360,12 @@ export const AllTabBlockView = ({
         return {
             id: ins.id,
             name: ins.name,
-            amount: ins.monthly_cost ?? 0, // Used for calculations
-            category: ins.category, // Insurance category for icon lookup
-            displayAmount: ins.total_amount, // Actual payment amount
-            displayLabel, // e.g., "/year"
+            amount: ins.monthly_cost ?? 0,
+            category: ins.category,
+            displayAmount: ins.total_amount,
+            displayLabel,
             subject: ins.subject,
+            inactive: ins.inactive,
         };
     });
 
@@ -353,7 +388,7 @@ export const AllTabBlockView = ({
         : 0;
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-5">
             {/* Expenses Block (combined Fixed + Variable) */}
             {expenses.length > 0 && (
                 <ExpenseBlock
@@ -369,8 +404,7 @@ export const AllTabBlockView = ({
             )}
 
             {/* Subscriptions Block with metrics in header */}
-            {subscriptionsTotal > 0 && (
-                <ExpenseBlock
+            <ExpenseBlock
                     title="Subscriptions"
                     total={subscriptionsTotal}
                     currency={currency}
@@ -378,6 +412,7 @@ export const AllTabBlockView = ({
                     items={subscriptionItems}
                     categoryType="subscription"
                     onItemClick={onSubscriptionClick}
+                    onAdd={onAddSubscription}
                     severity={subscriptionSeverity}
                     severityMessage={
                         subscriptionSeverity === 'danger'
@@ -388,19 +423,17 @@ export const AllTabBlockView = ({
                                     ? "A quarterly subscription is due this month"
                                     : undefined
                     }
-                    headerMetrics={
+                    headerMetrics={subscriptionsTotal > 0 ? (
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                             <span>{subscriptionsTotal.toFixed(0)} {currency}/month</span>
                             <span>{yearlySubscriptions.toFixed(0)} {currency}/year</span>
                             <span>{averageSub.toFixed(0)} {currency} avg</span>
                         </div>
-                    }
+                    ) : undefined}
                 />
-            )}
 
             {/* Insurances Block with metrics in header */}
-            {insuranceTotal > 0 && (
-                <ExpenseBlock
+            <ExpenseBlock
                     title="Insurances"
                     total={insuranceTotal}
                     currency={currency}
@@ -408,15 +441,15 @@ export const AllTabBlockView = ({
                     items={insuranceItems}
                     categoryType="insurance"
                     onItemClick={onInsuranceClick}
-                    headerMetrics={
+                    onAdd={onAddInsurance}
+                    headerMetrics={insuranceTotal > 0 ? (
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                             <span>{insuranceTotal.toFixed(0)} {currency}/month</span>
                             <span>{yearlyInsurance.toFixed(0)} {currency}/year</span>
                             <span>{averageInsurance.toFixed(0)} {currency} avg</span>
                         </div>
-                    }
+                    ) : undefined}
                 />
-            )}
 
         </div>
     );

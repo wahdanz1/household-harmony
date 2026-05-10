@@ -18,6 +18,7 @@ import { useEncryption } from "@/contexts/EncryptionContext";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { LoadingState } from "@/components/shared/states";
+import { SettingsPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -65,7 +66,7 @@ const Settings = () => {
     return (
       <div className="space-y-5">
         <SettingsHeader />
-        <LoadingState />
+        <SettingsPageSkeleton />
       </div>
     );
   }
@@ -110,10 +111,10 @@ const Settings = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="mt-6">
-          <div className="space-y-6">
+        <TabsContent value="general" className="mt-5">
+          <div className="space-y-5">
             {/* Household Info & Members - 2 column grid on desktop */}
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-5 lg:grid-cols-2">
               <HouseholdInfoCard household={household} userRole={userRole} members={members} onUpdate={fetchData} />
               <HouseholdMembersCard
                 members={members}
@@ -139,8 +140,8 @@ const Settings = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="personal" className="mt-6">
-          <div className="space-y-6">
+        <TabsContent value="personal" className="mt-5">
+          <div className="space-y-5">
             <PersonalSettingsCard />
             <Card>
               <CardHeader>
@@ -156,8 +157,8 @@ const Settings = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="security" className="mt-6">
-          <div className="space-y-6">
+        <TabsContent value="security" className="mt-5">
+          <div className="space-y-5">
             <ApiKeysCard />
           </div>
         </TabsContent>
@@ -167,7 +168,7 @@ const Settings = () => {
 };
 
 const SettingsHeader = () => (
-  <div className="flex items-center justify-between gap-4">
+  <div className="flex items-center justify-between gap-4 min-h-9">
     <h1>Settings</h1>
   </div>
 );
