@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, subscriptionFields } from "@/hooks/useEncryptedFields";
+import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
 
 const subscriptionCategories = [
     { value: "streaming", label: "Streaming" },
@@ -77,6 +78,10 @@ export const SubscriptionForm = ({
 
     const isEditing = !!editingId;
     const canSave = !!formData.name?.trim() && !!String(formData.amount ?? "").trim();
+
+    const usedCategorySet = useUsedCategoryValues("subscriptions", householdId);
+    const usedCats = subscriptionCategories.filter(c => usedCategorySet.has(c.value) || c.value === formData.category);
+    const moreCats = subscriptionCategories.filter(c => !usedCategorySet.has(c.value) && c.value !== formData.category);
 
     const handleSave = async () => {
         if (!user || !canSave) return;
@@ -148,9 +153,22 @@ export const SubscriptionForm = ({
                 <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                        {subscriptionCategories.map((cat) => (
-                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                        ))}
+                        {usedCats.length > 0 && (
+                            <SelectGroup>
+                                <SelectLabel>Used in this household</SelectLabel>
+                                {usedCats.map((cat) => (
+                                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                ))}
+                            </SelectGroup>
+                        )}
+                        {moreCats.length > 0 && (
+                            <SelectGroup>
+                                <SelectLabel>{usedCats.length > 0 ? "More categories" : "All categories"}</SelectLabel>
+                                {moreCats.map((cat) => (
+                                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                ))}
+                            </SelectGroup>
+                        )}
                     </SelectContent>
                 </Select>
             </div>

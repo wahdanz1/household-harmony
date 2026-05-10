@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { CreditCard, Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,7 @@ import {
 import { EXPENSE_CATEGORIES } from "@/constants/expenseCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
 
 interface InitialValues {
     id?: string;
@@ -72,12 +73,29 @@ export const ExpenseFormDialog = ({
     }, [open, initialValues]);
 
     const editingId = mode === "edit" ? initialValues?.id : undefined;
-    const visibleCategories = categoryAllowlist
+    const allCategories = categoryAllowlist
         ? EXPENSE_CATEGORIES.filter(c => categoryAllowlist.includes(c.id))
         : EXPENSE_CATEGORIES;
-    const selectedCategory = visibleCategories.find(c => c.id === form.category);
+    const usedCategorySet = useUsedCategoryValues("expenses", householdId);
+    // Always include the currently-selected value in "used" so editing an
+    // already-set row doesn't push its category into the More group.
+    const usedCategories = allCategories.filter(c => usedCategorySet.has(c.id) || c.id === form.category);
+    const moreCategories = allCategories.filter(c => !usedCategorySet.has(c.id) && c.id !== form.category);
+    const selectedCategory = allCategories.find(c => c.id === form.category);
     const SelectedIcon = selectedCategory?.icon;
     const canSave = !!form.category && !!form.name?.trim() && parseFloat(String(form.default_amount ?? 0)) >= 0;
+
+    const renderCategoryItem = (c: typeof allCategories[number]) => {
+        const Icon = c.icon;
+        return (
+            <SelectItem key={c.id} value={c.id}>
+                <div className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    <span>{c.label}</span>
+                </div>
+            </SelectItem>
+        );
+    };
 
     const handleSave = async () => {
         if (!canSave || !user) return;
@@ -187,17 +205,18 @@ export const ExpenseFormDialog = ({
                                 </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
-                                {visibleCategories.map((c) => {
-                                    const Icon = c.icon;
-                                    return (
-                                        <SelectItem key={c.id} value={c.id}>
-                                            <div className="flex items-center gap-2">
-                                                <Icon className="h-4 w-4" />
-                                                <span>{c.label}</span>
-                                            </div>
-                                        </SelectItem>
-                                    );
-                                })}
+                                {usedCategories.length > 0 && (
+                                    <SelectGroup>
+                                        <SelectLabel>Used in this household</SelectLabel>
+                                        {usedCategories.map(renderCategoryItem)}
+                                    </SelectGroup>
+                                )}
+                                {moreCategories.length > 0 && (
+                                    <SelectGroup>
+                                        <SelectLabel>{usedCategories.length > 0 ? "More categories" : "All categories"}</SelectLabel>
+                                        {moreCategories.map(renderCategoryItem)}
+                                    </SelectGroup>
+                                )}
                             </SelectContent>
                         </Select>
                     </div>

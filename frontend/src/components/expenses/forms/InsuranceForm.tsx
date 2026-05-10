@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, insuranceFields } from "@/hooks/useEncryptedFields";
+import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
 
 const insuranceTypes = [
     { value: "home", label: "Home Insurance" },
@@ -98,6 +99,10 @@ export const InsuranceForm = ({
     const isRecurringNonMonthly = formData.payment_frequency && formData.payment_frequency !== "monthly";
     const canSave = !!formData.name?.trim() && !!String(formData.total_amount ?? "").trim();
 
+    const usedCategorySet = useUsedCategoryValues("insurances", householdId);
+    const usedTypes = insuranceTypes.filter(t => usedCategorySet.has(t.value) || t.value === formData.category);
+    const moreTypes = insuranceTypes.filter(t => !usedCategorySet.has(t.value) && t.value !== formData.category);
+
     const handleSave = async () => {
         if (!user || !canSave) return;
         setSaving(true);
@@ -164,9 +169,22 @@ export const InsuranceForm = ({
                 <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                        {insuranceTypes.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                        ))}
+                        {usedTypes.length > 0 && (
+                            <SelectGroup>
+                                <SelectLabel>Used in this household</SelectLabel>
+                                {usedTypes.map((t) => (
+                                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                ))}
+                            </SelectGroup>
+                        )}
+                        {moreTypes.length > 0 && (
+                            <SelectGroup>
+                                <SelectLabel>{usedTypes.length > 0 ? "More types" : "All types"}</SelectLabel>
+                                {moreTypes.map((t) => (
+                                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                ))}
+                            </SelectGroup>
+                        )}
                     </SelectContent>
                 </Select>
             </div>
