@@ -460,41 +460,44 @@ const Income = () => {
     );
   }
 
+  const hasAnySource = incomeSources.length > 0;
+
   return (
     <div className="space-y-5">
-      {renderHeader(true)}
+      {renderHeader(hasAnySource)}
 
-      {/* Hero — total monthly income */}
-      <Card>
-        <p className="text-xs font-medium text-muted-foreground tracking-wide">
-          Total income per month
-        </p>
-        <div className="mt-1">
-          <Money
-            v={totalIncome}
-            currency={currencyCode}
-            size="4xl"
-            weight={600}
-            color="accent"
-            className="tracking-tighter"
-          />
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {activeSourceCount} active {activeSourceCount === 1 ? "source" : "sources"} · {fmtKr(totalIncome * 12, currencyCode)} per year
-        </p>
-        {activeSourceCount > 0 && (
-          <button
-            type="button"
-            onClick={handleViewPrognosis}
-            className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-accent-dk hover:underline focus:outline-none focus-visible:underline"
-          >
-            <Calculator className="h-3.5 w-3.5" />
-            View annual tax prognosis
-          </button>
-        )}
-      </Card>
+      {hasAnySource && (
+        <Card>
+          <p className="text-xs font-medium text-muted-foreground tracking-wide">
+            Total income per month
+          </p>
+          <div className="mt-1">
+            <Money
+              v={totalIncome}
+              currency={currencyCode}
+              size="4xl"
+              weight={600}
+              color="accent"
+              className="tracking-tighter"
+            />
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {activeSourceCount} active {activeSourceCount === 1 ? "source" : "sources"} · {fmtKr(totalIncome * 12, currencyCode)} per year
+          </p>
+          {activeSourceCount > 0 && (
+            <button
+              type="button"
+              onClick={handleViewPrognosis}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-accent-dk hover:underline focus:outline-none focus-visible:underline"
+            >
+              <Calculator className="h-3.5 w-3.5" />
+              View annual tax prognosis
+            </button>
+          )}
+        </Card>
+      )}
 
-      {isReadOnly && (
+      {isReadOnly && hasAnySource && (
         <Alert variant="warning">
           <ClipboardCheck />
           <AlertContent>

@@ -464,19 +464,22 @@ const Expenses = () => {
     );
   }
 
+  const hasAnyCategory = expenseCategories.length > 0;
+
   return (
     <div className="space-y-5">
-      {renderHeader(true)}
+      {renderHeader(hasAnyCategory)}
 
-      {/* Total bar */}
-      <div className="rounded-[14px] border border-line bg-surface px-5 py-4 flex items-center justify-between gap-3">
-        <span className="text-sm text-muted-foreground font-medium">
-          Total expenses
-        </span>
-        <Money v={totalExpenses} currency={household?.currency || "SEK"} size="2xl" weight={600} />
-      </div>
+      {hasAnyCategory && (
+        <div className="rounded-[14px] border border-line bg-surface px-5 py-4 flex items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground font-medium">
+            Total expenses
+          </span>
+          <Money v={totalExpenses} currency={household?.currency || "SEK"} size="2xl" weight={600} />
+        </div>
+      )}
 
-      {isReadOnly && (
+      {isReadOnly && hasAnyCategory && (
         <Alert variant="warning">
           <ClipboardCheck />
           <AlertContent>
