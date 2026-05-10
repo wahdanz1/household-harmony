@@ -222,11 +222,11 @@ export const ExpenseFormDialog = ({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Name</Label>
+                        <Label>Provider / source</Label>
                         <Input
                             value={form.name ?? ""}
                             onChange={(e) => setForm({ ...form, name: e.target.value })}
-                            placeholder="e.g. Hyra, Internet, Mobilabonnemang"
+                            placeholder="e.g. Uddevallahem, Comviq, GodEl"
                         />
                     </div>
 
