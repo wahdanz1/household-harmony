@@ -17,8 +17,8 @@ import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
-import { EditSubscriptionDialog } from "@/components/expenses/EditSubscriptionDialog";
-import { EditInsuranceDialog } from "@/components/expenses/EditInsuranceDialog";
+import { SubscriptionFormDialog } from "@/components/expenses/SubscriptionFormDialog";
+import { InsuranceFormDialog } from "@/components/expenses/InsuranceFormDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -791,22 +791,50 @@ const Expenses = () => {
         />
       )}
 
-      {/* Edit Subscription Dialog */}
-      <EditSubscriptionDialog
-        open={!!editingSubscription}
-        subscription={editingSubscription}
-        onOpenChange={(open) => !open && setEditingSubscription(null)}
-        onSave={fetchData}
-      />
+      {household && (
+        <SubscriptionFormDialog
+          open={!!editingSubscription}
+          mode="edit"
+          householdId={household.id}
+          initialValues={editingSubscription ? {
+            id: editingSubscription.id,
+            name: editingSubscription.name,
+            amount: editingSubscription.amount,
+            billing_cycle: editingSubscription.billing_cycle,
+            category: editingSubscription.category,
+            notes: editingSubscription.notes,
+            is_active: editingSubscription.is_active,
+            billing_day: editingSubscription.billing_day,
+            billing_month: editingSubscription.billing_month,
+          } : undefined}
+          onOpenChange={(open) => !open && setEditingSubscription(null)}
+          onSuccess={fetchData}
+        />
+      )}
 
-      {/* Edit Insurance Dialog */}
-      <EditInsuranceDialog
-        open={!!editingInsurance}
-        insurance={editingInsurance}
-        coParents={coParents}
-        onOpenChange={(open) => !open && setEditingInsurance(null)}
-        onSave={fetchData}
-      />
+      {household && (
+        <InsuranceFormDialog
+          open={!!editingInsurance}
+          mode="edit"
+          householdId={household.id}
+          initialValues={editingInsurance ? {
+            id: editingInsurance.id,
+            name: editingInsurance.name,
+            provider: editingInsurance.provider,
+            category: editingInsurance.category,
+            total_amount: editingInsurance.total_amount,
+            payment_frequency: editingInsurance.payment_frequency,
+            invoice_month: editingInsurance.invoice_month,
+            notes: editingInsurance.notes,
+            is_active: editingInsurance.is_active,
+            is_shared: editingInsurance.is_shared,
+            co_parent_id: editingInsurance.co_parent_id,
+            share_percentage: editingInsurance.share_percentage,
+          } : undefined}
+          onOpenChange={(open) => !open && setEditingInsurance(null)}
+          onSuccess={fetchData}
+        />
+      )}
     </div>
   );
 };

@@ -32,8 +32,8 @@ import { Label } from "@/components/ui/label";
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { SubscriptionForm } from "@/components/expenses/forms/SubscriptionForm";
-import { InsuranceForm } from "@/components/expenses/forms/InsuranceForm";
+import { SubscriptionFormDialog } from "@/components/expenses/SubscriptionFormDialog";
+import { InsuranceFormDialog } from "@/components/expenses/InsuranceFormDialog";
 import { IncomeFormDialog } from "@/components/income/IncomeFormDialog";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { toast } from "sonner";
@@ -270,38 +270,24 @@ const AddItemDialog = ({
 }: AddItemDialogProps) => {
     if (stepKey === "subscription") {
         return (
-            <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Add subscription</DialogTitle>
-                        <DialogDescription>Recurring bill or service.</DialogDescription>
-                    </DialogHeader>
-                    <SubscriptionForm
-                        householdId={householdId}
-                        onSuccess={onAdded}
-                        onCancel={() => onOpenChange(false)}
-                    />
-                </DialogContent>
-            </Dialog>
+            <SubscriptionFormDialog
+                open={open}
+                onOpenChange={onOpenChange}
+                mode="add"
+                householdId={householdId}
+                onSuccess={onAdded}
+            />
         );
     }
     if (stepKey === "insurance") {
         return (
-            <Dialog open={open} onOpenChange={onOpenChange}>
-                <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Add insurance</DialogTitle>
-                        <DialogDescription>
-                            Yearly/semi-annual amounts are auto-spread across the months.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <InsuranceForm
-                        householdId={householdId}
-                        onSuccess={onAdded}
-                        onCancel={() => onOpenChange(false)}
-                    />
-                </DialogContent>
-            </Dialog>
+            <InsuranceFormDialog
+                open={open}
+                onOpenChange={onOpenChange}
+                mode="add"
+                householdId={householdId}
+                onSuccess={onAdded}
+            />
         );
     }
     if (stepKey === "income") {

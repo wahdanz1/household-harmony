@@ -1,97 +1,134 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { CalendarIcon } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, subscriptionFields } from "@/hooks/useEncryptedFields";
 
+const subscriptionCategories = [
+    { value: "streaming", label: "Streaming" },
+    { value: "software", label: "Software & Apps" },
+    { value: "music", label: "Music" },
+    { value: "gaming", label: "Gaming" },
+    { value: "gym", label: "Gym & Fitness" },
+    { value: "news", label: "News & Media" },
+    { value: "storage", label: "Cloud Storage" },
+    { value: "education", label: "Education & Learning" },
+    { value: "other", label: "Other" },
+];
+
+interface InitialValues {
+    id?: string;
+    name?: string;
+    amount?: number | string;
+    billing_cycle?: string;
+    category?: string;
+    notes?: string;
+    is_active?: boolean;
+    billing_day?: number;
+    billing_month?: number;
+}
+
 interface SubscriptionFormProps {
     householdId: string;
     onSuccess: () => void;
     onCancel: () => void;
+    /** Pass to enable edit mode. */
+    editingId?: string;
+    initialValues?: InitialValues;
+    onDelete?: () => void;
+    /** Show the Create-another checkbox in add mode. */
+    showCreateAnother?: boolean;
 }
 
-const subscriptionCategories = [
-    { value: "streaming", label: "Streaming", color: "#EC4899" },
-    { value: "software", label: "Software & Apps", color: "#8B5CF6" },
-    { value: "music", label: "Music", color: "#10B981" },
-    { value: "gaming", label: "Gaming", color: "#F59E0B" },
-    { value: "gym", label: "Gym & Fitness", color: "#EF4444" },
-    { value: "news", label: "News & Media", color: "#3B82F6" },
-    { value: "storage", label: "Cloud Storage", color: "#06B6D4" },
-    { value: "education", label: "Education & Learning", color: "#A855F7" },
-    { value: "other", label: "Other", color: "#64748B" },
-];
+const blank = (): InitialValues => ({
+    name: "",
+    amount: "",
+    billing_cycle: "monthly",
+    category: "other",
+    notes: "",
+    is_active: true,
+});
 
-export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: SubscriptionFormProps) => {
+export const SubscriptionForm = ({
+    householdId, onSuccess, onCancel,
+    editingId, initialValues, onDelete, showCreateAnother = true,
+}: SubscriptionFormProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
     const { encryptRecord } = useEncryptedFields(subscriptionFields);
-    const [formData, setFormData] = useState<{
-        name: string;
-        amount: string;
-        billing_cycle: string;
-        category: string;
-        notes: string;
-        is_active: boolean;
-        billing_day?: number;
-        billing_month?: number;
-    }>({
-        name: "",
-        amount: "",
-        billing_cycle: "monthly",
-        category: "other",
-        notes: "",
-        is_active: true,
-    });
+    const [formData, setFormData] = useState<InitialValues>(() => ({ ...blank(), ...initialValues }));
     const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [createAnother, setCreateAnother] = useState(false);
+
+    useEffect(() => {
+        setFormData({ ...blank(), ...initialValues });
+        setCreateAnother(false);
+    }, [initialValues, editingId]);
+
+    const isEditing = !!editingId;
+    const canSave = !!formData.name?.trim() && !!String(formData.amount ?? "").trim();
 
     const handleSave = async () => {
-        if (!user) return;
-
+        if (!user || !canSave) return;
         setSaving(true);
+        try {
+            const baseData = {
+                household_id: householdId,
+                name: formData.name?.trim() ?? "",
+                amount: parseFloat(String(formData.amount ?? 0)),
+                billing_cycle: formData.billing_cycle ?? "monthly",
+                category: formData.category ?? "other",
+                notes: formData.notes ?? "",
+                is_active: formData.is_active ?? true,
+                created_by: user.id,
+                billing_day: formData.billing_cycle !== "monthly" ? formData.billing_day ?? null : null,
+                billing_month: formData.billing_cycle !== "monthly" ? formData.billing_month ?? null : null,
+            };
+            const data = await encryptRecord(baseData);
 
-        const baseData = {
-            household_id: householdId,
-            name: formData.name,
-            amount: parseFloat(formData.amount),
-            billing_cycle: formData.billing_cycle,
-            category: formData.category,
-            notes: formData.notes,
-            is_active: formData.is_active,
-            created_by: user.id,
-            billing_day: formData.billing_cycle === "yearly" ? formData.billing_day : null,
-            billing_month: formData.billing_cycle === "yearly" ? formData.billing_month : null,
-        };
+            if (editingId) {
+                const { error } = await supabase.from("subscriptions").update(data).eq("id", editingId);
+                if (error) throw error;
+                toast({ title: "Subscription updated" });
+            } else {
+                const { error } = await supabase.from("subscriptions").insert(data);
+                if (error) throw error;
+                toast({ title: "Subscription added" });
+            }
 
-        // Encrypt sensitive fields (name, amount)
-        const data = await encryptRecord(baseData);
-
-        const { error } = await supabase.from("subscriptions").insert(data);
-
-        if (error) {
-            toast({
-                title: "Error",
-                description: "Failed to save subscription",
-                variant: "destructive",
-            });
-            setSaving(false);
-        } else {
-            toast({
-                title: "Success",
-                description: "Subscription added",
-            });
             onSuccess();
+            if (!editingId && createAnother) {
+                setFormData(blank());
+            }
+        } catch (err: any) {
+            toast({ title: "Error", description: err.message || "Failed to save", variant: "destructive" });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!editingId || !onDelete) return;
+        setDeleting(true);
+        try {
+            const { error } = await supabase.from("subscriptions").delete().eq("id", editingId);
+            if (error) throw error;
+            toast({ title: "Subscription deleted" });
+            onDelete();
+        } catch (err: any) {
+            toast({ title: "Error", description: err.message || "Failed to delete", variant: "destructive" });
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -100,7 +137,7 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
             <div className="space-y-2">
                 <Label>Name</Label>
                 <Input
-                    value={formData.name}
+                    value={formData.name ?? ""}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Netflix, Spotify, etc."
                 />
@@ -109,14 +146,10 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
             <div className="space-y-2">
                 <Label>Category</Label>
                 <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                    <SelectTrigger>
-                        <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                         {subscriptionCategories.map((cat) => (
-                            <SelectItem key={cat.value} value={cat.value}>
-                                {cat.label}
-                            </SelectItem>
+                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
@@ -126,18 +159,16 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
                 <Label>Amount</Label>
                 <Input
                     type="number"
-                    value={formData.amount}
+                    value={String(formData.amount ?? "")}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                     placeholder="0"
                 />
             </div>
 
             <div className="space-y-2">
-                <Label>Billing Cycle</Label>
+                <Label>Billing cycle</Label>
                 <Select value={formData.billing_cycle} onValueChange={(v) => setFormData({ ...formData, billing_cycle: v })}>
-                    <SelectTrigger>
-                        <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="monthly">Monthly</SelectItem>
                         <SelectItem value="quarterly">Quarterly</SelectItem>
@@ -146,28 +177,26 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
                 </Select>
             </div>
 
-            {formData.billing_cycle === "yearly" && (
-                <div className="grid-2">
+            {(formData.billing_cycle === "yearly" || formData.billing_cycle === "quarterly") && (
+                <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                        <Label>Billing Month</Label>
+                        <Label>Billing month</Label>
                         <Select
                             value={formData.billing_month?.toString()}
                             onValueChange={(v) => setFormData({ ...formData, billing_month: parseInt(v) })}
                         >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Month" />
-                            </SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
                             <SelectContent>
-                                {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                                    <SelectItem key={month} value={month.toString()}>
-                                        {format(new Date(2024, month - 1, 1), "MMMM")}
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                                    <SelectItem key={m} value={m.toString()}>
+                                        {format(new Date(2024, m - 1, 1), "MMMM")}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
                     </div>
                     <div className="space-y-2">
-                        <Label>Billing Day</Label>
+                        <Label>Billing day</Label>
                         <Input
                             type="number"
                             min={1}
@@ -179,7 +208,7 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
                                     setFormData({ ...formData, billing_day: val });
                                 }
                             }}
-                            placeholder="Day (1-31)"
+                            placeholder="1–31"
                         />
                     </div>
                 </div>
@@ -188,7 +217,7 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
             <div className="space-y-2">
                 <Label>Notes</Label>
                 <Textarea
-                    value={formData.notes}
+                    value={formData.notes ?? ""}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     placeholder="Optional notes"
                 />
@@ -196,19 +225,32 @@ export const SubscriptionForm = ({ householdId, onSuccess, onCancel }: Subscript
 
             <div className="flex items-center space-x-2">
                 <Switch
-                    checked={formData.is_active}
+                    checked={!!formData.is_active}
                     onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                 />
                 <Label>Active</Label>
             </div>
 
-            <div className="flex gap-2 pt-4">
-                <Button variant="outline" onClick={onCancel} className="flex-1">
-                    Cancel
-                </Button>
-                <Button onClick={handleSave} disabled={saving || !formData.name || !formData.amount} className="flex-1">
-                    {saving ? "Adding..." : "Add Subscription"}
-                </Button>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4">
+                <div className="flex items-center gap-3">
+                    {isEditing && onDelete ? (
+                        <Button variant="destructive" onClick={handleDelete} disabled={saving || deleting}>
+                            {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                            Delete
+                        </Button>
+                    ) : showCreateAnother ? (
+                        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                            <Checkbox checked={createAnother} onCheckedChange={(v) => setCreateAnother(v === true)} />
+                            Create another
+                        </label>
+                    ) : null}
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>
+                    <Button onClick={handleSave} disabled={!canSave || saving}>
+                        {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</> : (isEditing ? "Save" : "Add")}
+                    </Button>
+                </div>
             </div>
         </div>
     );
