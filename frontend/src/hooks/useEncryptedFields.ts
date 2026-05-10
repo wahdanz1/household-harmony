@@ -136,6 +136,8 @@ export const incomeSourceFields: EncryptionFieldConfig[] = [
 
 export const monthlyIncomeFields: EncryptionFieldConfig[] = [
     { original: 'amount', encrypted: 'encrypted_amount' },
+    { original: 'budget_amount', encrypted: 'encrypted_budget_amount' },
+    { original: 'actual_amount', encrypted: 'encrypted_actual_amount' },
 ];
 
 export const expenseFields: EncryptionFieldConfig[] = [
@@ -145,6 +147,8 @@ export const expenseFields: EncryptionFieldConfig[] = [
 
 export const monthlyExpenseFields: EncryptionFieldConfig[] = [
     { original: 'amount', encrypted: 'encrypted_amount' },
+    { original: 'budget_amount', encrypted: 'encrypted_budget_amount' },
+    { original: 'actual_amount', encrypted: 'encrypted_actual_amount' },
 ];
 
 export const subscriptionFields: EncryptionFieldConfig[] = [
