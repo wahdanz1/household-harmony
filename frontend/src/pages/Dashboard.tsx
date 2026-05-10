@@ -48,6 +48,8 @@ const formatRelative = (d: Date): string => {
 interface DashboardData {
   income: number;
   expenses: number;
+  mandatoryOutflow: number;
+  savingsOutflow: number;
   subscriptionsMonthly: number;
   subscriptionsYearly: number;
   subscriptionsCount: number;
@@ -66,6 +68,8 @@ const Dashboard = () => {
   const [data, setData] = useState<DashboardData>({
     income: 0,
     expenses: 0,
+    mandatoryOutflow: 0,
+    savingsOutflow: 0,
     subscriptionsMonthly: 0,
     subscriptionsYearly: 0,
     subscriptionsCount: 0,
@@ -172,8 +176,11 @@ const Dashboard = () => {
       const uniqueIncomes = deduplicateItems(decryptedIncomes, "income_source_id");
       const uniqueExpenses = deduplicateItems(decryptedExpenses, "expense_id");
 
-      const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
-      const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0);
+      const pickAmount = (item: any): number =>
+        parseFloat(item.actual_amount ?? item.budget_amount ?? item.amount) || 0;
+
+      const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + pickAmount(item), 0);
+      const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + pickAmount(item), 0);
 
       let subscriptionsMonthly = 0;
       let subscriptionsYearly = 0;
@@ -247,7 +254,9 @@ const Dashboard = () => {
         return sum + (item.paid_by === "user" ? (parseFloat(item.amount) || 0) : -(parseFloat(item.amount) || 0));
       }, 0);
 
-      const totalExpenses = totalMonthlyExpenses + subscriptionsMonthly + insuranceMonthly + totalShared;
+      const mandatoryOutflow = totalMonthlyExpenses + subscriptionsMonthly + totalShared;
+      const savingsOutflow = insuranceMonthly;
+      const totalExpenses = mandatoryOutflow + savingsOutflow;
 
       // Build activity feed from one-time incomes + shared expenses (current month).
       // Recurring monthly entries are excluded — they're "budget values", not events.
@@ -275,6 +284,8 @@ const Dashboard = () => {
       setData({
         income: totalIncome,
         expenses: totalExpenses,
+        mandatoryOutflow,
+        savingsOutflow,
         subscriptionsMonthly,
         subscriptionsYearly,
         subscriptionsCount: decryptedSubs.length,
@@ -310,8 +321,10 @@ const Dashboard = () => {
   }
 
   // ─── Derived values ──────────────────────────────────────────
-  const balance = data.income - data.expenses;
-  const isPositive = balance >= 0;
+  const survival = data.income - data.mandatoryOutflow;
+  const afterSavings = survival - data.savingsOutflow;
+  const survivalPositive = survival >= 0;
+  const afterPositive = afterSavings >= 0;
   const usedPct = data.income > 0
     ? Math.min(100, Math.round((data.expenses / data.income) * 100))
     : 0;
@@ -343,26 +356,40 @@ const Dashboard = () => {
       <DemoEncryptionCard householdId={householdId} />
 
       <div className={`space-y-5 ${needsReview && !isDemoMode() ? "opacity-50" : ""} transition-opacity`}>
-        {/* HERO — savings remaining */}
+        {/* HERO — survival on top, after-savings below */}
         <Card variant="flush">
           <div className="p-5 border-b border-line-2">
             <p className="text-xs font-medium text-muted-foreground tracking-wide">
-              Saved this month
+              After mandatory bills
             </p>
             <div className="mt-1 flex items-baseline gap-2">
               <Money
-                v={balance}
+                v={survival}
                 currency={currency}
                 size="4xl"
                 weight={600}
-                color={isPositive ? "accent" : "danger"}
+                color={survivalPositive ? "accent" : "danger"}
                 className="tracking-tighter"
               />
             </div>
+            {data.savingsOutflow > 0 && (
+              <div className="mt-3 flex items-baseline gap-2">
+                <p className="text-xs font-medium text-muted-foreground tracking-wide">
+                  After savings
+                </p>
+                <Money
+                  v={afterSavings}
+                  currency={currency}
+                  size="base"
+                  weight={500}
+                  color={afterPositive ? "accent" : "danger"}
+                />
+              </div>
+            )}
             <div className="mt-3">
               <div className="h-1.5 bg-line-2 rounded-full overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-[width] duration-500 ${isPositive ? "bg-accent" : "bg-danger"}`}
+                  className={`h-full rounded-full transition-[width] duration-500 ${afterPositive ? "bg-accent" : "bg-danger"}`}
                   style={{ width: `${usedPct}%` }}
                 />
               </div>
