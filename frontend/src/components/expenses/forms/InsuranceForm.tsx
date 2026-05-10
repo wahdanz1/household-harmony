@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
+import { SubjectPicker } from "@/components/shared/SubjectPicker";
 
 const insuranceTypes = [
     { value: "home", label: "Home Insurance" },
@@ -43,6 +44,7 @@ interface InitialValues {
     is_shared?: boolean;
     co_parent_id?: string | null;
     share_percentage?: number | string;
+    subject_id?: string | null;
 }
 
 interface InsuranceFormProps {
@@ -67,6 +69,7 @@ const blank = (): InitialValues => ({
     is_shared: false,
     co_parent_id: "",
     share_percentage: "50",
+    subject_id: null,
 });
 
 export const InsuranceForm = ({
@@ -122,6 +125,7 @@ export const InsuranceForm = ({
                 is_shared: !!formData.is_shared,
                 co_parent_id: formData.is_shared ? (formData.co_parent_id || null) : null,
                 share_percentage: formData.is_shared ? parseFloat(String(formData.share_percentage ?? 50)) : 50,
+                subject_id: formData.subject_id ?? null,
                 created_by: user.id,
             };
             const data = await encryptRecord(baseData);
@@ -254,6 +258,12 @@ export const InsuranceForm = ({
                     </Select>
                 </div>
             )}
+
+            <SubjectPicker
+                householdId={householdId}
+                value={formData.subject_id}
+                onChange={(id) => setFormData({ ...formData, subject_id: id })}
+            />
 
             <div className="space-y-2">
                 <Label>Notes</Label>

@@ -16,6 +16,7 @@ interface SubscriptionFormDialogProps {
         is_active?: boolean;
         billing_day?: number;
         billing_month?: number;
+        subject_id?: string | null;
     };
     onSuccess?: () => void;
 }

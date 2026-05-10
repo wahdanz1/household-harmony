@@ -9,6 +9,7 @@ import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
 import { ResetDataCard } from "@/components/settings/ResetDataCard";
 import { SetupWizardCard } from "@/components/settings/SetupWizardCard";
+import { SubjectsCard } from "@/components/settings/SubjectsCard";
 // import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -127,6 +128,7 @@ const Settings = () => {
               enableSharedExpenses={household.enable_shared_expenses ?? true}
               onUpdate={fetchData}
             />
+            <SubjectsCard householdId={household.id} onUpdate={fetchData} />
             <SetupWizardCard />
             <ResetDataCard
               householdId={household.id}

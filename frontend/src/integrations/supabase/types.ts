@@ -223,6 +223,7 @@ export type Database = {
           is_encrypted: boolean | null
           metadata: Json | null
           sort_order: number
+          subject_id: string | null
           updated_at: string
         }
         Insert: {
@@ -240,6 +241,7 @@ export type Database = {
           is_encrypted?: boolean | null
           metadata?: Json | null
           sort_order?: number
+          subject_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -257,6 +259,7 @@ export type Database = {
           is_encrypted?: boolean | null
           metadata?: Json | null
           sort_order?: number
+          subject_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -279,6 +282,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
         ]
@@ -514,6 +524,7 @@ export type Database = {
           notes: string | null
           payment_frequency: string
           share_percentage: number
+          subject_id: string | null
           updated_at: string
         }
         Insert: {
@@ -533,6 +544,7 @@ export type Database = {
           notes?: string | null
           payment_frequency?: string
           share_percentage?: number
+          subject_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -552,6 +564,7 @@ export type Database = {
           notes?: string | null
           payment_frequency?: string
           share_percentage?: number
+          subject_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -574,6 +587,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurances_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
         ]
@@ -1111,6 +1131,44 @@ export type Database = {
           },
         ]
       }
+      subjects: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          name: string
+          sort_order: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          name: string
+          sort_order?: number
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           billing_cycle: string
@@ -1126,6 +1184,7 @@ export type Database = {
           is_active: boolean
           is_encrypted: boolean | null
           notes: string | null
+          subject_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1142,6 +1201,7 @@ export type Database = {
           is_active?: boolean
           is_encrypted?: boolean | null
           notes?: string | null
+          subject_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1158,6 +1218,7 @@ export type Database = {
           is_active?: boolean
           is_encrypted?: boolean | null
           notes?: string | null
+          subject_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1173,6 +1234,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
         ]
@@ -1626,5 +1694,4 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.98.2 (currently installed v2.84.2)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />

@@ -23,6 +23,7 @@ import { EXPENSE_CATEGORIES } from "@/constants/expenseCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
+import { SubjectPicker } from "@/components/shared/SubjectPicker";
 
 interface InitialValues {
     id?: string;
@@ -30,6 +31,7 @@ interface InitialValues {
     name?: string;
     default_amount?: number | string;
     is_credit?: boolean;
+    subject_id?: string | null;
 }
 
 interface ExpenseFormDialogProps {
@@ -51,6 +53,7 @@ const blankForm: InitialValues = {
     name: "",
     default_amount: "0",
     is_credit: false,
+    subject_id: null,
 };
 
 export const ExpenseFormDialog = ({
@@ -108,6 +111,7 @@ export const ExpenseFormDialog = ({
                 name: form.name?.trim() ?? "",
                 default_amount: numericAmount,
                 is_credit: !!form.is_credit,
+                subject_id: form.subject_id ?? null,
                 created_by: user.id,
                 is_active: true,
             };
@@ -226,9 +230,15 @@ export const ExpenseFormDialog = ({
                         <Input
                             value={form.name ?? ""}
                             onChange={(e) => setForm({ ...form, name: e.target.value })}
-                            placeholder="e.g. Uddevallahem, Comviq, GodEl"
+                            placeholder="e.g. Telia, Vattenfall, etc."
                         />
                     </div>
+
+                    <SubjectPicker
+                        householdId={householdId}
+                        value={form.subject_id}
+                        onChange={(id) => setForm({ ...form, subject_id: id })}
+                    />
 
                     <div className="space-y-2">
                         <Label>Monthly amount (kr)</Label>

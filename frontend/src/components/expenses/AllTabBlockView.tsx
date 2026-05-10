@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { Money } from "@/components/ui/money";
 import { MoneyInput } from "@/components/ui/money-input";
@@ -27,6 +27,25 @@ interface ExpenseItem {
     billingCycle?: 'monthly' | 'quarterly' | 'yearly';
     isDue?: boolean; // Is this subscription due in the current financial month?
     hasSpecialFields?: boolean; // Electricity/Rent - needs dialog to edit
+    subject?: { name: string; type: string };
+}
+
+const SUBJECT_ICON: Record<string, any> = {
+    member: User,
+    kid: Baby,
+    car: Car,
+    pet: PawPrint,
+    other: Box,
+};
+
+const SubjectChip = ({ subject }: { subject: { name: string; type: string } }) => {
+    const Icon = SUBJECT_ICON[subject.type] ?? Box;
+    return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted-foreground">
+            <Icon className="h-3 w-3" />
+            {subject.name}
+        </span>
+    );
 }
 
 interface ExpenseBlockProps {
@@ -168,10 +187,13 @@ export const ExpenseBlock = ({
                             >
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
                                     <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={32} />
-                                    <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue
-                                        ? 'text-ink'
-                                        : 'text-muted-foreground'
-                                        }`}>{item.name}</span>
+                                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                        <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue
+                                            ? 'text-ink'
+                                            : 'text-muted-foreground'
+                                            }`}>{item.name}</span>
+                                        {item.subject && <SubjectChip subject={item.subject} />}
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                                     {editable && onAmountChange ? (
@@ -232,8 +254,8 @@ export const ExpenseBlock = ({
 
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string; category?: string }[];
+    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean; subject?: { name: string; type: string } }[];
+    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string; category?: string; subject?: { name: string; type: string } }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
@@ -286,6 +308,7 @@ export const AllTabBlockView = ({
             displayLabel,
             billingCycle: sub.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
             isDue: sub.isDue,
+            subject: sub.subject,
         };
     });
 
@@ -307,6 +330,7 @@ export const AllTabBlockView = ({
             category: ins.category, // Insurance category for icon lookup
             displayAmount: ins.total_amount, // Actual payment amount
             displayLabel, // e.g., "/year"
+            subject: ins.subject,
         };
     });
 

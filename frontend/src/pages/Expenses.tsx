@@ -33,12 +33,14 @@ import { insuranceTypes } from "@/constants/insuranceTypes";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { ExpensesPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { useHouseholdSubjects } from "@/hooks/useHouseholdSubjects";
 
 const Expenses = () => {
   const { user } = useAuth();
   const { household, members, coParents } = useHousehold();
   const { isUnlocked } = useEncryption();
   const location = useLocation(); // Trigger refetch on navigation
+  const subjects = useHouseholdSubjects(household?.id);
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
@@ -597,6 +599,7 @@ const Expenses = () => {
               const actualAmount = rawActual !== undefined && rawActual !== null
                 ? Number(rawActual)
                 : undefined;
+              const subj = subjects.find(s => s.id === cat.subject_id);
               return {
                 id: cat.id,
                 name: cat.name,
@@ -604,6 +607,7 @@ const Expenses = () => {
                 defaultAmount: parseFloat(cat.default_amount || '0'),
                 actualAmount,
                 category: cat.category,
+                subject: subj ? { name: subj.name, type: subj.type } : undefined,
               };
             }).sort((a, b) => b.amount - a.amount)}
             subscriptions={subscriptions.filter(s => s.is_active).map(sub => {
@@ -630,11 +634,13 @@ const Expenses = () => {
               } else if (sub.billing_cycle === 'monthly') {
                 isDue = true; // Monthly is always "due"
               }
+              const subj = subjects.find(s => s.id === sub.subject_id);
               return {
                 ...sub,
                 category: sub.category, // Pass category for icon lookup
                 total_amount: sub.amount,
                 isDue,
+                subject: subj ? { name: subj.name, type: subj.type } : undefined,
               };
             })}
             insurances={insurances.filter(i => i.is_active).map(ins => {
@@ -649,6 +655,7 @@ const Expenses = () => {
                 monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
               }
 
+              const subj = subjects.find(s => s.id === ins.subject_id);
               return {
                 id: ins.id,
                 name: ins.name,
@@ -656,6 +663,7 @@ const Expenses = () => {
                 total_amount: ins.total_amount,
                 payment_frequency: ins.payment_frequency,
                 category: ins.category,
+                subject: subj ? { name: subj.name, type: subj.type } : undefined,
               };
             })}
             subscriptionsTotal={subscriptionsTotal}
@@ -786,6 +794,7 @@ const Expenses = () => {
             name: editingCategory.name,
             default_amount: editingCategory.default_amount,
             is_credit: editingCategory.is_credit,
+            subject_id: editingCategory.subject_id,
           } : undefined}
           onSuccess={fetchData}
         />
@@ -806,6 +815,7 @@ const Expenses = () => {
             is_active: editingSubscription.is_active,
             billing_day: editingSubscription.billing_day,
             billing_month: editingSubscription.billing_month,
+            subject_id: editingSubscription.subject_id,
           } : undefined}
           onOpenChange={(open) => !open && setEditingSubscription(null)}
           onSuccess={fetchData}
@@ -830,6 +840,7 @@ const Expenses = () => {
             is_shared: editingInsurance.is_shared,
             co_parent_id: editingInsurance.co_parent_id,
             share_percentage: editingInsurance.share_percentage,
+            subject_id: editingInsurance.subject_id,
           } : undefined}
           onOpenChange={(open) => !open && setEditingInsurance(null)}
           onSuccess={fetchData}

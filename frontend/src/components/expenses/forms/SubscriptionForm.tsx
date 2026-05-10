@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, subscriptionFields } from "@/hooks/useEncryptedFields";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
+import { SubjectPicker } from "@/components/shared/SubjectPicker";
 
 const subscriptionCategories = [
     { value: "streaming", label: "Streaming" },
@@ -36,6 +37,7 @@ interface InitialValues {
     is_active?: boolean;
     billing_day?: number;
     billing_month?: number;
+    subject_id?: string | null;
 }
 
 interface SubscriptionFormProps {
@@ -57,6 +59,7 @@ const blank = (): InitialValues => ({
     category: "other",
     notes: "",
     is_active: true,
+    subject_id: null,
 });
 
 export const SubscriptionForm = ({
@@ -98,6 +101,7 @@ export const SubscriptionForm = ({
                 created_by: user.id,
                 billing_day: formData.billing_cycle !== "monthly" ? formData.billing_day ?? null : null,
                 billing_month: formData.billing_cycle !== "monthly" ? formData.billing_month ?? null : null,
+                subject_id: formData.subject_id ?? null,
             };
             const data = await encryptRecord(baseData);
 
@@ -231,6 +235,12 @@ export const SubscriptionForm = ({
                     </div>
                 </div>
             )}
+
+            <SubjectPicker
+                householdId={householdId}
+                value={formData.subject_id}
+                onChange={(id) => setFormData({ ...formData, subject_id: id })}
+            />
 
             <div className="space-y-2">
                 <Label>Notes</Label>

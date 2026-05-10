@@ -19,6 +19,7 @@ interface InsuranceFormDialogProps {
         is_shared?: boolean;
         co_parent_id?: string | null;
         share_percentage?: number | string;
+        subject_id?: string | null;
     };
     onSuccess?: () => void;
 }
