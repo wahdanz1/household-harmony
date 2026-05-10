@@ -11,6 +11,7 @@ import { Money, fmtKr } from "@/components/ui/money";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
 import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
+import { Card } from "@/components/ui/card";
 import { Home } from "lucide-react";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { AddButton } from "@/components/ui/add-button";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
+import { HandCoins, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthChip } from "@/components/ui/month-chip";
 import { Money, fmtKr } from "@/components/ui/money";
@@ -548,7 +548,7 @@ const Income = () => {
 
       {!hasAnySource ? (
         <EmptyStateCard
-          icon={TrendingUp}
+          icon={HandCoins}
           iconClassName="text-success"
           headline="No income sources yet"
           description="Add your salary, CSN, or any other recurring income."
@@ -559,7 +559,7 @@ const Income = () => {
         <Card variant="flush">
           {/* Block Header */}
           <div className="flex items-center gap-3 px-5 py-4 border-b border-line-2">
-            <TrendingUp className="h-5 w-5 text-success" />
+            <HandCoins className="h-5 w-5 text-success" />
             <div>
               <h3>Income</h3>
               <p className="text-xs text-muted-foreground">

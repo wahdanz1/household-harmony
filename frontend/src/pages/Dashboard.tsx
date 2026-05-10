@@ -19,7 +19,7 @@ import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlemen
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 import { HouseholdSetupWizard } from "@/components/dashboard/HouseholdSetupWizard";
 import {
-  TrendingUp, TrendingDown, Repeat, Shield, ClipboardCheck,
+  HandCoins, Wallet, Repeat, Shield, ClipboardCheck,
   ChevronRight, ChevronLeft, Users, Sparkles, CalendarPlus, Loader2,
 } from "lucide-react";
 import { planMonth } from "@/services/monthlyPlanning";
@@ -518,7 +518,7 @@ const Dashboard = () => {
               className="p-4 px-5 text-left border-r border-line-2 hover:bg-surface-2 transition-colors focus:outline-none"
             >
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <TrendingUp className="h-3 w-3 text-accent" />
+                <HandCoins className="h-3 w-3 text-accent" />
                 <span>Income</span>
               </div>
               <div className="mt-1">
@@ -531,7 +531,7 @@ const Dashboard = () => {
               className="p-4 px-5 text-left hover:bg-surface-2 transition-colors focus:outline-none"
             >
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <TrendingDown className="h-3 w-3" />
+                <Wallet className="h-3 w-3" />
                 <span>Expenses</span>
               </div>
               <div className="mt-1">
