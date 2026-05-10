@@ -461,6 +461,7 @@ const Dashboard = () => {
       {/* Demo Encryption Showcase */}
       <DemoEncryptionCard householdId={householdId} />
 
+      {householdHasSeedData !== false && (
       <div className={`space-y-5 ${needsReview && !isDemoMode() ? "opacity-50" : ""} transition-opacity`}>
         {/* HERO — survival on top, after-savings below */}
         <Card variant="flush">
@@ -634,9 +635,10 @@ const Dashboard = () => {
           </section>
         )}
       </div>
+      )}
 
       {/* Co-Parent Settlement */}
-      {householdId && coParents.length > 0 && (
+      {householdId && coParents.length > 0 && householdHasSeedData !== false && (
         <CoParentSettlementCard householdId={householdId} currency={currency} />
       )}
 
