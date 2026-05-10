@@ -1,0 +1,54 @@
+{
+  "appName": "Household Harmony",
+  "nav": {
+    "dashboard": "Dashboard",
+    "income": "Income",
+    "expenses": "Expenses",
+    "settings": "Settings"
+  },
+  "actions": {
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "confirm": "Confirm",
+    "retry": "Try again",
+    "openReview": "Open Review",
+    "returnHome": "Return to Home",
+    "seeAll": "See all →"
+  },
+  "status": {
+    "loading": "Loading…",
+    "saved": "Saved",
+    "saveFailed": "Failed to save"
+  },
+  "month": {
+    "previous": "Previous month",
+    "next": "Next month",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "{{count}}d ago"
+  },
+  "money": {
+    "perMonth": "per month",
+    "perYear": "per year",
+    "perYearShort": "{{amount}}/yr"
+  },
+  "vault": {
+    "lockedTitle": "Vault locked",
+    "lockedDescription": "Unlock your vault to view this page.",
+    "unlock": "Unlock vault"
+  },
+  "review": {
+    "lockedTitle": "This month's review hasn't been finalized.",
+    "lockedDescription": "Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize."
+  },
+  "errors": {
+    "generic": "An unexpected error occurred. Please try again.",
+    "title": "Error"
+  }
+}

@@ -4,11 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { format, startOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { format } from "date-fns";
 
 interface SharedExpenseFormProps {
     householdId: string;
@@ -18,6 +20,7 @@ interface SharedExpenseFormProps {
 
 export const SharedExpenseForm = ({ householdId, onSuccess, onCancel }: SharedExpenseFormProps) => {
     const { user } = useAuth();
+    const { financialMonthStart } = useHousehold();
     const { toast } = useToast();
     const { encryptRecord } = useEncryptedFields(sharedExpenseFields);
     const [coParents, setCoParents] = useState<any[]>([]);
@@ -30,7 +33,8 @@ export const SharedExpenseForm = ({ householdId, onSuccess, onCancel }: SharedEx
     });
     const [saving, setSaving] = useState(false);
 
-    const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
+    const currentMonth = getCurrentFinancialMonth(financialMonthStart);
+    const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
     useEffect(() => {
         const fetchCoParents = async () => {
@@ -55,6 +59,8 @@ export const SharedExpenseForm = ({ householdId, onSuccess, onCancel }: SharedEx
             household_id: householdId,
             co_parent_id: formData.co_parent_id,
             month: currentMonth,
+            month_start: format(monthStart, "yyyy-MM-dd"),
+            month_end: format(monthEnd, "yyyy-MM-dd"),
             description: formData.description,
             amount: parseFloat(formData.amount),
             notes: formData.notes,

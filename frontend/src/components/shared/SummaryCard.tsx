@@ -1,7 +1,7 @@
 import { LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
 
-type ColorVariant = 'green' | 'red' | 'purple' | 'amber' | 'default';
+type ColorVariant = 'success' | 'destructive' | 'accent-purple' | 'warning' | 'default';
 
 interface SummaryCardProps {
     title: string;
@@ -14,10 +14,10 @@ interface SummaryCardProps {
 }
 
 const colorClasses: Record<ColorVariant, string> = {
-    green: 'text-green-500',
-    red: 'text-red-500',
-    purple: 'text-purple-500',
-    amber: 'text-amber-500',
+    success: 'text-success',
+    destructive: 'text-destructive',
+    'accent-purple': 'text-accent-purple',
+    warning: 'text-warning',
     default: 'text-foreground',
 };
 
@@ -31,7 +31,7 @@ export const SummaryCard = ({
     currency = 'SEK',
 }: SummaryCardProps) => {
     const iconColor = colorClasses[color];
-    const amountColor = color === 'green' || color === 'red' ? colorClasses[color] : 'text-foreground';
+    const amountColor = color === 'success' || color === 'destructive' ? colorClasses[color] : 'text-foreground';
 
     return (
         <Card

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Money } from "@/components/ui/money";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -32,12 +33,26 @@ interface CreditCardManagementProps {
     creditCards: CreditCard[];
     calculateCardTotal?: (cardId: string) => number;
     onUpdate: () => void;
+    /** Controlled Add-card dialog open state (optional). Falls back to internal state. */
+    addOpen?: boolean;
+    onAddOpenChange?: (open: boolean) => void;
+    /** Render only the Add/Edit/Delete dialogs, no panel UI. Used by the empty
+     *  state when the panel is replaced by a richer EmptyStateCard. */
+    dialogOnly?: boolean;
 }
 
-export const CreditCardManagement = ({ householdId, currency, creditCards, calculateCardTotal, onUpdate }: CreditCardManagementProps) => {
+export const CreditCardManagement = ({
+    householdId, currency, creditCards, calculateCardTotal, onUpdate,
+    addOpen, onAddOpenChange, dialogOnly = false,
+}: CreditCardManagementProps) => {
     const { user } = useAuth();
     const { toast } = useToast();
-    const [cardDialogOpen, setCardDialogOpen] = useState(false);
+    const [internalCardDialogOpen, setInternalCardDialogOpen] = useState(false);
+    const cardDialogOpen = addOpen ?? internalCardDialogOpen;
+    const setCardDialogOpen = (v: boolean) => {
+        if (onAddOpenChange) onAddOpenChange(v);
+        else setInternalCardDialogOpen(v);
+    };
     const [editingCardId, setEditingCardId] = useState<string | null>(null);
     const [cardFormData, setCardFormData] = useState({
         name: "",
@@ -136,7 +151,11 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, calcu
     };
 
     return (
-        <>
+        <Dialog open={cardDialogOpen} onOpenChange={(open) => {
+            setCardDialogOpen(open);
+            if (!open) resetCardForm();
+        }}>
+            {!dialogOnly && (
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
@@ -145,52 +164,14 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, calcu
                                 <CreditCard className="h-5 w-5" />
                                 Manage Credit Cards
                             </CardTitle>
-                            <CardDescription className="mt-1.5">Add and manage your credit cards with monthly limits</CardDescription>
+                            <CardDescription>Add and manage your credit cards with monthly limits</CardDescription>
                         </div>
-                        <Dialog open={cardDialogOpen} onOpenChange={(open) => {
-                            setCardDialogOpen(open);
-                            if (!open) resetCardForm();
-                        }}>
-                            <DialogTrigger asChild>
-                                <Button>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Credit Card
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>{editingCardId ? "Edit" : "Add"} Credit Card</DialogTitle>
-                                    <DialogDescription>
-                                        Configure a credit card with a monthly spending limit
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label>Card Name</Label>
-                                        <Input
-                                            value={cardFormData.name}
-                                            onChange={(e) => setCardFormData({ ...cardFormData, name: e.target.value })}
-                                            placeholder="e.g., Norwegian Bank, Visa Gold"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label>Monthly Limit</Label>
-                                        <Input
-                                            type="number"
-                                            value={cardFormData.monthly_limit}
-                                            onChange={(e) => setCardFormData({ ...cardFormData, monthly_limit: e.target.value })}
-                                            placeholder="0"
-                                        />
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button onClick={handleSaveCard}>
-                                        {editingCardId ? "Update" : "Add"}
-                                    </Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
+                        <DialogTrigger asChild>
+                            <Button>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Credit Card
+                            </Button>
+                        </DialogTrigger>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -236,15 +217,28 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, calcu
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <div className="flex justify-between text-sm">
-                                                <span className="font-medium">{total.toFixed(0)} / {limit.toFixed(0)} {currency}</span>
-                                                <span className={remaining < 0 ? "text-destructive" : "text-green-600"}>
-                                                    {remaining >= 0 ? `${remaining.toFixed(0)} ${currency} left` : `${Math.abs(remaining).toFixed(0)} ${currency} over`}
+                                            <div className="flex justify-between items-baseline text-sm">
+                                                <span className="flex items-baseline gap-1">
+                                                    <Money v={total} currency={currency} size="sm" weight={600} />
+                                                    <span className="text-muted-foreground">/</span>
+                                                    <Money v={limit} currency={currency} size="sm" weight={500} color="muted" />
+                                                </span>
+                                                <span className="flex items-baseline gap-1">
+                                                    <Money
+                                                        v={Math.abs(remaining)}
+                                                        currency={currency}
+                                                        size="sm"
+                                                        weight={500}
+                                                        color={remaining < 0 ? "danger" : "accent"}
+                                                    />
+                                                    <span className={remaining < 0 ? "text-destructive" : "text-accent"}>
+                                                        {remaining >= 0 ? "left" : "over"}
+                                                    </span>
                                                 </span>
                                             </div>
                                             <div className="w-full bg-secondary rounded-full h-2">
                                                 <div
-                                                    className={`h-2 rounded-full transition-all ${percentage > 100 ? "bg-destructive" : percentage > 80 ? "bg-orange-500" : "bg-green-600"}`}
+                                                    className={`h-2 rounded-full transition-all ${percentage > 100 ? "bg-destructive" : percentage > 80 ? "bg-alert" : "bg-success"}`}
                                                     style={{ width: `${Math.min(percentage, 100)}%` }}
                                                 />
                                             </div>
@@ -256,8 +250,42 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, calcu
                     )}
                 </CardContent>
             </Card>
+            )}
 
-            {/* Delete Confirmation Dialog */}
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{editingCardId ? "Edit" : "Add"} Credit Card</DialogTitle>
+                    <DialogDescription>
+                        Configure a credit card with a monthly spending limit
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Card Name</Label>
+                        <Input
+                            value={cardFormData.name}
+                            onChange={(e) => setCardFormData({ ...cardFormData, name: e.target.value })}
+                            placeholder="e.g., Norwegian Bank, Visa Gold"
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Monthly Limit</Label>
+                        <Input
+                            type="number"
+                            value={cardFormData.monthly_limit}
+                            onChange={(e) => setCardFormData({ ...cardFormData, monthly_limit: e.target.value })}
+                            placeholder="0"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleSaveCard}>
+                        {editingCardId ? "Update" : "Add"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+
             <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -272,6 +300,6 @@ export const CreditCardManagement = ({ householdId, currency, creditCards, calcu
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </>
+        </Dialog>
     );
 };

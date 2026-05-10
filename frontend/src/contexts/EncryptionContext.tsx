@@ -81,6 +81,47 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         };
     }, []);
 
+    // Auto-unlock vault for demo mode on app load
+    useEffect(() => {
+        const autoUnlockDemo = async () => {
+            // Import here to avoid circular dependency
+            const { isDemoMode } = await import('@/utils/demoMode');
+
+            // Only auto-unlock if: demo mode + vault locked + password available
+            const demoPassword = sessionStorage.getItem('demo_password');
+            if (!isDemoMode() || isUnlocked || !demoPassword) {
+                return;
+            }
+
+            // Need user ID from auth
+            const authData = await supabase.auth.getUser();
+            if (!authData.data.user) return;
+
+            console.log('Auto-unlocking demo vault...');
+            // Import the unlock function from encryption service
+            const { unlockVault: unlockFn } = await import('@/services/encryption');
+
+            try {
+                const { data: vault } = await (supabase as any)
+                    .from('user_vault_keys')
+                    .select('encrypted_dek, dek_salt, dek_iv')
+                    .eq('user_id', authData.data.user.id)
+                    .single();
+
+                if (vault?.encrypted_dek) {
+                    const dek = await unlockFn(demoPassword, vault.encrypted_dek, vault.dek_salt, vault.dek_iv);
+                    dekRef.current = dek;
+                    setIsUnlocked(true);
+                    console.log('Demo vault auto-unlocked successfully');
+                }
+            } catch (error) {
+                console.warn('Demo vault auto-unlock failed:', error);
+            }
+        };
+
+        autoUnlockDemo();
+    }, [isUnlocked]); // Re-run if unlock status changes
+
     // Reset inactivity timer
     const resetInactivityTimer = useCallback(() => {
         setShowLockWarning(false);
@@ -156,16 +197,15 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         try {
             const { encryptedDEK, dekSalt, dekIV, dek } = await createUserEncryptionKeys(password);
 
-            // Store encrypted DEK in user's profile
-            const { error } = await supabase
-                .from('profiles')
-                .update({
+            const { error } = await (supabase as any)
+                .from('user_vault_keys')
+                .upsert({
+                    user_id: userId,
                     encrypted_dek: encryptedDEK,
                     dek_salt: dekSalt,
                     dek_iv: dekIV,
                     encryption_version: 1,
-                })
-                .eq('id', userId);
+                });
 
             if (error) {
                 console.error('Failed to store encryption keys:', error);
@@ -190,30 +230,26 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     const unlockWithPassword = useCallback(async (password: string, userId: string): Promise<boolean> => {
         setIsLoading(true);
         try {
-            // Fetch encrypted DEK from profile
-            const { data: profile, error } = await supabase
-                .from('profiles')
+            const { data: vault, error } = await (supabase as any)
+                .from('user_vault_keys')
                 .select('encrypted_dek, dek_salt, dek_iv')
-                .eq('id', userId)
-                .single();
+                .eq('user_id', userId)
+                .maybeSingle();
 
-            if (error || !profile) {
+            if (error) {
                 console.error('Failed to fetch encryption keys:', error);
                 return false;
             }
 
-            // If user doesn't have encryption set up yet, initialize it
-            if (!profile.encrypted_dek || !profile.dek_salt || !profile.dek_iv) {
-                // User doesn't have encryption set up yet, initialize it
+            if (!vault || !vault.encrypted_dek || !vault.dek_salt || !vault.dek_iv) {
                 return await initializeEncryption(password, userId);
             }
 
-            // Decrypt DEK
             const dek = await unlockVault(
                 password,
-                profile.encrypted_dek,
-                profile.dek_salt,
-                profile.dek_iv
+                vault.encrypted_dek,
+                vault.dek_salt,
+                vault.dek_iv
             );
 
             // Store DEK in memory
@@ -238,38 +274,34 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     ): Promise<boolean> => {
         setIsLoading(true);
         try {
-            // First verify old password by trying to unlock
-            const { data: profile, error: fetchError } = await supabase
-                .from('profiles')
+            const { data: vault, error: fetchError } = await (supabase as any)
+                .from('user_vault_keys')
                 .select('encrypted_dek, dek_salt, dek_iv')
-                .eq('id', userId)
+                .eq('user_id', userId)
                 .single();
 
-            if (fetchError || !profile?.encrypted_dek) {
+            if (fetchError || !vault?.encrypted_dek) {
                 console.error('Failed to fetch encryption keys:', fetchError);
                 return false;
             }
 
-            // Decrypt DEK with old password
             const dek = await unlockVault(
                 oldPassword,
-                profile.encrypted_dek,
-                profile.dek_salt,
-                profile.dek_iv
+                vault.encrypted_dek,
+                vault.dek_salt,
+                vault.dek_iv
             );
 
-            // Re-encrypt DEK with new password
             const { encryptedDEK, dekSalt, dekIV } = await reEncryptDEK(dek, newPassword);
 
-            // Update profile with new encrypted DEK
-            const { error: updateError } = await supabase
-                .from('profiles')
+            const { error: updateError } = await (supabase as any)
+                .from('user_vault_keys')
                 .update({
                     encrypted_dek: encryptedDEK,
                     dek_salt: dekSalt,
                     dek_iv: dekIV,
                 })
-                .eq('id', userId);
+                .eq('user_id', userId);
 
             if (updateError) {
                 console.error('Failed to update encryption keys:', updateError);
@@ -328,9 +360,9 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             {showLockWarning && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-background border border-border rounded-lg p-6 max-w-md mx-4 shadow-xl">
-                        <h2 className="text-lg font-semibold text-foreground mb-2">
+                        <h4 className="mb-2">
                             Session Timeout Warning
-                        </h2>
+                        </h4>
                         <p className="text-muted-foreground mb-4">
                             Your vault will lock in 60 seconds due to inactivity.
                         </p>

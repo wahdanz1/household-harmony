@@ -56,8 +56,8 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
                 const encryptedValue = await encrypt(stringValue);
                 if (encryptedValue) {
                     (encryptedRecord as any)[config.encrypted] = encryptedValue;
-                    // Clear plaintext field to prevent it from being written to DB
-                    (encryptedRecord as any)[config.original] = null;
+                    // DELETE plaintext field to prevent it from being written to DB
+                    delete (encryptedRecord as any)[config.original];
                 }
             }
         }
@@ -136,6 +136,8 @@ export const incomeSourceFields: EncryptionFieldConfig[] = [
 
 export const monthlyIncomeFields: EncryptionFieldConfig[] = [
     { original: 'amount', encrypted: 'encrypted_amount' },
+    { original: 'budget_amount', encrypted: 'encrypted_budget_amount' },
+    { original: 'actual_amount', encrypted: 'encrypted_actual_amount' },
 ];
 
 export const expenseFields: EncryptionFieldConfig[] = [
@@ -145,6 +147,8 @@ export const expenseFields: EncryptionFieldConfig[] = [
 
 export const monthlyExpenseFields: EncryptionFieldConfig[] = [
     { original: 'amount', encrypted: 'encrypted_amount' },
+    { original: 'budget_amount', encrypted: 'encrypted_budget_amount' },
+    { original: 'actual_amount', encrypted: 'encrypted_actual_amount' },
 ];
 
 export const subscriptionFields: EncryptionFieldConfig[] = [
@@ -156,12 +160,6 @@ export const insuranceFields: EncryptionFieldConfig[] = [
     { original: 'name', encrypted: 'encrypted_name' },
     { original: 'total_amount', encrypted: 'encrypted_total_amount' },
     { original: 'provider', encrypted: 'encrypted_provider' },
-];
-
-export const savingsGoalFields: EncryptionFieldConfig[] = [
-    { original: 'name', encrypted: 'encrypted_name' },
-    { original: 'target_amount', encrypted: 'encrypted_target_amount' },
-    { original: 'current_amount', encrypted: 'encrypted_current_amount' },
 ];
 
 export const creditCardExpenseFields: EncryptionFieldConfig[] = [

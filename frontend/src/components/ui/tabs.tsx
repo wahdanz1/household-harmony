@@ -5,6 +5,12 @@ import { cn } from "@/lib/utils";
 
 const Tabs = TabsPrimitive.Root;
 
+/**
+ * Segmented tab control. Inactive triggers blend into the surface-2 well;
+ * the active trigger lifts onto a surface-elevated pill with a hairline border.
+ *
+ * Triggers auto-distribute via flex-1 — no need to override with `grid-cols-N`.
+ */
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
@@ -12,7 +18,9 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "flex w-full items-center justify-center gap-1 rounded-md bg-background/30 p-1 text-muted-foreground border border-border/50",
+      "flex w-full items-center gap-0.5 p-1 rounded-xl",
+      "bg-surface-2 border border-line",
+      "text-muted-foreground",
       className,
     )}
     {...props}
@@ -27,7 +35,15 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex flex-1 items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all hover:bg-muted/50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+      "inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap",
+      "h-9 px-3 rounded-[9px]",
+      "text-sm font-medium",
+      "border border-transparent",
+      "transition-all duration-150",
+      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
+      "disabled:pointer-events-none disabled:opacity-50",
+      "data-[state=active]:bg-surface data-[state=active]:text-ink data-[state=active]:font-semibold data-[state=active]:border-line data-[state=active]:shadow-sm",
+      "hover:text-ink",
       className,
     )}
     {...props}
@@ -42,7 +58,7 @@ const TabsContent = React.forwardRef<
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      "mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      "mt-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
       className,
     )}
     {...props}

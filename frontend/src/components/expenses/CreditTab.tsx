@@ -5,7 +5,7 @@ import { CreditCardManagement } from "./credit/CreditCardManagement";
 import { CreditCard as CreditCardIcon, Check } from "lucide-react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { ExpenseBlock } from "./AllTabBlockView";
-import { useEncryptedFields, expenseFields, monthlyExpenseFields, creditCardExpenseFields, creditCardFields } from "@/hooks/useEncryptedFields";
+import { useEncryptedFields, expenseFields, monthlyExpenseFields, creditCardFields } from "@/hooks/useEncryptedFields";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { Input } from "@/components/ui/input";
@@ -14,8 +14,9 @@ import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileUp, Loader2, Sparkles } from "lucide-react";
+import { FileUp, Loader2 } from "lucide-react";
 import { ParsedTransactionsReview } from "./credit/ParsedTransactionsReview";
+import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
 
 // Backend API response type
 interface ParseResult {
@@ -35,17 +36,7 @@ interface ParseResult {
 // Backend API URL (local dev or Railway)
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-interface CreditCardExpense {
-    id: string;
-    credit_card_id: string;
-    category: string;
-    description: string;
-    amount: number;
-    notes: string | null;
-    credit_cards: {
-        name: string;
-    };
-}
+// CreditCardExpense interface removed - credit expenses now use expenses table with is_credit=true
 
 interface CreditCard {
     id: string;
@@ -59,6 +50,7 @@ interface BudgetedCreditExpense {
     category: string;
     default_amount: number;
     monthly_amount: number;
+    actual_amount?: number;
 }
 
 interface CreditTabProps {
@@ -73,7 +65,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
     const { household } = useHousehold();
     const { isUnlocked, decrypt, encrypt } = useEncryption();
     const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
-    const [expenses, setExpenses] = useState<CreditCardExpense[]>([]);
+    // Credit expenses now use expenses table with is_credit=true (tracked via budgetedCredit)
     const [budgetedCredit, setBudgetedCredit] = useState<BudgetedCreditExpense[]>([]);
     const [loading, setLoading] = useState(true);
     const [budgetExpanded, setBudgetExpanded] = useState(true);
@@ -81,11 +73,12 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
     const [parsing, setParsing] = useState(false);
     const [parseResult, setParseResult] = useState<ParseResult | null>(null);
+    const [addCardOpen, setAddCardOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const { decryptRecords: decryptExpenses, encryptRecord: encryptMonthlyExpense } = useEncryptedFields(expenseFields);
     const { decryptRecords: decryptMonthlyExpenses } = useEncryptedFields(monthlyExpenseFields);
-    const { decryptRecords: decryptCreditCardExpenses } = useEncryptedFields(creditCardExpenseFields);
+    // creditCardExpenseFields removed - credit expenses now use expenses table
     const { decryptRecords: decryptCreditCards } = useEncryptedFields(creditCardFields);
 
     // Debounce timer ref
@@ -114,13 +107,11 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
 
         const [
             { data: cardsData },
-            { data: expensesData },
             { data: creditCategoriesData },
             { data: monthlyData },
         ] = await Promise.all([
             supabase.from("credit_cards").select("*").eq("household_id", householdId).eq("is_active", true),
-            supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", householdId).gte("month_end", startStr).lte("month_start", endStr),
-            (supabase as any).from("expenses").select("*").eq("household_id", householdId).eq("is_active", true).eq("is_credit", true),
+            supabase.from("expenses").select("*").eq("household_id", householdId).eq("is_active", true).eq("is_credit", true),
             supabase.from("monthly_expenses").select("*").eq("household_id", householdId).gte("month_end", startStr).lte("month_start", endStr),
         ]);
 
@@ -132,23 +123,26 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
         }));
         setCreditCards(decryptedCards);
 
-        // Decrypt credit card expenses
-        const decryptedCCExpenses = await decryptCreditCardExpenses(expensesData || []);
-        setExpenses(decryptedCCExpenses);
-
-        // Decrypt and build budgeted credit items
+        // Build budgeted credit items from expenses with is_credit=true
         if (creditCategoriesData && creditCategoriesData.length > 0) {
             const decryptedCategories = await decryptExpenses(creditCategoriesData);
             const decryptedMonthly = await decryptMonthlyExpenses(monthlyData || []);
 
             const budgetItems: BudgetedCreditExpense[] = decryptedCategories.map((cat: any) => {
                 const monthly = decryptedMonthly.find((m: any) => m.expense_id === cat.id);
+                const budget =
+                    monthly?.budget_amount ??
+                    monthly?.amount ??
+                    cat.default_amount ??
+                    0;
+                const actual = monthly?.actual_amount;
                 return {
                     id: cat.id,
                     name: cat.name,
                     category: cat.category,
                     default_amount: cat.default_amount || 0,
-                    monthly_amount: monthly?.amount ?? cat.default_amount ?? 0,
+                    monthly_amount: budget,
+                    actual_amount: actual !== undefined && actual !== null ? Number(actual) : undefined,
                 };
             });
             setBudgetedCredit(budgetItems);
@@ -176,11 +170,10 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 month: currentMonth,
                 month_start: startStr,
                 month_end: endStr,
-                amount,
+                budget_amount: amount,
                 created_by: user.id,
             };
 
-            // Encrypt if needed (amount field)
             const data = await encryptMonthlyExpense(baseData);
 
             const { error } = await supabase
@@ -222,11 +215,8 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
         debouncedSave();
     };
 
-    const calculateCardTotal = (cardId: string) => {
-        return expenses
-            .filter(e => e.credit_card_id === cardId)
-            .reduce((sum, e) => sum + e.amount, 0);
-    };
+    // calculateCardTotal removed - credit expenses now tracked via budgeted items
+    // Card spending will be calculated from monthly_expenses linked to is_credit expenses
 
     // Calculate total from edited amounts
     const totalBudgetedCredit = Object.values(editedAmounts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0);
@@ -253,13 +243,12 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 return;
             }
 
-            // Prepare FormData with PDF file
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('household_id', household.id);
 
-            // Call backend API
             const response = await fetch(
-                `${API_BASE_URL}/api/llm/parse-invoice?user_id=${user.id}&household_id=${household.id}`,
+                `${API_BASE_URL}/api/llm/parse-invoice`,
                 {
                     method: 'POST',
                     headers: {
@@ -316,35 +305,58 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
     };
 
     if (loading) {
-        return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
+        return null;
     }
 
     if (!isUnlocked) {
         return <VaultLockedAlert className="mt-6" />;
     }
 
+    if (creditCards.length === 0) {
+        return (
+            <div className="space-y-6">
+                <EmptyStateCard
+                    icon={CreditCardIcon}
+                    iconClassName="text-accent-purple"
+                    headline="No credit cards yet"
+                    description="Add a credit card to import its monthly invoice and have categories filled in for you."
+                    primaryLabel="Add your first credit card"
+                    onPrimary={() => setAddCardOpen(true)}
+                    hideWizardLink
+                />
+                <CreditCardManagement
+                    householdId={householdId}
+                    currency={currency}
+                    creditCards={creditCards}
+                    onUpdate={fetchData}
+                    addOpen={addCardOpen}
+                    onAddOpenChange={setAddCardOpen}
+                    dialogOnly
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
-            {/* Magic PDF Import Section */}
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <div>
                         <h3 className="flex items-center gap-2">
-                            <Sparkles className="h-5 w-5 text-yellow-500" />
-                            Credit Card Assistant
+                            <FileUp className="h-5 w-5 text-info" />
+                            Import credit card invoice
                         </h3>
-                        <p className="text-sm text-muted-foreground">Upload your bank statement and let Gemini do the work</p>
+                        <p className="text-sm text-muted-foreground">Upload your monthly statement to fill in actuals.</p>
                     </div>
                     <Button
-                        variant="outline"
+                        variant="accentSoft"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={parsing}
-                        className="bg-primary/5 border-primary/20 hover:bg-primary/10"
                     >
                         {parsing ? (
-                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Parsing PDF...</>
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Parsing PDF...</>
                         ) : (
-                            <><FileUp className="h-4 w-4 mr-2" /> Import from PDF</>
+                            <><FileUp className="h-4 w-4" /> Import PDF</>
                         )}
                     </Button>
                     <input
@@ -353,7 +365,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                         onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) handleFileSelect(file);
-                            e.target.value = ''; // Reset to allow same file re-upload
+                            e.target.value = '';
                         }}
                         accept=".pdf"
                         className="hidden"
@@ -364,14 +376,14 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                     <div className="animate-in fade-in slide-in-from-top-4 duration-300">
                         <div className="mb-2 flex items-center justify-between px-1">
                             <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
+                                <Badge variant="soft">
                                     {parseResult.language}
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
                                     {parseResult.provider_used}
                                 </Badge>
                                 {parseResult.cached && (
-                                    <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600">
+                                    <Badge variant="success" className="text-xs">
                                         cached
                                     </Badge>
                                 )}
@@ -382,10 +394,11 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                         </div>
                         <ParsedTransactionsReview
                             transactions={parseResult.transactions}
-                            existingExpenses={expenses}
                             creditCards={creditCards}
                             householdId={householdId}
                             currency={currency}
+                            monthStart={monthStart}
+                            monthEnd={monthEnd}
                             onAccept={() => {
                                 setParseResult(null);
                                 fetchData();
@@ -396,49 +409,39 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 )}
             </div>
 
-            {/* Budgeted Credit Expenses Section */}
-            {/* Budgeted Credit Expenses Section */}
             {budgetedCredit.length > 0 && (
                 <ExpenseBlock
-                    title="Budgeted Credit Expenses"
+                    title="Credit Card Spend"
                     total={totalBudgetedCredit}
                     currency={currency}
-                    icon={<CreditCardIcon className="h-5 w-5 text-purple-500" />}
+                    icon={<CreditCardIcon className="h-5 w-5 text-accent-purple" />}
                     items={budgetedCredit.map(item => ({
                         id: item.id,
                         name: item.name,
                         amount: parseFloat(editedAmounts[item.id] || "0"),
                         defaultAmount: item.default_amount,
+                        actualAmount: item.actual_amount,
                         category: item.category
                     }))}
                     editable={true}
                     onAmountChange={handleAmountChange}
-                    colorClass="text-purple-500"
+                    colorClass="text-accent-purple"
                     headerMetrics={
                         saveStatus !== 'idle' ? (
                             <div className="flex items-center gap-1 text-xs animate-in fade-in">
                                 {saveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> <span className="text-muted-foreground">Saving...</span></>}
-                                {saveStatus === "saved" && <><Check className="h-3 w-3 text-green-500" /> <span className="text-green-500">Saved</span></>}
+                                {saveStatus === "saved" && <><Check className="h-3 w-3 text-success" /> <span className="text-success">Saved</span></>}
                             </div>
                         ) : undefined
                     }
                 />
             )}
 
-            {budgetedCredit.length === 0 && creditCards.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                    <CreditCardIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No credit expenses configured.</p>
-                    <p className="text-sm mt-2">Mark expense categories as "Credit Card Expense" to track them here.</p>
-                </div>
-            )}
-
-            {/* Credit Card Management */}
             <CreditCardManagement
                 householdId={householdId}
                 currency={currency}
                 creditCards={creditCards}
-                calculateCardTotal={calculateCardTotal}
+                calculateCardTotal={() => totalBudgetedCredit}
                 onUpdate={fetchData}
             />
         </div>

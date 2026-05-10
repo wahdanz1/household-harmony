@@ -2,13 +2,13 @@ import { Tv, Code, Music, Gamepad2, Dumbbell, Newspaper, Cloud, GraduationCap, M
 import { CategoryConfig } from "@/utils/categoryHelpers";
 
 export const subscriptionCategories: CategoryConfig[] = [
-    { value: "streaming", label: "Streaming", color: "#EC4899", icon: Tv },
-    { value: "software", label: "Software & Apps", color: "#8B5CF6", icon: Code },
-    { value: "music", label: "Music", color: "#10B981", icon: Music },
-    { value: "gaming", label: "Gaming", color: "#F59E0B", icon: Gamepad2 },
-    { value: "gym", label: "Gym & Fitness", color: "#EF4444", icon: Dumbbell },
-    { value: "news", label: "News & Media", color: "#3B82F6", icon: Newspaper },
-    { value: "storage", label: "Cloud Storage", color: "#06B6D4", icon: Cloud },
-    { value: "education", label: "Education & Learning", color: "#A855F7", icon: GraduationCap },
-    { value: "other", label: "Other", color: "#64748B", icon: MoreHorizontal },
+    { value: "streaming", label: "Streaming", icon: Tv, hue: 320 },
+    { value: "software", label: "Software & Apps", icon: Code, hue: 240 },
+    { value: "music", label: "Music", icon: Music, hue: 320 },
+    { value: "gaming", label: "Gaming", icon: Gamepad2, hue: 30 },
+    { value: "gym", label: "Gym & Fitness", icon: Dumbbell, hue: 150 },
+    { value: "news", label: "News & Media", icon: Newspaper, hue: 240 },
+    { value: "storage", label: "Cloud Storage", icon: Cloud, hue: 240 },
+    { value: "education", label: "Education & Learning", icon: GraduationCap, hue: 60 },
+    { value: "other", label: "Other", icon: MoreHorizontal },
 ];

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Key, Eye, EyeOff, Check, ExternalLink } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
     Select,
@@ -100,16 +100,14 @@ export const ApiKeysCard = () => {
 
         setSaving(true);
         try {
-            // Get the current session for auth header
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
                 toast.error("Please log in again");
                 return;
             }
 
-            // Call backend API to save encrypted key
             const response = await fetch(
-                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys?user_id=${user.id}&household_id=${household.id}`,
+                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys`,
                 {
                     method: "POST",
                     headers: {
@@ -119,6 +117,7 @@ export const ApiKeysCard = () => {
                     body: JSON.stringify({
                         api_key: apiKey,
                         provider: provider,
+                        household_id: household.id,
                     }),
                 }
             );
@@ -149,7 +148,7 @@ export const ApiKeysCard = () => {
             }
 
             const response = await fetch(
-                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys/${provider}?user_id=${user.id}`,
+                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'}/api/api-keys/${provider}`,
                 {
                     method: "DELETE",
                     headers: {
@@ -184,17 +183,15 @@ export const ApiKeysCard = () => {
     return (
         <div className="space-y-6">
             <Card>
-                <div className="flex items-center gap-3 mb-4">
-                    <Key className="h-5 w-5 text-primary" />
-                    <div>
-                        <h3>LLM API Key</h3>
-                        <p className="text-sm text-muted-foreground">
-                            Used for AI-powered features like invoice parsing
-                        </p>
-                    </div>
-                </div>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Key className="h-5 w-5 text-primary" />
+                        LLM API Key
+                    </CardTitle>
+                    <CardDescription>Used for AI-powered features like invoice parsing</CardDescription>
+                </CardHeader>
 
-                <div className="space-y-4">
+                <CardContent className="space-y-4">
                     {/* Provider Selection */}
                     <div className="space-y-2">
                         <Label htmlFor="llm-provider">LLM Provider</Label>
@@ -265,14 +262,14 @@ export const ApiKeysCard = () => {
                     >
                         {currentConfig.helpText} <ExternalLink className="h-3 w-3" />
                     </a>
-                </div>
 
-                {hasKey && (
-                    <div className="mt-4 flex items-center gap-2 text-sm text-green-500">
-                        <Check className="h-4 w-4" />
-                        <span>{currentConfig.name} API key configured</span>
-                    </div>
-                )}
+                    {hasKey && (
+                        <div className="flex items-center gap-2 text-sm text-success">
+                            <Check className="h-4 w-4" />
+                            <span>{currentConfig.name} API key configured</span>
+                        </div>
+                    )}
+                </CardContent>
             </Card>
         </div>
     );

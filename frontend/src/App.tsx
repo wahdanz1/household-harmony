@@ -14,8 +14,6 @@ import Layout from "./components/Layout";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Income = lazy(() => import("./pages/Income"));
 const Expenses = lazy(() => import("./pages/Expenses"));
-const Savings = lazy(() => import("./pages/Savings"));
-const History = lazy(() => import("./pages/History"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -44,8 +42,6 @@ const App = () => (
                   <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
                   <Route path="/income" element={<ProtectedRoute><Layout><Income /></Layout></ProtectedRoute>} />
                   <Route path="/expenses" element={<ProtectedRoute><Layout><Expenses /></Layout></ProtectedRoute>} />
-                  <Route path="/savings" element={<ProtectedRoute><Layout><Savings /></Layout></ProtectedRoute>} />
-                  <Route path="/history" element={<ProtectedRoute><Layout><History /></Layout></ProtectedRoute>} />
                   <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

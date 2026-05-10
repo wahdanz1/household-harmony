@@ -1,28 +1,34 @@
-import { Home, TrendingUp, TrendingDown, Target, BarChart3, Settings } from "lucide-react";
+import { Home, Wallet, HandCoins, Settings } from "lucide-react";
 import { NavLink } from "./NavLink";
 
 const MobileNav = () => {
   const navItems = [
-    { icon: Home, label: "Dashboard", path: "/" },
-    { icon: TrendingUp, label: "Income", path: "/income" },
-    { icon: TrendingDown, label: "Expenses", path: "/expenses" },
-    { icon: Target, label: "Savings", path: "/savings" },
-    { icon: BarChart3, label: "History", path: "/history" },
+    { icon: Home, label: "Overview", path: "/" },
+    { icon: Wallet, label: "Expenses", path: "/expenses" },
+    { icon: HandCoins, label: "Income", path: "/income" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card/80 backdrop-blur-xl border-t border-white/5 z-50 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="grid grid-cols-6 h-16">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-line"
+      style={{
+        background: "var(--bg-trans)",
+        backdropFilter: "blur(18px) saturate(160%)",
+        WebkitBackdropFilter: "blur(18px) saturate(160%)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
+      <div className="grid grid-cols-4 h-[58px]">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
-            className="flex flex-col items-center justify-center gap-1 text-muted-foreground transition-all"
-            activeClassName="text-primary"
+            className="flex flex-col items-center justify-center gap-0.5 text-muted-foreground transition-colors"
+            activeClassName="text-accent font-semibold"
           >
-            <item.icon className="h-5 w-5" />
-            <span className="text-[10px] font-medium">{item.label}</span>
+            <item.icon className="h-[22px] w-[22px]" strokeWidth={1.6} />
+            <span className="text-[10.5px] font-medium tracking-[0.01em]">{item.label}</span>
           </NavLink>
         ))}
       </div>

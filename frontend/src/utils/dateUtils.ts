@@ -1,4 +1,5 @@
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, setDate, isBefore, isAfter } from "date-fns";
+import { getNow } from "./devTime";
 
 /**
  * Calculate the current financial month based on custom start day
@@ -6,7 +7,7 @@ import { format, addMonths, subMonths, startOfMonth, endOfMonth, setDate, isBefo
  * @param financialMonthStart - Day of month when financial month starts (default: 25)
  */
 export function getCurrentFinancialMonth(financialMonthStart: number = 25): string {
-    const today = new Date();
+    const today = getNow();
     const { start } = getFinancialMonthRange(today, financialMonthStart);
     return format(start, "yyyy-MM-dd");
 }

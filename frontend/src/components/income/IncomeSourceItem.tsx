@@ -1,84 +1,96 @@
-import { Switch } from "@/components/ui/switch";
-import { Pencil } from "lucide-react";
+import { Pencil, Sparkles } from "lucide-react";
 import { getIncomeCategoryById } from "@/constants/incomeCategories";
-import { DataListItem } from "@/components/ui/data-list-item";
+import { RowItem } from "@/components/ui/row-item";
+import { MoneyInput } from "@/components/ui/money-input";
+import { CatIcon } from "@/components/ui/cat-icon";
+import { ShowEncryptedDataButton } from "@/components/demo/ShowEncryptedDataButton";
 
 interface IncomeSourceItemProps {
     source: any;
     amount: string;
+    /** Realised amount confirmed for this month, if known. Drives the variance badge. */
+    actualAmount?: number;
     currency: string;
     onAmountChange: (sourceId: string, value: string) => void;
     onEdit: (source: any) => void;
     onDelete: (sourceId: string) => void;
     status?: 'saved' | 'modified' | 'none';
+    readOnly?: boolean;
+    /** Set true on the last item of the list to drop the bottom divider. */
+    last?: boolean;
 }
 
 export const IncomeSourceItem = ({
     source,
     amount,
+    actualAmount,
     currency,
     onAmountChange,
     onEdit,
     status = 'none',
+    readOnly = false,
+    last = false,
 }: IncomeSourceItemProps) => {
     const isSkipped = amount === "0";
 
     const cat = getIncomeCategoryById(source.category);
-    const Icon = cat?.icon;
+    const Icon = cat?.icon || Sparkles;
 
-    // Bottom underline on input: shows save status
-    const getInputUnderlineClass = () => {
-        if (isSkipped) return 'border-border';
-        switch (status) {
-            case 'saved':
-                return 'border-green-500';
-            case 'modified':
-                return 'border-lime-400';
-            default:
-                return 'border-border';
-        }
-    };
+    const inputStatus =
+        isSkipped ? "default" : status === "saved" ? "saved" : status === "modified" ? "modified" : "default";
 
     return (
-        <DataListItem onClick={() => onEdit(source)} className="group">
+        <RowItem
+            onClick={() => !readOnly && onEdit(source)}
+            last={last}
+            className="group"
+        >
             {/* Icon + Name */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-                {Icon && <Icon className="h-4 w-4 shrink-0" style={{ color: cat?.color }} />}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+                <CatIcon icon={Icon} hue={cat?.hue} size={32} />
                 <p className={`font-medium text-sm sm:text-base truncate ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
                     {source.name}
                 </p>
             </div>
 
-            {/* Input + Currency + Edit (desktop hover) + Toggle */}
-            <div className="flex items-center gap-2 shrink-0">
-                <input
-                    type="number"
+            {/* Amount input + actions */}
+            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                <MoneyInput
                     value={amount || ""}
-                    onChange={(e) => onAmountChange(source.id, e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className={`currency-input w-24 sm:w-28 ${getInputUnderlineClass()}`}
-                    placeholder="0"
-                    disabled={isSkipped}
+                    currency={currency}
+                    status={inputStatus}
+                    disabled={isSkipped || readOnly}
+                    onChange={(v) => onAmountChange(source.id, v.toString())}
+                    aria-label={`${source.name} amount`}
                 />
-                <span className="text-sm text-muted-foreground whitespace-nowrap">{currency}</span>
 
-                {/* Edit icon - desktop only, visible on hover */}
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                {actualAmount !== undefined && Math.round(actualAmount) !== Math.round(parseFloat(amount || "0")) && (() => {
+                    const variance = actualAmount - parseFloat(amount || "0");
+                    const moreReceived = variance > 0;
+                    return (
+                        <span
+                            className={`text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded ${moreReceived
+                                ? "bg-success/10 text-success"
+                                : "bg-destructive/10 text-destructive"
+                                }`}
+                            title={`Actual: ${Math.round(actualAmount)} ${currency}`}
+                        >
+                            {moreReceived ? "+" : "−"}{Math.abs(Math.round(variance))} {currency}
+                        </span>
+                    );
+                })()}
 
-                {/* Vertical toggle on desktop, horizontal on mobile */}
-                <div
-                    className="flex items-center justify-center"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <Switch
-                        checked={!isSkipped}
-                        onCheckedChange={(checked) =>
-                            onAmountChange(source.id, checked ? (source.default_amount || 0).toString() : "0")
-                        }
-                        className="sm:-rotate-90 data-[state=unchecked]:bg-muted"
-                    />
-                </div>
+                <ShowEncryptedDataButton
+                    recordId={source.id}
+                    tableName="income_sources"
+                    fieldName="encrypted_name"
+                    displayLabel="Name"
+                />
+
+                {!readOnly && (
+                    <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                )}
             </div>
-        </DataListItem>
+        </RowItem>
     );
 };

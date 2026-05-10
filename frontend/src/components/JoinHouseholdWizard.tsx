@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Check, Users, ArrowRight, ArrowLeft } from "lucide-react";
 import { PLACEHOLDERS } from "@/constants/ui";
 import { isEmailAllowed } from "@/config/emailWhitelist";
+import { passwordSchema } from "@/config/passwordSchema";
 
 interface JoinHouseholdWizardProps {
     open: boolean;
@@ -48,10 +49,10 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
     };
 
     const handleValidateCode = async () => {
-        if (!inviteCode || inviteCode.length !== 6) {
+        if (!inviteCode || inviteCode.length !== 8) {
             toast({
                 title: "Invalid Code",
-                description: "Please enter a valid 6-digit invite code",
+                description: "Please enter a valid 8-character invite code",
                 variant: "destructive",
             });
             return;
@@ -59,15 +60,11 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
 
         setLoading(true);
 
-        // Fetch invite and household info
-        const { data: invite, error: inviteError } = await supabase
-            .from("household_invites")
-            .select("*, households(*)")
-            .eq("invite_code", inviteCode.toUpperCase())
-            .eq("is_active", true)
-            .single();
+        const { data, error } = await supabase.rpc("lookup_active_invite", {
+            invite_code_in: inviteCode.toUpperCase(),
+        });
 
-        if (inviteError || !invite) {
+        if (error || !data) {
             toast({
                 title: "Invalid Code",
                 description: "This invite code is invalid or has expired",
@@ -77,19 +74,34 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        // Fetch household members
-        const { data: membersData } = await supabase
-            .from("household_members")
-            .select("*, profiles(full_name, avatar_url)")
-            .eq("household_id", invite.household_id);
+        const preview = data as {
+            household_id: string;
+            household_name: string;
+            household_currency: string;
+            invited_email: string | null;
+            members: Array<{
+                role: string;
+                full_name: string | null;
+                avatar_url: string | null;
+            }>;
+        };
 
-        // Store household with invited_email from invite
-        setHousehold({ ...invite.households, invited_email: invite.invited_email });
-        setMembers(membersData || []);
+        setHousehold({
+            id: preview.household_id,
+            name: preview.household_name,
+            currency: preview.household_currency,
+            invited_email: preview.invited_email,
+        });
+        setMembers(
+            preview.members.map((m, idx) => ({
+                id: String(idx),
+                role: m.role,
+                profiles: { full_name: m.full_name, avatar_url: m.avatar_url },
+            }))
+        );
 
-        // Pre-fill email if invite is email-locked
-        if (invite.invited_email) {
-            setEmail(invite.invited_email);
+        if (preview.invited_email) {
+            setEmail(preview.invited_email);
         }
 
         setStep(2);
@@ -106,7 +118,6 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        // Validate email matches invite if invite is email-locked
         if (household?.invited_email && email.toLowerCase() !== household.invited_email.toLowerCase()) {
             toast({
                 title: "Email Mismatch",
@@ -116,7 +127,6 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        // Check email whitelist
         const isAllowed = await isEmailAllowed(email);
         if (!isAllowed) {
             toast({
@@ -136,10 +146,11 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        if (password.length < 6) {
+        const passwordCheck = passwordSchema.safeParse(password);
+        if (!passwordCheck.success) {
             toast({
                 title: "Weak Password",
-                description: "Password must be at least 6 characters",
+                description: passwordCheck.error.errors[0].message,
                 variant: "destructive",
             });
             return;
@@ -147,12 +158,21 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
 
         setLoading(true);
 
-        const { error } = await signUpAndJoinHousehold(email, password, fullName, household.id);
+        const { error } = await signUpAndJoinHousehold(email, password, fullName, inviteCode);
 
         if (error) {
+            const message =
+                error.message === "email_mismatch"
+                    ? "This invite is for a different email address."
+                    : error.message === "invite_not_found"
+                    ? "This invite is no longer valid."
+                    : error.message === "already_member"
+                    ? "You are already a member of this household."
+                    : error.message || "Failed to create account";
+
             toast({
                 title: "Sign Up Failed",
-                description: error.message || "Failed to create account",
+                description: message,
                 variant: "destructive",
             });
             setLoading(false);
@@ -180,7 +200,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                         <DialogHeader>
                             <DialogTitle>Join Existing Household</DialogTitle>
                             <DialogDescription>
-                                Enter the 6-digit invite code you received
+                                Enter the 8-character invite code you received
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
@@ -188,10 +208,10 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                                 <Label htmlFor="invite-code">Invite Code</Label>
                                 <Input
                                     id="invite-code"
-                                    placeholder="ABC123"
+                                    placeholder="ABCD2345"
                                     value={inviteCode}
                                     onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                                    maxLength={6}
+                                    maxLength={8}
                                     className="text-center text-2xl font-mono tracking-widest"
                                 />
                             </div>
@@ -200,7 +220,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                             <Button variant="outline" onClick={() => onOpenChange(false)}>
                                 Cancel
                             </Button>
-                            <Button onClick={handleValidateCode} disabled={loading || inviteCode.length !== 6}>
+                            <Button onClick={handleValidateCode} disabled={loading || inviteCode.length !== 8}>
                                 {loading ? "Validating..." : "Continue"}
                                 <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>
@@ -221,7 +241,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div>
-                                <h4 className="text-sm font-semibold mb-3">Current Members ({members.length})</h4>
+                                <h4 className="text-sm mb-3">Current Members ({members.length})</h4>
                                 <div className="space-y-2">
                                     {members.map((member) => (
                                         <div key={member.id} className="flex items-center gap-3 p-2 rounded-lg border">

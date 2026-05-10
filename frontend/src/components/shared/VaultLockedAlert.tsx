@@ -1,5 +1,6 @@
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { ShieldCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { VaultUnlockButton } from "@/components/shared/VaultUnlockDialog";
 
 interface VaultLockedAlertProps {
@@ -7,28 +8,41 @@ interface VaultLockedAlertProps {
     className?: string;
 }
 
+/**
+ * Reassuring "your data is encrypted" notice. Shown when the user hasn't
+ * unlocked their vault for the session. This is informational, not alarming
+ * — the encryption is a feature, not a problem. Soft-accent surface, shield
+ * icon, primary "Unlock" CTA. On mobile this becomes the page's primary
+ * message (vertically centered, larger typography).
+ */
 export const VaultLockedAlert = ({
-    description = "Your vault is locked. Please unlock it to view and manage sensitive data.",
-    className
+    description = "Unlock your vault to view and manage your finances.",
+    className,
 }: VaultLockedAlertProps) => {
     return (
-        <Alert className={`border-amber-500/50 bg-amber-500/10 text-amber-500 flex items-center justify-between p-4 ${className}`}>
-            <div className="flex items-center gap-4">
-                <div className="p-2 rounded-full bg-amber-500/10 shrink-0">
-                    <AlertTriangle className="h-6 w-6 stroke-amber-500" />
+        <div className={cn("flex flex-col justify-center min-h-[55vh] sm:min-h-0", className)}>
+            <Card className="bg-accent-tint border-accent/20 flex items-start gap-4 flex-wrap">
+                {/* Icon badge */}
+                <div className="w-11 h-11 rounded-full bg-accent/15 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="h-5 w-5 text-accent-dk" />
                 </div>
-                <div>
-                    <AlertTitle className="text-lg font-semibold mb-1">Vault Locked</AlertTitle>
-                    <AlertDescription className="text-base text-amber-500/90">
-                        {description}
-                    </AlertDescription>
-                </div>
-            </div>
 
-            <VaultUnlockButton
-                variant="outline"
-                className="h-10 px-6 ml-4 border-amber-500/50 hover:bg-amber-500/20 hover:text-amber-500 text-base font-medium whitespace-nowrap"
-            />
-        </Alert>
+                {/* Title + description */}
+                <div className="flex-1 min-w-0">
+                    <h3 className="text-xl sm:text-base font-semibold text-accent-dk leading-tight">
+                        Your data is encrypted
+                    </h3>
+                    <p className="text-base sm:text-sm text-accent-dk/80 mt-1.5">
+                        {description}
+                    </p>
+                </div>
+
+                {/* Action */}
+                <VaultUnlockButton
+                    variant="primary"
+                    className="w-full sm:w-auto sm:shrink-0"
+                />
+            </Card>
+        </div>
     );
 };

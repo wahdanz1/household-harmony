@@ -236,3 +236,25 @@ dist-ssr
 # Own files
 COMMANDS.md
 MONOREPO_RESTRUCTURING.md
+PLAN.md
+project-rules.md
+.claude/
+
+# Local-only schema reference (not for public repo)
+.schema/
+frontend/docs/
+
+# TypeScript composite build artifacts
+*.tsbuildinfo
+
+# Supabase temp files
+supabase/.temp/
+
+# Local-only schema audits (read-only DB dumps)
+*.audit.sql
+
+# Local-only security notes (specifics of past/open vulns — keep private)
+SECURITY_AUDIT.md
+
+# Design reference prototype (Claude Design handoff — local only)
+design-reference/

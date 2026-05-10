@@ -1,32 +1,29 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { useToast } from "@/hooks/use-toast";
 import { JoinHouseholdWizard } from "@/components/JoinHouseholdWizard";
-import { UserPlus, Lock, Shield } from "lucide-react";
+import { UserPlus, Sparkles, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { PLACEHOLDERS } from "@/constants/ui";
 import { isEmailAllowed } from "@/config/emailWhitelist";
+import { passwordSchema } from "@/config/passwordSchema";
+import { setDemoMode } from "@/utils/demoMode";
+
+// Feature flag: demo mode is hidden until the monthly review flow is rebuilt
+const DEMO_ENABLED = false;
+
+type Mode = "login" | "signup";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
-
-// Strong password requirements for new accounts (encryption security)
-const passwordSchema = z.string()
-  .min(12, "Password must be at least 12 characters for encryption security")
-  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-  .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-  .regex(/[0-9]/, "Password must contain at least one number")
-  .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character");
 
 const signupSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -39,28 +36,94 @@ const signupSchema = z.object({
 });
 
 const Auth = () => {
+  const [mode, setMode] = useState<Mode>("login");
   const [isLoading, setIsLoading] = useState(false);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupConfirm, setSignupConfirm] = useState("");
-  const [signupFullName, setSignupFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
+  const [demoLoadingMessage, setDemoLoadingMessage] = useState("");
 
   const { signIn, signUp, user } = useAuth();
-  const { unlockWithPassword, initializeEncryption, isLoading: encryptionLoading } = useEncryption();
+  const { unlockWithPassword, initializeEncryption } = useEncryption();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect if already logged in
-  useEffect(() => {
-    if (user) {
-      navigate("/", { replace: true });
+  // ─── Demo mode ─────────────────────────────────────────────
+  const handleTryDemo = async () => {
+    setDemoLoading(true);
+    const startTime = Date.now();
+
+    const wakingTimeout = setTimeout(() => {
+      setDemoLoadingMessage("Waking up backend...");
+    }, 500);
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      const response = await fetch(`${backendUrl}/api/demo/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      clearTimeout(wakingTimeout);
+      const elapsed = Date.now() - startTime;
+
+      if (elapsed < 5000) {
+        setDemoLoadingMessage("Creating demo user...");
+      } else {
+        setDemoLoadingMessage("Backend ready! Creating demo...");
+      }
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to create demo');
+      }
+
+      const { email, password, user_id } = await response.json();
+
+      setDemoLoadingMessage("Setting up household...");
+
+      const { error: signInError } = await signIn(email, password);
+      if (signInError) throw new Error(signInError.message);
+
+      setDemoLoadingMessage("Unlocking encrypted vault...");
+
+      const vaultUnlocked = await unlockWithPassword(password, user_id);
+      if (!vaultUnlocked) {
+        console.warn("Demo vault unlock failed - may not have encrypted data yet");
+      }
+
+      setDemoMode(true);
+      sessionStorage.setItem('demo_password', password);
+      localStorage.setItem('demo_tour_active', 'true');
+
+      toast({
+        title: "Welcome to the Demo!",
+        description: "Vault unlocked with real AES-256 encryption. Explore all features!",
+      });
+
+      navigate('/');
+    } catch (error: any) {
+      clearTimeout(wakingTimeout);
+      console.error('Demo creation failed:', error);
+      toast({
+        title: "Demo Creation Failed",
+        description: error.message || "Please try again or contact support.",
+        variant: "destructive",
+      });
+    } finally {
+      setDemoLoading(false);
+      setDemoLoadingMessage("");
     }
+  };
+
+  // ─── Auto-redirect + email confirm hash handling ──────────
+  useEffect(() => {
+    if (user) navigate("/", { replace: true });
   }, [user, navigate]);
 
-  // Check for email confirmation success
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.includes('type=signup') || hash.includes('type=email')) {
@@ -68,61 +131,56 @@ const Auth = () => {
         title: "Email Confirmed!",
         description: "Your account has been confirmed. You can now log in.",
       });
-      // Clear the hash
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, [toast]);
 
+  // ─── Submit handlers ──────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
-      const validation = loginSchema.safeParse({ email: loginEmail, password: loginPassword });
-
+      const validation = loginSchema.safeParse({ email, password });
       if (!validation.success) {
         toast({
           title: "Validation Error",
           description: validation.error.errors[0].message,
           variant: "destructive",
         });
-        setIsLoading(false);
         return;
       }
 
-      // Sign in with Supabase
-      const { error, data } = await signIn(loginEmail, loginPassword);
-
+      const { error, data } = await signIn(email, password);
       if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          toast({
-            title: "Login Failed",
-            description: "Invalid email or password. Please try again.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Login Failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
-      } else if (data?.user) {
-        // Unlock encryption vault with the same password
-        const vaultUnlocked = await unlockWithPassword(loginPassword, data.user.id);
+        toast({
+          title: "Login Failed",
+          description: error.message.includes("Invalid login credentials")
+            ? "Invalid email or password. Please try again."
+            : error.message,
+          variant: "destructive",
+        });
+        return;
+      }
 
+      if (data?.user) {
+        localStorage.removeItem('is_demo_mode');
+        localStorage.removeItem('demo_tour_active');
+        localStorage.removeItem('demo_banner_dismissed');
+
+        const vaultUnlocked = await unlockWithPassword(password, data.user.id);
         if (!vaultUnlocked) {
           console.warn("Failed to unlock encryption vault - user may have legacy unencrypted data");
-          // Don't block login, just warn - vault will be initialized later if needed
         }
 
         toast({
           title: "Welcome back!",
-          description: vaultUnlocked ? "Vault unlocked. Your data is protected." : "You've successfully logged in.",
+          description: vaultUnlocked
+            ? "Vault unlocked. Your data is protected."
+            : "You've successfully logged in.",
         });
         navigate("/");
       }
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
@@ -136,82 +194,66 @@ const Auth = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
-      const validation = signupSchema.safeParse({
-        email: signupEmail,
-        password: signupPassword,
-        confirmPassword: signupConfirm,
-        fullName: signupFullName,
-      });
-
+      const validation = signupSchema.safeParse({ email, password, confirmPassword, fullName });
       if (!validation.success) {
         toast({
           title: "Validation Error",
           description: validation.error.errors[0].message,
           variant: "destructive",
         });
-        setIsLoading(false);
         return;
       }
 
-      // Check email whitelist
-      const isAllowed = await isEmailAllowed(signupEmail);
+      const isAllowed = await isEmailAllowed(email);
       if (!isAllowed) {
         toast({
           title: "Access Restricted",
           description: "This application is currently in private beta. Your email is not on the approved list.",
           variant: "destructive",
         });
-        setIsLoading(false);
         return;
       }
 
-      const { error, data } = await signUp(signupEmail, signupPassword, signupFullName);
-
+      const { error, data } = await signUp(email, password, fullName);
       if (error) {
-        if (error.message.includes("User already registered")) {
+        toast({
+          title: error.message.includes("User already registered") ? "Account Exists" : "Signup Failed",
+          description: error.message.includes("User already registered")
+            ? "An account with this email already exists. Please log in instead."
+            : error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.user) {
+        const encryptionInitialized = await initializeEncryption(password, data.user.id);
+        if (encryptionInitialized) {
           toast({
-            title: "Account Exists",
-            description: "An account with this email already exists. Please login instead.",
-            variant: "destructive",
+            title: "Account Created & Secured!",
+            description: "Your encryption vault has been set up. Your data is protected.",
           });
-        } else {
-          toast({
-            title: "Signup Failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
-      } else {
-        // If user was auto-signed in (no email confirmation required), initialize encryption
-        if (data?.user) {
-          const encryptionInitialized = await initializeEncryption(signupPassword, data.user.id);
-          if (encryptionInitialized) {
-            toast({
-              title: "Account Created & Secured!",
-              description: "Your encryption vault has been set up. Your data is protected.",
-            });
-            navigate("/");
-          } else {
-            toast({
-              title: "Account Created!",
-              description: "Please check your email to confirm your account before logging in.",
-            });
-          }
+          navigate("/");
         } else {
           toast({
             title: "Account Created!",
-            description: "Please check your email to confirm your account. Your encryption vault will be set up on first login.",
+            description: "Please check your email to confirm your account before logging in.",
           });
         }
-        // Clear form
-        setSignupEmail("");
-        setSignupPassword("");
-        setSignupConfirm("");
-        setSignupFullName("");
+      } else {
+        toast({
+          title: "Account Created!",
+          description: "Please check your email to confirm your account. Your encryption vault will be set up on first login.",
+        });
       }
-    } catch (error: any) {
+
+      // Clear form on successful signup
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setFullName("");
+    } catch (error) {
       toast({
         title: "Error",
         description: "An unexpected error occurred. Please try again.",
@@ -222,120 +264,158 @@ const Auth = () => {
     }
   };
 
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    // Keep email if filled (likely the user wants to use the same one); clear passwords for hygiene.
+    setPassword("");
+    setConfirmPassword("");
+    if (next === "login") setFullName("");
+  };
+
+  // ─── Render ───────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative">
-      <div className="gradient-background" />
-      <Card className="w-full max-w-md relative z-10">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Economy Tracker</CardTitle>
-          <CardDescription>Manage your household finances together</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-bg">
+      <Card className="w-full max-w-md p-6 sm:p-8">
+        {/* Brand */}
+        <div className="text-center mb-7">
+          <h1 className="text-2xl sm:text-2xl font-bold tracking-tight">Household Harmony</h1>
+          <p className="text-sm text-muted-foreground mt-1.5">
+            {mode === "login"
+              ? "Sign in to your household"
+              : "Create your account"}
+          </p>
+        </div>
 
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder={PLACEHOLDERS.EMAIL}
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Logging in..." : "Login"}
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-fullname">Full Name (Optional)</Label>
-                  <Input
-                    id="signup-fullname"
-                    type="text"
-                    placeholder="John Doe"
-                    value={signupFullName}
-                    onChange={(e) => setSignupFullName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder={PLACEHOLDERS.EMAIL}
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-confirm">Confirm Password</Label>
-                  <Input
-                    id="signup-confirm"
-                    type="password"
-                    placeholder="••••••••"
-                    value={signupConfirm}
-                    onChange={(e) => setSignupConfirm(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Creating account..." : "Sign Up"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-
-          <div className="mt-6">
-            <Separator className="my-4" />
-            <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Already have an invite code?
-              </p>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setShowJoinDialog(true)}
-              >
-                <UserPlus className="h-4 w-4 mr-2" />
-                Join Existing Household
-              </Button>
+        {/* Form */}
+        {mode === "login" ? (
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder={PLACEHOLDERS.EMAIL}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
             </div>
-          </div>
-        </CardContent>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
+            <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
+              {isLoading ? "Signing in..." : "Sign in"}
+            </Button>
+          </form>
+        ) : (
+          <form onSubmit={handleSignup} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullname">Full name <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Input
+                id="fullname"
+                type="text"
+                placeholder="Anna Andersson"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                autoComplete="name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder={PLACEHOLDERS.EMAIL}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+              />
+            </div>
+            <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
+              {isLoading ? "Creating account..." : "Create account"}
+            </Button>
+          </form>
+        )}
+
+        {/* Mode switcher */}
+        <p className="text-sm text-center text-muted-foreground mt-6">
+          {mode === "login" ? "New to Household Harmony?" : "Already have an account?"}{" "}
+          <button
+            type="button"
+            onClick={() => switchMode(mode === "login" ? "signup" : "login")}
+            className="font-semibold text-accent-dk hover:underline focus:outline-none focus-visible:underline"
+          >
+            {mode === "login" ? "Create an account" : "Sign in"}
+          </button>
+        </p>
+
+        {/* Join household / Demo */}
+        <div className="mt-6 pt-6 border-t border-line-2 space-y-3">
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={() => setShowJoinDialog(true)}
+          >
+            <UserPlus className="h-4 w-4" />
+            Join with invite code
+          </Button>
+
+          {DEMO_ENABLED && (
+            <Button
+              variant="ghost"
+              className="w-full"
+              onClick={handleTryDemo}
+              disabled={demoLoading}
+            >
+              {demoLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {demoLoadingMessage || "Starting..."}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Try demo
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </Card>
 
       <JoinHouseholdWizard open={showJoinDialog} onOpenChange={setShowJoinDialog} />

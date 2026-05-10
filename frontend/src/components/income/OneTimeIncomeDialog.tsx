@@ -6,11 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Gift, Plus } from "lucide-react";
-import { format, startOfMonth } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields } from "@/hooks/useEncryptedFields";
+import { getCurrentFinancialMonth } from "@/utils/dateUtils";
 
 // Field config for one-time income encryption
 const oneTimeIncomeFields = [
@@ -36,6 +37,7 @@ interface OneTimeIncomeDialogProps {
 
 export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDialogProps) => {
     const { user } = useAuth();
+    const { financialMonthStart } = useHousehold();
     const { toast } = useToast();
     const { encryptRecord } = useEncryptedFields(oneTimeIncomeFields);
     const [isOpen, setIsOpen] = useState(false);
@@ -47,7 +49,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
         description: "",
     });
 
-    const currentMonth = format(startOfMonth(new Date()), "yyyy-MM-dd");
+    const currentMonth = getCurrentFinancialMonth(financialMonthStart);
 
     const resetForm = () => {
         setFormData({
@@ -67,6 +69,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
             household_id: householdId,
             month: currentMonth,
             source: formData.source || incomeCategories.find(c => c.value === formData.category)?.label || "One-time income",
+            category: formData.category, // Save category to database (new enum field)
             amount: parseFloat(formData.amount),
             description: formData.description || null,
             created_by: user.id,
@@ -102,9 +105,9 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
             if (!open) resetForm();
         }}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="h-10">
-                    <Gift className="h-4 w-4 mr-2" />
-                    One-Time Income
+                <Button variant="outline" size="lg" className="w-full justify-center gap-2">
+                    <Gift className="h-4 w-4" />
+                    One-time income
                 </Button>
             </DialogTrigger>
             <DialogContent>

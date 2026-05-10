@@ -1,6 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle } from "lucide-react";
-import { useState } from "react";
+import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box, Plus } from "lucide-react";
+import { CatIcon } from "@/components/ui/cat-icon";
+import { Money } from "@/components/ui/money";
+import { MoneyInput } from "@/components/ui/money-input";
+import { RowItem } from "@/components/ui/row-item";
+import { useEffect, useRef, useState } from "react";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
@@ -10,8 +14,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface ExpenseItem {
     id: string;
     name: string;
+    /** The editable/budget amount for the month. */
     amount: number;
     defaultAmount?: number;
+    /** Realised amount from a credit-card invoice. When set and ≠ amount, a variance badge is shown. */
+    actualAmount?: number;
     category?: string;
     // Optional custom display (e.g., "1780 SEK/year" instead of calculated monthly)
     displayAmount?: number;
@@ -20,6 +27,26 @@ interface ExpenseItem {
     billingCycle?: 'monthly' | 'quarterly' | 'yearly';
     isDue?: boolean; // Is this subscription due in the current financial month?
     hasSpecialFields?: boolean; // Electricity/Rent - needs dialog to edit
+    subject?: { name: string; type: string };
+    inactive?: boolean;
+}
+
+const SUBJECT_ICON: Record<string, any> = {
+    member: User,
+    kid: Baby,
+    car: Car,
+    pet: PawPrint,
+    other: Box,
+};
+
+const SubjectChip = ({ subject }: { subject: { name: string; type: string } }) => {
+    const Icon = SUBJECT_ICON[subject.type] ?? Box;
+    return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted-foreground">
+            <Icon className="h-3 w-3" />
+            {subject.name}
+        </span>
+    );
 }
 
 interface ExpenseBlockProps {
@@ -36,6 +63,7 @@ interface ExpenseBlockProps {
     onItemClick?: (id: string) => void;
     onAmountChange?: (id: string, amount: string) => void;
     editable?: boolean;
+    onAdd?: () => void;
 }
 
 /**
@@ -55,8 +83,20 @@ export const ExpenseBlock = ({
     onItemClick,
     onAmountChange,
     editable = false,
+    onAdd,
 }: ExpenseBlockProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const blockRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isExpanded) return;
+        if (typeof window === "undefined") return;
+        if (!window.matchMedia("(max-width: 640px)").matches) return;
+        const id = window.setTimeout(() => {
+            blockRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 320);
+        return () => window.clearTimeout(id);
+    }, [isExpanded]);
 
     // Helper to get category info based on type
     const getCategoryInfo = (category: string | undefined) => {
@@ -71,37 +111,37 @@ export const ExpenseBlock = ({
     };
 
     // Severity styling for the block border
-    const severityBorderClass = severity === 'danger'
-        ? 'border-red-500 border-2'
+    const severityBorder = severity === 'danger'
+        ? 'border-destructive'
         : severity === 'warning'
-            ? 'border-yellow-500 border-2'  // Quarterly - yellow for distinction from orange
+            ? 'border-warning'
             : severity === 'upcoming'
-                ? 'border-orange-500 border-2'  // Yearly next month - orange
-                : 'border border-primary/20';
+                ? 'border-alert'
+                : 'border-line';
+    const severityWidth = severity !== 'default' ? 'border-2' : 'border';
+    const severityIconColor = severity === 'danger'
+        ? 'text-destructive'
+        : severity === 'upcoming'
+            ? 'text-alert'
+            : 'text-warning';
 
     return (
-        <div
-            className={`rounded-lg bg-muted/40 overflow-hidden ${severityBorderClass}`}
-        >
-            {/* Header row - always clickable to expand */}
+        <div ref={blockRef} className={`rounded-[14px] bg-surface overflow-hidden ${severityBorder} ${severityWidth}`}>
+            {/* Header row */}
             <div
-                className="p-3 sm:p-4 cursor-pointer hover:bg-muted/60 transition-colors"
-                onClick={() => items.length > 0 && setIsExpanded(!isExpanded)}
+                className="px-4 py-4 sm:px-5 cursor-pointer hover:bg-surface-2 transition-colors"
+                onClick={() => (items.length > 0 || onAdd) && setIsExpanded(!isExpanded)}
             >
                 <div className="flex items-center gap-3">
                     <div className="shrink-0">{icon}</div>
                     <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground truncate">{title}</p>
-                        <p className="text-xs text-muted-foreground">{items.length} items</p>
+                        <p className="font-medium text-ink truncate">{title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{items.length} items</p>
                     </div>
-                    {/* Warning indicator with tooltip */}
                     {severity !== 'default' && severityMessage && (
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <div className={`shrink-0 ${severity === 'danger' ? 'text-red-500'
-                                    : severity === 'upcoming' ? 'text-orange-500'
-                                        : 'text-yellow-500'  // warning (quarterly) - yellow to match border
-                                    }`}>
+                                <div className={`shrink-0 ${severityIconColor}`}>
                                     <AlertTriangle className="h-5 w-5" />
                                 </div>
                             </TooltipTrigger>
@@ -110,95 +150,130 @@ export const ExpenseBlock = ({
                             </TooltipContent>
                         </Tooltip>
                     )}
-                    <p className={`text-xl font-bold whitespace-nowrap ${colorClass}`}>
-                        {total.toFixed(0)} {currency}
-                    </p>
-                    {items.length > 0 && (
+                    <Money
+                        v={total}
+                        currency={currency}
+                        size="lg"
+                        weight={600}
+                        className={colorClass}
+                    />
+                    {(items.length > 0 || onAdd) && (
                         <div className="shrink-0 text-muted-foreground">
                             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </div>
                     )}
                 </div>
-                {/* Header metrics - always visible below the title row */}
                 {headerMetrics && (
-                    <div className="mt-2 ml-8">
+                    <div className="mt-2 ml-9">
                         {headerMetrics}
                     </div>
                 )}
             </div>
 
-            {/* Expanded content */}
-            {isExpanded && items.length > 0 && (
-                <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t border-border">
+            {(items.length > 0 || onAdd) && (
+                <div
+                    className={`grid transition-all duration-300 ease-out ${isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+                >
+                    <div className="overflow-hidden">
+                        <div className="border-t border-line-2">
+                    {items.map((item, idx) => {
+                        const cat = getCategoryInfo(item.category);
+                        const Icon = cat?.icon;
+                        const isLast = idx === items.length - 1;
 
-                    {/* Items list */}
-                    <div className="pt-3 space-y-2">
-                        {items.map((item) => {
-                            const cat = getCategoryInfo(item.category);
-                            const Icon = cat?.icon;
-                            return (
-                                <div
-                                    key={item.id}
-                                    className="list-row-compact text-sm hover:bg-background/60 cursor-pointer group transition-colors"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onItemClick?.(item.id);
-                                    }}
-                                >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        {Icon && <Icon className="h-4 w-4 shrink-0" style={{ color: cat?.color }} />}
-                                        <span className={`font-medium text-sm sm:text-base truncate ${
-                                            // Color name based on billing cycle and due status
-                                            item.billingCycle === 'monthly' || !item.billingCycle
-                                                ? 'text-foreground' // White for monthly
-                                                : item.isDue
-                                                    ? 'text-foreground' // White when due
-                                                    : 'text-muted-foreground' // Muted otherwise
+                        // Display color when not editable: muted unless monthly or due
+                        const displayColor = item.displayAmount !== undefined
+                            ? item.billingCycle === 'monthly' || !item.billingCycle
+                                ? 'text-ink'
+                                : item.isDue
+                                    ? item.billingCycle === 'yearly' ? 'text-destructive' : 'text-warning'
+                                    : 'text-muted-foreground'
+                            : 'text-ink';
+
+                        const inputStatus =
+                            item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
+                                ? 'saved'
+                                : 'modified';
+
+                        return (
+                            <RowItem
+                                key={item.id}
+                                last={isLast}
+                                onClick={() => onItemClick?.(item.id)}
+                                className={`group ${item.inactive ? "opacity-50" : ""}`}
+                            >
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={32} />
+                                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                                        <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue
+                                            ? 'text-ink'
+                                            : 'text-muted-foreground'
                                             }`}>{item.name}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {editable && onAmountChange ? (
-                                            <div className="relative flex items-center gap-1">
-                                                <input
-                                                    type="number"
-                                                    value={item.amount.toFixed(0)}
-                                                    onChange={(e) => {
-                                                        e.stopPropagation();
-                                                        onAmountChange(item.id, e.target.value);
-                                                    }}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    className={`currency-input w-20 sm:w-24 ${item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
-                                                        ? 'border-green-500'
-                                                        : 'border-lime-400'
-                                                        }`}
-                                                    placeholder="0"
-                                                />
-                                                <span className="text-sm text-muted-foreground shrink-0">{currency}</span>
-                                            </div>
-                                        ) : item.displayAmount !== undefined ? (
-                                            // Custom display with billing cycle colors
-                                            <span className={`font-medium whitespace-nowrap ${item.billingCycle === 'monthly' || !item.billingCycle
-                                                ? 'text-foreground' // White for monthly
-                                                : item.isDue
-                                                    ? item.billingCycle === 'yearly'
-                                                        ? 'text-red-500' // Red for yearly due
-                                                        : 'text-yellow-500' // Yellow for quarterly due
-                                                    : 'text-muted-foreground' // Muted otherwise
-                                                }`}>
-                                                {item.displayAmount.toFixed(0)} {currency}{item.displayLabel}
-                                            </span>
-                                        ) : (
-                                            // Default display (calculated amount)
-                                            <>
-                                                <span className="font-medium whitespace-nowrap">{(item.amount ?? 0).toFixed(0)}</span>
-                                                <span className="text-xs text-muted-foreground min-w-[28px]">{currency}</span>
-                                            </>
-                                        )}
-                                        <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                        {item.subject && <SubjectChip subject={item.subject} />}
                                     </div>
                                 </div>
-                            );
-                        })}
+                                <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                    {editable && onAmountChange ? (
+                                        <MoneyInput
+                                            value={item.amount}
+                                            currency={currency}
+                                            status={inputStatus}
+                                            size="base"
+                                            widthClassName="w-20 sm:w-24"
+                                            onChange={(v) => onAmountChange(item.id, v.toString())}
+                                        />
+                                    ) : item.displayAmount !== undefined ? (
+                                        <span className="flex items-baseline gap-1">
+                                            <Money
+                                                v={item.displayAmount}
+                                                currency={currency}
+                                                size="base"
+                                                weight={500}
+                                                className={displayColor}
+                                            />
+                                            {item.displayLabel && (
+                                                <span className="text-xs text-muted-foreground">{item.displayLabel}</span>
+                                            )}
+                                        </span>
+                                    ) : (
+                                        <Money
+                                            v={item.amount ?? 0}
+                                            currency={currency}
+                                            size="base"
+                                            weight={500}
+                                        />
+                                    )}
+                                    {item.actualAmount !== undefined && Math.round(item.actualAmount) !== Math.round(item.amount) && (() => {
+                                        const variance = item.actualAmount - item.amount;
+                                        const over = variance > 0;
+                                        return (
+                                            <span
+                                                className={`text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded ${over
+                                                    ? "bg-destructive/10 text-destructive"
+                                                    : "bg-success/10 text-success"
+                                                    }`}
+                                                title={`Actual: ${Math.round(item.actualAmount)} ${currency}`}
+                                            >
+                                                {over ? "+" : "−"}{Math.abs(Math.round(variance))} {currency}
+                                            </span>
+                                        );
+                                    })()}
+                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                </div>
+                            </RowItem>
+                        );
+                    })}
+                            {onAdd && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onAdd(); }}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 sm:px-5 sm:py-3.5 text-sm font-medium text-muted-foreground hover:bg-surface-2 hover:text-ink transition-colors"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Add {title.toLowerCase().replace(/s$/, "")}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -208,8 +283,8 @@ export const ExpenseBlock = ({
 
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string; type?: string }[];
+    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean; subject?: { name: string; type: string }; inactive?: boolean }[];
+    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string; category?: string; subject?: { name: string; type: string }; inactive?: boolean }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
@@ -217,6 +292,8 @@ interface AllTabBlockViewProps {
     onExpenseClick?: (id: string) => void;
     onSubscriptionClick?: (id: string) => void;
     onInsuranceClick?: (id: string) => void;
+    onAddSubscription?: () => void;
+    onAddInsurance?: () => void;
     onAmountChange?: (id: string, amount: string) => void;
 }
 
@@ -234,6 +311,8 @@ export const AllTabBlockView = ({
     onExpenseClick,
     onSubscriptionClick,
     onInsuranceClick,
+    onAddSubscription,
+    onAddInsurance,
     onAmountChange,
 }: AllTabBlockViewProps) => {
     const expensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
@@ -257,11 +336,13 @@ export const AllTabBlockView = ({
             id: sub.id,
             name: sub.name,
             amount: sub.billing_cycle === 'yearly' ? parseFloat(sub.amount.toString()) / 12 : parseFloat(sub.amount.toString()),
-            category: sub.category, // Pass through for icon lookup
+            category: sub.category,
             displayAmount: actualAmount,
             displayLabel,
             billingCycle: sub.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
             isDue: sub.isDue,
+            subject: sub.subject,
+            inactive: sub.inactive,
         };
     });
 
@@ -279,10 +360,12 @@ export const AllTabBlockView = ({
         return {
             id: ins.id,
             name: ins.name,
-            amount: ins.monthly_cost ?? 0, // Used for calculations
-            category: ins.type, // Insurance type for icon lookup
-            displayAmount: ins.total_amount, // Actual payment amount
-            displayLabel, // e.g., "/year"
+            amount: ins.monthly_cost ?? 0,
+            category: ins.category,
+            displayAmount: ins.total_amount,
+            displayLabel,
+            subject: ins.subject,
+            inactive: ins.inactive,
         };
     });
 
@@ -305,14 +388,14 @@ export const AllTabBlockView = ({
         : 0;
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-5">
             {/* Expenses Block (combined Fixed + Variable) */}
             {expenses.length > 0 && (
                 <ExpenseBlock
                     title="Expenses"
                     total={expensesTotal}
                     currency={currency}
-                    icon={<Home className="h-5 w-5 text-blue-500" />}
+                    icon={<Home className="h-5 w-5 text-info" />}
                     items={expenses}
                     onItemClick={onExpenseClick}
                     editable={!!onAmountChange}
@@ -321,15 +404,15 @@ export const AllTabBlockView = ({
             )}
 
             {/* Subscriptions Block with metrics in header */}
-            {subscriptionsTotal > 0 && (
-                <ExpenseBlock
+            <ExpenseBlock
                     title="Subscriptions"
                     total={subscriptionsTotal}
                     currency={currency}
-                    icon={<Repeat className="h-5 w-5 text-purple-500" />}
+                    icon={<Repeat className="h-5 w-5 text-accent-purple" />}
                     items={subscriptionItems}
                     categoryType="subscription"
                     onItemClick={onSubscriptionClick}
+                    onAdd={onAddSubscription}
                     severity={subscriptionSeverity}
                     severityMessage={
                         subscriptionSeverity === 'danger'
@@ -340,43 +423,34 @@ export const AllTabBlockView = ({
                                     ? "A quarterly subscription is due this month"
                                     : undefined
                     }
-                    headerMetrics={
+                    headerMetrics={subscriptionsTotal > 0 ? (
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                             <span>{subscriptionsTotal.toFixed(0)} {currency}/month</span>
                             <span>{yearlySubscriptions.toFixed(0)} {currency}/year</span>
                             <span>{averageSub.toFixed(0)} {currency} avg</span>
                         </div>
-                    }
+                    ) : undefined}
                 />
-            )}
 
             {/* Insurances Block with metrics in header */}
-            {insuranceTotal > 0 && (
-                <ExpenseBlock
+            <ExpenseBlock
                     title="Insurances"
                     total={insuranceTotal}
                     currency={currency}
-                    icon={<Shield className="h-5 w-5 text-amber-500" />}
+                    icon={<Shield className="h-5 w-5 text-warning" />}
                     items={insuranceItems}
                     categoryType="insurance"
                     onItemClick={onInsuranceClick}
-                    headerMetrics={
+                    onAdd={onAddInsurance}
+                    headerMetrics={insuranceTotal > 0 ? (
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                             <span>{insuranceTotal.toFixed(0)} {currency}/month</span>
                             <span>{yearlyInsurance.toFixed(0)} {currency}/year</span>
                             <span>{averageInsurance.toFixed(0)} {currency} avg</span>
                         </div>
-                    }
+                    ) : undefined}
                 />
-            )}
 
-            {/* Grand Total */}
-            <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-                <div className="flex items-center justify-between">
-                    <p className="font-semibold text-lg">Total Monthly Expenses</p>
-                    <p className="text-2xl font-bold text-destructive">{grandTotal.toFixed(0)} {currency}</p>
-                </div>
-            </div>
         </div>
     );
 };

@@ -14,7 +14,7 @@ export const AddButton = forwardRef<HTMLButtonElement, AddButtonProps>(
     ({ children, className, ...props }, ref) => {
         return (
             <Button ref={ref} className={className} {...props}>
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-4 w-4" />
                 {children}
             </Button>
         );

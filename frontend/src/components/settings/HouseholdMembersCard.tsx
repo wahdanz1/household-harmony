@@ -1,3 +1,5 @@
+import { useEncryptedFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
+import { isDemoMode } from "@/utils/demoMode";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -50,7 +52,15 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
   const [inviteEmail, setInviteEmail] = useState("");
 
   const generateInviteCode = () => {
-    return Math.random().toString().slice(2, 8).padStart(6, '0');
+    // Alphabet excludes 0/O/1/I/L to avoid handwriting/transcription confusion.
+    const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    let out = "";
+    for (let i = 0; i < bytes.length; i++) {
+      out += ALPHABET[bytes[i] % ALPHABET.length];
+    }
+    return out;
   };
 
   const handleGenerateInvite = async () => {
@@ -164,7 +174,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
           <Users className="h-5 w-5 text-primary" />
           Household Members
         </CardTitle>
-        <CardDescription className="mt-1.5">Manage who has access to this household</CardDescription>
+        <CardDescription>Manage who has access to this household</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
@@ -206,13 +216,18 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
 
         {isOwner && (
           <>
-            <div className="pt-6 border-t">
+            <div className={`pt-6 border-t relative ${isDemoMode() ? 'opacity-50' : ''}`}>
+              {isDemoMode() && (
+                <div className="absolute inset-0 flex items-center justify-center z-10">
+                  <p className="text-sm text-muted-foreground font-medium bg-background/80 px-3 py-1 rounded">This feature is disabled in the demo</p>
+                </div>
+              )}
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3>Invite Members</h3>
-                  <p className="text-sm text-muted-foreground">Generate a 6-digit code that expires in 24 hours</p>
+                  <p className="text-sm text-muted-foreground">Generate an 8-character code that expires in 24 hours</p>
                 </div>
-                <Button onClick={() => setShowEmailDialog(true)}>
+                <Button onClick={() => setShowEmailDialog(true)} disabled={isDemoMode()}>
                   Invite Member
                 </Button>
               </div>
@@ -220,7 +235,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
 
             {invites.length > 0 && (
               <div className="space-y-3">
-                <h4 className="font-medium text-sm">Active Invites</h4>
+                <h4 className="text-sm">Active Invites</h4>
                 {invites.map((invite) => (
                   <div key={invite.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex-1">

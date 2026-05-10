@@ -1,0 +1,19 @@
+{
+  "title": "Settings",
+  "tabs": {
+    "general": "General",
+    "personal": "Personal",
+    "security": "Security"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "description": "Switch between light and dark mode."
+  },
+  "language": {
+    "title": "Language",
+    "description": "Choose the language used throughout the app.",
+    "english": "English",
+    "swedish": "Svenska"
+  },
+  "noHousehold": "No household found"
+}

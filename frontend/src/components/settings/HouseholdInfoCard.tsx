@@ -7,10 +7,12 @@ import { Home, UserPlus, Shuffle, Edit, LogOut } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { JoinExistingUserDialog } from "./JoinExistingUserDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { generateHouseholdName } from "@/utils/householdNames";
+import { isDemoMode } from "@/utils/demoMode";
 
 interface HouseholdInfoCardProps {
   household: {
@@ -40,6 +42,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
   const isOwner = userRole === "owner";
   const hasOtherMembers = members.length > 1; // More than just the owner
   const shouldShowJoinButton = !isOwner || !hasOtherMembers; // Show if not owner, or owner with no other members
+  const demoMode = isDemoMode();
 
   const handleSaveName = async () => {
     // Validate financial_month_start
@@ -124,7 +127,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between">
-          <div className="space-y-1 flex-1">
+          <div className="space-y-1.5 flex-1">
             <div className="flex items-center gap-2">
               <Home className="h-5 w-5 text-primary" />
               <CardTitle>Household Information</CardTitle>
@@ -149,7 +152,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
         {/* Household Name Display */}
         <div>
           <h2>{household.name}</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-muted-foreground">
             {isOwner ? "You are the owner" : "You are a member"}
           </p>
         </div>
@@ -157,10 +160,28 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
         {/* Action Buttons */}
         <div className="flex flex-wrap gap-2">
           {shouldShowJoinButton && (
-            <Button variant="outline" onClick={() => setShowJoinDialog(true)}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Join Another Household
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowJoinDialog(true)}
+                      disabled={demoMode}
+                      className={demoMode ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Join Another Household
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {isDemoMode && (
+                  <TooltipContent>
+                    <p>This feature is disabled in the demo</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           )}
 
           {!isOwner && (
@@ -209,8 +230,7 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
               />
               <p className="text-xs text-muted-foreground">
                 Day of month when your financial month starts (1-28, default: 25).<br />
-                Example: 25 = Nov 25 - Dec 24. This controls when income/expenses auto-fill.<br />
-                <span className="text-amber-600 font-medium">Testing tip:</span> Set to tomorrow to test new month behavior.
+                Example: 25 = Nov 25 - Dec 24. This controls when income/expenses auto-fill.
               </p>
             </div>
           </div>

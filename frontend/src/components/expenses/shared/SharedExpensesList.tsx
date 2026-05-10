@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Money } from "@/components/ui/money";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -189,7 +190,7 @@ export const SharedExpensesList = ({
                         <ShoppingBag className="h-5 w-5" />
                         Shared Expenses
                     </CardTitle>
-                    <CardDescription className="mt-1.5">Items purchased that are shared with co-parents</CardDescription>
+                    <CardDescription>Items purchased that are shared with co-parents</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -288,8 +289,10 @@ export const SharedExpensesList = ({
 
                         return (
                             <div key={coParent.id} className="space-y-2">
-                                <h3 className="font-semibold text-sm text-muted-foreground">
-                                    {coParent.name} - {total.toFixed(0)} {currency}
+                                <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                    <span>{coParent.name}</span>
+                                    <span aria-hidden>·</span>
+                                    <Money v={total} currency={currency} size="sm" weight={500} color="muted" />
                                 </h3>
                                 {coParentExpenses.map((expense) => (
                                     <DataListItem

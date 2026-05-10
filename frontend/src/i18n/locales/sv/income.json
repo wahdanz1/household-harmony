@@ -1,0 +1,40 @@
+{
+  "title": "Inkomster",
+  "hero": {
+    "totalLabel": "Total inkomst per månad",
+    "summary_one": "{{count}} aktiv källa · {{yearly}} per år",
+    "summary_other": "{{count}} aktiva källor · {{yearly}} per år",
+    "viewPrognosis": "Visa skatteprognos för året"
+  },
+  "actions": {
+    "addSource": "Lägg till källa",
+    "addOneTime": "Lägg till engångsinkomst"
+  },
+  "block": {
+    "title": "Inkomster",
+    "noSources": "Inga källor ännu",
+    "sources_one": "{{count}} källa",
+    "sources_other": "{{count}} källor"
+  },
+  "empty": {
+    "title": "Inga inkomstkällor inlagda",
+    "description": "Klicka på \"Lägg till källa\" för att komma igång"
+  },
+  "prognosis": {
+    "noTaxableTitle": "Ingen skattepliktig inkomst",
+    "noTaxableDescription": "Lägg till en aktiv inkomstkälla med en skattetyp för att se en prognos.",
+    "fetchFailedTitle": "Kunde inte hämta prognos",
+    "fetchFailedDescription": "Försök igen om en stund."
+  },
+  "oneTime": {
+    "validation": "Namn och belopp krävs",
+    "addedTitle": "Klart",
+    "addedDescription": "Engångsinkomsten lades till",
+    "deletedDescription": "Engångsinkomsten togs bort",
+    "addFailed": "Kunde inte lägga till engångsinkomst",
+    "deleteFailed": "Kunde inte ta bort engångsinkomst"
+  },
+  "save": {
+    "failed": "Kunde inte spara inkomstdata"
+  }
+}

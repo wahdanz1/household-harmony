@@ -1,43 +1,59 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AddButton } from "@/components/ui/add-button";
-import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Zap } from "lucide-react";
+import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
+import { Money, fmtKr } from "@/components/ui/money";
+import { CatIcon } from "@/components/ui/cat-icon";
 import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
+import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
+import { Card } from "@/components/ui/card";
+import { Home } from "lucide-react";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
-import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
-import { EditExpenseDialog } from "@/components/expenses/EditExpenseDialog";
-import { EditSubscriptionDialog } from "@/components/expenses/EditSubscriptionDialog";
-import { EditInsuranceDialog } from "@/components/expenses/EditInsuranceDialog";
-import { useExpenses } from "@/components/expenses/hooks/useExpenses";
+import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
+import { SubscriptionFormDialog } from "@/components/expenses/SubscriptionFormDialog";
+import { InsuranceFormDialog } from "@/components/expenses/InsuranceFormDialog";
+import { TemporaryExpenseFormDialog } from "@/components/expenses/TemporaryExpenseFormDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import { PageHeader } from "@/components/shared/PageHeader";
-import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
+import { fetchHistoryByKey } from "@/utils/carryForward";
+import { computeSmartDefault } from "@/services/smartDefaults";
+import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
+import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
-import { LoadingState } from "@/components/shared/states";
+import { ExpensesPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MobileBottomBar, mobileBottomBarSpacer } from "@/components/shared/MobileBottomBar";
+import { useHouseholdSubjects } from "@/hooks/useHouseholdSubjects";
 
 const Expenses = () => {
   const { user } = useAuth();
   const { household, members, coParents } = useHousehold();
   const { isUnlocked } = useEncryption();
   const location = useLocation(); // Trigger refetch on navigation
+  const subjects = useHouseholdSubjects(household?.id);
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [insurances, setInsurances] = useState<any[]>([]);
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [creditCardExpenses, setCreditCardExpenses] = useState<any[]>([]);
+  // Credit card expenses now handled via expenses table with is_credit=true
   const [activeTab, setActiveTab] = useState("all");
-  const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
+  const [addingExpense, setAddingExpense] = useState(false);
+  const [addTemporaryDialogOpen, setAddTemporaryDialogOpen] = useState(false);
+  const [addSubscriptionOpen, setAddSubscriptionOpen] = useState(false);
+  const [addInsuranceOpen, setAddInsuranceOpen] = useState(false);
 
   // Edit dialog state for subscriptions and insurance
   const [editingSubscription, setEditingSubscription] = useState<any | null>(null);
@@ -50,8 +66,36 @@ const Expenses = () => {
 
   const financialMonthStart = household?.financial_month_start || 25;
 
-  // Keep these for display purposes only
-  const currentMonth = getCurrentFinancialMonth(financialMonthStart);
+  // Month navigation state
+  const todayMonth = getCurrentFinancialMonth(financialMonthStart);
+  const [selectedMonth, setSelectedMonth] = useState(todayMonth);
+  const isCurrentMonth = selectedMonth === todayMonth;
+
+  // The review gate only applies once a previous financial month exists with
+  // data — fresh households on their very first month aren't asked to review
+  // anything yet.
+  const { needsReview, latestFinalizedMonth } = useMonthlyReviewStatus(household?.id, financialMonthStart);
+  const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
+  useEffect(() => {
+    if (!household?.id) return;
+    supabase
+      .from("monthly_expenses")
+      .select("id", { count: "exact", head: true })
+      .eq("household_id", household.id)
+      .lt("month", todayMonth)
+      .then(({ count }) => setHasPriorMonthData((count ?? 0) > 0));
+  }, [household?.id, todayMonth]);
+  const isReadOnly = isCurrentMonth && needsReview && hasPriorMonthData;
+  const initialDefaultRef = useRef(false);
+  useEffect(() => {
+    if (initialDefaultRef.current) return;
+    if (needsReview && latestFinalizedMonth && selectedMonth === todayMonth) {
+      setSelectedMonth(latestFinalizedMonth);
+    }
+    initialDefaultRef.current = true;
+  }, [needsReview, latestFinalizedMonth, selectedMonth, todayMonth]);
+
+  const currentMonth = selectedMonth;
   const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
   // Encryption hooks for expense data
@@ -69,12 +113,41 @@ const Expenses = () => {
       return;
     }
 
-    // Compute dates fresh inside fetchData using current financialMonthStart
+    // Skip fetch entirely while the outage monitor is tripped.
+    if (isDown()) {
+      setLoading(false);
+      return;
+    }
+
+    // Use the selected month (navigable)
     const fms = household?.financial_month_start || 25;
-    const fetchMonth = getCurrentFinancialMonth(fms);
+    const fetchMonth = selectedMonth;
     const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, fms);
     const startStr = format(fetchStart, "yyyy-MM-dd");
     const endStr = format(fetchEnd, "yyyy-MM-dd");
+
+    let results;
+    try {
+      results = await Promise.all([
+        supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
+        supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+        supabase.from("monthly_expenses").select("*").eq("household_id", household.id).lt("month_start", startStr),
+        supabase.from("subscriptions").select("*").eq("household_id", household.id),
+        supabase.from("insurances").select("*").eq("household_id", household.id),
+      ]);
+    } catch (err) {
+      reportFailure(err);
+      setLoading(false);
+      return;
+    }
+
+    const firstError = results.find(r => r.error)?.error;
+    if (firstError) {
+      reportFailure(firstError);
+      setLoading(false);
+      return;
+    }
+    reportSuccess();
 
     const [
       { data: categoriesData },
@@ -82,15 +155,7 @@ const Expenses = () => {
       { data: historicalData },
       { data: subscriptionsData },
       { data: insurancesData },
-      { data: creditCardExpensesData },
-    ] = await Promise.all([
-      supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
-      supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-      supabase.from("monthly_expenses").select("*").eq("household_id", household.id).lt("month_start", startStr),
-      supabase.from("subscriptions").select("*").eq("household_id", household.id),
-      supabase.from("insurances").select("*").eq("household_id", household.id),
-      supabase.from("credit_card_expenses").select("*, credit_cards(name)").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-    ]);
+    ] = results;
 
     // Decrypt sensitive fields (if encrypted)
     const decryptedCategories = await decryptExpenses(categoriesData || []);
@@ -103,37 +168,42 @@ const Expenses = () => {
     setMonthlyExpenses(decryptedMonthly);
     setSubscriptions(decryptedSubs);
     setInsurances(decryptedIns);
-    setCreditCardExpenses(creditCardExpensesData || []);
+    // Credit card expenses now tracked via expenses.is_credit
 
-    // Auto-create monthly_expenses records for categories that don't have them yet
-    // This ensures Dashboard shows all expenses, not just edited categories
+    // Carry-forward: find most recent record per category (from any month before this one)
+    const missingCategories = decryptedCategories.filter((cat: any) =>
+      !decryptedMonthly.find((m: any) => m.expense_id === cat.id)
+    );
+
+    const historyByCategory = await fetchHistoryByKey({
+      table: "monthly_expenses",
+      keyField: "expense_id",
+      keys: missingCategories.map((c: any) => c.id),
+      householdId: household.id,
+      beforeMonth: fetchMonth,
+      decrypt: decryptMonthlyExpenses,
+    });
+
+    // Auto-create monthly_expenses records for categories that don't have them yet.
+    // Smart defaults: stable history → last month; variable → 3-month avg;
+    // no history → fall back to category default.
     const missingRecords: any[] = [];
-    decryptedCategories.forEach((category: any) => {
-      const existing = decryptedMonthly.find((m: any) => m.expense_id === category.id);
-
-      if (!existing && user) {
-        // Calculate the appropriate amount for the missing record
-        let amount = category.default_amount;
-
-        if (category.type === "dynamic") {
-          // Use historical average if available
-          const previousExpenses = decryptedHistorical.filter((h: any) => h.expense_id === category.id);
-          if (previousExpenses.length > 0) {
-            const total = previousExpenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
-            amount = Math.round(total / previousExpenses.length);
-          }
-        }
-
-        missingRecords.push({
-          expense_id: category.id,
-          household_id: household.id,
-          month: fetchMonth,
-          month_start: startStr,
-          month_end: endStr,
-          amount: parseFloat(amount?.toString() || "0"),
-          created_by: user.id,
-        });
-      }
+    missingCategories.forEach((category: any) => {
+      if (!user) return;
+      const history = historyByCategory.get(category.id) ?? [];
+      const smart = computeSmartDefault(history);
+      const amount = smart.source != null
+        ? smart.value
+        : parseFloat((category.default_amount || "0").toString());
+      missingRecords.push({
+        expense_id: category.id,
+        household_id: household.id,
+        month: fetchMonth,
+        month_start: startStr,
+        month_end: endStr,
+        budget_amount: amount,
+        created_by: user.id,
+      });
     });
 
     // Create missing records in batch if any (encrypted)
@@ -141,7 +211,12 @@ const Expenses = () => {
       const encryptedRecords = await Promise.all(
         missingRecords.map(record => encryptExpense(record))
       );
-      await supabase.from("monthly_expenses").insert(encryptedRecords);
+      // Use upsert with ignoreDuplicates so concurrent fetchData runs (e.g.
+      // React strict-mode double effects, or rapid navigation) don't 409.
+      await supabase.from("monthly_expenses").upsert(encryptedRecords, {
+        onConflict: "expense_id,month",
+        ignoreDuplicates: true,
+      });
     }
 
     // Note: Don't set 'saved' status on initial load - only after actual user edits
@@ -149,30 +224,21 @@ const Expenses = () => {
     const initialAmounts: Record<string, string> = {};
     decryptedCategories.forEach((category: any) => {
       const existing = decryptedMonthly.find((m: any) => m.expense_id === category.id);
-
-      // For static expenses, always use the current default amount from the category definition
-      if (category.type === "static") {
-        initialAmounts[category.id] = (category.default_amount || "0").toString();
-      } else if (existing) {
-        initialAmounts[category.id] = (existing.amount || "0").toString();
-      } else if (category.type === "dynamic") {
-        const previousExpenses = decryptedHistorical.filter((h: any) => h.expense_id === category.id);
-        if (previousExpenses.length > 0) {
-          const total = previousExpenses.reduce((sum: number, e: any) => sum + parseFloat(e.amount), 0);
-          const avg = total / previousExpenses.length;
-          initialAmounts[category.id] = Math.round(avg).toString();
-        } else {
-          initialAmounts[category.id] = (category.default_amount || "0").toString();
-        }
+      if (existing) {
+        const value = existing.actual_amount ?? existing.budget_amount ?? existing.amount ?? 0;
+        initialAmounts[category.id] = value.toString();
       } else {
-        initialAmounts[category.id] = (category.default_amount || "0").toString();
+        const missing = missingRecords.find((r: any) => r.expense_id === category.id);
+        initialAmounts[category.id] = missing
+          ? missing.budget_amount.toString()
+          : (category.default_amount || "0").toString();
       }
     });
 
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [user, household, isUnlocked]);
+  }, [user, household, selectedMonth, isUnlocked]);
 
   useEffect(() => {
     if (household) {
@@ -180,17 +246,12 @@ const Expenses = () => {
     }
   }, [household, fetchData, location.key]); // location.key changes on each navigation
 
-  // Expense editing hook (for inline editing)
-  const {
-    categoryDialogOpen,
-    setCategoryDialogOpen,
-    editingCategoryId,
-    categoryFormData,
-    setCategoryFormData,
-    handleEditCategory,
-    handleSaveCategory,
-    handleDeleteCategory,
-  } = useExpenses(household?.id || "", expenseCategories, fetchData);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const handleEditCategory = (cat: any) => {
+    setEditingCategory(cat);
+    setEditDialogOpen(true);
+  };
 
   const handleSave = useCallback(async () => {
     if (!household || !user) return;
@@ -201,7 +262,7 @@ const Expenses = () => {
 
     // Compute dates fresh at save time
     const fms = household?.financial_month_start || 25;
-    const saveMonth = getCurrentFinancialMonth(fms);
+    const saveMonth = selectedMonth;
     const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, fms);
 
     // Build entries and encrypt them
@@ -212,7 +273,7 @@ const Expenses = () => {
         month: saveMonth,
         month_start: format(saveStart, "yyyy-MM-dd"),
         month_end: format(saveEnd, "yyyy-MM-dd"),
-        amount: parseFloat(currentAmounts[category.id] || "0"),
+        budget_amount: parseFloat(currentAmounts[category.id] || "0"),
         created_by: user.id,
       };
       // Encrypt the entry (encrypts amount field)
@@ -238,6 +299,7 @@ const Expenses = () => {
 
   // Handle amount change with debounced autosave
   const handleAmountChange = useCallback((categoryId: string, value: string) => {
+    if (isReadOnly) return;
     setAmounts(prev => {
       const newAmounts = { ...prev, [categoryId]: value };
       amountsRef.current = newAmounts; // Keep ref in sync for autosave
@@ -254,7 +316,7 @@ const Expenses = () => {
     autoSaveTimerRef.current = setTimeout(() => {
       handleSave();
     }, 500);
-  }, [handleSave]);
+  }, [handleSave, isReadOnly]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -364,39 +426,118 @@ const Expenses = () => {
       return sum + monthlyAmount;
     }, 0);
 
-  const creditCardTotal = creditCardExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal + creditCardTotal;
+  // Credit card expenses now included in regular expenses via is_credit flag
+  const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal;
+
+  // Header — month nav hidden when there's no data to navigate (locked state).
+  const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
+  const monthLabel = format(monthEndDate, "MMM yyyy");
+  const renderHeader = (showMonthNav: boolean, isLoading = false) => (
+    <div className="flex items-center justify-between gap-4 min-h-9">
+      <h1>Expenses</h1>
+      {isLoading ? (
+        <div className="flex items-center gap-1">
+          <Skeleton className="h-9 w-9 rounded-[12px]" />
+          <Skeleton className="h-9 w-32 rounded-full" />
+          <Skeleton className="h-9 w-9 rounded-[12px]" />
+        </div>
+      ) : (
+        <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            disabled={!showMonthNav}
+            onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <MonthPickerPopover
+            selectedMonth={selectedMonth}
+            financialMonthStart={financialMonthStart}
+            onSelect={setSelectedMonth}
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9"
+            disabled={!showMonthNav}
+            onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+            aria-label="Next month"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
+  const hasAnyCategory = expenseCategories.length > 0;
+  const showCoparentTab = !!household?.enable_shared_expenses || coParents.length > 0;
+  const showTabsList = !!(household?.enable_credit_cards || showCoparentTab);
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <PageHeader title="Expense Management" />
-        <LoadingState />
+      <div className="space-y-5">
+        {renderHeader(false, true)}
+        <ExpensesPageSkeleton />
       </div>
     );
   }
 
   if (!isUnlocked) {
     return (
-      <div className="space-y-4">
-        <PageHeader title="Expense Management" />
+      <div className="space-y-5">
+        {renderHeader(false)}
         <VaultLockedAlert />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Expense Management"
-        totalLabel="Total Expenses"
-        totalAmount={totalExpenses}
-        totalColorClass="text-destructive"
-      />
+    <div className={`space-y-5 ${mobileBottomBarSpacer}`}>
+      {renderHeader(hasAnyCategory)}
+
+      {hasAnyCategory && (
+        <Card>
+          <p className="text-xs font-medium text-muted-foreground tracking-wide">
+            Total expenses per month
+          </p>
+          <div className="mt-1">
+            <Money
+              v={totalExpenses}
+              currency={household?.currency || "SEK"}
+              size="4xl"
+              weight={600}
+              color="danger"
+              className="tracking-tighter"
+            />
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {fmtKr(totalExpenses * 12, household?.currency || "SEK")} per year
+          </p>
+        </Card>
+      )}
+
+      {isReadOnly && hasAnyCategory && (
+        <Alert variant="warning">
+          <ClipboardCheck />
+          <AlertContent>
+            <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
+            <AlertDescription>
+              Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
+            </AlertDescription>
+          </AlertContent>
+          <Button asChild size="sm" variant="outline" className="shrink-0">
+            <Link to="/">Open Review</Link>
+          </Button>
+        </Alert>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Only show tabs when there are multiple tabs (Credit or Co-Parent enabled) */}
-        {(household?.enable_credit_cards || coParents.length > 0) && (
+        {showTabsList && (
           <TabsList>
             <TabsTrigger value="all" className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
@@ -408,42 +549,68 @@ const Expenses = () => {
                 <span className="hidden sm:inline">Credit</span>
               </TabsTrigger>
             )}
-            {coParents.length > 0 && (
+            {showCoparentTab && (
               <TabsTrigger value="coparent" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Co-Parent</span>
+                <span className="hidden sm:inline">Shared</span>
               </TabsTrigger>
             )}
           </TabsList>
         )}
 
-        <TabsContent value="all" className="mt-6 space-y-4">
-          {/* Header with Add Button and Saved indicator */}
-          <div className="flex justify-between items-center">
-            <AddButton onClick={() => setAddExpenseDialogOpen(true)}>Add Expense</AddButton>
-            {/* Saved indicator - fade in animation matching Income page */}
-            {autoSaveStatus === 'saved' && (
-              <span className="text-sm text-primary animate-in fade-in duration-150">
-                ✓ Saved
-              </span>
-            )}
-            {autoSaveStatus === 'error' && (
-              <span className="text-sm text-destructive">
-                Failed to save
-              </span>
-            )}
+        <TabsContent value="all" className="mt-5 space-y-5">
+          {!hasAnyCategory ? (
+            <EmptyStateCard
+              icon={Home}
+              iconClassName="text-info"
+              headline="No expenses yet"
+              description="Add rent, utilities, phone plans, and other recurring bills."
+              primaryLabel="Add your first expense"
+              onPrimary={() => setAddingExpense(true)}
+            />
+          ) : (
+          <>
+          <div className="hidden sm:grid grid-cols-2 gap-5">
+            <Button
+              size="lg"
+              disabled={isReadOnly}
+              className="w-full justify-center gap-2"
+              onClick={() => !isReadOnly && setAddingExpense(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Add expense
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={isReadOnly}
+              className="w-full justify-center gap-2"
+              onClick={() => !isReadOnly && setAddTemporaryDialogOpen(true)}
+            >
+              <Zap className="h-4 w-4" />
+              One-time expense
+            </Button>
           </div>
 
-          {/* Expense Blocks View */}
           <AllTabBlockView
-            expenses={expenseCategories.map(cat => ({
-              id: cat.id,
-              name: cat.name,
-              amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
-              defaultAmount: parseFloat(cat.default_amount || '0'),
-              category: cat.category,
-            })).sort((a, b) => b.amount - a.amount)}
-            subscriptions={subscriptions.filter(s => s.is_active).map(sub => {
+            expenses={expenseCategories.map(cat => {
+              const monthly = monthlyExpenses.find((m: any) => m.expense_id === cat.id);
+              const rawActual = monthly?.actual_amount;
+              const actualAmount = rawActual !== undefined && rawActual !== null
+                ? Number(rawActual)
+                : undefined;
+              const subj = subjects.find(s => s.id === cat.subject_id);
+              return {
+                id: cat.id,
+                name: cat.name,
+                amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
+                defaultAmount: parseFloat(cat.default_amount || '0'),
+                actualAmount,
+                category: cat.category,
+                subject: subj ? { name: subj.name, type: subj.type } : undefined,
+              };
+            }).sort((a, b) => (b.defaultAmount ?? 0) - (a.defaultAmount ?? 0))}
+            subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.amount)) - parseFloat(String(a.amount))).map(sub => {
               // Calculate if this subscription is due in current financial month
               let isDue = false;
               if (sub.billing_cycle === 'yearly' && sub.billing_month && sub.billing_day) {
@@ -467,14 +634,17 @@ const Expenses = () => {
               } else if (sub.billing_cycle === 'monthly') {
                 isDue = true; // Monthly is always "due"
               }
+              const subj = subjects.find(s => s.id === sub.subject_id);
               return {
                 ...sub,
                 category: sub.category, // Pass category for icon lookup
                 total_amount: sub.amount,
                 isDue,
+                subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                inactive: sub.is_active === false,
               };
             })}
-            insurances={insurances.filter(i => i.is_active).map(ins => {
+            insurances={[...insurances].sort((a, b) => (b.total_amount ?? 0) - (a.total_amount ?? 0)).map(ins => {
               // Calculate monthly cost from total_amount and payment_frequency
               let monthlyAmount = 0;
               if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
@@ -486,13 +656,20 @@ const Expenses = () => {
                 monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
               }
 
+              const subj = subjects.find(s => s.id === ins.subject_id);
+              const rawName = typeof ins.name === "string" ? ins.name.trim() : "";
+              const customName = rawName === "NaN" ? "" : rawName;
+              const typeLabel = insuranceTypes.find(t => t.value === ins.category)?.label ?? "Insurance";
+              const fallbackName = typeLabel;
               return {
                 id: ins.id,
-                name: ins.name,
+                name: customName || fallbackName,
                 monthly_cost: monthlyAmount,
                 total_amount: ins.total_amount,
                 payment_frequency: ins.payment_frequency,
-                type: ins.type, // Pass type for icon lookup
+                category: ins.category,
+                subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                inactive: ins.is_active === false,
               };
             })}
             subscriptionsTotal={subscriptionsTotal}
@@ -503,6 +680,8 @@ const Expenses = () => {
               const expense = expenseCategories.find(cat => cat.id === id);
               if (expense) handleEditCategory(expense);
             }}
+            onAddSubscription={() => !isReadOnly && setAddSubscriptionOpen(true)}
+            onAddInsurance={() => !isReadOnly && setAddInsuranceOpen(true)}
             onSubscriptionClick={(id) => {
               const subscription = subscriptions.find(s => s.id === id);
               if (subscription) setEditingSubscription(subscription);
@@ -511,62 +690,37 @@ const Expenses = () => {
               const insurance = insurances.find(i => i.id === id);
               if (insurance) setEditingInsurance(insurance);
             }}
-            onAmountChange={handleAmountChange}
+            onAmountChange={isReadOnly ? undefined : handleAmountChange}
           />
 
-          {/* Inactive Items Section */}
-          {(subscriptions.some(s => !s.is_active) || insurances.some(i => !i.is_active)) && (
-            <div className="mt-6 pt-4 border-t border-border/50">
-              <h3>
-                <Moon className="h-4 w-4 opacity-60 inline mr-2" /> Inactive Items
-              </h3>
-              <div className="space-y-2">
-                {subscriptions.filter(s => !s.is_active).map(sub => {
-                  const subCat = subscriptionCategories.find(c => c.value === sub.category);
-                  const SubIcon = subCat?.icon || Repeat;
-                  return (
-                    <div
-                      key={sub.id}
-                      className="list-row-inactive"
-                      onClick={() => setEditingSubscription(sub)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <SubIcon className="h-4 w-4" style={{ color: subCat?.color ? `${subCat.color}80` : undefined }} />
-                        <span className="text-sm">{sub.name}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {sub.amount} {household?.currency}/
-                        {sub.billing_cycle === 'yearly' ? 'year' : sub.billing_cycle === 'quarterly' ? 'quarter' : 'month'}
-                      </span>
-                    </div>
-                  );
-                })}
-                {insurances.filter(i => !i.is_active).map(ins => {
-                  const insCat = insuranceTypes.find(c => c.value === ins.type);
-                  const InsIcon = insCat?.icon || Shield;
-                  return (
-                    <div
-                      key={ins.id}
-                      className="list-row-inactive"
-                      onClick={() => setEditingInsurance(ins)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <InsIcon className="h-4 w-4" style={{ color: insCat?.color ? `${insCat.color}80` : undefined }} />
-                        <span className="text-sm">{ins.name}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {ins.total_amount} {household?.currency}/{ins.payment_frequency === 'yearly' ? 'year' : 'period'}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+
+          <MobileBottomBar>
+            <Button
+              size="lg"
+              disabled={isReadOnly}
+              className="w-full justify-center gap-2"
+              onClick={() => !isReadOnly && setAddingExpense(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Add expense
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={isReadOnly}
+              className="w-full justify-center gap-2"
+              onClick={() => !isReadOnly && setAddTemporaryDialogOpen(true)}
+            >
+              <Zap className="h-4 w-4" />
+              One-time expense
+            </Button>
+          </MobileBottomBar>
+          </>
           )}
         </TabsContent>
 
         {household?.enable_credit_cards && (
-          <TabsContent value="credit" className="mt-6">
+          <TabsContent value="credit" className="mt-5">
             <CreditTab
               householdId={household?.id}
               currency={household?.currency || "SEK"}
@@ -576,8 +730,8 @@ const Expenses = () => {
           </TabsContent>
         )}
 
-        {coParents.length > 0 && (
-          <TabsContent value="coparent" className="mt-6">
+        {showCoparentTab && (
+          <TabsContent value="coparent" className="mt-5">
             <SharedExpensesTab
               householdId={household?.id}
               currency={household?.currency || "SEK"}
@@ -588,42 +742,115 @@ const Expenses = () => {
         )}
       </Tabs>
 
-      {/* Add Expense Dialog */}
-      <AddExpenseDialog
-        open={addExpenseDialogOpen}
-        onOpenChange={setAddExpenseDialogOpen}
-        householdId={household?.id || ""}
-        hasCoParents={coParents.length > 0}
-        onSuccess={fetchData}
-      />
+      {household && (
+        <TemporaryExpenseFormDialog
+          open={addTemporaryDialogOpen}
+          onOpenChange={setAddTemporaryDialogOpen}
+          householdId={household.id}
+          financialMonthStart={financialMonthStart}
+          onSuccess={fetchData}
+        />
+      )}
 
-      {/* Edit Expense Dialog */}
-      <EditExpenseDialog
-        open={categoryDialogOpen}
-        onOpenChange={setCategoryDialogOpen}
-        editingCategoryId={editingCategoryId}
-        categoryFormData={categoryFormData}
-        expenseCategories={expenseCategories}
-        onSave={handleSaveCategory}
-        onDelete={handleDeleteCategory}
-      />
+      {household && (
+        <ExpenseFormDialog
+          open={addingExpense}
+          onOpenChange={setAddingExpense}
+          mode="add"
+          householdId={household.id}
+          financialMonthStart={financialMonthStart}
+          onSuccess={fetchData}
+        />
+      )}
 
-      {/* Edit Subscription Dialog */}
-      <EditSubscriptionDialog
-        open={!!editingSubscription}
-        subscription={editingSubscription}
-        onOpenChange={(open) => !open && setEditingSubscription(null)}
-        onSave={fetchData}
-      />
+      {household && (
+        <ExpenseFormDialog
+          open={editDialogOpen}
+          onOpenChange={(v) => {
+            setEditDialogOpen(v);
+            if (!v) setEditingCategory(null);
+          }}
+          mode="edit"
+          householdId={household.id}
+          financialMonthStart={financialMonthStart}
+          initialValues={editingCategory ? {
+            id: editingCategory.id,
+            category: editingCategory.category,
+            name: editingCategory.name,
+            default_amount: editingCategory.default_amount,
+            is_credit: editingCategory.is_credit,
+            subject_id: editingCategory.subject_id,
+          } : undefined}
+          onSuccess={fetchData}
+        />
+      )}
 
-      {/* Edit Insurance Dialog */}
-      <EditInsuranceDialog
-        open={!!editingInsurance}
-        insurance={editingInsurance}
-        coParents={coParents}
-        onOpenChange={(open) => !open && setEditingInsurance(null)}
-        onSave={fetchData}
-      />
+      {household && (
+        <SubscriptionFormDialog
+          open={addSubscriptionOpen}
+          mode="add"
+          householdId={household.id}
+          onOpenChange={setAddSubscriptionOpen}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {household && (
+        <SubscriptionFormDialog
+          open={!!editingSubscription}
+          mode="edit"
+          householdId={household.id}
+          initialValues={editingSubscription ? {
+            id: editingSubscription.id,
+            name: editingSubscription.name,
+            amount: editingSubscription.amount,
+            billing_cycle: editingSubscription.billing_cycle,
+            category: editingSubscription.category,
+            notes: editingSubscription.notes,
+            is_active: editingSubscription.is_active,
+            billing_day: editingSubscription.billing_day,
+            billing_month: editingSubscription.billing_month,
+            subject_id: editingSubscription.subject_id,
+          } : undefined}
+          onOpenChange={(open) => !open && setEditingSubscription(null)}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {household && (
+        <InsuranceFormDialog
+          open={addInsuranceOpen}
+          mode="add"
+          householdId={household.id}
+          onOpenChange={setAddInsuranceOpen}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {household && (
+        <InsuranceFormDialog
+          open={!!editingInsurance}
+          mode="edit"
+          householdId={household.id}
+          initialValues={editingInsurance ? {
+            id: editingInsurance.id,
+            name: editingInsurance.name,
+            provider: editingInsurance.provider,
+            category: editingInsurance.category,
+            total_amount: editingInsurance.total_amount,
+            payment_frequency: editingInsurance.payment_frequency,
+            invoice_month: editingInsurance.invoice_month,
+            notes: editingInsurance.notes,
+            is_active: editingInsurance.is_active,
+            is_shared: editingInsurance.is_shared,
+            co_parent_id: editingInsurance.co_parent_id,
+            share_percentage: editingInsurance.share_percentage,
+            subject_id: editingInsurance.subject_id,
+          } : undefined}
+          onOpenChange={(open) => !open && setEditingInsurance(null)}
+          onSuccess={fetchData}
+        />
+      )}
     </div>
   );
 };

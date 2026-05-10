@@ -1,0 +1,21 @@
+{
+  "title": "Expenses",
+  "totalBar": {
+    "label": "Total expenses"
+  },
+  "tabs": {
+    "all": "All",
+    "credit": "Credit",
+    "coParent": "Co-Parent"
+  },
+  "actions": {
+    "addExpense": "Add Expense"
+  },
+  "inactive": {
+    "heading": "Inactive Items"
+  },
+  "groups": {
+    "subscriptions": "Subscriptions",
+    "insurance": "Insurance"
+  }
+}

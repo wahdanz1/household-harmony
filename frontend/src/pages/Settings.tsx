@@ -7,14 +7,18 @@ import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard
 import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
 import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
-import { DataMigrationCard } from "@/components/settings/DataMigrationCard";
+import { ResetDataCard } from "@/components/settings/ResetDataCard";
+import { SetupWizardCard } from "@/components/settings/SetupWizardCard";
+import { SubjectsCard } from "@/components/settings/SubjectsCard";
+// import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Home, User, Shield, AlertTriangle } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Home, User, Shield } from "lucide-react";
 import { useEncryption } from "@/contexts/EncryptionContext";
-import { VaultUnlockButton } from "@/components/shared/VaultUnlockDialog";
-import { PageHeader } from "@/components/shared/PageHeader";
+import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { LoadingState } from "@/components/shared/states";
+import { SettingsPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -27,6 +31,10 @@ const Settings = () => {
 
   const fetchData = async () => {
     if (!user) return;
+    if (!isUnlocked) {
+      setLoading(false);
+      return;
+    }
 
     // Use new helper to get active household
     const { membership, household: householdInfo } = await getActiveHousehold(user.id);
@@ -52,16 +60,25 @@ const Settings = () => {
 
   useEffect(() => {
     fetchData();
-  }, [user]);
+  }, [user, isUnlocked]);
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <PageHeader
-          title="Settings"
-          subtitle="Manage your household and preferences"
-        />
-        <LoadingState />
+      <div className="space-y-5">
+        <SettingsHeader />
+        <SettingsPageSkeleton />
+      </div>
+    );
+  }
+
+  // Gate the entire page behind vault unlock — household members, invites,
+  // profile data, and API keys are all sensitive and shouldn't be visible
+  // to anyone who hasn't authenticated for the session.
+  if (!isUnlocked) {
+    return (
+      <div className="space-y-5">
+        <SettingsHeader />
+        <VaultLockedAlert />
       </div>
     );
   }
@@ -75,11 +92,8 @@ const Settings = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Settings"
-        subtitle="Manage your household and preferences"
-      />
+    <div className="space-y-5">
+      <SettingsHeader />
 
       <Tabs defaultValue="general" className="w-full">
         <TabsList>
@@ -97,10 +111,10 @@ const Settings = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="mt-6">
-          <div className="space-y-6">
+        <TabsContent value="general" className="mt-5">
+          <div className="space-y-5">
             {/* Household Info & Members - 2 column grid on desktop */}
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-5 lg:grid-cols-2">
               <HouseholdInfoCard household={household} userRole={userRole} members={members} onUpdate={fetchData} />
               <HouseholdMembersCard
                 members={members}
@@ -115,47 +129,48 @@ const Settings = () => {
               enableSharedExpenses={household.enable_shared_expenses ?? true}
               onUpdate={fetchData}
             />
+            <SubjectsCard householdId={household.id} onUpdate={fetchData} />
+            <SetupWizardCard />
+            <ResetDataCard
+              householdId={household.id}
+              householdName={household.name}
+              isOwner={userRole === "owner"}
+              onComplete={fetchData}
+            />
           </div>
         </TabsContent>
 
-        <TabsContent value="personal" className="mt-6">
-          <PersonalSettingsCard />
+        <TabsContent value="personal" className="mt-5">
+          <div className="space-y-5">
+            <PersonalSettingsCard />
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1.5 flex-1">
+                    <CardTitle>Appearance</CardTitle>
+                    <CardDescription>Switch between light and dark mode.</CardDescription>
+                  </div>
+                  <ThemeToggle showLabel />
+                </div>
+              </CardHeader>
+            </Card>
+          </div>
         </TabsContent>
 
-        <TabsContent value="security" className="mt-6">
-          <div className="space-y-6">
-            {!isUnlocked && (
-              <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-500 mb-6 flex items-center justify-between p-4">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 rounded-full bg-amber-500/10 shrink-0">
-                    <AlertTriangle className="h-6 w-6 stroke-amber-500" />
-                  </div>
-                  <div>
-                    <AlertTitle className="text-lg font-semibold mb-1">Vault Locked</AlertTitle>
-                    <AlertDescription className="text-base text-amber-500/90">
-                      Your vault is locked. Please unlock it to view and manage sensitive data.
-                    </AlertDescription>
-                  </div>
-                </div>
-
-                <VaultUnlockButton
-                  variant="outline"
-                  className="h-10 px-6 ml-4 border-amber-500/50 hover:bg-amber-500/20 hover:text-amber-500 text-base font-medium whitespace-nowrap"
-                />
-              </Alert>
-            )}
-
-            <div className={!isUnlocked ? "opacity-50 pointer-events-none select-none grayscale-[0.5] transition-all duration-300" : "transition-all duration-300"}>
-              <div className="space-y-6">
-                <ApiKeysCard />
-                <DataMigrationCard />
-              </div>
-            </div>
+        <TabsContent value="security" className="mt-5">
+          <div className="space-y-5">
+            <ApiKeysCard />
           </div>
         </TabsContent>
       </Tabs>
     </div>
   );
 };
+
+const SettingsHeader = () => (
+  <div className="flex items-center justify-between gap-4 min-h-9">
+    <h1>Settings</h1>
+  </div>
+);
 
 export default Settings;
