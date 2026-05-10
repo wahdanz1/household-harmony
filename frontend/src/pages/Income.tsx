@@ -6,7 +6,6 @@ import { TrendingUp, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Cal
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthChip } from "@/components/ui/month-chip";
 import { Money, fmtKr } from "@/components/ui/money";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { TaxPrognosisModal } from "@/components/income/TaxPrognosisModal";
 import { getTaxPrognosis } from "@/services/tax";
@@ -17,10 +16,9 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { IncomeSourceItem } from "@/components/income/IncomeSourceItem";
-import { IncomeSourceDialog } from "@/components/income/IncomeSourceDialog";
+import { IncomeFormDialog } from "@/components/income/IncomeFormDialog";
 import { OneTimeIncomeDialog } from "@/components/income/OneTimeIncomeDialog";
 
-import { useIncomeSources } from "@/components/income/hooks/useIncomeSources";
 import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
 import { fetchHistoryByKey } from "@/utils/carryForward";
 import { computeSmartDefault } from "@/services/smartDefaults";
@@ -267,17 +265,12 @@ const Income = () => {
   // (above, in fetchData) now handles seeding amounts from the most recent
   // month with data, which is more useful anyway.
 
-  const {
-    sourceDialogOpen,
-    setSourceDialogOpen,
-    editingSourceId,
-    sourceFormData,
-    setSourceFormData,
-    handleEditSource,
-    handleSaveSource,
-    handleDeleteSource,
-    resetSourceForm,
-  } = useIncomeSources(household?.id || "", members, fetchData);
+  const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
+  const [editingSource, setEditingSource] = useState<any | null>(null);
+  const handleEditSource = (source: any) => {
+    setEditingSource(source);
+    setSourceDialogOpen(true);
+  };
 
 
   // Handle amount change - track modifications and trigger autosave
@@ -527,36 +520,15 @@ const Income = () => {
       {hasAnySource && (
         <div className="space-y-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
-              if (isReadOnly) return;
-              setSourceDialogOpen(open);
-              if (!open) resetSourceForm();
-            }}>
-              <DialogTrigger asChild>
-                <Button
-                  size="lg"
-                  disabled={isReadOnly}
-                  className="w-full justify-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add source
-                </Button>
-              </DialogTrigger>
-              <IncomeSourceDialog
-                open={sourceDialogOpen}
-                editingSourceId={editingSourceId}
-                sourceFormData={sourceFormData}
-                members={members}
-                coParents={coParents}
-                onOpenChange={(open) => {
-                  setSourceDialogOpen(open);
-                  if (!open) resetSourceForm();
-                }}
-                onFormDataChange={setSourceFormData}
-                onSave={handleSaveSource}
-                onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
-              />
-            </Dialog>
+            <Button
+              size="lg"
+              disabled={isReadOnly}
+              className="w-full justify-center gap-2"
+              onClick={() => { if (!isReadOnly) { setEditingSource(null); setSourceDialogOpen(true); } }}
+            >
+              <Plus className="h-4 w-4" />
+              Add source
+            </Button>
             {!isReadOnly && <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />}
           </div>
           {(autoSaveStatus === 'saved' || autoSaveStatus === 'error') && (
@@ -575,35 +547,14 @@ const Income = () => {
       )}
 
       {!hasAnySource ? (
-        <>
-          <EmptyStateCard
-            icon={TrendingUp}
-            iconClassName="text-success"
-            headline="No income sources yet"
-            description="Add your salary, CSN, or any other recurring income."
-            primaryLabel="Add your first source"
-            onPrimary={() => setSourceDialogOpen(true)}
-          />
-          <Dialog open={sourceDialogOpen} onOpenChange={(open) => {
-            setSourceDialogOpen(open);
-            if (!open) resetSourceForm();
-          }}>
-            <IncomeSourceDialog
-              open={sourceDialogOpen}
-              editingSourceId={editingSourceId}
-              sourceFormData={sourceFormData}
-              members={members}
-              coParents={coParents}
-              onOpenChange={(open) => {
-                setSourceDialogOpen(open);
-                if (!open) resetSourceForm();
-              }}
-              onFormDataChange={setSourceFormData}
-              onSave={handleSaveSource}
-              onDelete={editingSourceId ? () => handleDeleteSource(editingSourceId) : undefined}
-            />
-          </Dialog>
-        </>
+        <EmptyStateCard
+          icon={TrendingUp}
+          iconClassName="text-success"
+          headline="No income sources yet"
+          description="Add your salary, CSN, or any other recurring income."
+          primaryLabel="Add your first source"
+          onPrimary={() => { setEditingSource(null); setSourceDialogOpen(true); }}
+        />
       ) : (
         <Card variant="flush">
           {/* Block Header */}
@@ -642,7 +593,7 @@ const Income = () => {
                   currency={household?.currency || "SEK"}
                   onAmountChange={handleAmountChange}
                   onEdit={handleEditSource}
-                  onDelete={handleDeleteSource}
+                  onDelete={() => {}}
                   status={status}
                   readOnly={isReadOnly}
                   last={idx === incomeSources.length - 1}
@@ -661,6 +612,32 @@ const Income = () => {
         prognosis={prognosis}
         loading={prognosisLoading}
       />
+
+      {household && (
+        <IncomeFormDialog
+          open={sourceDialogOpen}
+          onOpenChange={(v) => {
+            setSourceDialogOpen(v);
+            if (!v) setEditingSource(null);
+          }}
+          mode={editingSource ? "edit" : "add"}
+          householdId={household.id}
+          members={members}
+          coParents={coParents}
+          financialMonthStart={financialMonthStart}
+          initialValues={editingSource ? {
+            id: editingSource.id,
+            category: editingSource.category,
+            name: editingSource.name,
+            owner_id: editingSource.created_by ?? editingSource.owner_id,
+            default_amount: editingSource.default_amount,
+            is_shared: editingSource.is_shared,
+            co_parent_id: editingSource.co_parent_id,
+            share_percentage: editingSource.share_percentage,
+          } : undefined}
+          onSuccess={fetchData}
+        />
+      )}
     </div >
   );
 };

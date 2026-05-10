@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { SubscriptionForm } from "@/components/expenses/forms/SubscriptionForm";
 import { InsuranceForm } from "@/components/expenses/forms/InsuranceForm";
+import { IncomeFormDialog } from "@/components/income/IncomeFormDialog";
 import { toast } from "sonner";
 
 interface HouseholdSetupWizardProps {
@@ -304,14 +305,14 @@ const AddItemDialog = ({
     }
     if (stepKey === "income") {
         return (
-            <SimpleAddIncomeDialog
+            <IncomeFormDialog
                 open={open}
                 onOpenChange={onOpenChange}
+                mode="add"
                 householdId={householdId}
-                userId={userId}
                 members={members}
                 financialMonthStart={financialMonthStart}
-                onAdded={onAdded}
+                onSuccess={onAdded}
             />
         );
     }
@@ -324,142 +325,6 @@ const AddItemDialog = ({
             financialMonthStart={financialMonthStart}
             onAdded={onAdded}
         />
-    );
-};
-
-// ---------------------------------------------------------------------------
-
-interface SimpleAddIncomeDialogProps {
-    open: boolean;
-    onOpenChange: (v: boolean) => void;
-    householdId: string;
-    userId: string;
-    members: HouseholdSetupWizardProps["members"];
-    financialMonthStart: number;
-    onAdded: () => void;
-}
-
-const INCOME_CATEGORIES = [
-    { value: "salary", label: "Salary" },
-    { value: "business_income", label: "Business income" },
-    { value: "government_benefits", label: "Government benefits" },
-    { value: "investment_income", label: "Investment income" },
-    { value: "other", label: "Other" },
-] as const;
-
-const SimpleAddIncomeDialog = ({
-    open, onOpenChange, householdId, userId, members, financialMonthStart, onAdded,
-}: SimpleAddIncomeDialogProps) => {
-    const [name, setName] = useState("");
-    const [amount, setAmount] = useState("");
-    const [category, setCategory] = useState<string>("salary");
-    const [ownerId, setOwnerId] = useState(userId);
-    const [saving, setSaving] = useState(false);
-    const { encryptRecord: encryptSource } = useEncryptedFields(incomeSourceFields);
-    const { encryptRecord: encryptMonthly } = useEncryptedFields(monthlyIncomeFields);
-
-    useEffect(() => {
-        if (open) {
-            setName(""); setAmount(""); setCategory("salary"); setOwnerId(userId);
-        }
-    }, [open, userId]);
-
-    const canSave = name.trim().length > 0 && parseFloat(amount) > 0 && !!ownerId;
-
-    const handleSave = async () => {
-        if (!canSave) return;
-        setSaving(true);
-        try {
-            const numericAmount = parseFloat(amount);
-            const encryptedSource = await encryptSource({
-                household_id: householdId,
-                category,
-                name: name.trim(),
-                default_amount: numericAmount,
-                created_by: ownerId,
-                is_active: true,
-            });
-
-            const { data: created, error } = await (supabase as any)
-                .from("income_sources")
-                .insert({ ...encryptedSource, category })
-                .select("id")
-                .single();
-            if (error || !created) throw error || new Error("Insert failed");
-
-            const month = getCurrentFinancialMonth(financialMonthStart);
-            const { start, end } = getFinancialMonthRange(month, financialMonthStart);
-            const encryptedMonthly = await encryptMonthly({
-                household_id: householdId,
-                income_source_id: created.id,
-                month,
-                month_start: format(start, "yyyy-MM-dd"),
-                month_end: format(end, "yyyy-MM-dd"),
-                budget_amount: numericAmount,
-                created_by: ownerId,
-            });
-            await (supabase as any)
-                .from("monthly_incomes")
-                .insert(encryptedMonthly);
-
-            onAdded();
-        } catch (err: any) {
-            console.error(err);
-            toast.error(err.message || "Failed to add income");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Add income source</DialogTitle>
-                    <DialogDescription>Recurring monthly income.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                    <div className="space-y-2">
-                        <Label>Category</Label>
-                        <Select value={category} onValueChange={setCategory}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                {INCOME_CATEGORIES.map(c => (
-                                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Name</Label>
-                        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Daniel salary" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Belongs to</Label>
-                        <Select value={ownerId} onValueChange={setOwnerId}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                {members.map(m => (
-                                    <SelectItem key={m.user_id} value={m.user_id}>
-                                        {m.profiles?.full_name || m.profiles?.email || m.user_id.slice(0, 8)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Monthly amount (kr)</Label>
-                        <Input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={!canSave || saving}>
-                        {saving ? "Adding…" : "Add"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
     );
 };
 
