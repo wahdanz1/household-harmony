@@ -460,11 +460,38 @@ const Expenses = () => {
     </div>
   );
 
+  const hasAnyCategory = expenseCategories.length > 0;
+  const showTabsList = !!(household?.enable_credit_cards || coParents.length > 0);
+
   if (loading) {
     return (
       <div className="space-y-5">
         {renderHeader(false)}
-        <ExpensesPageSkeleton />
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          {showTabsList && (
+            <TabsList>
+              <TabsTrigger value="all" className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4" />
+                <span className="hidden sm:inline">All</span>
+              </TabsTrigger>
+              {household?.enable_credit_cards && (
+                <TabsTrigger value="credit" className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  <span className="hidden sm:inline">Credit</span>
+                </TabsTrigger>
+              )}
+              {coParents.length > 0 && (
+                <TabsTrigger value="coparent" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  <span className="hidden sm:inline">Co-Parent</span>
+                </TabsTrigger>
+              )}
+            </TabsList>
+          )}
+          <div className="mt-6">
+            <ExpensesPageSkeleton />
+          </div>
+        </Tabs>
       </div>
     );
   }
@@ -477,8 +504,6 @@ const Expenses = () => {
       </div>
     );
   }
-
-  const hasAnyCategory = expenseCategories.length > 0;
 
   return (
     <div className="space-y-5">

@@ -29,6 +29,10 @@ const Settings = () => {
 
   const fetchData = async () => {
     if (!user) return;
+    if (!isUnlocked) {
+      setLoading(false);
+      return;
+    }
 
     // Use new helper to get active household
     const { membership, household: householdInfo } = await getActiveHousehold(user.id);
@@ -54,7 +58,7 @@ const Settings = () => {
 
   useEffect(() => {
     fetchData();
-  }, [user]);
+  }, [user, isUnlocked]);
 
   if (loading) {
     return (
