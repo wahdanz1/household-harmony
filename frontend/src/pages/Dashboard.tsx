@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,6 +76,7 @@ const Dashboard = () => {
   const { household, coParents, members, financialMonthStart, loading: householdLoading } = useHousehold();
   const { isUnlocked, encrypt, decrypt } = useEncryption();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [planning, setPlanning] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentFinancialMonth(financialMonthStart));
@@ -328,10 +329,15 @@ const Dashboard = () => {
       setHouseholdHasSeedData(hasSeed);
 
       const setupDone = localStorage.getItem(`hh_setup_done_${household.id}`) === "1";
-      if (!hasSeed && !setupDone) {
+      const explicitOpen = searchParams.get("setup") === "1";
+      if (explicitOpen || (!hasSeed && !setupDone)) {
         setSetupOpen(true);
       } else if (hasSeed) {
         localStorage.setItem(`hh_setup_done_${household.id}`, "1");
+      }
+      if (explicitOpen) {
+        searchParams.delete("setup");
+        setSearchParams(searchParams, { replace: true });
       }
     };
     checkSeedData();
@@ -406,7 +412,20 @@ const Dashboard = () => {
         onJumpToToday={isCurrentMonth ? undefined : () => setSelectedMonth(todayMonth)}
       />
 
-      {showPlanCta && (
+      {householdHasSeedData === false && !setupOpen && (
+        <Card variant="cta" className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-5 w-5 text-accent-dk" />
+            <div>
+              <p className="font-medium text-sm text-accent-dk">Resume setup</p>
+              <p className="text-xs text-accent-dk/70">Add your incomes, expenses, subscriptions and insurances.</p>
+            </div>
+          </div>
+          <Button onClick={() => setSetupOpen(true)}>Open setup</Button>
+        </Card>
+      )}
+
+      {showPlanCta && householdHasSeedData !== false && (
         <Card variant="cta" className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <CalendarPlus className="h-5 w-5 text-accent-dk" />
