@@ -1,4 +1,3 @@
-import { Switch } from "@/components/ui/switch";
 import { Pencil, Sparkles } from "lucide-react";
 import { getIncomeCategoryById } from "@/constants/incomeCategories";
 import { RowItem } from "@/components/ui/row-item";
@@ -91,15 +90,6 @@ export const IncomeSourceItem = ({
                 {!readOnly && (
                     <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                 )}
-
-                <Switch
-                    checked={!isSkipped}
-                    disabled={readOnly}
-                    onCheckedChange={(checked) =>
-                        onAmountChange(source.id, checked ? (source.default_amount || 0).toString() : "0")
-                    }
-                    className="sm:-rotate-90 data-[state=unchecked]:bg-muted"
-                />
             </div>
         </RowItem>
     );

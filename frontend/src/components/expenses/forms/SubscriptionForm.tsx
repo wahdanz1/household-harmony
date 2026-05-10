@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, subscriptionFields } from "@/hooks/useEncryptedFields";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
 import { SubjectPicker } from "@/components/shared/SubjectPicker";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
+import { FormField, FormRow } from "@/components/shared/FormField";
+import { useEntityForm } from "@/hooks/useEntityForm";
 
 const subscriptionCategories = [
     { value: "streaming", label: "Streaming" },
@@ -67,16 +67,14 @@ export const SubscriptionForm = ({
     editingId, initialValues, onDelete, showCreateAnother = true,
 }: SubscriptionFormProps) => {
     const { user } = useAuth();
-    const { toast } = useToast();
     const { encryptRecord } = useEncryptedFields(subscriptionFields);
-    const [formData, setFormData] = useState<InitialValues>(() => ({ ...blank(), ...initialValues }));
-    const [saving, setSaving] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-    const [createAnother, setCreateAnother] = useState(false);
+    const [pristine, setPristine] = useState<InitialValues>(() => ({ ...blank(), ...initialValues }));
+    const [formData, setFormData] = useState<InitialValues>(pristine);
 
     useEffect(() => {
-        setFormData({ ...blank(), ...initialValues });
-        setCreateAnother(false);
+        const next = { ...blank(), ...initialValues };
+        setPristine(next);
+        setFormData(next);
     }, [initialValues, editingId]);
 
     const isEditing = !!editingId;
@@ -86,10 +84,11 @@ export const SubscriptionForm = ({
     const usedCats = subscriptionCategories.filter(c => usedCategorySet.has(c.value) || c.value === formData.category);
     const moreCats = subscriptionCategories.filter(c => !usedCategorySet.has(c.value) && c.value !== formData.category);
 
-    const handleSave = async () => {
-        if (!user || !canSave) return;
-        setSaving(true);
-        try {
+    const form = useEntityForm({
+        entityName: "Subscription",
+        isEdit: isEditing,
+        save: async () => {
+            if (!user) throw new Error("Not authenticated");
             const baseData = {
                 household_id: householdId,
                 name: formData.name?.trim() ?? "",
@@ -104,105 +103,84 @@ export const SubscriptionForm = ({
                 subject_id: formData.subject_id ?? null,
             };
             const data = await encryptRecord(baseData);
-
             if (editingId) {
                 const { error } = await supabase.from("subscriptions").update(data).eq("id", editingId);
                 if (error) throw error;
-                toast({ title: "Subscription updated" });
             } else {
                 const { error } = await supabase.from("subscriptions").insert(data);
                 if (error) throw error;
-                toast({ title: "Subscription added" });
             }
-
-            onSuccess();
-            if (!editingId && createAnother) {
-                setFormData(blank());
-            }
-        } catch (err: any) {
-            toast({ title: "Error", description: err.message || "Failed to save", variant: "destructive" });
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!editingId || !onDelete) return;
-        setDeleting(true);
-        try {
+        },
+        remove: editingId ? async () => {
             const { error } = await supabase.from("subscriptions").delete().eq("id", editingId);
             if (error) throw error;
-            toast({ title: "Subscription deleted" });
-            onDelete();
-        } catch (err: any) {
-            toast({ title: "Error", description: err.message || "Failed to delete", variant: "destructive" });
-        } finally {
-            setDeleting(false);
-        }
-    };
+        } : undefined,
+        onSaved: onSuccess,
+        onDeleted: onDelete,
+        resetForm: () => { const b = blank(); setPristine(b); setFormData(b); },
+        formValues: formData,
+        pristineValues: pristine,
+    });
 
     return (
-        <div className="space-y-4">
-            <div className="space-y-2">
-                <Label>Name</Label>
-                <Input
-                    value={formData.name ?? ""}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Netflix, Spotify, etc."
-                />
-            </div>
+        <div className="space-y-3">
+            <FormRow>
+                <FormField label="Name">
+                    <Input
+                        value={formData.name ?? ""}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Netflix, Spotify, etc."
+                    />
+                </FormField>
+                <FormField label="Category">
+                    <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {usedCats.length > 0 && (
+                                <SelectGroup>
+                                    <SelectLabel>Used in this household</SelectLabel>
+                                    {usedCats.map((cat) => (
+                                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            )}
+                            {moreCats.length > 0 && (
+                                <SelectGroup>
+                                    <SelectLabel>{usedCats.length > 0 ? "More categories" : "All categories"}</SelectLabel>
+                                    {moreCats.map((cat) => (
+                                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            )}
+                        </SelectContent>
+                    </Select>
+                </FormField>
+            </FormRow>
 
-            <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        {usedCats.length > 0 && (
-                            <SelectGroup>
-                                <SelectLabel>Used in this household</SelectLabel>
-                                {usedCats.map((cat) => (
-                                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                                ))}
-                            </SelectGroup>
-                        )}
-                        {moreCats.length > 0 && (
-                            <SelectGroup>
-                                <SelectLabel>{usedCats.length > 0 ? "More categories" : "All categories"}</SelectLabel>
-                                {moreCats.map((cat) => (
-                                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                                ))}
-                            </SelectGroup>
-                        )}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div className="space-y-2">
-                <Label>Amount</Label>
-                <Input
-                    type="number"
-                    value={String(formData.amount ?? "")}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    placeholder="0"
-                />
-            </div>
-
-            <div className="space-y-2">
-                <Label>Billing cycle</Label>
-                <Select value={formData.billing_cycle} onValueChange={(v) => setFormData({ ...formData, billing_cycle: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="quarterly">Quarterly</SelectItem>
-                        <SelectItem value="yearly">Yearly</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
+            <FormRow>
+                <FormField label="Amount">
+                    <Input
+                        type="number"
+                        value={String(formData.amount ?? "")}
+                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                        placeholder="0"
+                    />
+                </FormField>
+                <FormField label="Billing cycle">
+                    <Select value={formData.billing_cycle} onValueChange={(v) => setFormData({ ...formData, billing_cycle: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                            <SelectItem value="quarterly">Quarterly</SelectItem>
+                            <SelectItem value="yearly">Yearly</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </FormField>
+            </FormRow>
 
             {(formData.billing_cycle === "yearly" || formData.billing_cycle === "quarterly") && (
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                        <Label>Billing month</Label>
+                <FormRow>
+                    <FormField label="Billing month">
                         <Select
                             value={formData.billing_month?.toString()}
                             onValueChange={(v) => setFormData({ ...formData, billing_month: parseInt(v) })}
@@ -216,9 +194,8 @@ export const SubscriptionForm = ({
                                 ))}
                             </SelectContent>
                         </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Billing day</Label>
+                    </FormField>
+                    <FormField label="Billing day">
                         <Input
                             type="number"
                             min={1}
@@ -232,8 +209,8 @@ export const SubscriptionForm = ({
                             }}
                             placeholder="1–31"
                         />
-                    </div>
-                </div>
+                    </FormField>
+                </FormRow>
             )}
 
             <SubjectPicker
@@ -242,14 +219,14 @@ export const SubscriptionForm = ({
                 onChange={(id) => setFormData({ ...formData, subject_id: id })}
             />
 
-            <div className="space-y-2">
-                <Label>Notes</Label>
+            <FormField label="Notes">
                 <Textarea
+                    rows={2}
                     value={formData.notes ?? ""}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     placeholder="Optional notes"
                 />
-            </div>
+            </FormField>
 
             <div className="flex items-center space-x-2">
                 <Switch
@@ -259,27 +236,27 @@ export const SubscriptionForm = ({
                 <Label>Active</Label>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4">
-                <div className="flex items-center gap-3">
-                    {isEditing && onDelete ? (
-                        <Button variant="destructive" onClick={handleDelete} disabled={saving || deleting}>
-                            {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                            Delete
-                        </Button>
-                    ) : showCreateAnother ? (
-                        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                            <Checkbox checked={createAnother} onCheckedChange={(v) => setCreateAnother(v === true)} />
-                            Create another
-                        </label>
-                    ) : null}
-                </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={!canSave || saving}>
-                        {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</> : (isEditing ? "Save" : "Add")}
-                    </Button>
-                </div>
-            </div>
+            <FormDialogFooter
+                isEdit={isEditing}
+                saving={form.saving}
+                deleting={form.deleting}
+                canSave={canSave && form.isDirty}
+                onCancel={onCancel}
+                onSave={form.handleSave}
+                onRequestDelete={onDelete ? form.requestDelete : undefined}
+                showCreateAnother={showCreateAnother}
+                createAnother={form.createAnother}
+                onCreateAnotherChange={form.setCreateAnother}
+            />
+
+            <ConfirmDialog
+                open={form.confirmDeleteOpen}
+                onOpenChange={form.setConfirmDeleteOpen}
+                title="Delete this subscription?"
+                description="This can't be undone."
+                busy={form.deleting}
+                onConfirm={form.handleDelete}
+            />
         </div>
     );
 };

@@ -4,7 +4,7 @@ import { AddButton } from "@/components/ui/add-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { HandCoins, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { MonthChip } from "@/components/ui/month-chip";
+import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { Money, fmtKr } from "@/components/ui/money";
 import { Button } from "@/components/ui/button";
 import { TaxPrognosisModal } from "@/components/income/TaxPrognosisModal";
@@ -26,6 +26,8 @@ import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
 
 import { IncomePageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MobileBottomBar, mobileBottomBarSpacer } from "@/components/shared/MobileBottomBar";
 import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/hooks/useEncryptedFields";
 
@@ -122,6 +124,15 @@ const Income = () => {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const amountsRef = useRef<Record<string, string>>({}); // Track latest amounts for autosave
+
+  const [savedFading, setSavedFading] = useState(false);
+  useEffect(() => {
+    if (autoSaveStatus !== 'saved' && autoSaveStatus !== 'error') return;
+    setSavedFading(false);
+    const startFade = window.setTimeout(() => setSavedFading(true), 2500);
+    const clearStatus = window.setTimeout(() => setAutoSaveStatus('idle'), 3500);
+    return () => { window.clearTimeout(startFade); window.clearTimeout(clearStatus); };
+  }, [autoSaveStatus]);
 
   // Keep these for display/header purposes only (will update on re-render)
   const currentMonth = selectedMonth;
@@ -413,30 +424,46 @@ const Income = () => {
 
   const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0);
   const currencyCode = household?.currency || "SEK";
-  const activeSourceCount = incomeSources.filter(s => s.is_active !== false).length;
+  const activeSourceCount = incomeSources.filter(s => {
+    if (s.is_active === false) return false;
+    const current = parseFloat(amounts[s.id] ?? String(s.default_amount ?? 0));
+    return current > 0;
+  }).length;
 
   // Header — month nav hidden when there's no data to navigate (locked state).
   const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
   const monthLabel = format(monthEndDate, "MMM yyyy");
-  const renderHeader = (showMonthNav: boolean) => (
-    <div className="flex items-center justify-between gap-4">
+  const renderHeader = (showMonthNav: boolean, isLoading = false) => (
+    <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Income</h1>
-      {showMonthNav && (
+      {isLoading ? (
         <div className="flex items-center gap-1">
+          <Skeleton className="h-9 w-9 rounded-[12px]" />
+          <Skeleton className="h-9 w-32 rounded-full" />
+          <Skeleton className="h-9 w-9 rounded-[12px]" />
+        </div>
+      ) : (
+        <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
           <Button
             variant="ghost"
             size="icon"
             className="h-9 w-9"
+            disabled={!showMonthNav}
             onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
             aria-label="Previous month"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <MonthChip value={monthLabel} />
+          <MonthPickerPopover
+            selectedMonth={selectedMonth}
+            financialMonthStart={financialMonthStart}
+            onSelect={setSelectedMonth}
+          />
           <Button
             variant="ghost"
             size="icon"
             className="h-9 w-9"
+            disabled={!showMonthNav}
             onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
             aria-label="Next month"
           >
@@ -450,7 +477,7 @@ const Income = () => {
   if (loading) {
     return (
       <div className="space-y-5">
-        {renderHeader(false)}
+        {renderHeader(false, true)}
         <IncomePageSkeleton />
       </div>
     );
@@ -468,7 +495,7 @@ const Income = () => {
   const hasAnySource = incomeSources.length > 0;
 
   return (
-    <div className="space-y-5">
+    <div className={`space-y-5 ${mobileBottomBarSpacer}`}>
       {renderHeader(hasAnySource)}
 
       {hasAnySource && (
@@ -518,31 +545,17 @@ const Income = () => {
       )}
 
       {hasAnySource && (
-        <div className="space-y-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <Button
-              size="lg"
-              disabled={isReadOnly}
-              className="w-full justify-center gap-2"
-              onClick={() => { if (!isReadOnly) { setEditingSource(null); setSourceDialogOpen(true); } }}
-            >
-              <Plus className="h-4 w-4" />
-              Add source
-            </Button>
-            {!isReadOnly && <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />}
-          </div>
-          {(autoSaveStatus === 'saved' || autoSaveStatus === 'error') && (
-            <div className="flex justify-end">
-              {autoSaveStatus === 'saved' && (
-                <span className="flex items-center gap-1 text-sm text-accent animate-in fade-in duration-150">
-                  <Check className="h-4 w-4" /> Saved
-                </span>
-              )}
-              {autoSaveStatus === 'error' && (
-                <span className="text-sm text-destructive">Failed to save</span>
-              )}
-            </div>
-          )}
+        <div className="hidden sm:grid grid-cols-2 gap-5">
+          <Button
+            size="lg"
+            disabled={isReadOnly}
+            className="w-full justify-center gap-2"
+            onClick={() => { if (!isReadOnly) { setEditingSource(null); setSourceDialogOpen(true); } }}
+          >
+            <Plus className="h-4 w-4" />
+            Add source
+          </Button>
+          {!isReadOnly && <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />}
         </div>
       )}
 
@@ -563,8 +576,19 @@ const Income = () => {
             <div>
               <h3>Income</h3>
               <p className="text-xs text-muted-foreground">
-                {incomeSources.length} {incomeSources.length === 1 ? 'source' : 'sources'}
+                {activeSourceCount} active {activeSourceCount === 1 ? 'source' : 'sources'}
               </p>
+            </div>
+            <div className="ml-auto h-5">
+              {(autoSaveStatus === 'saved' || autoSaveStatus === 'error') && (
+                <span
+                    className={`flex items-center gap-1 text-sm transition-opacity duration-1000 ${savedFading ? 'opacity-0' : 'opacity-100'} ${autoSaveStatus === 'error' ? 'text-destructive' : 'text-accent'}`}
+                >
+                    {autoSaveStatus === 'saved'
+                        ? <><Check className="h-4 w-4" /> Saved</>
+                        : <>Failed to save</>}
+                </span>
+              )}
             </div>
           </div>
 
@@ -604,7 +628,20 @@ const Income = () => {
         </Card>
       )}
 
-
+      {hasAnySource && (
+        <MobileBottomBar>
+          <Button
+            size="lg"
+            disabled={isReadOnly}
+            className="w-full justify-center gap-2"
+            onClick={() => { if (!isReadOnly) { setEditingSource(null); setSourceDialogOpen(true); } }}
+          >
+            <Plus className="h-4 w-4" />
+            Add source
+          </Button>
+          {!isReadOnly && <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />}
+        </MobileBottomBar>
+      )}
 
       <TaxPrognosisModal
         open={prognosisOpen}
@@ -636,6 +673,7 @@ const Income = () => {
             share_percentage: editingSource.share_percentage,
             tax_type: editingSource.tax_type,
             custom_tax_rate: editingSource.custom_tax_rate,
+            is_active: editingSource.is_active,
           } : undefined}
           onSuccess={fetchData}
         />

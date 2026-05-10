@@ -3,24 +3,24 @@ import { format } from "date-fns";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Trash2 } from "lucide-react";
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import {
     useEncryptedFields,
     incomeSourceFields,
     monthlyIncomeFields,
 } from "@/hooks/useEncryptedFields";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
-import { computeMonthlyNet, TAX_TYPE_LABELS, type TaxType } from "@/utils/taxMath";
+import { computeFromNet, TAX_TYPE_LABELS, type TaxType } from "@/utils/taxMath";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
+import { FormField, FormRow } from "@/components/shared/FormField";
+import { useEntityForm } from "@/hooks/useEntityForm";
 
 const INCOME_CATEGORIES = [
     { value: "salary", label: "Salary" },
@@ -43,6 +43,7 @@ interface InitialValues {
     share_percentage?: number | string | null;
     tax_type?: TaxType | null;
     custom_tax_rate?: number | string | null;
+    is_active?: boolean;
 }
 
 interface IncomeFormDialogProps {
@@ -67,6 +68,7 @@ const blankForm = (defaultOwnerId: string): InitialValues => ({
     share_percentage: "50",
     tax_type: "no_tax",
     custom_tax_rate: "",
+    is_active: true,
 });
 
 export const IncomeFormDialog = ({
@@ -74,30 +76,29 @@ export const IncomeFormDialog = ({
     financialMonthStart, initialValues, onSuccess,
 }: IncomeFormDialogProps) => {
     const defaultOwnerId = initialValues?.owner_id || members[0]?.user_id || "";
-    const [form, setForm] = useState<InitialValues>(() => ({
+    const [pristine, setPristine] = useState<InitialValues>(() => ({
         ...blankForm(defaultOwnerId),
         ...initialValues,
     }));
-    const [saving, setSaving] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-    const [createAnother, setCreateAnother] = useState(false);
+    const [form, setForm] = useState<InitialValues>(pristine);
 
     const { encryptRecord: encryptSource } = useEncryptedFields(incomeSourceFields);
     const { encryptRecord: encryptMonthly } = useEncryptedFields(monthlyIncomeFields);
 
     useEffect(() => {
         if (!open) return;
-        setForm({ ...blankForm(defaultOwnerId), ...initialValues });
-        setCreateAnother(false);
+        const next = { ...blankForm(defaultOwnerId), ...initialValues };
+        setPristine(next);
+        setForm(next);
     }, [open, initialValues, defaultOwnerId]);
 
     const editingId = mode === "edit" ? initialValues?.id : undefined;
     const canSave = !!form.name?.trim() && parseFloat(String(form.default_amount ?? 0)) >= 0 && !!form.owner_id;
 
-    const handleSave = async () => {
-        if (!canSave) return;
-        setSaving(true);
-        try {
+    const entityForm = useEntityForm({
+        entityName: "Income source",
+        isEdit: mode === "edit",
+        save: async () => {
             const numericAmount = parseFloat(String(form.default_amount ?? 0));
             const baseData = {
                 household_id: householdId,
@@ -112,6 +113,7 @@ export const IncomeFormDialog = ({
                 custom_tax_rate: form.tax_type === "csn_variable"
                     ? parseFloat(String(form.custom_tax_rate ?? 0)) || 0
                     : null,
+                is_active: form.is_active ?? true,
             };
             const encryptedSource = await encryptSource(baseData);
 
@@ -146,38 +148,23 @@ export const IncomeFormDialog = ({
                     .from("monthly_incomes")
                     .upsert(monthlyEncrypted, { onConflict: "income_source_id,month", ignoreDuplicates: true });
             }
-
-            toast.success(editingId ? "Income source updated" : "Income source added");
-            onSuccess?.();
-
-            if (mode === "add" && createAnother) {
-                setForm(blankForm(defaultOwnerId));
-            } else {
-                onOpenChange(false);
-            }
-        } catch (err: any) {
-            console.error(err);
-            toast.error(err.message || "Failed to save income source");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!editingId) return;
-        setDeleting(true);
-        try {
+        },
+        remove: editingId ? async () => {
             const { error } = await supabase.from("income_sources").delete().eq("id", editingId);
             if (error) throw error;
-            toast.success("Income source deleted");
+        } : undefined,
+        onSaved: () => {
+            onSuccess?.();
+            if (mode === "edit" || !entityForm.createAnother) onOpenChange(false);
+        },
+        onDeleted: () => {
             onSuccess?.();
             onOpenChange(false);
-        } catch (err: any) {
-            toast.error(err.message || "Failed to delete");
-        } finally {
-            setDeleting(false);
-        }
-    };
+        },
+        resetForm: () => { const b = blankForm(defaultOwnerId); setPristine(b); setForm(b); },
+        formValues: form,
+        pristineValues: pristine,
+    });
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -189,34 +176,32 @@ export const IncomeFormDialog = ({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 py-2">
-                    <div className="space-y-2">
-                        <Label>Category</Label>
-                        <Select
-                            value={form.category}
-                            onValueChange={(v) => setForm({ ...form, category: v as IncomeCategory })}
-                        >
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                {INCOME_CATEGORIES.map(c => (
-                                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Name</Label>
-                        <Input
-                            value={form.name ?? ""}
-                            onChange={(e) => setForm({ ...form, name: e.target.value })}
-                            placeholder="e.g. Daniel salary"
-                        />
-                    </div>
+                <div className="space-y-3 py-2">
+                    <FormRow>
+                        <FormField label="Category">
+                            <Select
+                                value={form.category}
+                                onValueChange={(v) => setForm({ ...form, category: v as IncomeCategory })}
+                            >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {INCOME_CATEGORIES.map(c => (
+                                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </FormField>
+                        <FormField label="Name">
+                            <Input
+                                value={form.name ?? ""}
+                                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                placeholder="e.g. Daniel salary"
+                            />
+                        </FormField>
+                    </FormRow>
 
                     {members.length > 1 && (
-                        <div className="space-y-2">
-                            <Label>Belongs to</Label>
+                        <FormField label="Belongs to">
                             <Select
                                 value={form.owner_id}
                                 onValueChange={(v) => setForm({ ...form, owner_id: v })}
@@ -230,38 +215,36 @@ export const IncomeFormDialog = ({
                                     ))}
                                 </SelectContent>
                             </Select>
-                        </div>
+                        </FormField>
                     )}
 
-                    <div className="space-y-2">
-                        <Label>Monthly amount, gross (kr)</Label>
-                        <Input
-                            type="number"
-                            inputMode="numeric"
-                            value={String(form.default_amount ?? "")}
-                            onChange={(e) => setForm({ ...form, default_amount: e.target.value })}
-                            placeholder="0"
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label>Tax</Label>
-                        <Select
-                            value={form.tax_type ?? "no_tax"}
-                            onValueChange={(v) => setForm({ ...form, tax_type: v as TaxType })}
-                        >
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                {(Object.keys(TAX_TYPE_LABELS) as TaxType[]).map((t) => (
-                                    <SelectItem key={t} value={t}>{TAX_TYPE_LABELS[t]}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <FormRow>
+                        <FormField label="Monthly amount, net (kr)">
+                            <Input
+                                type="number"
+                                inputMode="numeric"
+                                value={String(form.default_amount ?? "")}
+                                onChange={(e) => setForm({ ...form, default_amount: e.target.value })}
+                                placeholder="0"
+                            />
+                        </FormField>
+                        <FormField label="Tax">
+                            <Select
+                                value={form.tax_type ?? "no_tax"}
+                                onValueChange={(v) => setForm({ ...form, tax_type: v as TaxType })}
+                            >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {(Object.keys(TAX_TYPE_LABELS) as TaxType[]).map((t) => (
+                                        <SelectItem key={t} value={t}>{TAX_TYPE_LABELS[t]}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </FormField>
+                    </FormRow>
 
                     {form.tax_type === "csn_variable" && (
-                        <div className="space-y-2">
-                            <Label>Tax rate (%)</Label>
+                        <FormField label="Tax rate (%)">
                             <Input
                                 type="number"
                                 min="0"
@@ -270,25 +253,25 @@ export const IncomeFormDialog = ({
                                 onChange={(e) => setForm({ ...form, custom_tax_rate: e.target.value })}
                                 placeholder="e.g. 30"
                             />
-                        </div>
+                        </FormField>
                     )}
 
                     {(() => {
-                        const gross = parseFloat(String(form.default_amount ?? 0)) || 0;
-                        if (gross <= 0 || form.tax_type === "no_tax" || !form.tax_type) return null;
+                        const net = parseFloat(String(form.default_amount ?? 0)) || 0;
+                        if (net <= 0 || form.tax_type === "no_tax" || !form.tax_type) return null;
                         const customRate = form.custom_tax_rate
                             ? parseFloat(String(form.custom_tax_rate)) || 0
                             : 0;
-                        const { net, tax, effectiveRate } = computeMonthlyNet(gross, form.tax_type, customRate);
+                        const { gross, tax, effectiveRate } = computeFromNet(net, form.tax_type, customRate);
                         return (
                             <div className="rounded-md border border-line bg-surface-2 px-3 py-2 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Estimated tax</span>
-                                    <span className="tabular-nums">−{Math.round(tax).toLocaleString("sv-SE")} kr ({Math.round(effectiveRate * 100)}%)</span>
+                                <div className="flex justify-between text-muted-foreground">
+                                    <span>Pre-tax (gross)</span>
+                                    <span className="tabular-nums">~{Math.round(gross).toLocaleString("sv-SE")} kr</span>
                                 </div>
-                                <div className="flex justify-between mt-1 font-medium">
-                                    <span>Net (take-home)</span>
-                                    <span className="tabular-nums">{Math.round(net).toLocaleString("sv-SE")} kr</span>
+                                <div className="flex justify-between mt-1 text-muted-foreground">
+                                    <span>Tax already deducted</span>
+                                    <span className="tabular-nums">~{Math.round(tax).toLocaleString("sv-SE")} kr ({Math.round(effectiveRate * 100)}%)</span>
                                 </div>
                             </div>
                         );
@@ -337,32 +320,36 @@ export const IncomeFormDialog = ({
                             )}
                         </>
                     )}
+
+                    <div className="flex items-center space-x-2 pt-2">
+                        <Switch
+                            checked={form.is_active ?? true}
+                            onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
+                        />
+                        <Label>Active</Label>
+                    </div>
                 </div>
 
-                <DialogFooter className="flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                        {mode === "edit" && editingId ? (
-                            <Button variant="destructive" onClick={handleDelete} disabled={saving || deleting}>
-                                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                                Delete
-                            </Button>
-                        ) : (
-                            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                                <Checkbox checked={createAnother} onCheckedChange={(v) => setCreateAnother(v === true)} />
-                                Create another
-                            </label>
-                        )}
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleSave} disabled={!canSave || saving}>
-                            {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</> : (mode === "edit" ? "Save" : "Add")}
-                        </Button>
-                    </div>
-                </DialogFooter>
+                <FormDialogFooter
+                    isEdit={mode === "edit"}
+                    saving={entityForm.saving}
+                    deleting={entityForm.deleting}
+                    canSave={canSave && entityForm.isDirty}
+                    onCancel={() => onOpenChange(false)}
+                    onSave={entityForm.handleSave}
+                    onRequestDelete={editingId ? entityForm.requestDelete : undefined}
+                    createAnother={entityForm.createAnother}
+                    onCreateAnotherChange={entityForm.setCreateAnother}
+                />
             </DialogContent>
+            <ConfirmDialog
+                open={entityForm.confirmDeleteOpen}
+                onOpenChange={entityForm.setConfirmDeleteOpen}
+                title="Delete this income source?"
+                description="This can't be undone."
+                busy={entityForm.deleting}
+                onConfirm={entityForm.handleDelete}
+            />
         </Dialog>
     );
 };

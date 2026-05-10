@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
 import { useEncryptedFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
 import { SubjectPicker } from "@/components/shared/SubjectPicker";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
+import { FormField, FormRow } from "@/components/shared/FormField";
+import { useEntityForm } from "@/hooks/useEntityForm";
 
 const insuranceTypes = [
     { value: "home", label: "Home Insurance" },
@@ -77,13 +77,10 @@ export const InsuranceForm = ({
     editingId, initialValues, onDelete, showCreateAnother = true,
 }: InsuranceFormProps) => {
     const { user } = useAuth();
-    const { toast } = useToast();
     const { encryptRecord } = useEncryptedFields(insuranceFields);
     const [coParents, setCoParents] = useState<any[]>([]);
-    const [formData, setFormData] = useState<InitialValues>(() => ({ ...blank(), ...initialValues }));
-    const [saving, setSaving] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-    const [createAnother, setCreateAnother] = useState(false);
+    const [pristine, setPristine] = useState<InitialValues>(() => ({ ...blank(), ...initialValues }));
+    const [formData, setFormData] = useState<InitialValues>(pristine);
 
     useEffect(() => {
         const fetchCoParents = async () => {
@@ -94,22 +91,26 @@ export const InsuranceForm = ({
     }, [householdId]);
 
     useEffect(() => {
-        setFormData({ ...blank(), ...initialValues });
-        setCreateAnother(false);
+        const sanitized = { ...blank(), ...initialValues };
+        if (sanitized.name === "NaN" || typeof sanitized.name !== "string") sanitized.name = "";
+        setPristine(sanitized);
+        setFormData(sanitized);
     }, [initialValues, editingId]);
 
     const isEditing = !!editingId;
     const isRecurringNonMonthly = formData.payment_frequency && formData.payment_frequency !== "monthly";
-    const canSave = !!formData.name?.trim() && !!String(formData.total_amount ?? "").trim();
+    const canSave = !!String(formData.total_amount ?? "").trim()
+        && (parseFloat(String(formData.total_amount)) || 0) > 0;
 
     const usedCategorySet = useUsedCategoryValues("insurances", householdId);
     const usedTypes = insuranceTypes.filter(t => usedCategorySet.has(t.value) || t.value === formData.category);
     const moreTypes = insuranceTypes.filter(t => !usedCategorySet.has(t.value) && t.value !== formData.category);
 
-    const handleSave = async () => {
-        if (!user || !canSave) return;
-        setSaving(true);
-        try {
+    const form = useEntityForm({
+        entityName: "Insurance",
+        isEdit: isEditing,
+        save: async () => {
+            if (!user) throw new Error("Not authenticated");
             const baseData = {
                 household_id: householdId,
                 name: formData.name?.trim() ?? "",
@@ -129,150 +130,128 @@ export const InsuranceForm = ({
                 created_by: user.id,
             };
             const data = await encryptRecord(baseData);
-
             if (editingId) {
                 const { error } = await supabase.from("insurances").update(data as any).eq("id", editingId);
                 if (error) throw error;
-                toast({ title: "Insurance updated" });
             } else {
                 const { error } = await supabase.from("insurances").insert(data as any);
                 if (error) throw error;
-                toast({ title: "Insurance added" });
             }
-
-            onSuccess();
-            if (!editingId && createAnother) {
-                setFormData(blank());
-            }
-        } catch (err: any) {
-            toast({ title: "Error", description: err.message || "Failed to save", variant: "destructive" });
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!editingId || !onDelete) return;
-        setDeleting(true);
-        try {
+        },
+        remove: editingId ? async () => {
             const { error } = await supabase.from("insurances").delete().eq("id", editingId);
             if (error) throw error;
-            toast({ title: "Insurance deleted" });
-            onDelete();
-        } catch (err: any) {
-            toast({ title: "Error", description: err.message || "Failed to delete", variant: "destructive" });
-        } finally {
-            setDeleting(false);
-        }
-    };
+        } : undefined,
+        onSaved: onSuccess,
+        onDeleted: onDelete,
+        resetForm: () => { const b = blank(); setPristine(b); setFormData(b); },
+        formValues: formData,
+        pristineValues: pristine,
+    });
 
     return (
-        <div className="space-y-4">
-            <div className="space-y-2">
-                <Label>Type</Label>
-                <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        {usedTypes.length > 0 && (
-                            <SelectGroup>
-                                <SelectLabel>Used in this household</SelectLabel>
-                                {usedTypes.map((t) => (
-                                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                                ))}
-                            </SelectGroup>
-                        )}
-                        {moreTypes.length > 0 && (
-                            <SelectGroup>
-                                <SelectLabel>{usedTypes.length > 0 ? "More types" : "All types"}</SelectLabel>
-                                {moreTypes.map((t) => (
-                                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                                ))}
-                            </SelectGroup>
-                        )}
-                    </SelectContent>
-                </Select>
-            </div>
+        <div className="space-y-3">
+            <FormRow>
+                <FormField label="Type">
+                    <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {usedTypes.length > 0 && (
+                                <SelectGroup>
+                                    <SelectLabel>Used in this household</SelectLabel>
+                                    {usedTypes.map((t) => (
+                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            )}
+                            {moreTypes.length > 0 && (
+                                <SelectGroup>
+                                    <SelectLabel>{usedTypes.length > 0 ? "More types" : "All types"}</SelectLabel>
+                                    {moreTypes.map((t) => (
+                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            )}
+                        </SelectContent>
+                    </Select>
+                </FormField>
+                <FormField label="Provider">
+                    <Input
+                        value={formData.provider ?? ""}
+                        onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
+                        placeholder="Länsförsäkringar, If, Folksam…"
+                    />
+                </FormField>
+            </FormRow>
 
-            <div className="space-y-2">
-                <Label>Provider</Label>
-                <Input
-                    value={formData.provider ?? ""}
-                    onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
-                    placeholder="Länsförsäkringar, If, Folksam…"
+            <FormRow>
+                <FormField label="Total amount">
+                    <Input
+                        type="number"
+                        value={String(formData.total_amount ?? "")}
+                        onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
+                        placeholder="0"
+                    />
+                </FormField>
+                <FormField label="Payment frequency">
+                    <Select
+                        value={formData.payment_frequency}
+                        onValueChange={(v) => setFormData({ ...formData, payment_frequency: v })}
+                    >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="yearly">Yearly</SelectItem>
+                            <SelectItem value="semi_annually">Semi-annually (6 months)</SelectItem>
+                            <SelectItem value="quarterly">Quarterly (3 months)</SelectItem>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </FormField>
+            </FormRow>
+
+            <FormRow>
+                {isRecurringNonMonthly && (
+                    <FormField label="Invoice month" optional>
+                        <Select
+                            value={String(formData.invoice_month ?? "")}
+                            onValueChange={(v) => setFormData({ ...formData, invoice_month: v })}
+                        >
+                            <SelectTrigger><SelectValue placeholder="Select month" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="0">Not set</SelectItem>
+                                {monthNames.map((month, index) => (
+                                    <SelectItem key={index + 1} value={(index + 1).toString()}>
+                                        {month}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </FormField>
+                )}
+                <SubjectPicker
+                    householdId={householdId}
+                    value={formData.subject_id}
+                    onChange={(id) => setFormData({ ...formData, subject_id: id })}
+                    label="Covers"
                 />
-            </div>
+            </FormRow>
 
-            <div className="space-y-2">
-                <Label>Name (optional)</Label>
+            <FormField label="Name" optional optionalNote="optional, overrides display">
                 <Input
                     value={formData.name ?? ""}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Tiebreaker, e.g. 'Kia' or 'child name'"
+                    placeholder="Defaults to 'Provider — Type'"
                 />
-            </div>
+            </FormField>
 
-            <div className="space-y-2">
-                <Label>Total amount</Label>
-                <Input
-                    type="number"
-                    value={String(formData.total_amount ?? "")}
-                    onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
-                    placeholder="0"
-                />
-            </div>
-
-            <div className="space-y-2">
-                <Label>Payment frequency</Label>
-                <Select
-                    value={formData.payment_frequency}
-                    onValueChange={(v) => setFormData({ ...formData, payment_frequency: v })}
-                >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="yearly">Yearly</SelectItem>
-                        <SelectItem value="semi_annually">Semi-annually (6 months)</SelectItem>
-                        <SelectItem value="quarterly">Quarterly (3 months)</SelectItem>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-
-            {isRecurringNonMonthly && (
-                <div className="space-y-2">
-                    <Label>Invoice month (optional)</Label>
-                    <Select
-                        value={String(formData.invoice_month ?? "")}
-                        onValueChange={(v) => setFormData({ ...formData, invoice_month: v })}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select month when invoice arrives" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="0">Not set</SelectItem>
-                            {monthNames.map((month, index) => (
-                                <SelectItem key={index + 1} value={(index + 1).toString()}>
-                                    {month}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
-
-            <SubjectPicker
-                householdId={householdId}
-                value={formData.subject_id}
-                onChange={(id) => setFormData({ ...formData, subject_id: id })}
-            />
-
-            <div className="space-y-2">
-                <Label>Notes</Label>
+            <FormField label="Notes">
                 <Textarea
+                    rows={2}
                     value={formData.notes ?? ""}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     placeholder="Optional notes"
                 />
-            </div>
+            </FormField>
 
             <div className="flex items-center space-x-2">
                 <Switch
@@ -326,27 +305,27 @@ export const InsuranceForm = ({
                 </div>
             )}
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4">
-                <div className="flex items-center gap-3">
-                    {isEditing && onDelete ? (
-                        <Button variant="destructive" onClick={handleDelete} disabled={saving || deleting}>
-                            {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                            Delete
-                        </Button>
-                    ) : showCreateAnother ? (
-                        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                            <Checkbox checked={createAnother} onCheckedChange={(v) => setCreateAnother(v === true)} />
-                            Create another
-                        </label>
-                    ) : null}
-                </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={!canSave || saving}>
-                        {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</> : (isEditing ? "Save" : "Add")}
-                    </Button>
-                </div>
-            </div>
+            <FormDialogFooter
+                isEdit={isEditing}
+                saving={form.saving}
+                deleting={form.deleting}
+                canSave={canSave && form.isDirty}
+                onCancel={onCancel}
+                onSave={form.handleSave}
+                onRequestDelete={onDelete ? form.requestDelete : undefined}
+                showCreateAnother={showCreateAnother}
+                createAnother={form.createAnother}
+                onCreateAnotherChange={form.setCreateAnother}
+            />
+
+            <ConfirmDialog
+                open={form.confirmDeleteOpen}
+                onOpenChange={form.setConfirmDeleteOpen}
+                title="Delete this insurance?"
+                description="This can't be undone."
+                busy={form.deleting}
+                onConfirm={form.handleDelete}
+            />
         </div>
     );
 };

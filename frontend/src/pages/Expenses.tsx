@@ -2,11 +2,10 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AddButton } from "@/components/ui/add-button";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Zap } from "lucide-react";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { MonthChip } from "@/components/ui/month-chip";
+import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { Money, fmtKr } from "@/components/ui/money";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
@@ -15,10 +14,10 @@ import { Card } from "@/components/ui/card";
 import { Home } from "lucide-react";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
-import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { SubscriptionFormDialog } from "@/components/expenses/SubscriptionFormDialog";
 import { InsuranceFormDialog } from "@/components/expenses/InsuranceFormDialog";
+import { TemporaryExpenseFormDialog } from "@/components/expenses/TemporaryExpenseFormDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -33,6 +32,8 @@ import { insuranceTypes } from "@/constants/insuranceTypes";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { ExpensesPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MobileBottomBar, mobileBottomBarSpacer } from "@/components/shared/MobileBottomBar";
 import { useHouseholdSubjects } from "@/hooks/useHouseholdSubjects";
 
 const Expenses = () => {
@@ -49,7 +50,10 @@ const Expenses = () => {
   const [loading, setLoading] = useState(true);
   // Credit card expenses now handled via expenses table with is_credit=true
   const [activeTab, setActiveTab] = useState("all");
-  const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
+  const [addingExpense, setAddingExpense] = useState(false);
+  const [addTemporaryDialogOpen, setAddTemporaryDialogOpen] = useState(false);
+  const [addSubscriptionOpen, setAddSubscriptionOpen] = useState(false);
+  const [addInsuranceOpen, setAddInsuranceOpen] = useState(false);
 
   // Edit dialog state for subscriptions and insurance
   const [editingSubscription, setEditingSubscription] = useState<any | null>(null);
@@ -428,25 +432,37 @@ const Expenses = () => {
   // Header — month nav hidden when there's no data to navigate (locked state).
   const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
   const monthLabel = format(monthEndDate, "MMM yyyy");
-  const renderHeader = (showMonthNav: boolean) => (
-    <div className="flex items-center justify-between gap-4">
+  const renderHeader = (showMonthNav: boolean, isLoading = false) => (
+    <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Expenses</h1>
-      {showMonthNav && (
+      {isLoading ? (
         <div className="flex items-center gap-1">
+          <Skeleton className="h-9 w-9 rounded-[12px]" />
+          <Skeleton className="h-9 w-32 rounded-full" />
+          <Skeleton className="h-9 w-9 rounded-[12px]" />
+        </div>
+      ) : (
+        <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
           <Button
             variant="ghost"
             size="icon"
             className="h-9 w-9"
+            disabled={!showMonthNav}
             onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
             aria-label="Previous month"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <MonthChip value={monthLabel} />
+          <MonthPickerPopover
+            selectedMonth={selectedMonth}
+            financialMonthStart={financialMonthStart}
+            onSelect={setSelectedMonth}
+          />
           <Button
             variant="ghost"
             size="icon"
             className="h-9 w-9"
+            disabled={!showMonthNav}
             onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
             aria-label="Next month"
           >
@@ -464,32 +480,8 @@ const Expenses = () => {
   if (loading) {
     return (
       <div className="space-y-5">
-        {renderHeader(false)}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          {showTabsList && (
-            <TabsList>
-              <TabsTrigger value="all" className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4" />
-                <span className="hidden sm:inline">All</span>
-              </TabsTrigger>
-              {household?.enable_credit_cards && (
-                <TabsTrigger value="credit" className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  <span className="hidden sm:inline">Credit</span>
-                </TabsTrigger>
-              )}
-              {showCoparentTab && (
-                <TabsTrigger value="coparent" className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">Shared</span>
-                </TabsTrigger>
-              )}
-            </TabsList>
-          )}
-          <div className="mt-6">
-            <ExpensesPageSkeleton />
-          </div>
-        </Tabs>
+        {renderHeader(false, true)}
+        <ExpensesPageSkeleton />
       </div>
     );
   }
@@ -504,7 +496,7 @@ const Expenses = () => {
   }
 
   return (
-    <div className="space-y-5">
+    <div className={`space-y-5 ${mobileBottomBarSpacer}`}>
       {renderHeader(hasAnyCategory)}
 
       {hasAnyCategory && (
@@ -523,7 +515,7 @@ const Expenses = () => {
             />
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {expenseCategories.length} {expenseCategories.length === 1 ? "category" : "categories"} · {fmtKr(totalExpenses * 12, household?.currency || "SEK")} per year
+            {fmtKr(totalExpenses * 12, household?.currency || "SEK")} per year
           </p>
         </Card>
       )}
@@ -566,7 +558,7 @@ const Expenses = () => {
           </TabsList>
         )}
 
-        <TabsContent value="all" className="mt-6 space-y-4">
+        <TabsContent value="all" className="mt-5 space-y-5">
           {!hasAnyCategory ? (
             <EmptyStateCard
               icon={Home}
@@ -574,22 +566,30 @@ const Expenses = () => {
               headline="No expenses yet"
               description="Add rent, utilities, phone plans, and other recurring bills."
               primaryLabel="Add your first expense"
-              onPrimary={() => setAddExpenseDialogOpen(true)}
+              onPrimary={() => setAddingExpense(true)}
             />
           ) : (
           <>
-          <div className="flex justify-between items-center">
-            <AddButton disabled={isReadOnly} onClick={() => !isReadOnly && setAddExpenseDialogOpen(true)}>Add Expense</AddButton>
-            {autoSaveStatus === 'saved' && (
-              <span className="flex items-center gap-1 text-sm text-primary animate-in fade-in duration-150">
-                <Check className="h-4 w-4" /> Saved
-              </span>
-            )}
-            {autoSaveStatus === 'error' && (
-              <span className="text-sm text-destructive">
-                Failed to save
-              </span>
-            )}
+          <div className="hidden sm:grid grid-cols-2 gap-5">
+            <Button
+              size="lg"
+              disabled={isReadOnly}
+              className="w-full justify-center gap-2"
+              onClick={() => !isReadOnly && setAddingExpense(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Add expense
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={isReadOnly}
+              className="w-full justify-center gap-2"
+              onClick={() => !isReadOnly && setAddTemporaryDialogOpen(true)}
+            >
+              <Zap className="h-4 w-4" />
+              One-time expense
+            </Button>
           </div>
 
           <AllTabBlockView
@@ -609,8 +609,8 @@ const Expenses = () => {
                 category: cat.category,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
               };
-            }).sort((a, b) => b.amount - a.amount)}
-            subscriptions={subscriptions.filter(s => s.is_active).map(sub => {
+            }).sort((a, b) => (b.defaultAmount ?? 0) - (a.defaultAmount ?? 0))}
+            subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.amount)) - parseFloat(String(a.amount))).map(sub => {
               // Calculate if this subscription is due in current financial month
               let isDue = false;
               if (sub.billing_cycle === 'yearly' && sub.billing_month && sub.billing_day) {
@@ -641,9 +641,10 @@ const Expenses = () => {
                 total_amount: sub.amount,
                 isDue,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                inactive: sub.is_active === false,
               };
             })}
-            insurances={insurances.filter(i => i.is_active).map(ins => {
+            insurances={[...insurances].sort((a, b) => (b.total_amount ?? 0) - (a.total_amount ?? 0)).map(ins => {
               // Calculate monthly cost from total_amount and payment_frequency
               let monthlyAmount = 0;
               if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
@@ -656,14 +657,19 @@ const Expenses = () => {
               }
 
               const subj = subjects.find(s => s.id === ins.subject_id);
+              const rawName = typeof ins.name === "string" ? ins.name.trim() : "";
+              const customName = rawName === "NaN" ? "" : rawName;
+              const typeLabel = insuranceTypes.find(t => t.value === ins.category)?.label ?? "Insurance";
+              const fallbackName = typeLabel;
               return {
                 id: ins.id,
-                name: ins.name,
+                name: customName || fallbackName,
                 monthly_cost: monthlyAmount,
                 total_amount: ins.total_amount,
                 payment_frequency: ins.payment_frequency,
                 category: ins.category,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                inactive: ins.is_active === false,
               };
             })}
             subscriptionsTotal={subscriptionsTotal}
@@ -674,6 +680,8 @@ const Expenses = () => {
               const expense = expenseCategories.find(cat => cat.id === id);
               if (expense) handleEditCategory(expense);
             }}
+            onAddSubscription={() => !isReadOnly && setAddSubscriptionOpen(true)}
+            onAddInsurance={() => !isReadOnly && setAddInsuranceOpen(true)}
             onSubscriptionClick={(id) => {
               const subscription = subscriptions.find(s => s.id === id);
               if (subscription) setEditingSubscription(subscription);
@@ -685,69 +693,34 @@ const Expenses = () => {
             onAmountChange={isReadOnly ? undefined : handleAmountChange}
           />
 
-          {/* Inactive Items Section */}
-          {(subscriptions.some(s => !s.is_active) || insurances.some(i => !i.is_active)) && (
-            <div className="mt-6 pt-5 border-t border-line">
-              <h3 className="mb-3 flex items-center gap-2">
-                <Moon className="h-4 w-4 opacity-60" />
-                Inactive Items
-              </h3>
-              <div className="space-y-2">
-                {subscriptions.filter(s => !s.is_active).map(sub => {
-                  const subCat = subscriptionCategories.find(c => c.value === sub.category);
-                  const SubIcon = subCat?.icon || Repeat;
-                  return (
-                    <div
-                      key={sub.id}
-                      className="list-row-inactive"
-                      onClick={() => setEditingSubscription(sub)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <CatIcon icon={SubIcon} hue={subCat?.hue} size={28} />
-                        <span className="text-sm">{sub.name}</span>
-                      </div>
-                      <Money
-                        v={sub.amount}
-                        currency={household?.currency || "SEK"}
-                        size="sm"
-                        weight={500}
-                        color="muted"
-                      />
-                    </div>
-                  );
-                })}
-                {insurances.filter(i => !i.is_active).map(ins => {
-                  const insCat = insuranceTypes.find(c => c.value === ins.category);
-                  const InsIcon = insCat?.icon || Shield;
-                  return (
-                    <div
-                      key={ins.id}
-                      className="list-row-inactive"
-                      onClick={() => setEditingInsurance(ins)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <CatIcon icon={InsIcon} hue={insCat?.hue} size={28} />
-                        <span className="text-sm">{ins.name}</span>
-                      </div>
-                      <Money
-                        v={ins.total_amount}
-                        currency={household?.currency || "SEK"}
-                        size="sm"
-                        weight={500}
-                        color="muted"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+
+          <MobileBottomBar>
+            <Button
+              size="lg"
+              disabled={isReadOnly}
+              className="w-full justify-center gap-2"
+              onClick={() => !isReadOnly && setAddingExpense(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Add expense
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={isReadOnly}
+              className="w-full justify-center gap-2"
+              onClick={() => !isReadOnly && setAddTemporaryDialogOpen(true)}
+            >
+              <Zap className="h-4 w-4" />
+              One-time expense
+            </Button>
+          </MobileBottomBar>
           </>
           )}
         </TabsContent>
 
         {household?.enable_credit_cards && (
-          <TabsContent value="credit" className="mt-6">
+          <TabsContent value="credit" className="mt-5">
             <CreditTab
               householdId={household?.id}
               currency={household?.currency || "SEK"}
@@ -758,7 +731,7 @@ const Expenses = () => {
         )}
 
         {showCoparentTab && (
-          <TabsContent value="coparent" className="mt-6">
+          <TabsContent value="coparent" className="mt-5">
             <SharedExpensesTab
               householdId={household?.id}
               currency={household?.currency || "SEK"}
@@ -769,14 +742,26 @@ const Expenses = () => {
         )}
       </Tabs>
 
-      {/* Add Expense Dialog */}
-      <AddExpenseDialog
-        open={addExpenseDialogOpen}
-        onOpenChange={setAddExpenseDialogOpen}
-        householdId={household?.id || ""}
-        hasCoParents={coParents.length > 0}
-        onSuccess={fetchData}
-      />
+      {household && (
+        <TemporaryExpenseFormDialog
+          open={addTemporaryDialogOpen}
+          onOpenChange={setAddTemporaryDialogOpen}
+          householdId={household.id}
+          financialMonthStart={financialMonthStart}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {household && (
+        <ExpenseFormDialog
+          open={addingExpense}
+          onOpenChange={setAddingExpense}
+          mode="add"
+          householdId={household.id}
+          financialMonthStart={financialMonthStart}
+          onSuccess={fetchData}
+        />
+      )}
 
       {household && (
         <ExpenseFormDialog
@@ -802,6 +787,16 @@ const Expenses = () => {
 
       {household && (
         <SubscriptionFormDialog
+          open={addSubscriptionOpen}
+          mode="add"
+          householdId={household.id}
+          onOpenChange={setAddSubscriptionOpen}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {household && (
+        <SubscriptionFormDialog
           open={!!editingSubscription}
           mode="edit"
           householdId={household.id}
@@ -818,6 +813,16 @@ const Expenses = () => {
             subject_id: editingSubscription.subject_id,
           } : undefined}
           onOpenChange={(open) => !open && setEditingSubscription(null)}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {household && (
+        <InsuranceFormDialog
+          open={addInsuranceOpen}
+          mode="add"
+          householdId={household.id}
+          onOpenChange={setAddInsuranceOpen}
           onSuccess={fetchData}
         />
       )}

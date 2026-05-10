@@ -3,17 +3,14 @@ import { format } from "date-fns";
 import {
     Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
     Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { CreditCard, Loader2, Trash2 } from "lucide-react";
+import { CreditCard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import {
     useEncryptedFields,
     expenseFields,
@@ -24,6 +21,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
 import { SubjectPicker } from "@/components/shared/SubjectPicker";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
+import { FormField } from "@/components/shared/FormField";
+import { useEntityForm } from "@/hooks/useEntityForm";
 
 interface InitialValues {
     id?: string;
@@ -61,18 +62,17 @@ export const ExpenseFormDialog = ({
     initialValues, categoryAllowlist, showCreditToggle = true, onSuccess,
 }: ExpenseFormDialogProps) => {
     const { user } = useAuth();
-    const [form, setForm] = useState<InitialValues>(() => ({ ...blankForm, ...initialValues }));
-    const [saving, setSaving] = useState(false);
-    const [deleting, setDeleting] = useState(false);
-    const [createAnother, setCreateAnother] = useState(false);
+    const [pristine, setPristine] = useState<InitialValues>(() => ({ ...blankForm, ...initialValues }));
+    const [form, setForm] = useState<InitialValues>(pristine);
 
     const { encryptRecord: encryptExpense } = useEncryptedFields(expenseFields);
     const { encryptRecord: encryptMonthly } = useEncryptedFields(monthlyExpenseFields);
 
     useEffect(() => {
         if (!open) return;
-        setForm({ ...blankForm, ...initialValues });
-        setCreateAnother(false);
+        const next = { ...blankForm, ...initialValues };
+        setPristine(next);
+        setForm(next);
     }, [open, initialValues]);
 
     const editingId = mode === "edit" ? initialValues?.id : undefined;
@@ -100,10 +100,11 @@ export const ExpenseFormDialog = ({
         );
     };
 
-    const handleSave = async () => {
-        if (!canSave || !user) return;
-        setSaving(true);
-        try {
+    const entityForm = useEntityForm({
+        entityName: "Expense",
+        isEdit: mode === "edit",
+        save: async () => {
+            if (!user) throw new Error("Not authenticated");
             const numericAmount = parseFloat(String(form.default_amount ?? 0));
             const baseData: any = {
                 household_id: householdId,
@@ -148,38 +149,23 @@ export const ExpenseFormDialog = ({
                     .from("monthly_expenses")
                     .upsert(monthlyEncrypted, { onConflict: "expense_id,month", ignoreDuplicates: true });
             }
-
-            toast.success(editingId ? "Expense updated" : "Expense added");
-            onSuccess?.();
-
-            if (mode === "add" && createAnother) {
-                setForm(blankForm);
-            } else {
-                onOpenChange(false);
-            }
-        } catch (err: any) {
-            console.error(err);
-            toast.error(err.message || "Failed to save expense");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!editingId) return;
-        setDeleting(true);
-        try {
+        },
+        remove: editingId ? async () => {
             const { error } = await supabase.from("expenses").delete().eq("id", editingId);
             if (error) throw error;
-            toast.success("Expense deleted");
+        } : undefined,
+        onSaved: () => {
+            onSuccess?.();
+            if (mode === "edit" || !entityForm.createAnother) onOpenChange(false);
+        },
+        onDeleted: () => {
             onSuccess?.();
             onOpenChange(false);
-        } catch (err: any) {
-            toast.error(err.message || "Failed to delete");
-        } finally {
-            setDeleting(false);
-        }
-    };
+        },
+        resetForm: () => { setPristine(blankForm); setForm(blankForm); },
+        formValues: form,
+        pristineValues: pristine,
+    });
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -191,9 +177,8 @@ export const ExpenseFormDialog = ({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 py-2">
-                    <div className="space-y-2">
-                        <Label>Category</Label>
+                <div className="space-y-3 py-2">
+                    <FormField label="Category">
                         <Select
                             value={form.category}
                             onValueChange={(v) => setForm({ ...form, category: v })}
@@ -223,16 +208,15 @@ export const ExpenseFormDialog = ({
                                 )}
                             </SelectContent>
                         </Select>
-                    </div>
+                    </FormField>
 
-                    <div className="space-y-2">
-                        <Label>Provider / source</Label>
+                    <FormField label="Provider / source">
                         <Input
                             value={form.name ?? ""}
                             onChange={(e) => setForm({ ...form, name: e.target.value })}
                             placeholder="e.g. Telia, Vattenfall, etc."
                         />
-                    </div>
+                    </FormField>
 
                     <SubjectPicker
                         householdId={householdId}
@@ -240,8 +224,7 @@ export const ExpenseFormDialog = ({
                         onChange={(id) => setForm({ ...form, subject_id: id })}
                     />
 
-                    <div className="space-y-2">
-                        <Label>Monthly amount (kr)</Label>
+                    <FormField label="Monthly amount (kr)">
                         <Input
                             type="number"
                             inputMode="numeric"
@@ -249,7 +232,7 @@ export const ExpenseFormDialog = ({
                             onChange={(e) => setForm({ ...form, default_amount: e.target.value })}
                             placeholder="0"
                         />
-                    </div>
+                    </FormField>
 
                     {showCreditToggle && (
                         <div className="flex items-center justify-between gap-3 pt-2 border-t border-line-2">
@@ -268,30 +251,26 @@ export const ExpenseFormDialog = ({
                     )}
                 </div>
 
-                <DialogFooter className="flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                        {mode === "edit" && editingId ? (
-                            <Button variant="destructive" onClick={handleDelete} disabled={saving || deleting}>
-                                {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                                Delete
-                            </Button>
-                        ) : (
-                            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                                <Checkbox checked={createAnother} onCheckedChange={(v) => setCreateAnother(v === true)} />
-                                Create another
-                            </label>
-                        )}
-                    </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleSave} disabled={!canSave || saving}>
-                            {saving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</> : (mode === "edit" ? "Save" : "Add")}
-                        </Button>
-                    </div>
-                </DialogFooter>
+                <FormDialogFooter
+                    isEdit={mode === "edit"}
+                    saving={entityForm.saving}
+                    deleting={entityForm.deleting}
+                    canSave={canSave && entityForm.isDirty}
+                    onCancel={() => onOpenChange(false)}
+                    onSave={entityForm.handleSave}
+                    onRequestDelete={editingId ? entityForm.requestDelete : undefined}
+                    createAnother={entityForm.createAnother}
+                    onCreateAnotherChange={entityForm.setCreateAnother}
+                />
             </DialogContent>
+            <ConfirmDialog
+                open={entityForm.confirmDeleteOpen}
+                onOpenChange={entityForm.setConfirmDeleteOpen}
+                title="Delete this expense?"
+                description="This can't be undone."
+                busy={entityForm.deleting}
+                onConfirm={entityForm.handleDelete}
+            />
         </Dialog>
     );
 };

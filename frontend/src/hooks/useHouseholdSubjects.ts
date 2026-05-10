@@ -10,7 +10,7 @@ export interface SubjectOption {
     sort_order: number;
 }
 
-export function useHouseholdSubjects(householdId: string | undefined) {
+export function useHouseholdSubjects(householdId: string | undefined, refreshKey: number = 0) {
     const [subjects, setSubjects] = useState<SubjectOption[]>([]);
 
     useEffect(() => {
@@ -29,7 +29,7 @@ export function useHouseholdSubjects(householdId: string | undefined) {
             if (!cancelled) setSubjects((data as SubjectOption[]) ?? []);
         })();
         return () => { cancelled = true; };
-    }, [householdId]);
+    }, [householdId, refreshKey]);
 
     return subjects;
 }
