@@ -17,6 +17,7 @@ import { MonthChip } from "@/components/ui/month-chip";
 import { MetricTile } from "@/components/ui/metric-tile";
 import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlementCard";
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
+import { HouseholdSetupWizard } from "@/components/dashboard/HouseholdSetupWizard";
 import {
   TrendingUp, TrendingDown, Repeat, Shield, ClipboardCheck,
   ChevronRight, ChevronLeft, Users, Sparkles, CalendarPlus, Loader2,
@@ -72,12 +73,14 @@ interface DashboardData {
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const { household, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
+  const { household, coParents, members, financialMonthStart, loading: householdLoading } = useHousehold();
   const { isUnlocked, encrypt, decrypt } = useEncryption();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [planning, setPlanning] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentFinancialMonth(financialMonthStart));
+  const [householdHasSeedData, setHouseholdHasSeedData] = useState<boolean | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
   const [data, setData] = useState<DashboardData>({
     income: 0,
     expenses: 0,
@@ -314,6 +317,26 @@ const Dashboard = () => {
     fetchData();
   }, [user, household, householdLoading, isUnlocked, selectedMonth]);
 
+  useEffect(() => {
+    const checkSeedData = async () => {
+      if (!household?.id || !isUnlocked) return;
+      const [{ count: incomeCount }, { count: expenseCount }] = await Promise.all([
+        supabase.from("income_sources").select("id", { count: "exact", head: true }).eq("household_id", household.id),
+        supabase.from("expenses").select("id", { count: "exact", head: true }).eq("household_id", household.id),
+      ]);
+      const hasSeed = (incomeCount ?? 0) > 0 || (expenseCount ?? 0) > 0;
+      setHouseholdHasSeedData(hasSeed);
+
+      const setupDone = localStorage.getItem(`hh_setup_done_${household.id}`) === "1";
+      if (!hasSeed && !setupDone) {
+        setSetupOpen(true);
+      } else if (hasSeed) {
+        localStorage.setItem(`hh_setup_done_${household.id}`, "1");
+      }
+    };
+    checkSeedData();
+  }, [household?.id, isUnlocked, loading]);
+
   // ─── Loading + locked states ─────────────────────────────────
   if (householdLoading || loading) {
     return (
@@ -398,8 +421,8 @@ const Dashboard = () => {
         </Card>
       )}
 
-      {/* Monthly Review Banner */}
-      {needsReview && !isDemoMode() && (
+      {/* Monthly Review Banner — suppressed while the household has no data yet */}
+      {needsReview && !isDemoMode() && householdHasSeedData !== false && (
         <Card
           variant="cta"
           className="flex items-center justify-between"
@@ -604,6 +627,20 @@ const Dashboard = () => {
         onOpenChange={setReviewWizardOpen}
         onComplete={markAsReviewed}
       />
+
+      {household && (
+        <HouseholdSetupWizard
+          open={setupOpen}
+          onOpenChange={setSetupOpen}
+          householdId={household.id}
+          members={members}
+          financialMonthStart={financialMonthStart}
+          onComplete={() => {
+            setHouseholdHasSeedData(true);
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
 };

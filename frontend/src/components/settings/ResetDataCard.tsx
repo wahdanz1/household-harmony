@@ -65,6 +65,7 @@ export const ResetDataCard = ({ householdId, householdName, isOwner, onComplete 
                     throw new Error(`Failed to wipe ${table}: ${error.message}`);
                 }
             }
+            localStorage.removeItem(`hh_setup_done_${householdId}`);
             toast.success("Financial data reset. Refreshing…");
             setTimeout(() => {
                 window.location.reload();
