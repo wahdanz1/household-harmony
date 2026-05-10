@@ -6,14 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { format, parseISO, differenceInDays } from "date-fns";
-import { AlertCircle, Check, Loader2, X } from "lucide-react";
+import { format } from "date-fns";
+import { Check, Loader2, X } from "lucide-react";
 import { formatCurrency } from "@/utils/formatting";
 import { creditCategories } from "@/constants/creditCategories";
 import { supabase } from "@/integrations/supabase/client";
-import { useEncryptedFields, expenseFields } from "@/hooks/useEncryptedFields";
+import { useEncryptedFields, expenseFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
 
-// Transaction type from backend API
 export interface ParsedTransaction {
     date: string;
     merchant: string;
@@ -24,20 +23,22 @@ export interface ParsedTransaction {
 
 interface ParsedTransactionsReviewProps {
     transactions: ParsedTransaction[];
-    existingExpenses: any[];
     creditCards: any[];
     householdId: string;
     currency: string;
+    monthStart: Date;
+    monthEnd: Date;
     onAccept: (savedCount: number) => void;
     onCancel: () => void;
 }
 
 export const ParsedTransactionsReview = ({
     transactions: initialTransactions,
-    existingExpenses,
     creditCards,
     householdId,
     currency,
+    monthStart,
+    monthEnd,
     onAccept,
     onCancel,
 }: ParsedTransactionsReviewProps) => {
@@ -45,18 +46,8 @@ export const ParsedTransactionsReview = ({
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set(initialTransactions.map((_, i) => i)));
     const [saving, setSaving] = useState(false);
     const [selectedCardId, setSelectedCardId] = useState(creditCards[0]?.id || "");
-    const { encryptRecord } = useEncryptedFields(expenseFields);
-
-    // Duplicate detection logic
-    const isDuplicate = (t: ParsedTransaction) => {
-        return existingExpenses.some(e => {
-            const dateMatch = Math.abs(differenceInDays(parseISO(t.date), parseISO(e.month_start))) <= 3;
-            const amountMatch = Math.abs(t.amount - e.amount) <= 10;
-            const merchantMatch = e.description.toLowerCase().includes(t.merchant.toLowerCase()) ||
-                t.merchant.toLowerCase().includes(e.description.toLowerCase());
-            return dateMatch && amountMatch && merchantMatch;
-        });
-    };
+    const { encryptRecord: encryptExpense } = useEncryptedFields(expenseFields);
+    const { encryptRecord: encryptMonthlyExpense } = useEncryptedFields(monthlyExpenseFields);
 
     const handleToggleSelect = (index: number) => {
         const newSelected = new Set(selectedIds);
@@ -91,9 +82,12 @@ export const ParsedTransactionsReview = ({
             return;
         }
 
+        const monthStr = format(monthStart, "yyyy-MM");
+        const monthStartIso = format(monthStart, "yyyy-MM-dd");
+        const monthEndIso = format(monthEnd, "yyyy-MM-dd");
+
         const selectedTransactions = transactions.filter((_, i) => selectedIds.has(i));
 
-        // Group transactions by category and sum amounts
         const categoryGroups = new Map<string, { amount: number; merchants: string[] }>();
         for (const t of selectedTransactions) {
             const existing = categoryGroups.get(t.category);
@@ -101,21 +95,15 @@ export const ParsedTransactionsReview = ({
                 existing.amount += t.amount;
                 existing.merchants.push(t.merchant);
             } else {
-                categoryGroups.set(t.category, {
-                    amount: t.amount,
-                    merchants: [t.merchant]
-                });
+                categoryGroups.set(t.category, { amount: t.amount, merchants: [t.merchant] });
             }
         }
 
-        // Process each category group
         for (const [category, { amount, merchants }] of categoryGroups) {
             try {
-                // 1. Prepare base data for expense (default_amount overwritten with new sum)
-                const expenseName = `Credit: ${category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' ')}`;
+                const roundedAmount = Math.round(amount);
 
-                // Find existing expense to get ID
-                const { data: existingExpense } = await (supabase as any)
+                const { data: existingExpense } = await supabase
                     .from("expenses")
                     .select("id")
                     .eq("household_id", householdId)
@@ -123,57 +111,64 @@ export const ParsedTransactionsReview = ({
                     .eq("is_credit", true)
                     .maybeSingle();
 
-                if (existingExpense?.id) {
-                    // Update existing expense default_amount
-                    const baseUpdate = {
-                        default_amount: Math.round(amount)
-                    };
-                    const encryptedUpdate = await encryptRecord(baseUpdate);
+                let expenseId: string;
 
-                    await (supabase as any)
-                        .from("expenses")
-                        .update({
-                            default_amount: encryptedUpdate.default_amount,
-                            is_active: true
-                        })
-                        .eq("id", existingExpense.id);
+                if (existingExpense?.id) {
+                    expenseId = existingExpense.id;
                 } else {
-                    // Create new credit expense
-                    const baseData = {
+                    const expenseName = `Credit: ${category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' ')}`;
+                    const newExpenseData = {
                         household_id: householdId,
-                        category: category,
+                        category,
                         name: expenseName,
-                        default_amount: Math.round(amount),
+                        default_amount: 0,
                         created_by: user.id,
                         is_active: true,
                         is_credit: true,
                         sort_order: 999,
                     };
 
-                    const encryptedData = await encryptRecord(baseData);
-
-                    const { error: createError } = await (supabase as any)
+                    const encryptedExpense = await encryptExpense(newExpenseData);
+                    const { data: created, error: createError } = await supabase
                         .from("expenses")
-                        .insert({
-                            ...encryptedData,
-                            category: category, // Ensure strictly unencrypted category for querying
-                        });
+                        .insert({ ...encryptedExpense, category })
+                        .select("id")
+                        .single();
 
-                    if (createError) {
+                    if (createError || !created) {
                         console.error("Failed to create expense:", createError);
                         continue;
                     }
+                    expenseId = created.id;
                 }
 
-                // 3. Save merchant mappings for learning (SKIP 'other' category)
+                const monthlyData = {
+                    household_id: householdId,
+                    expense_id: expenseId,
+                    month: monthStr,
+                    month_start: monthStartIso,
+                    month_end: monthEndIso,
+                    actual_amount: roundedAmount,
+                    created_by: user.id,
+                };
+                const encryptedMonthly = await encryptMonthlyExpense(monthlyData);
+                const { error: upsertErr } = await supabase
+                    .from("monthly_expenses")
+                    .upsert(encryptedMonthly, { onConflict: "expense_id,month" });
+
+                if (upsertErr) {
+                    console.error("Failed to upsert monthly_expenses:", upsertErr);
+                    continue;
+                }
+
                 if (category !== 'other') {
                     for (const merchant of merchants) {
-                        await (supabase as any).from("merchant_categories").upsert({
+                        await supabase.from("merchant_categories").upsert({
                             user_id: user.id,
                             household_id: householdId,
                             merchant_name: merchant,
-                            category: category,
-                            updated_at: new Date().toISOString()
+                            category,
+                            updated_at: new Date().toISOString(),
                         }, { onConflict: 'user_id,household_id,merchant_name' });
                     }
                 }
@@ -187,7 +182,7 @@ export const ParsedTransactionsReview = ({
         setSaving(false);
 
         if (successCount === categoryGroups.size) {
-            toast.success(`Broadcasting ${selectedTransactions.length} txs to ${successCount} categories`);
+            toast.success(`Saved ${successCount} categor${successCount === 1 ? 'y' : 'ies'} for ${monthStr}`);
             onAccept(successCount);
         } else if (successCount > 0) {
             toast.warning(`Partially saved: ${successCount} of ${categoryGroups.size} categories`);
@@ -247,7 +242,6 @@ export const ParsedTransactionsReview = ({
 
                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                     {transactions.map((t, i) => {
-                        const duplicate = isDuplicate(t);
                         return (
                             <div
                                 key={i}
@@ -312,11 +306,6 @@ export const ParsedTransactionsReview = ({
                                         <Badge variant="outline" className={`text-[10px] h-4 ${getConfidenceColor(t.confidence)}`}>
                                             {t.confidence} CONFIDENCE
                                         </Badge>
-                                        {duplicate && (
-                                            <Badge variant="warning" className="text-[10px] h-4 flex gap-1 items-center">
-                                                <AlertCircle className="h-2 w-2" /> POTENTIAL DUPLICATE
-                                            </Badge>
-                                        )}
                                     </div>
                                 </div>
                             </div>

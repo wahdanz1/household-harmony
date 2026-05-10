@@ -127,12 +127,18 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
 
             const budgetItems: BudgetedCreditExpense[] = decryptedCategories.map((cat: any) => {
                 const monthly = decryptedMonthly.find((m: any) => m.expense_id === cat.id);
+                const monthlyAmount =
+                    monthly?.actual_amount ??
+                    monthly?.budget_amount ??
+                    monthly?.amount ??
+                    cat.default_amount ??
+                    0;
                 return {
                     id: cat.id,
                     name: cat.name,
                     category: cat.category,
                     default_amount: cat.default_amount || 0,
-                    monthly_amount: monthly?.amount ?? cat.default_amount ?? 0,
+                    monthly_amount: monthlyAmount,
                 };
             });
             setBudgetedCredit(budgetItems);
@@ -361,10 +367,11 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                         </div>
                         <ParsedTransactionsReview
                             transactions={parseResult.transactions}
-                            existingExpenses={[]} // Legacy expenses removed - credit expenses now use expenses table
                             creditCards={creditCards}
                             householdId={householdId}
                             currency={currency}
+                            monthStart={monthStart}
+                            monthEnd={monthEnd}
                             onAccept={() => {
                                 setParseResult(null);
                                 fetchData();

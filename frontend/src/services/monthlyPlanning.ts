@@ -81,7 +81,7 @@ async function rolloverTable(opts: RolloverOpts): Promise<number> {
         encrypt, decrypt,
     } = opts;
 
-    const { data: existing } = await (supabase as any)
+    const { data: existing } = await supabase
         .from(table)
         .select(parentIdColumn)
         .eq("household_id", householdId)
@@ -91,7 +91,7 @@ async function rolloverTable(opts: RolloverOpts): Promise<number> {
         (existing ?? []).map((r: any) => r[parentIdColumn] as string),
     );
 
-    const { data: prevRows, error: prevErr } = await (supabase as any)
+    const { data: prevRows, error: prevErr } = await supabase
         .from(table)
         .select("*")
         .eq("household_id", householdId)
@@ -125,7 +125,7 @@ async function rolloverTable(opts: RolloverOpts): Promise<number> {
 
     if (newRows.length === 0) return 0;
 
-    const { error: insertErr } = await (supabase as any).from(table).insert(newRows);
+    const { error: insertErr } = await supabase.from(table).insert(newRows);
     if (insertErr) throw insertErr;
 
     return newRows.length;
