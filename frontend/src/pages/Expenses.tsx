@@ -461,7 +461,8 @@ const Expenses = () => {
   );
 
   const hasAnyCategory = expenseCategories.length > 0;
-  const showTabsList = !!(household?.enable_credit_cards || coParents.length > 0);
+  const showCoparentTab = !!household?.enable_shared_expenses || coParents.length > 0;
+  const showTabsList = !!(household?.enable_credit_cards || showCoparentTab);
 
   if (loading) {
     return (
@@ -480,10 +481,10 @@ const Expenses = () => {
                   <span className="hidden sm:inline">Credit</span>
                 </TabsTrigger>
               )}
-              {coParents.length > 0 && (
+              {showCoparentTab && (
                 <TabsTrigger value="coparent" className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">Co-Parent</span>
+                  <span className="hidden sm:inline">Shared</span>
                 </TabsTrigger>
               )}
             </TabsList>
@@ -535,7 +536,7 @@ const Expenses = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Only show tabs when there are multiple tabs (Credit or Co-Parent enabled) */}
-        {(household?.enable_credit_cards || coParents.length > 0) && (
+        {showTabsList && (
           <TabsList>
             <TabsTrigger value="all" className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
@@ -547,10 +548,10 @@ const Expenses = () => {
                 <span className="hidden sm:inline">Credit</span>
               </TabsTrigger>
             )}
-            {coParents.length > 0 && (
+            {showCoparentTab && (
               <TabsTrigger value="coparent" className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Co-Parent</span>
+                <span className="hidden sm:inline">Shared</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -741,7 +742,7 @@ const Expenses = () => {
           </TabsContent>
         )}
 
-        {coParents.length > 0 && (
+        {showCoparentTab && (
           <TabsContent value="coparent" className="mt-6">
             <SharedExpensesTab
               householdId={household?.id}

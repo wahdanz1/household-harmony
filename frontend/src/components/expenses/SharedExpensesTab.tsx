@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Plus } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -10,6 +10,7 @@ import { CoParentManagement } from "./shared/CoParentManagement";
 import { SharedExpensesList } from "./shared/SharedExpensesList";
 import { SharedExpenseForm } from "./forms/SharedExpenseForm";
 import { useEncryptedFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
+import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
 
 interface SharedExpense {
   id: string;
@@ -38,6 +39,7 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
   const [coParents, setCoParents] = useState<CoParent[]>([]);
   const [expenses, setExpenses] = useState<SharedExpense[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addCoParentOpen, setAddCoParentOpen] = useState(false);
   const { decryptRecords: decryptSharedExpenses } = useEncryptedFields(sharedExpenseFields);
 
   const fetchData = async () => {
@@ -73,12 +75,34 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
     return acc;
   }, {} as Record<string, SharedExpense[]>);
 
+  if (coParents.length === 0) {
+    return (
+      <div className="space-y-6">
+        <EmptyStateCard
+          icon={Users}
+          iconClassName="text-info"
+          headline="No co-parents yet"
+          description="Add a co-parent to start tracking shared expenses and settlements with them."
+          primaryLabel="Add your first co-parent"
+          onPrimary={() => setAddCoParentOpen(true)}
+          hideWizardLink
+        />
+        <CoParentManagement
+          householdId={householdId}
+          coParents={coParents}
+          onUpdate={fetchData}
+          addOpen={addCoParentOpen}
+          onAddOpenChange={setAddCoParentOpen}
+          dialogOnly
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
-      {/* Combined Summary and Management Card */}
       <Card>
         <div className="grid gap-4 md:gap-6 md:grid-cols-2">
-          {/* Summary Section */}
           <div className="space-y-4">
             <div>
               <h3>Shared Expenses Summary</h3>
@@ -90,7 +114,6 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
             </div>
           </div>
 
-          {/* Co-Parent Management Section */}
           <CoParentManagement
             householdId={householdId}
             coParents={coParents}
@@ -99,7 +122,6 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
         </div>
       </Card>
 
-      {/* Add shared expense action */}
       {coParents.length > 0 && (
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild>

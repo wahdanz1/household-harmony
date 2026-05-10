@@ -28,11 +28,24 @@ interface CoParentManagementProps {
     householdId: string;
     coParents: CoParent[];
     onUpdate: () => void;
+    /** Controlled Add-dialog open state. Falls back to internal state. */
+    addOpen?: boolean;
+    onAddOpenChange?: (open: boolean) => void;
+    /** Render only the Add/Edit/Delete dialogs, no panel UI. */
+    dialogOnly?: boolean;
 }
 
-export const CoParentManagement = ({ householdId, coParents, onUpdate }: CoParentManagementProps) => {
+export const CoParentManagement = ({
+    householdId, coParents, onUpdate,
+    addOpen, onAddOpenChange, dialogOnly = false,
+}: CoParentManagementProps) => {
     const { toast } = useToast();
-    const [coParentDialogOpen, setCoParentDialogOpen] = useState(false);
+    const [internalDialogOpen, setInternalDialogOpen] = useState(false);
+    const coParentDialogOpen = addOpen ?? internalDialogOpen;
+    const setCoParentDialogOpen = (v: boolean) => {
+        if (onAddOpenChange) onAddOpenChange(v);
+        else setInternalDialogOpen(v);
+    };
     const [editingCoParentId, setEditingCoParentId] = useState<string | null>(null);
     const [coParentFormData, setCoParentFormData] = useState({
         name: "",
@@ -115,8 +128,11 @@ export const CoParentManagement = ({ householdId, coParents, onUpdate }: CoParen
     };
 
     return (
-        <>
-
+        <Dialog open={coParentDialogOpen} onOpenChange={(open) => {
+            setCoParentDialogOpen(open);
+            if (!open) resetCoParentForm();
+        }}>
+            {!dialogOnly && (
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <div>
@@ -126,48 +142,12 @@ export const CoParentManagement = ({ householdId, coParents, onUpdate }: CoParen
                         </h3>
                         <p className="text-muted-foreground">Add and manage people you share expenses with</p>
                     </div>
-                    <Dialog open={coParentDialogOpen} onOpenChange={(open) => {
-                        setCoParentDialogOpen(open);
-                        if (!open) resetCoParentForm();
-                    }}>
-                        <DialogTrigger asChild>
-                            <Button size="sm">
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>{editingCoParentId ? "Edit" : "Add"} Co-Parent</DialogTitle>
-                                <DialogDescription>
-                                    Add someone you share expenses with (ex-partner, co-guardian, etc.)
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label>Name</Label>
-                                    <Input
-                                        value={coParentFormData.name}
-                                        onChange={(e) => setCoParentFormData({ ...coParentFormData, name: e.target.value })}
-                                        placeholder="e.g., Kids' Mom"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Notes (Optional)</Label>
-                                    <Textarea
-                                        value={coParentFormData.notes}
-                                        onChange={(e) => setCoParentFormData({ ...coParentFormData, notes: e.target.value })}
-                                        placeholder="Any additional context"
-                                    />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button onClick={handleSaveCoParent}>
-                                    {editingCoParentId ? "Update" : "Add"}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                    <DialogTrigger asChild>
+                        <Button size="sm">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add
+                        </Button>
+                    </DialogTrigger>
                 </div>
 
                 <div>
@@ -206,8 +186,40 @@ export const CoParentManagement = ({ householdId, coParents, onUpdate }: CoParen
                     )}
                 </div>
             </div>
+            )}
 
-            {/* Delete Confirmation Dialog */}
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{editingCoParentId ? "Edit" : "Add"} Co-Parent</DialogTitle>
+                    <DialogDescription>
+                        Add someone you share expenses with (ex-partner, co-guardian, etc.)
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Name</Label>
+                        <Input
+                            value={coParentFormData.name}
+                            onChange={(e) => setCoParentFormData({ ...coParentFormData, name: e.target.value })}
+                            placeholder="e.g., Kids' Mom"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Notes (Optional)</Label>
+                        <Textarea
+                            value={coParentFormData.notes}
+                            onChange={(e) => setCoParentFormData({ ...coParentFormData, notes: e.target.value })}
+                            placeholder="Any additional context"
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleSaveCoParent}>
+                        {editingCoParentId ? "Update" : "Add"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+
             <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -224,6 +236,6 @@ export const CoParentManagement = ({ householdId, coParents, onUpdate }: CoParen
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </>
+        </Dialog>
     );
 };
