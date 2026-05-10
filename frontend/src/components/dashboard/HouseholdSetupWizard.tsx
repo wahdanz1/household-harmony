@@ -35,6 +35,7 @@ import {
 import { SubscriptionForm } from "@/components/expenses/forms/SubscriptionForm";
 import { InsuranceForm } from "@/components/expenses/forms/InsuranceForm";
 import { IncomeFormDialog } from "@/components/income/IncomeFormDialog";
+import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { toast } from "sonner";
 
 interface HouseholdSetupWizardProps {
@@ -317,134 +318,16 @@ const AddItemDialog = ({
         );
     }
     return (
-        <SimpleAddExpenseDialog
+        <ExpenseFormDialog
             open={open}
             onOpenChange={onOpenChange}
+            mode="add"
             householdId={householdId}
-            userId={userId}
             financialMonthStart={financialMonthStart}
-            onAdded={onAdded}
+            categoryAllowlist={["rent", "internet", "phone_plan", "electricity", "healthcare", "other"]}
+            showCreditToggle={false}
+            onSuccess={onAdded}
         />
     );
 };
 
-// ---------------------------------------------------------------------------
-
-interface SimpleAddExpenseDialogProps {
-    open: boolean;
-    onOpenChange: (v: boolean) => void;
-    householdId: string;
-    userId: string;
-    financialMonthStart: number;
-    onAdded: () => void;
-}
-
-const FIXED_EXPENSE_CATEGORIES = [
-    { value: "rent", label: "Rent" },
-    { value: "electricity", label: "Electricity" },
-    { value: "internet", label: "Internet" },
-    { value: "phone_plan", label: "Phone plan" },
-    { value: "other", label: "Other" },
-] as const;
-
-const SimpleAddExpenseDialog = ({
-    open, onOpenChange, householdId, userId, financialMonthStart, onAdded,
-}: SimpleAddExpenseDialogProps) => {
-    const [name, setName] = useState("");
-    const [amount, setAmount] = useState("");
-    const [category, setCategory] = useState<string>("rent");
-    const [saving, setSaving] = useState(false);
-    const { encryptRecord: encryptExpense } = useEncryptedFields(expenseFields);
-    const { encryptRecord: encryptMonthly } = useEncryptedFields(monthlyExpenseFields);
-
-    useEffect(() => {
-        if (open) { setName(""); setAmount(""); setCategory("rent"); }
-    }, [open]);
-
-    const canSave = name.trim().length > 0 && parseFloat(amount) > 0;
-
-    const handleSave = async () => {
-        if (!canSave) return;
-        setSaving(true);
-        try {
-            const numericAmount = parseFloat(amount);
-            const encryptedExpense = await encryptExpense({
-                household_id: householdId,
-                category,
-                name: name.trim(),
-                default_amount: numericAmount,
-                created_by: userId,
-                is_active: true,
-                is_credit: false,
-                sort_order: 0,
-            });
-
-            const { data: created, error } = await (supabase as any)
-                .from("expenses")
-                .insert({ ...encryptedExpense, category })
-                .select("id")
-                .single();
-            if (error || !created) throw error || new Error("Insert failed");
-
-            const month = getCurrentFinancialMonth(financialMonthStart);
-            const { start, end } = getFinancialMonthRange(month, financialMonthStart);
-            const encryptedMonthly = await encryptMonthly({
-                household_id: householdId,
-                expense_id: created.id,
-                month,
-                month_start: format(start, "yyyy-MM-dd"),
-                month_end: format(end, "yyyy-MM-dd"),
-                budget_amount: numericAmount,
-                created_by: userId,
-            });
-            await (supabase as any)
-                .from("monthly_expenses")
-                .insert(encryptedMonthly);
-
-            onAdded();
-        } catch (err: any) {
-            console.error(err);
-            toast.error(err.message || "Failed to add expense");
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Add fixed expense</DialogTitle>
-                    <DialogDescription>Rent, utilities — bills you pay yourself each month.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                    <div className="space-y-2">
-                        <Label>Category</Label>
-                        <Select value={category} onValueChange={setCategory}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                {FIXED_EXPENSE_CATEGORIES.map(c => (
-                                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Name</Label>
-                        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Hyra" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Monthly amount (kr)</Label>
-                        <Input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={!canSave || saving}>
-                        {saving ? "Adding…" : "Add"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-};

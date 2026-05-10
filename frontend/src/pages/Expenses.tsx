@@ -15,10 +15,9 @@ import { Home } from "lucide-react";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { CreditTab } from "@/components/expenses/CreditTab";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
-import { EditExpenseDialog } from "@/components/expenses/EditExpenseDialog";
+import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { EditSubscriptionDialog } from "@/components/expenses/EditSubscriptionDialog";
 import { EditInsuranceDialog } from "@/components/expenses/EditInsuranceDialog";
-import { useExpenses } from "@/components/expenses/hooks/useExpenses";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -240,17 +239,12 @@ const Expenses = () => {
     }
   }, [household, fetchData, location.key]); // location.key changes on each navigation
 
-  // Expense editing hook (for inline editing)
-  const {
-    categoryDialogOpen,
-    setCategoryDialogOpen,
-    editingCategoryId,
-    categoryFormData,
-    setCategoryFormData,
-    handleEditCategory,
-    handleSaveCategory,
-    handleDeleteCategory,
-  } = useExpenses(household?.id || "", expenseCategories, fetchData);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const handleEditCategory = (cat: any) => {
+    setEditingCategory(cat);
+    setEditDialogOpen(true);
+  };
 
   const handleSave = useCallback(async () => {
     if (!household || !user) return;
@@ -775,16 +769,26 @@ const Expenses = () => {
         onSuccess={fetchData}
       />
 
-      {/* Edit Expense Dialog */}
-      <EditExpenseDialog
-        open={categoryDialogOpen}
-        onOpenChange={setCategoryDialogOpen}
-        editingCategoryId={editingCategoryId}
-        categoryFormData={categoryFormData}
-        expenseCategories={expenseCategories}
-        onSave={handleSaveCategory}
-        onDelete={handleDeleteCategory}
-      />
+      {household && (
+        <ExpenseFormDialog
+          open={editDialogOpen}
+          onOpenChange={(v) => {
+            setEditDialogOpen(v);
+            if (!v) setEditingCategory(null);
+          }}
+          mode="edit"
+          householdId={household.id}
+          financialMonthStart={financialMonthStart}
+          initialValues={editingCategory ? {
+            id: editingCategory.id,
+            category: editingCategory.category,
+            name: editingCategory.name,
+            default_amount: editingCategory.default_amount,
+            is_credit: editingCategory.is_credit,
+          } : undefined}
+          onSuccess={fetchData}
+        />
+      )}
 
       {/* Edit Subscription Dialog */}
       <EditSubscriptionDialog
