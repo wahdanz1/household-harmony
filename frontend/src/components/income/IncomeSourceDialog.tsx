@@ -60,7 +60,6 @@ export const IncomeSourceDialog = ({
                                 <SelectItem value="business_income">Business Income</SelectItem>
                                 <SelectItem value="government_benefits">Government Benefits</SelectItem>
                                 <SelectItem value="investment_income">Investment Income</SelectItem>
-                                <SelectItem value="gift">Gift</SelectItem>
                                 <SelectItem value="other">Other</SelectItem>
                             </SelectContent>
                         </Select>

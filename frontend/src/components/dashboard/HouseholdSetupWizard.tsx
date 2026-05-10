@@ -336,7 +336,6 @@ const INCOME_CATEGORIES = [
     { value: "business_income", label: "Business income" },
     { value: "government_benefits", label: "Government benefits" },
     { value: "investment_income", label: "Investment income" },
-    { value: "gift", label: "Gift" },
     { value: "other", label: "Other" },
 ] as const;
 
