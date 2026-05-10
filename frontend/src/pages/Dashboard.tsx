@@ -1,17 +1,28 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import {
+  getCurrentFinancialMonth,
+  getFinancialMonthRange,
+  getNextFinancialMonth,
+  getPreviousFinancialMonth,
+} from "@/utils/dateUtils";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Money, fmtKr } from "@/components/ui/money";
 import { MonthChip } from "@/components/ui/month-chip";
 import { MetricTile } from "@/components/ui/metric-tile";
 import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlementCard";
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
-import { TrendingUp, TrendingDown, Repeat, Shield, ClipboardCheck, ChevronRight, Users, Sparkles } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, Repeat, Shield, ClipboardCheck,
+  ChevronRight, ChevronLeft, Users, Sparkles, CalendarPlus, Loader2,
+} from "lucide-react";
+import { planMonth } from "@/services/monthlyPlanning";
+import { toast } from "sonner";
 import { LoadingState } from "@/components/shared/states";
 import {
   useEncryptedFields,
@@ -62,9 +73,11 @@ interface DashboardData {
 const Dashboard = () => {
   const { user } = useAuth();
   const { household, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
-  const { isUnlocked } = useEncryption();
+  const { isUnlocked, encrypt, decrypt } = useEncryption();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [planning, setPlanning] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => getCurrentFinancialMonth(financialMonthStart));
   const [data, setData] = useState<DashboardData>({
     income: 0,
     expenses: 0,
@@ -91,10 +104,11 @@ const Dashboard = () => {
   const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
   const { decryptRecords: decryptShared } = useEncryptedFields(sharedExpenseFields);
 
-  // Current financial month label for the chip
-  const currentMonth = getCurrentFinancialMonth(financialMonthStart);
-  const { end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
+  const todayMonth = getCurrentFinancialMonth(financialMonthStart);
+  const { start: selectedStart, end: monthEnd } = getFinancialMonthRange(selectedMonth, financialMonthStart);
   const monthLabel = format(monthEnd, "MMM yyyy");
+  const isFutureMonth = parseISO(selectedMonth).getTime() > parseISO(todayMonth).getTime();
+  const isCurrentMonth = selectedMonth === todayMonth;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -111,8 +125,7 @@ const Dashboard = () => {
       setHouseholdId(household.id);
 
       const fms = household?.financial_month_start || 25;
-      const fetchMonth = getCurrentFinancialMonth(fms);
-      const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, fms);
+      const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(selectedMonth, fms);
       const startStr = format(fetchStart, "yyyy-MM-dd");
       const endStr = format(fetchEnd, "yyyy-MM-dd");
 
@@ -299,7 +312,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [user, household, householdLoading, isUnlocked]);
+  }, [user, household, householdLoading, isUnlocked, selectedMonth]);
 
   // ─── Loading + locked states ─────────────────────────────────
   if (householdLoading || loading) {
@@ -329,10 +342,61 @@ const Dashboard = () => {
     ? Math.min(100, Math.round((data.expenses / data.income) * 100))
     : 0;
   const showRecurringTiles = data.subscriptionsCount > 0 || data.insuranceCount > 0;
+  const monthIsEmpty = data.income === 0 && data.expenses === 0;
+  const showPlanCta = isFutureMonth && monthIsEmpty;
+
+  const handlePlan = async () => {
+    if (!user || !household) return;
+    setPlanning(true);
+    try {
+      const previousMonth = getPreviousFinancialMonth(selectedMonth, financialMonthStart);
+      const result = await planMonth({
+        householdId: household.id,
+        userId: user.id,
+        targetMonth: selectedStart,
+        previousMonth: parseISO(previousMonth),
+        encrypt,
+        decrypt,
+      });
+      const total = result.expensesPlanned + result.incomesPlanned;
+      if (total > 0) {
+        toast.success(`Planned ${total} item${total === 1 ? "" : "s"} for ${monthLabel}`);
+      } else {
+        toast.info(`Nothing to carry forward from last month.`);
+      }
+      setSelectedMonth(selectedMonth);
+      window.location.reload();
+    } catch (err: any) {
+      console.error("Failed to plan month:", err);
+      toast.error(err.message || "Failed to plan month");
+    } finally {
+      setPlanning(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
-      <DashboardHeader monthLabel={monthLabel} />
+      <DashboardHeader
+        monthLabel={monthLabel}
+        onPrev={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+        onNext={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+        onJumpToToday={isCurrentMonth ? undefined : () => setSelectedMonth(todayMonth)}
+      />
+
+      {showPlanCta && (
+        <Card variant="cta" className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CalendarPlus className="h-5 w-5 text-accent-dk" />
+            <div>
+              <p className="font-medium text-sm text-accent-dk">Plan {monthLabel}</p>
+              <p className="text-xs text-accent-dk/70">Carries last month's actuals into this month's budgets.</p>
+            </div>
+          </div>
+          <Button onClick={handlePlan} disabled={planning}>
+            {planning ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Planning…</> : "Plan this month"}
+          </Button>
+        </Card>
+      )}
 
       {/* Monthly Review Banner */}
       {needsReview && !isDemoMode() && (
@@ -547,12 +611,29 @@ const Dashboard = () => {
 interface DashboardHeaderProps {
   monthLabel: string;
   hideMonthChip?: boolean;
+  onPrev?: () => void;
+  onNext?: () => void;
+  onJumpToToday?: () => void;
 }
 
-const DashboardHeader = ({ monthLabel, hideMonthChip = false }: DashboardHeaderProps) => (
+const DashboardHeader = ({ monthLabel, hideMonthChip = false, onPrev, onNext, onJumpToToday }: DashboardHeaderProps) => (
   <div className="flex items-center justify-between gap-4">
     <h1>Dashboard</h1>
-    {!hideMonthChip && <MonthChip value={monthLabel} />}
+    {!hideMonthChip && (
+      <div className="flex items-center gap-1">
+        {onPrev && (
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onPrev} aria-label="Previous month">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
+        <MonthChip value={monthLabel} onClick={onJumpToToday} />
+        {onNext && (
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onNext} aria-label="Next month">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    )}
   </div>
 );
 

@@ -188,7 +188,10 @@ export const MonthlyReviewWizard = ({
             history: any[] | undefined,
             staticDefault: any
         ): number => {
-            if (existing) return parseFloat((existing.amount || "0").toString());
+            if (existing) {
+                const v = existing.actual_amount ?? existing.budget_amount ?? existing.amount ?? 0;
+                return parseFloat(v.toString());
+            }
             const smart = computeSmartDefault(history ?? []);
             if (smart.source != null) return smart.value;
             return parseFloat((staticDefault || "0").toString());
@@ -321,9 +324,7 @@ export const MonthlyReviewWizard = ({
                     month: currentMonth,
                     month_start: startStr,
                     month_end: endStr,
-                    amount,
-                    // Preserve original creator for items not owned by me;
-                    // only stamp my id on my own rows.
+                    actual_amount: amount,
                     created_by: income.isMine ? user.id : income.created_by,
                 };
                 const data = await encryptMonthlyIncome(baseData);
@@ -370,7 +371,7 @@ export const MonthlyReviewWizard = ({
                     month: currentMonth,
                     month_start: startStr,
                     month_end: endStr,
-                    amount,
+                    actual_amount: amount,
                     created_by: user.id,
                 };
                 const data = await encryptMonthlyExpense(baseData);

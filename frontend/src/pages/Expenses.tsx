@@ -181,7 +181,7 @@ const Expenses = () => {
         month: fetchMonth,
         month_start: startStr,
         month_end: endStr,
-        amount,
+        budget_amount: amount,
         created_by: user.id,
       });
     });
@@ -205,10 +205,13 @@ const Expenses = () => {
     decryptedCategories.forEach((category: any) => {
       const existing = decryptedMonthly.find((m: any) => m.expense_id === category.id);
       if (existing) {
-        initialAmounts[category.id] = (existing.amount || "0").toString();
+        const value = existing.actual_amount ?? existing.budget_amount ?? existing.amount ?? 0;
+        initialAmounts[category.id] = value.toString();
       } else {
         const missing = missingRecords.find((r: any) => r.expense_id === category.id);
-        initialAmounts[category.id] = missing ? missing.amount.toString() : (category.default_amount || "0").toString();
+        initialAmounts[category.id] = missing
+          ? missing.budget_amount.toString()
+          : (category.default_amount || "0").toString();
       }
     });
 
@@ -255,7 +258,7 @@ const Expenses = () => {
         month: saveMonth,
         month_start: format(saveStart, "yyyy-MM-dd"),
         month_end: format(saveEnd, "yyyy-MM-dd"),
-        amount: parseFloat(currentAmounts[category.id] || "0"),
+        budget_amount: parseFloat(currentAmounts[category.id] || "0"),
         created_by: user.id,
       };
       // Encrypt the entry (encrypts amount field)
@@ -433,7 +436,6 @@ const Expenses = () => {
             variant="ghost"
             size="icon"
             className="h-9 w-9"
-            disabled={isCurrentMonth}
             onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
             aria-label="Next month"
           >

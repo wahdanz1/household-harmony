@@ -206,7 +206,7 @@ const Income = () => {
         month: fetchMonth,
         month_start: startStr,
         month_end: endStr,
-        amount,
+        budget_amount: amount,
         created_by: user.id,
       });
     });
@@ -230,11 +230,13 @@ const Income = () => {
     decryptedSources.forEach((source: any) => {
       const existing = decryptedMonthly.find((m: any) => m.income_source_id === source.id);
       if (existing) {
-        initialAmounts[source.id] = (existing.amount || "0").toString();
+        const value = existing.actual_amount ?? existing.budget_amount ?? existing.amount ?? 0;
+        initialAmounts[source.id] = value.toString();
       } else {
-        // Use the carry-forward amount from missingRecords
         const missing = missingRecords.find((r: any) => r.income_source_id === source.id);
-        initialAmounts[source.id] = missing ? missing.amount.toString() : (source.default_amount || "0").toString();
+        initialAmounts[source.id] = missing
+          ? missing.budget_amount.toString()
+          : (source.default_amount || "0").toString();
       }
     });
     setAmounts(initialAmounts);
@@ -308,7 +310,7 @@ const Income = () => {
         month: saveMonth,
         month_start: format(saveStart, "yyyy-MM-dd"),
         month_end: format(saveEnd, "yyyy-MM-dd"),
-        amount: parseFloat(currentAmounts[source.id] || "0"),
+        budget_amount: parseFloat(currentAmounts[source.id] || "0"),
         created_by: user.id,
       };
       // Encrypt the entry (encrypts amount field)
@@ -430,7 +432,6 @@ const Income = () => {
             variant="ghost"
             size="icon"
             className="h-9 w-9"
-            disabled={isCurrentMonth}
             onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
             aria-label="Next month"
           >

@@ -14,8 +14,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 interface ExpenseItem {
     id: string;
     name: string;
+    /** The editable/budget amount for the month. */
     amount: number;
     defaultAmount?: number;
+    /** Realised amount from a credit-card invoice. When set and ≠ amount, a variance badge is shown. */
+    actualAmount?: number;
     category?: string;
     // Optional custom display (e.g., "1780 SEK/year" instead of calculated monthly)
     displayAmount?: number;
@@ -201,6 +204,21 @@ export const ExpenseBlock = ({
                                             weight={500}
                                         />
                                     )}
+                                    {item.actualAmount !== undefined && Math.round(item.actualAmount) !== Math.round(item.amount) && (() => {
+                                        const variance = item.actualAmount - item.amount;
+                                        const over = variance > 0;
+                                        return (
+                                            <span
+                                                className={`text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded ${over
+                                                    ? "bg-destructive/10 text-destructive"
+                                                    : "bg-success/10 text-success"
+                                                    }`}
+                                                title={`Actual: ${Math.round(item.actualAmount)} ${currency}`}
+                                            >
+                                                {over ? "+" : "−"}{Math.abs(Math.round(variance))} {currency}
+                                            </span>
+                                        );
+                                    })()}
                                     <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                                 </div>
                             </RowItem>

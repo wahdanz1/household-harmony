@@ -49,6 +49,7 @@ interface BudgetedCreditExpense {
     category: string;
     default_amount: number;
     monthly_amount: number;
+    actual_amount?: number;
 }
 
 interface CreditTabProps {
@@ -127,18 +128,19 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
 
             const budgetItems: BudgetedCreditExpense[] = decryptedCategories.map((cat: any) => {
                 const monthly = decryptedMonthly.find((m: any) => m.expense_id === cat.id);
-                const monthlyAmount =
-                    monthly?.actual_amount ??
+                const budget =
                     monthly?.budget_amount ??
                     monthly?.amount ??
                     cat.default_amount ??
                     0;
+                const actual = monthly?.actual_amount;
                 return {
                     id: cat.id,
                     name: cat.name,
                     category: cat.category,
                     default_amount: cat.default_amount || 0,
-                    monthly_amount: monthlyAmount,
+                    monthly_amount: budget,
+                    actual_amount: actual !== undefined && actual !== null ? Number(actual) : undefined,
                 };
             });
             setBudgetedCredit(budgetItems);
@@ -166,11 +168,10 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 month: currentMonth,
                 month_start: startStr,
                 month_end: endStr,
-                amount,
+                budget_amount: amount,
                 created_by: user.id,
             };
 
-            // Encrypt if needed (amount field)
             const data = await encryptMonthlyExpense(baseData);
 
             const { error } = await supabase
@@ -386,7 +387,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
             {/* Budgeted Credit Expenses Section */}
             {budgetedCredit.length > 0 && (
                 <ExpenseBlock
-                    title="Budgeted Credit Expenses"
+                    title="Credit Card Spend"
                     total={totalBudgetedCredit}
                     currency={currency}
                     icon={<CreditCardIcon className="h-5 w-5 text-accent-purple" />}
@@ -395,6 +396,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                         name: item.name,
                         amount: parseFloat(editedAmounts[item.id] || "0"),
                         defaultAmount: item.default_amount,
+                        actualAmount: item.actual_amount,
                         category: item.category
                     }))}
                     editable={true}
