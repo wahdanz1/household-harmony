@@ -388,7 +388,6 @@ export type Database = {
           created_at: string
           owner_id: string
           currency: string
-          custom_month_start_day: number | null
           enable_credit_cards: boolean | null
           enable_shared_expenses: boolean | null
           financial_month_start: number | null
@@ -400,7 +399,6 @@ export type Database = {
           created_at?: string
           owner_id: string
           currency?: string
-          custom_month_start_day?: number | null
           enable_credit_cards?: boolean | null
           enable_shared_expenses?: boolean | null
           financial_month_start?: number | null
@@ -412,7 +410,6 @@ export type Database = {
           created_at?: string
           owner_id?: string
           currency?: string
-          custom_month_start_day?: number | null
           enable_credit_cards?: boolean | null
           enable_shared_expenses?: boolean | null
           financial_month_start?: number | null
@@ -649,7 +646,6 @@ export type Database = {
           electricity_grid: number | null
           electricity_market: number | null
           encrypted_actual_amount: string | null
-          encrypted_amount: string | null
           encrypted_budget_amount: string | null
           expense_id: string
           household_id: string
@@ -667,7 +663,6 @@ export type Database = {
           electricity_grid?: number | null
           electricity_market?: number | null
           encrypted_actual_amount?: string | null
-          encrypted_amount?: string | null
           encrypted_budget_amount?: string | null
           expense_id: string
           household_id: string
@@ -685,7 +680,6 @@ export type Database = {
           electricity_grid?: number | null
           electricity_market?: number | null
           encrypted_actual_amount?: string | null
-          encrypted_amount?: string | null
           encrypted_budget_amount?: string | null
           expense_id?: string
           household_id?: string
@@ -720,7 +714,6 @@ export type Database = {
           created_at: string
           created_by: string
           encrypted_actual_amount: string | null
-          encrypted_amount: string | null
           encrypted_budget_amount: string | null
           household_id: string
           id: string
@@ -741,7 +734,6 @@ export type Database = {
           created_at?: string
           created_by: string
           encrypted_actual_amount?: string | null
-          encrypted_amount?: string | null
           encrypted_budget_amount?: string | null
           household_id: string
           id?: string
@@ -762,7 +754,6 @@ export type Database = {
           created_at?: string
           created_by?: string
           encrypted_actual_amount?: string | null
-          encrypted_amount?: string | null
           encrypted_budget_amount?: string | null
           household_id?: string
           id?: string
@@ -841,66 +832,6 @@ export type Database = {
           },
         ]
       }
-      one_time_incomes: {
-        Row: {
-          category: Database["public"]["Enums"]["one_time_income_category_enum"]
-          created_at: string | null
-          created_by: string | null
-          description: string | null
-          encrypted_amount: string | null
-          encrypted_description: string | null
-          encrypted_source: string | null
-          household_id: string
-          id: string
-          is_encrypted: boolean | null
-          month: string
-          updated_at: string | null
-        }
-        Insert: {
-          category?: Database["public"]["Enums"]["one_time_income_category_enum"]
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          encrypted_amount?: string | null
-          encrypted_description?: string | null
-          encrypted_source?: string | null
-          household_id: string
-          id?: string
-          is_encrypted?: boolean | null
-          month: string
-          updated_at?: string | null
-        }
-        Update: {
-          category?: Database["public"]["Enums"]["one_time_income_category_enum"]
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          encrypted_amount?: string | null
-          encrypted_description?: string | null
-          encrypted_source?: string | null
-          household_id?: string
-          id?: string
-          is_encrypted?: boolean | null
-          month?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "one_time_incomes_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "one_time_incomes_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -936,133 +867,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      savings_allocations: {
-        Row: {
-          amount: number
-          created_at: string
-          created_by: string
-          household_id: string
-          id: string
-          month: string
-          notes: string | null
-          savings_goal_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          created_by: string
-          household_id: string
-          id?: string
-          month: string
-          notes?: string | null
-          savings_goal_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          created_by?: string
-          household_id?: string
-          id?: string
-          month?: string
-          notes?: string | null
-          savings_goal_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "savings_allocations_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "savings_allocations_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "savings_allocations_savings_goal_id_fkey"
-            columns: ["savings_goal_id"]
-            isOneToOne: false
-            referencedRelation: "savings_goals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      savings_goals: {
-        Row: {
-          created_at: string
-          created_by: string
-          description: string | null
-          encrypted_current_amount: string | null
-          encrypted_name: string | null
-          encrypted_target_amount: string | null
-          goal_type: string
-          household_id: string
-          id: string
-          image_url: string | null
-          is_active: boolean
-          is_encrypted: boolean | null
-          monthly_contribution: number | null
-          priority: string
-          target_date: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          description?: string | null
-          encrypted_current_amount?: string | null
-          encrypted_name?: string | null
-          encrypted_target_amount?: string | null
-          goal_type?: string
-          household_id: string
-          id?: string
-          image_url?: string | null
-          is_active?: boolean
-          is_encrypted?: boolean | null
-          monthly_contribution?: number | null
-          priority?: string
-          target_date?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          encrypted_current_amount?: string | null
-          encrypted_name?: string | null
-          encrypted_target_amount?: string | null
-          goal_type?: string
-          household_id?: string
-          id?: string
-          image_url?: string | null
-          is_active?: boolean
-          is_encrypted?: boolean | null
-          monthly_contribution?: number | null
-          priority?: string
-          target_date?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "savings_goals_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "savings_goals_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       shared_expenses: {
         Row: {
