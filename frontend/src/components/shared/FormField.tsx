@@ -17,10 +17,12 @@ export const FormField = ({
     <div className={cn("space-y-1.5", className)}>
         <Label htmlFor={htmlFor}>
             {label}
-            {optional && (
+            {optional ? (
                 <span className="text-xs text-muted-foreground font-normal ml-1">
                     ({optionalNote ?? "optional"})
                 </span>
+            ) : (
+                <span className="text-destructive ml-0.5" aria-hidden="true">*</span>
             )}
         </Label>
         {children}
