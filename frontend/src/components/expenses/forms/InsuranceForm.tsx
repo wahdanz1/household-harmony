@@ -14,17 +14,7 @@ import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField, FormRow } from "@/components/shared/FormField";
 import { useEntityForm } from "@/hooks/useEntityForm";
 
-const insuranceTypes = [
-    { value: "home", label: "Home Insurance" },
-    { value: "car", label: "Car Insurance" },
-    { value: "health", label: "Health Insurance" },
-    { value: "child", label: "Child Insurance" },
-    { value: "life", label: "Life Insurance" },
-    { value: "pet", label: "Pet Insurance" },
-    { value: "travel", label: "Travel Insurance" },
-    { value: "liability", label: "Liability Insurance" },
-    { value: "other", label: "Other" },
-];
+import { insuranceTypes } from "@/constants/insuranceTypes";
 
 const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -164,17 +154,33 @@ export const InsuranceForm = ({
                             {usedTypes.length > 0 && (
                                 <SelectGroup>
                                     <SelectLabel>Used in this household</SelectLabel>
-                                    {usedTypes.map((t) => (
-                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                                    ))}
+                                    {usedTypes.map((t) => {
+                                        const Icon = t.icon;
+                                        return (
+                                            <SelectItem key={t.value} value={t.value}>
+                                                <div className="flex items-center gap-2">
+                                                    {Icon && <Icon className="h-4 w-4" />}
+                                                    <span>{t.label}</span>
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectGroup>
                             )}
                             {moreTypes.length > 0 && (
                                 <SelectGroup>
                                     <SelectLabel>{usedTypes.length > 0 ? "More types" : "All types"}</SelectLabel>
-                                    {moreTypes.map((t) => (
-                                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                                    ))}
+                                    {moreTypes.map((t) => {
+                                        const Icon = t.icon;
+                                        return (
+                                            <SelectItem key={t.value} value={t.value}>
+                                                <div className="flex items-center gap-2">
+                                                    {Icon && <Icon className="h-4 w-4" />}
+                                                    <span>{t.label}</span>
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectGroup>
                             )}
                         </SelectContent>

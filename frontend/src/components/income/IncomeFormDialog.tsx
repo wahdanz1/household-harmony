@@ -22,12 +22,14 @@ import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField, FormRow } from "@/components/shared/FormField";
 import { useEntityForm } from "@/hooks/useEntityForm";
 
+import { Briefcase, TrendingUp, HandCoins, PiggyBank, MoreHorizontal } from "lucide-react";
+
 const INCOME_CATEGORIES = [
-    { value: "salary", label: "Salary" },
-    { value: "business_income", label: "Business income" },
-    { value: "government_benefits", label: "Government benefits" },
-    { value: "investment_income", label: "Investment income" },
-    { value: "other", label: "Other" },
+    { value: "salary", label: "Salary", icon: Briefcase },
+    { value: "business_income", label: "Business income", icon: PiggyBank },
+    { value: "government_benefits", label: "Government benefits", icon: HandCoins },
+    { value: "investment_income", label: "Investment income", icon: TrendingUp },
+    { value: "other", label: "Other", icon: MoreHorizontal },
 ] as const;
 
 type IncomeCategory = typeof INCOME_CATEGORIES[number]["value"];
@@ -188,9 +190,17 @@ export const IncomeFormDialog = ({
                             >
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    {INCOME_CATEGORIES.map(c => (
-                                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                                    ))}
+                                    {INCOME_CATEGORIES.map(c => {
+                                        const Icon = c.icon;
+                                        return (
+                                            <SelectItem key={c.value} value={c.value}>
+                                                <div className="flex items-center gap-2">
+                                                    <Icon className="h-4 w-4" />
+                                                    <span>{c.label}</span>
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectContent>
                             </Select>
                         </FormField>
