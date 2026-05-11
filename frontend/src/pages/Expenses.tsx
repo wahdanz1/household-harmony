@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,6 @@ const Expenses = () => {
   const { user } = useAuth();
   const { household, members, coParents } = useHousehold();
   const { isUnlocked } = useEncryption();
-  const location = useLocation(); // Trigger refetch on navigation
   const subjects = useHouseholdSubjects(household?.id);
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
@@ -238,13 +237,13 @@ const Expenses = () => {
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [user, household, selectedMonth, isUnlocked]);
+  }, [user?.id, household?.id, household?.financial_month_start, selectedMonth, isUnlocked]);
 
   useEffect(() => {
-    if (household) {
+    if (household?.id) {
       fetchData();
     }
-  }, [household, fetchData, location.key]); // location.key changes on each navigation
+  }, [household?.id, fetchData]);
 
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { AddButton } from "@/components/ui/add-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { HandCoins, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
@@ -38,7 +38,6 @@ const Income = () => {
   const { user } = useAuth();
   const { isUnlocked } = useEncryption();
   const { household, members, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
-  const location = useLocation(); // Trigger refetch on navigation
   const { toast } = useToast();
   const [incomeSources, setIncomeSources] = useState<any[]>([]);
   const [monthlyIncomes, setMonthlyIncomes] = useState<any[]>([]);
@@ -263,13 +262,13 @@ const Income = () => {
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [household?.id, financialMonthStart, selectedMonth, user, isUnlocked]);
+  }, [household?.id, financialMonthStart, selectedMonth, user?.id, isUnlocked]);
 
   useEffect(() => {
     if (!householdLoading && household?.id) {
       fetchData();
     }
-  }, [householdLoading, fetchData, location.key]); // location.key changes on each navigation
+  }, [householdLoading, household?.id, fetchData]);
 
   // Smart Defaults backend call removed — the service was disabled during
   // the encryption migration and never restored. Client-side carry-forward

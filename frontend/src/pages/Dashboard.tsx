@@ -317,7 +317,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [user, household, householdLoading, isUnlocked, selectedMonth]);
+  }, [user?.id, household?.id, household?.financial_month_start, household?.currency, householdLoading, isUnlocked, selectedMonth]);
 
   useEffect(() => {
     const checkSeedData = async () => {
@@ -345,7 +345,7 @@ const Dashboard = () => {
       }
     };
     checkSeedData();
-  }, [household?.id, isUnlocked, loading]);
+  }, [household?.id, isUnlocked, todayMonth]);
 
   // ─── Loading + locked states ─────────────────────────────────
   if (householdLoading || loading) {

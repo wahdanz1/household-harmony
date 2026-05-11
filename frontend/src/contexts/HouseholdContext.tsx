@@ -54,8 +54,9 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
     const [userRole, setUserRole] = useState<string>("");
     const [loading, setLoading] = useState(true);
 
+    const userId = user?.id;
     const fetchHouseholdData = useCallback(async () => {
-        if (!user) {
+        if (!userId) {
             setHousehold(null);
             setMembers([]);
             setCoParents([]);
@@ -66,7 +67,7 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
 
         try {
             // Get active household
-            const { membership, household: householdData } = await getActiveHousehold(user.id);
+            const { membership, household: householdData } = await getActiveHousehold(userId);
 
             if (!membership || !householdData) {
                 setLoading(false);
@@ -104,7 +105,7 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, [userId]);
 
     // Fetch on user change
     useEffect(() => {

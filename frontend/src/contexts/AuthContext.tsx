@@ -20,21 +20,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Keep the user reference stable across token refreshes / focus events —
+    // Supabase fires onAuthStateChange with a fresh `user` object even when
+    // nothing about identity changed, which would otherwise cascade refetches
+    // through every consumer (HouseholdContext, Dashboard, Expenses, Income).
+    const applySession = (next: Session | null) => {
+      setSession(next);
+      setUser(prev => (prev?.id === next?.user?.id ? prev : next?.user ?? null));
+      setLoading(false);
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
+      (_event, session) => applySession(session)
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => applySession(session));
 
     return () => subscription.unsubscribe();
   }, []);
