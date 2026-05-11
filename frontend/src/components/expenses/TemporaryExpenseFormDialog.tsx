@@ -9,19 +9,22 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEncryptedFields, temporaryExpenseFields } from "@/hooks/useEncryptedFields";
-import { getCurrentFinancialMonth } from "@/utils/dateUtils";
+import { useEncryptedFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { format } from "date-fns";
 import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField, FormRow } from "@/components/shared/FormField";
 import { useEntityForm } from "@/hooks/useEntityForm";
 
+import { Wrench, Heart, Hammer, Gift, Plane, MoreHorizontal } from "lucide-react";
+
 const temporaryCategories = [
-    { value: "car_repair", label: "Car repair" },
-    { value: "medical", label: "Medical" },
-    { value: "home_repair", label: "Home repair" },
-    { value: "gift", label: "Gift" },
-    { value: "travel", label: "Travel" },
-    { value: "other", label: "Other" },
+    { value: "car_repair", label: "Car repair", icon: Wrench },
+    { value: "medical", label: "Medical", icon: Heart },
+    { value: "home_repair", label: "Home repair", icon: Hammer },
+    { value: "gift", label: "Gift", icon: Gift },
+    { value: "travel", label: "Travel", icon: Plane },
+    { value: "other", label: "Other", icon: MoreHorizontal },
 ];
 
 interface TemporaryExpenseFormDialogProps {
@@ -43,7 +46,7 @@ export const TemporaryExpenseFormDialog = ({
     open, onOpenChange, householdId, financialMonthStart, onSuccess,
 }: TemporaryExpenseFormDialogProps) => {
     const { user } = useAuth();
-    const { encryptRecord } = useEncryptedFields(temporaryExpenseFields);
+    const { encryptRecord } = useEncryptedFields(monthlyExpenseFields);
     const [pristine, setPristine] = useState(blank());
     const [formData, setFormData] = useState(pristine);
 
@@ -62,17 +65,22 @@ export const TemporaryExpenseFormDialog = ({
         isEdit: false,
         save: async () => {
             if (!user) throw new Error("Not authenticated");
+            const month = getCurrentFinancialMonth(financialMonthStart);
+            const { start, end } = getFinancialMonthRange(month, financialMonthStart);
             const baseData = {
                 household_id: householdId,
-                month: getCurrentFinancialMonth(financialMonthStart),
-                description: formData.description.trim(),
-                category: formData.category,
+                expense_id: null,
+                month,
+                month_start: format(start, "yyyy-MM-dd"),
+                month_end: format(end, "yyyy-MM-dd"),
+                one_time_name: formData.description.trim(),
+                one_time_category: formData.category,
                 amount: parseFloat(formData.amount),
                 notes: formData.notes || null,
                 created_by: user.id,
             };
             const data = await encryptRecord(baseData);
-            const { error } = await supabase.from("temporary_expenses").insert(data);
+            const { error } = await supabase.from("monthly_expenses").insert(data as any);
             if (error) throw error;
         },
         onSaved: () => {
@@ -88,9 +96,9 @@ export const TemporaryExpenseFormDialog = ({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>One-time expense</DialogTitle>
+                    <DialogTitle>Add one-off expense</DialogTitle>
                     <DialogDescription>
-                        A single, unexpected cost — car repair, medical bill, gift, etc. Tracked just for this month.
+                        A one-time cost outside your regular budget — car repair, medical bill, gift, travel, etc.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -116,9 +124,17 @@ export const TemporaryExpenseFormDialog = ({
                             <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    {temporaryCategories.map((cat) => (
-                                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                                    ))}
+                                    {temporaryCategories.map((cat) => {
+                                        const Icon = cat.icon;
+                                        return (
+                                            <SelectItem key={cat.value} value={cat.value}>
+                                                <div className="flex items-center gap-2">
+                                                    <Icon className="h-4 w-4" />
+                                                    <span>{cat.label}</span>
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectContent>
                             </Select>
                         </FormField>
