@@ -55,29 +55,40 @@ export const SubjectPicker = ({
 
             const { data: existing } = await supabase
                 .from("subjects")
-                .select("name")
+                .select("id, name, user_id")
                 .eq("household_id", householdId)
                 .eq("type", "member");
-            const existingNames = new Set((existing ?? []).map((s: any) => s.name.toLowerCase()));
 
-            const toInsert = members
-                .map((m: any) => {
-                    const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
-                    const name = p?.full_name || p?.email || null;
-                    return name;
-                })
-                .filter((name: string | null): name is string => !!name && !existingNames.has(name.toLowerCase()))
-                .map((name: string) => ({
-                    household_id: householdId,
-                    name,
-                    type: "member" as const,
-                    sort_order: 0,
-                }));
+            const existingByUser = new Map<string, { id: string; name: string }>();
+            for (const s of (existing ?? []) as Array<{ id: string; name: string; user_id: string | null }>) {
+                if (s.user_id) existingByUser.set(s.user_id, { id: s.id, name: s.name });
+            }
 
+            const toInsert: Array<{ household_id: string; user_id: string; name: string; type: "member"; sort_order: number }> = [];
+            const renames: Array<{ id: string; name: string }> = [];
+
+            for (const m of members as Array<{ user_id: string; profiles: any }>) {
+                const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+                const name = p?.full_name || p?.email;
+                if (!name) continue;
+                const current = existingByUser.get(m.user_id);
+                if (!current) {
+                    toInsert.push({ household_id: householdId, user_id: m.user_id, name, type: "member", sort_order: 0 });
+                } else if (current.name !== name) {
+                    renames.push({ id: current.id, name });
+                }
+            }
+
+            let changed = false;
             if (toInsert.length > 0) {
                 await supabase.from("subjects").insert(toInsert);
-                if (!cancelled) setRefreshKey((k) => k + 1);
+                changed = true;
             }
+            for (const r of renames) {
+                await supabase.from("subjects").update({ name: r.name }).eq("id", r.id);
+                changed = true;
+            }
+            if (changed && !cancelled) setRefreshKey((k) => k + 1);
         })();
         return () => { cancelled = true; };
     }, [householdId]);
