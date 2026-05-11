@@ -223,7 +223,7 @@ export const ApiKeysCard = () => {
                                 type={showKey ? "text" : "password"}
                                 value={apiKey}
                                 onChange={(e) => setApiKey(e.target.value)}
-                                placeholder={hasKey ? "••••••••••••••••" : `Enter your ${currentConfig.name} API key`}
+                                placeholder={hasKey ? "Enter new key to update" : `Enter your ${currentConfig.name} API key`}
                                 className="pr-10"
                                 autoComplete="off"
                                 data-form-type="other"

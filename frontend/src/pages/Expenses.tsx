@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -35,13 +35,14 @@ import { ExpensesPageSkeleton } from "@/components/shared/skeletons/PageSkeleton
 import { Skeleton } from "@/components/ui/skeleton";
 import { MobileBottomBar, mobileBottomBarSpacer } from "@/components/shared/MobileBottomBar";
 import { useHouseholdSubjects } from "@/hooks/useHouseholdSubjects";
+import { useEarliestDataMonth } from "@/hooks/useEarliestDataMonth";
 
 const Expenses = () => {
   const { user } = useAuth();
   const { household, members, coParents } = useHousehold();
   const { isUnlocked } = useEncryption();
-  const location = useLocation(); // Trigger refetch on navigation
   const subjects = useHouseholdSubjects(household?.id);
+  const earliestDataMonth = useEarliestDataMonth(household?.id);
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
@@ -238,13 +239,13 @@ const Expenses = () => {
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [user, household, selectedMonth, isUnlocked]);
+  }, [user?.id, household?.id, household?.financial_month_start, selectedMonth, isUnlocked]);
 
   useEffect(() => {
-    if (household) {
+    if (household?.id) {
       fetchData();
     }
-  }, [household, fetchData, location.key]); // location.key changes on each navigation
+  }, [household?.id, fetchData]);
 
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -415,9 +416,9 @@ const Expenses = () => {
     .filter((ins) => ins.is_active)
     .reduce((sum, ins) => {
       let monthlyAmount = 0;
-      if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
-      else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
-      else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
+      if (ins.billing_cycle === "yearly") monthlyAmount = ins.total_amount / 12;
+      else if (ins.billing_cycle === "semi_annually") monthlyAmount = ins.total_amount / 6;
+      else if (ins.billing_cycle === "quarterly") monthlyAmount = ins.total_amount / 3;
       else monthlyAmount = ins.total_amount;
 
       if (ins.is_shared) {
@@ -432,6 +433,7 @@ const Expenses = () => {
   // Header — month nav hidden when there's no data to navigate (locked state).
   const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
   const monthLabel = format(monthEndDate, "MMM yyyy");
+  const atEarliestMonth = !!earliestDataMonth && selectedMonth <= earliestDataMonth;
   const renderHeader = (showMonthNav: boolean, isLoading = false) => (
     <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Expenses</h1>
@@ -447,7 +449,7 @@ const Expenses = () => {
             variant="ghost"
             size="icon"
             className="h-9 w-9"
-            disabled={!showMonthNav}
+            disabled={!showMonthNav || atEarliestMonth}
             onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
             aria-label="Previous month"
           >
@@ -645,11 +647,10 @@ const Expenses = () => {
               };
             })}
             insurances={[...insurances].sort((a, b) => (b.total_amount ?? 0) - (a.total_amount ?? 0)).map(ins => {
-              // Calculate monthly cost from total_amount and payment_frequency
               let monthlyAmount = 0;
-              if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
-              else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
-              else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
+              if (ins.billing_cycle === "yearly") monthlyAmount = ins.total_amount / 12;
+              else if (ins.billing_cycle === "semi_annually") monthlyAmount = ins.total_amount / 6;
+              else if (ins.billing_cycle === "quarterly") monthlyAmount = ins.total_amount / 3;
               else monthlyAmount = ins.total_amount;
 
               if (ins.is_shared) {
@@ -666,7 +667,7 @@ const Expenses = () => {
                 name: customName || fallbackName,
                 monthly_cost: monthlyAmount,
                 total_amount: ins.total_amount,
-                payment_frequency: ins.payment_frequency,
+                billing_cycle: ins.billing_cycle,
                 category: ins.category,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
                 inactive: ins.is_active === false,
@@ -838,8 +839,9 @@ const Expenses = () => {
             provider: editingInsurance.provider,
             category: editingInsurance.category,
             total_amount: editingInsurance.total_amount,
-            payment_frequency: editingInsurance.payment_frequency,
-            invoice_month: editingInsurance.invoice_month,
+            billing_cycle: editingInsurance.billing_cycle,
+            billing_month: editingInsurance.billing_month,
+            billing_day: editingInsurance.billing_day,
             notes: editingInsurance.notes,
             is_active: editingInsurance.is_active,
             is_shared: editingInsurance.is_shared,

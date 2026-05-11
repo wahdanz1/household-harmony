@@ -349,8 +349,8 @@ function summariseAmount(stepKey: Exclude<StepKey, "features">, item: any): stri
     if (stepKey === "subscription" && item.billing_cycle && item.billing_cycle !== "monthly") {
         return `${Math.round(v)} kr / ${item.billing_cycle}`;
     }
-    if (stepKey === "insurance" && item.payment_frequency && item.payment_frequency !== "monthly") {
-        return `${Math.round(v)} kr / ${item.payment_frequency.replace("_", " ")}`;
+    if (stepKey === "insurance" && item.billing_cycle && item.billing_cycle !== "monthly") {
+        return `${Math.round(v)} kr / ${item.billing_cycle.replace("_", " ")}`;
     }
     return `${Math.round(v)} kr`;
 }

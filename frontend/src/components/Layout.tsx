@@ -5,6 +5,7 @@ import { DemoBanner } from "./shared/DemoBanner";
 import { GuidedTour } from "./shared/GuidedTour";
 import { OutageBanner } from "./shared/OutageBanner";
 import { DevTimeTravel } from "./dev/DevTimeTravel";
+import { RecoveryCodeGate } from "./auth/RecoveryCodeGate";
 
 interface LayoutProps {
   children: ReactNode;
@@ -24,6 +25,7 @@ const Layout = ({ children }: LayoutProps) => {
       <GuidedTour />
       <OutageBanner />
       <DevTimeTravel />
+      <RecoveryCodeGate />
     </div>
   );
 };

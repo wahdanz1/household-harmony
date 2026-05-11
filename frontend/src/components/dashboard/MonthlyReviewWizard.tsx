@@ -39,7 +39,7 @@ interface IncomeItem {
     amount: number;
     defaultAmount: number;
     source_id: string;
-    created_by: string;
+    owner_id: string;
     isMine: boolean;
 }
 
@@ -206,8 +206,8 @@ export const MonthlyReviewWizard = ({
                 amount,
                 defaultAmount: source.default_amount ?? 0,
                 source_id: source.id,
-                created_by: source.created_by,
-                isMine: source.created_by === user.id,
+                owner_id: source.owner_id,
+                isMine: source.owner_id === user.id,
             };
         });
 
@@ -325,7 +325,7 @@ export const MonthlyReviewWizard = ({
                     month_start: startStr,
                     month_end: endStr,
                     actual_amount: amount,
-                    created_by: income.isMine ? user.id : income.created_by,
+                    created_by: income.isMine ? user.id : income.owner_id,
                 };
                 const data = await encryptMonthlyIncome(baseData);
                 const { error } = await supabase.from("monthly_incomes").upsert(data, {
@@ -338,7 +338,7 @@ export const MonthlyReviewWizard = ({
             // (we're reviewing together — they don't need to log in again).
             const unlockedOwners = incomes
                 .filter(i => unlockedItems.has(i.source_id) && !i.isMine)
-                .map(i => i.created_by);
+                .map(i => i.owner_id);
             const acceptedUserIds = Array.from(new Set([user.id, ...unlockedOwners]));
             await writeStatus("income", acceptedUserIds);
 
@@ -462,7 +462,7 @@ export const MonthlyReviewWizard = ({
 
                     <TabsContent value="income" className="flex-1 overflow-y-auto mt-4 space-y-2">
                         {incomes.map(item => {
-                            const ownerMember = members.find(m => m.user_id === item.created_by);
+                            const ownerMember = members.find(m => m.user_id === item.owner_id);
                             const ownerName = ownerMember?.profiles?.full_name || (item.isMine ? "You" : "Other member");
                             const ownerInitials = ownerName.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
                             const isUnlocked = unlockedItems.has(item.source_id);

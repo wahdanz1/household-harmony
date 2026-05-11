@@ -38,6 +38,7 @@ import { useEncryption } from "@/contexts/EncryptionContext";
 import { DemoEncryptionCard } from "@/components/demo/DemoEncryptionCard";
 import { isDemoMode } from "@/utils/demoMode";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
+import { useEarliestDataMonth } from "@/hooks/useEarliestDataMonth";
 
 interface ActivityItem {
   id: string;
@@ -101,6 +102,8 @@ const Dashboard = () => {
   const [reviewWizardOpen, setReviewWizardOpen] = useState(false);
 
   const { needsReview, markAsReviewed } = useMonthlyReviewStatus(household?.id, financialMonthStart);
+  const earliestDataMonth = useEarliestDataMonth(household?.id);
+  const atEarliestMonth = !!earliestDataMonth && selectedMonth <= earliestDataMonth;
 
   // Encryption hooks
   const { decryptRecords: decryptIncomes } = useEncryptedFields(monthlyIncomeFields);
@@ -140,7 +143,7 @@ const Dashboard = () => {
           supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
           supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
           supabase.from("subscriptions").select("encrypted_amount, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id).eq("is_active", true),
-          supabase.from("insurances").select("encrypted_total_amount, payment_frequency, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true),
+          supabase.from("insurances").select("encrypted_total_amount, billing_cycle, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true),
           supabase.from("shared_expenses").select("id, encrypted_amount, encrypted_description, paid_by, is_encrypted, created_at").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr).order("created_at", { ascending: false }),
         ]);
       } catch (err) {
@@ -246,13 +249,13 @@ const Dashboard = () => {
         const totalAmount = parseFloat(ins.total_amount || "0");
         let monthlyAmount = 0;
         let yearlyAmount = 0;
-        if (ins.payment_frequency === "yearly") {
+        if (ins.billing_cycle === "yearly") {
           monthlyAmount = totalAmount / 12;
           yearlyAmount = totalAmount;
-        } else if (ins.payment_frequency === "semi_annually") {
+        } else if (ins.billing_cycle === "semi_annually") {
           monthlyAmount = totalAmount / 6;
           yearlyAmount = totalAmount * 2;
-        } else if (ins.payment_frequency === "quarterly") {
+        } else if (ins.billing_cycle === "quarterly") {
           monthlyAmount = totalAmount / 3;
           yearlyAmount = totalAmount * 4;
         } else {
@@ -317,7 +320,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [user, household, householdLoading, isUnlocked, selectedMonth]);
+  }, [user?.id, household?.id, household?.financial_month_start, household?.currency, householdLoading, isUnlocked, selectedMonth]);
 
   useEffect(() => {
     const checkSeedData = async () => {
@@ -345,7 +348,7 @@ const Dashboard = () => {
       }
     };
     checkSeedData();
-  }, [household?.id, isUnlocked, loading]);
+  }, [household?.id, isUnlocked, todayMonth]);
 
   // ─── Loading + locked states ─────────────────────────────────
   if (householdLoading || loading) {
@@ -411,7 +414,7 @@ const Dashboard = () => {
     <div className="space-y-5">
       <DashboardHeader
         monthLabel={monthLabel}
-        onPrev={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+        onPrev={atEarliestMonth ? undefined : () => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
         onNext={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
         onJumpToToday={isCurrentMonth ? undefined : () => setSelectedMonth(todayMonth)}
       />

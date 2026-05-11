@@ -258,3 +258,50 @@ export async function reEncryptDEK(
         dekIV: iv,
     };
 }
+
+// ── Recovery code (BIP-39) ─────────────────────────────────────────────────
+
+/** 12-word BIP-39 phrase = 128 bits of entropy. */
+export async function generateRecoveryCode(): Promise<string> {
+    const { generateMnemonic } = await import('@scure/bip39');
+    const { wordlist } = await import('@scure/bip39/wordlists/english');
+    return generateMnemonic(wordlist, 128);
+}
+
+/** Strip whitespace variations so the code matches regardless of input formatting. */
+export function normalizeRecoveryCode(code: string): string {
+    return code.trim().toLowerCase().split(/\s+/).join(' ');
+}
+
+export async function isValidRecoveryCode(code: string): Promise<boolean> {
+    const { validateMnemonic } = await import('@scure/bip39');
+    const { wordlist } = await import('@scure/bip39/wordlists/english');
+    return validateMnemonic(normalizeRecoveryCode(code), wordlist);
+}
+
+/** Wrap a DEK with a key derived from a recovery code. Returns persistable fields. */
+export async function wrapDEKWithRecoveryCode(
+    dek: CryptoKey,
+    code: string
+): Promise<{ encryptedDEK: string; salt: string; iv: string }> {
+    const salt = generateSalt();
+    const kek = await deriveKEK(normalizeRecoveryCode(code), salt);
+    const { encryptedDEK, iv } = await encryptDEK(dek, kek);
+    return {
+        encryptedDEK,
+        salt: arrayBufferToBase64(salt.buffer),
+        iv,
+    };
+}
+
+/** Reverse of wrapDEKWithRecoveryCode — used by the password-recovery flow. */
+export async function unwrapDEKWithRecoveryCode(
+    encryptedDEK: string,
+    saltB64: string,
+    iv: string,
+    code: string
+): Promise<CryptoKey> {
+    const salt = new Uint8Array(base64ToArrayBuffer(saltB64));
+    const kek = await deriveKEK(normalizeRecoveryCode(code), salt);
+    return decryptDEK(encryptedDEK, iv, kek);
+}

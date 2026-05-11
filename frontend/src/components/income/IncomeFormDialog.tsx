@@ -105,7 +105,7 @@ export const IncomeFormDialog = ({
                 category: form.category,
                 name: form.name?.trim() ?? "",
                 default_amount: numericAmount,
-                created_by: form.owner_id ?? "",
+                owner_id: form.owner_id ?? "",
                 is_shared: !!form.is_shared,
                 co_parent_id: form.is_shared ? (form.co_parent_id || null) : null,
                 share_percentage: form.is_shared ? parseFloat(String(form.share_percentage ?? 50)) : null,

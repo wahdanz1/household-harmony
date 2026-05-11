@@ -258,3 +258,6 @@ SECURITY_AUDIT.md
 
 # Design reference prototype (Claude Design handoff — local only)
 design-reference/
+
+# Local-only scripts (seed data with personal/test content)
+scripts/

@@ -386,9 +386,8 @@ export type Database = {
       households: {
         Row: {
           created_at: string
-          created_by: string
+          owner_id: string
           currency: string
-          custom_month_start_day: number | null
           enable_credit_cards: boolean | null
           enable_shared_expenses: boolean | null
           financial_month_start: number | null
@@ -398,9 +397,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
+          owner_id: string
           currency?: string
-          custom_month_start_day?: number | null
           enable_credit_cards?: boolean | null
           enable_shared_expenses?: boolean | null
           financial_month_start?: number | null
@@ -410,9 +408,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
+          owner_id?: string
           currency?: string
-          custom_month_start_day?: number | null
           enable_credit_cards?: boolean | null
           enable_shared_expenses?: boolean | null
           financial_month_start?: number | null
@@ -423,7 +420,7 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "households_owner_id_fkey"
-            columns: ["created_by"]
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -435,7 +432,7 @@ export type Database = {
           category: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id: string | null
           created_at: string
-          created_by: string
+          owner_id: string
           custom_tax_rate: number | null
           encrypted_default_amount: string | null
           encrypted_name: string | null
@@ -452,7 +449,7 @@ export type Database = {
           category: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id?: string | null
           created_at?: string
-          created_by: string
+          owner_id: string
           custom_tax_rate?: number | null
           encrypted_default_amount?: string | null
           encrypted_name?: string | null
@@ -469,7 +466,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id?: string | null
           created_at?: string
-          created_by?: string
+          owner_id?: string
           custom_tax_rate?: number | null
           encrypted_default_amount?: string | null
           encrypted_name?: string | null
@@ -499,7 +496,7 @@ export type Database = {
           },
           {
             foreignKeyName: "income_sources_owner_id_fkey"
-            columns: ["created_by"]
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -517,12 +514,13 @@ export type Database = {
           encrypted_total_amount: string | null
           household_id: string
           id: string
-          invoice_month: number | null
+          billing_month: number | null
+          billing_day: number | null
           is_active: boolean
           is_encrypted: boolean | null
           is_shared: boolean
           notes: string | null
-          payment_frequency: string
+          billing_cycle: Database["public"]["Enums"]["billing_cycle_enum"]
           share_percentage: number
           subject_id: string | null
           updated_at: string
@@ -537,12 +535,13 @@ export type Database = {
           encrypted_total_amount?: string | null
           household_id: string
           id?: string
-          invoice_month?: number | null
+          billing_month?: number | null
+          billing_day?: number | null
           is_active?: boolean
           is_encrypted?: boolean | null
           is_shared?: boolean
           notes?: string | null
-          payment_frequency?: string
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           share_percentage?: number
           subject_id?: string | null
           updated_at?: string
@@ -557,12 +556,13 @@ export type Database = {
           encrypted_total_amount?: string | null
           household_id?: string
           id?: string
-          invoice_month?: number | null
+          billing_month?: number | null
+          billing_day?: number | null
           is_active?: boolean
           is_encrypted?: boolean | null
           is_shared?: boolean
           notes?: string | null
-          payment_frequency?: string
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           share_percentage?: number
           subject_id?: string | null
           updated_at?: string
@@ -649,7 +649,6 @@ export type Database = {
           electricity_grid: number | null
           electricity_market: number | null
           encrypted_actual_amount: string | null
-          encrypted_amount: string | null
           encrypted_budget_amount: string | null
           expense_id: string
           household_id: string
@@ -667,7 +666,6 @@ export type Database = {
           electricity_grid?: number | null
           electricity_market?: number | null
           encrypted_actual_amount?: string | null
-          encrypted_amount?: string | null
           encrypted_budget_amount?: string | null
           expense_id: string
           household_id: string
@@ -685,7 +683,6 @@ export type Database = {
           electricity_grid?: number | null
           electricity_market?: number | null
           encrypted_actual_amount?: string | null
-          encrypted_amount?: string | null
           encrypted_budget_amount?: string | null
           expense_id?: string
           household_id?: string
@@ -720,7 +717,6 @@ export type Database = {
           created_at: string
           created_by: string
           encrypted_actual_amount: string | null
-          encrypted_amount: string | null
           encrypted_budget_amount: string | null
           household_id: string
           id: string
@@ -731,6 +727,7 @@ export type Database = {
           month_end: string | null
           month_start: string | null
           notes: string | null
+          one_time_category: string | null
           one_time_name: string | null
           share_percentage: number
           updated_at: string | null
@@ -740,7 +737,6 @@ export type Database = {
           created_at?: string
           created_by: string
           encrypted_actual_amount?: string | null
-          encrypted_amount?: string | null
           encrypted_budget_amount?: string | null
           household_id: string
           id?: string
@@ -751,6 +747,7 @@ export type Database = {
           month_end?: string | null
           month_start?: string | null
           notes?: string | null
+          one_time_category?: string | null
           one_time_name?: string | null
           share_percentage?: number
           updated_at?: string | null
@@ -760,7 +757,6 @@ export type Database = {
           created_at?: string
           created_by?: string
           encrypted_actual_amount?: string | null
-          encrypted_amount?: string | null
           encrypted_budget_amount?: string | null
           household_id?: string
           id?: string
@@ -771,6 +767,7 @@ export type Database = {
           month_end?: string | null
           month_start?: string | null
           notes?: string | null
+          one_time_category?: string | null
           one_time_name?: string | null
           share_percentage?: number
           updated_at?: string | null
@@ -838,66 +835,6 @@ export type Database = {
           },
         ]
       }
-      one_time_incomes: {
-        Row: {
-          category: Database["public"]["Enums"]["one_time_income_category_enum"]
-          created_at: string | null
-          created_by: string | null
-          description: string | null
-          encrypted_amount: string | null
-          encrypted_description: string | null
-          encrypted_source: string | null
-          household_id: string
-          id: string
-          is_encrypted: boolean | null
-          month: string
-          updated_at: string | null
-        }
-        Insert: {
-          category?: Database["public"]["Enums"]["one_time_income_category_enum"]
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          encrypted_amount?: string | null
-          encrypted_description?: string | null
-          encrypted_source?: string | null
-          household_id: string
-          id?: string
-          is_encrypted?: boolean | null
-          month: string
-          updated_at?: string | null
-        }
-        Update: {
-          category?: Database["public"]["Enums"]["one_time_income_category_enum"]
-          created_at?: string | null
-          created_by?: string | null
-          description?: string | null
-          encrypted_amount?: string | null
-          encrypted_description?: string | null
-          encrypted_source?: string | null
-          household_id?: string
-          id?: string
-          is_encrypted?: boolean | null
-          month?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "one_time_incomes_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "one_time_incomes_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -933,133 +870,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      savings_allocations: {
-        Row: {
-          amount: number
-          created_at: string
-          created_by: string
-          household_id: string
-          id: string
-          month: string
-          notes: string | null
-          savings_goal_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          created_by: string
-          household_id: string
-          id?: string
-          month: string
-          notes?: string | null
-          savings_goal_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          created_by?: string
-          household_id?: string
-          id?: string
-          month?: string
-          notes?: string | null
-          savings_goal_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "savings_allocations_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "savings_allocations_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "savings_allocations_savings_goal_id_fkey"
-            columns: ["savings_goal_id"]
-            isOneToOne: false
-            referencedRelation: "savings_goals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      savings_goals: {
-        Row: {
-          created_at: string
-          created_by: string
-          description: string | null
-          encrypted_current_amount: string | null
-          encrypted_name: string | null
-          encrypted_target_amount: string | null
-          goal_type: string
-          household_id: string
-          id: string
-          image_url: string | null
-          is_active: boolean
-          is_encrypted: boolean | null
-          monthly_contribution: number | null
-          priority: string
-          target_date: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          description?: string | null
-          encrypted_current_amount?: string | null
-          encrypted_name?: string | null
-          encrypted_target_amount?: string | null
-          goal_type?: string
-          household_id: string
-          id?: string
-          image_url?: string | null
-          is_active?: boolean
-          is_encrypted?: boolean | null
-          monthly_contribution?: number | null
-          priority?: string
-          target_date?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          encrypted_current_amount?: string | null
-          encrypted_name?: string | null
-          encrypted_target_amount?: string | null
-          goal_type?: string
-          household_id?: string
-          id?: string
-          image_url?: string | null
-          is_active?: boolean
-          is_encrypted?: boolean | null
-          monthly_contribution?: number | null
-          priority?: string
-          target_date?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "savings_goals_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "savings_goals_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       shared_expenses: {
         Row: {
@@ -1140,6 +950,7 @@ export type Database = {
           sort_order: number
           type: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1149,6 +960,7 @@ export type Database = {
           sort_order?: number
           type: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1158,6 +970,7 @@ export type Database = {
           sort_order?: number
           type?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1171,7 +984,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
-          billing_cycle: string
+          billing_cycle: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day: number | null
           billing_month: number | null
           category: Database["public"]["Enums"]["subscription_category_enum"]
@@ -1188,7 +1001,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          billing_cycle?: string
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day?: number | null
           billing_month?: number | null
           category: Database["public"]["Enums"]["subscription_category_enum"]
@@ -1205,7 +1018,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          billing_cycle?: string
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day?: number | null
           billing_month?: number | null
           category?: Database["public"]["Enums"]["subscription_category_enum"]
@@ -1349,6 +1162,42 @@ export type Database = {
           },
         ]
       }
+      user_vault_recovery_slots: {
+        Row: {
+          id: string
+          user_id: string
+          slot_type: string
+          encrypted_dek: string
+          salt: string | null
+          iv: string
+          label: string | null
+          granted_by_user_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          slot_type: string
+          encrypted_dek: string
+          salt?: string | null
+          iv: string
+          label?: string | null
+          granted_by_user_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          slot_type?: string
+          encrypted_dek?: string
+          salt?: string | null
+          iv?: string
+          label?: string | null
+          granted_by_user_id?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       user_vault_keys: {
         Row: {
           created_at: string
@@ -1384,30 +1233,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      calculate_expense_average: {
-        Args: {
-          p_household_id: string
-          p_months?: number
-          p_regular_expense_id: string
-        }
-        Returns: number
-      }
-      calculate_income_average: {
-        Args: {
-          p_household_id: string
-          p_income_source_id: string
-          p_months?: number
-        }
-        Returns: number
-      }
-      get_latest_expense_amount: {
-        Args: { p_household_id: string; p_regular_expense_id: string }
-        Returns: number
-      }
-      get_latest_income_amount: {
-        Args: { p_household_id: string; p_income_source_id: string }
-        Returns: number
-      }
       get_user_household_id: { Args: { _user_id: string }; Returns: string }
       is_email_whitelisted: { Args: { email_in: string }; Returns: boolean }
       is_household_member: {
@@ -1422,6 +1247,7 @@ export type Database = {
       redeem_invite: { Args: { invite_code_in: string }; Returns: Json }
     }
     Enums: {
+      billing_cycle_enum: "monthly" | "quarterly" | "semi_annually" | "yearly"
       expense_category_enum:
         | "rent"
         | "internet"
@@ -1618,6 +1444,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      billing_cycle_enum: ["monthly", "quarterly", "semi_annually", "yearly"],
       expense_category_enum: [
         "rent",
         "internet",

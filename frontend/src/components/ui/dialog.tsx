@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 /**
  * Dialog — responsive: bottom-sheet on mobile, centered modal on desktop.
  *
- * Mobile (<sm): slides up from bottom, has a drag-handle pill on top, max-h 88vh,
+ * Mobile (<sm): slides up from bottom, has a drag-handle pill on top, max-h 88dvh,
  * rounded only on top corners, full-width.
  *
  * Desktop (≥sm): centered modal, fades + zooms, max-w-lg, rounded all corners.
@@ -49,8 +49,8 @@ const DialogContent = React.forwardRef<
         "bottom-0 left-0 right-0", // mobile defaults
         "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
         // Sizing
-        "w-full max-h-[88vh]",
-        "sm:w-[calc(100%-3rem)] sm:max-w-lg sm:max-h-[80vh]",
+        "w-full max-h-[88dvh]",
+        "sm:w-[calc(100%-3rem)] sm:max-w-lg sm:max-h-[80dvh]",
         // Shape
         "rounded-t-[24px] sm:rounded-[20px]",
         "border border-line bg-surface shadow-xl",

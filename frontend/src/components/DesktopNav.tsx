@@ -30,9 +30,12 @@ const DesktopNav = () => {
     <nav className="hidden md:flex md:flex-col w-64 border-r border-line bg-surface fixed left-0 top-0 bottom-0 p-5 z-20">
       {/* Brand */}
       <div className="flex items-center gap-2.5 px-2 pb-5 mb-2">
-        <div className="w-8 h-8 rounded-[10px] bg-accent flex items-center justify-center">
-          <div className="w-3 h-3 bg-accent-ink rounded-sm rotate-45" />
-        </div>
+        <img
+          src="/household-harmony-logo.svg"
+          alt=""
+          aria-hidden="true"
+          className="w-8 h-8"
+        />
         <div>
           <div className="text-sm font-bold text-ink leading-tight tracking-tight">Household</div>
           <div className="text-[11px] text-muted-foreground leading-tight">Harmony</div>

@@ -65,12 +65,12 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
 
       const { data: sharedInsurancesRaw } = await supabase
         .from("insurances")
-        .select("encrypted_total_amount, share_percentage, invoice_month, is_encrypted")
+        .select("encrypted_total_amount, share_percentage, billing_month, is_encrypted")
         .eq("household_id", householdId)
         .eq("is_shared", true)
         .eq("co_parent_id", coParent.id)
         .eq("is_active", true)
-        .eq("invoice_month", currentMonthNumber);
+        .eq("billing_month", currentMonthNumber);
 
       const sharedInsurances = (await decryptInsurances(sharedInsurancesRaw || [])) as any[];
 

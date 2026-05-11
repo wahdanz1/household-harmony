@@ -277,7 +277,13 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center p-4 bg-bg">
       <Card className="w-full max-w-md p-6 sm:p-8">
         {/* Brand */}
-        <div className="text-center mb-7">
+        <div className="flex flex-col items-center text-center mb-7">
+          <img
+            src="/household-harmony-logo.svg"
+            alt=""
+            aria-hidden="true"
+            className="w-12 h-12 mb-3"
+          />
           <h1 className="text-2xl sm:text-2xl font-bold tracking-tight">Household Harmony</h1>
           <p className="text-sm text-muted-foreground mt-1.5">
             {mode === "login"

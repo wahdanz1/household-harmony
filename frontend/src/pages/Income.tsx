@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { AddButton } from "@/components/ui/add-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { HandCoins, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
@@ -33,12 +33,13 @@ import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/h
 
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
+import { useEarliestDataMonth } from "@/hooks/useEarliestDataMonth";
 
 const Income = () => {
   const { user } = useAuth();
   const { isUnlocked } = useEncryption();
   const { household, members, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
-  const location = useLocation(); // Trigger refetch on navigation
+  const earliestDataMonth = useEarliestDataMonth(household?.id);
   const { toast } = useToast();
   const [incomeSources, setIncomeSources] = useState<any[]>([]);
   const [monthlyIncomes, setMonthlyIncomes] = useState<any[]>([]);
@@ -263,13 +264,13 @@ const Income = () => {
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
-  }, [household?.id, financialMonthStart, selectedMonth, user, isUnlocked]);
+  }, [household?.id, financialMonthStart, selectedMonth, user?.id, isUnlocked]);
 
   useEffect(() => {
     if (!householdLoading && household?.id) {
       fetchData();
     }
-  }, [householdLoading, fetchData, location.key]); // location.key changes on each navigation
+  }, [householdLoading, household?.id, fetchData]);
 
   // Smart Defaults backend call removed — the service was disabled during
   // the encryption migration and never restored. Client-side carry-forward
@@ -351,77 +352,6 @@ const Income = () => {
     setSaving(false);
   }, [household, user, incomeSources, financialMonthStart, toast, encryptIncome]);
 
-  const handleAddOneTime = async (data: {
-    name: string;
-    amount: string;
-    notes: string;
-    isShared: boolean;
-    coParentId: string;
-    sharePercentage: string;
-  }) => {
-    if (!household || !user || !data.name || !data.amount) {
-      toast({
-        title: "Error",
-        description: "Name and amount are required",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setSaving(true);
-
-    const { error } = await supabase
-      .from("monthly_incomes")
-      .insert({
-        household_id: household.id,
-        month: currentMonth,
-        amount: parseFloat(data.amount),
-        one_time_name: data.name,
-        notes: data.notes || null,
-        is_shared: data.isShared,
-        co_parent_id: data.isShared ? data.coParentId : null,
-        share_percentage: data.isShared ? parseFloat(data.sharePercentage) : 50,
-        created_by: user.id,
-        income_source_id: null,
-      } as any);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to add one-time income",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "One-time income added",
-      });
-      fetchData();
-    }
-    setSaving(false);
-  };
-
-  const handleDeleteOneTime = async (id: string) => {
-    const { error } = await supabase
-      .from("monthly_incomes")
-      .delete()
-      .eq("id", id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete one-time income",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Success",
-        description: "One-time income deleted",
-      });
-      fetchData();
-    }
-  };
-
   const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0);
   const currencyCode = household?.currency || "SEK";
   const activeSourceCount = incomeSources.filter(s => {
@@ -433,6 +363,7 @@ const Income = () => {
   // Header — month nav hidden when there's no data to navigate (locked state).
   const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
   const monthLabel = format(monthEndDate, "MMM yyyy");
+  const atEarliestMonth = !!earliestDataMonth && selectedMonth <= earliestDataMonth;
   const renderHeader = (showMonthNav: boolean, isLoading = false) => (
     <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Income</h1>
@@ -448,7 +379,7 @@ const Income = () => {
             variant="ghost"
             size="icon"
             className="h-9 w-9"
-            disabled={!showMonthNav}
+            disabled={!showMonthNav || atEarliestMonth}
             onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
             aria-label="Previous month"
           >
@@ -666,7 +597,7 @@ const Income = () => {
             id: editingSource.id,
             category: editingSource.category,
             name: editingSource.name,
-            owner_id: editingSource.created_by ?? editingSource.owner_id,
+            owner_id: editingSource.owner_id,
             default_amount: editingSource.default_amount,
             is_shared: editingSource.is_shared,
             co_parent_id: editingSource.co_parent_id,

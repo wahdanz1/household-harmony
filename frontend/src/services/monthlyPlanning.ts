@@ -135,7 +135,6 @@ async function readBestAmount(row: any, decrypt: DecryptFn): Promise<number | nu
     const candidates = [
         row.encrypted_actual_amount,
         row.encrypted_budget_amount,
-        row.encrypted_amount,
     ];
 
     for (const ciphertext of candidates) {
