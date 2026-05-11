@@ -20,7 +20,7 @@ import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashbo
 import { HouseholdSetupWizard } from "@/components/dashboard/HouseholdSetupWizard";
 import {
   HandCoins, Wallet, Repeat, Shield, ClipboardCheck,
-  ChevronRight, ChevronLeft, Users, Sparkles, CalendarPlus, Loader2,
+  ChevronRight, ChevronLeft, Users, Sparkles, CalendarPlus, Loader2, Zap,
 } from "lucide-react";
 import { planMonth } from "@/services/monthlyPlanning";
 import { toast } from "sonner";
@@ -42,9 +42,9 @@ import { useEarliestDataMonth } from "@/hooks/useEarliestDataMonth";
 
 interface ActivityItem {
   id: string;
-  kind: "shared" | "one_time_income";
+  kind: "shared" | "one_time_income" | "one_time_expense";
   name: string;
-  amount: number; // signed: negative = outflow (shared expense), positive = inflow (income)
+  amount: number; // signed: negative = outflow, positive = inflow
   when: Date;
 }
 
@@ -296,6 +296,15 @@ const Dashboard = () => {
             kind: "one_time_income" as const,
             name: m.one_time_name,
             amount: parseFloat(m.amount) || 0,
+            when: new Date(m.created_at),
+          })),
+        ...decryptedExpenses
+          .filter((m: any) => m.expense_id == null && m.one_time_name)
+          .map((m: any) => ({
+            id: m.id,
+            kind: "one_time_expense" as const,
+            name: m.one_time_name,
+            amount: -(parseFloat(m.amount) || 0),
             when: new Date(m.created_at),
           })),
       ]
@@ -616,6 +625,8 @@ const Dashboard = () => {
                     <div className="w-9 h-9 rounded-lg bg-surface-2 flex items-center justify-center text-ink-2 shrink-0">
                       {item.kind === "shared" ? (
                         <Users className="h-4 w-4" />
+                      ) : item.kind === "one_time_expense" ? (
+                        <Zap className="h-4 w-4" />
                       ) : (
                         <Sparkles className="h-4 w-4" />
                       )}
@@ -623,7 +634,9 @@ const Dashboard = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-ink truncate">{item.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {item.kind === "shared" ? "Shared expense" : "One-time income"}
+                        {item.kind === "shared" ? "Shared expense"
+                          : item.kind === "one_time_expense" ? "One-off expense"
+                          : "One-off income"}
                         {" · "}
                         {formatRelative(item.when)}
                       </p>

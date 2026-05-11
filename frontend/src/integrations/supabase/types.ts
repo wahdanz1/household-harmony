@@ -653,7 +653,7 @@ export type Database = {
           electricity_market: number | null
           encrypted_actual_amount: string | null
           encrypted_budget_amount: string | null
-          expense_id: string
+          expense_id: string | null
           household_id: string
           id: string
           is_encrypted: boolean | null
@@ -661,6 +661,8 @@ export type Database = {
           month_end: string | null
           month_start: string | null
           notes: string | null
+          one_time_category: string | null
+          one_time_name: string | null
           updated_at: string | null
         }
         Insert: {
@@ -670,7 +672,7 @@ export type Database = {
           electricity_market?: number | null
           encrypted_actual_amount?: string | null
           encrypted_budget_amount?: string | null
-          expense_id: string
+          expense_id?: string | null
           household_id: string
           id?: string
           is_encrypted?: boolean | null
@@ -678,6 +680,8 @@ export type Database = {
           month_end?: string | null
           month_start?: string | null
           notes?: string | null
+          one_time_category?: string | null
+          one_time_name?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -687,7 +691,7 @@ export type Database = {
           electricity_market?: number | null
           encrypted_actual_amount?: string | null
           encrypted_budget_amount?: string | null
-          expense_id?: string
+          expense_id?: string | null
           household_id?: string
           id?: string
           is_encrypted?: boolean | null
@@ -695,6 +699,8 @@ export type Database = {
           month_end?: string | null
           month_start?: string | null
           notes?: string | null
+          one_time_category?: string | null
+          one_time_name?: string | null
           updated_at?: string | null
         }
         Relationships: [

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box, Plus } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
+import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
 import { MoneyInput } from "@/components/ui/money-input";
 import { RowItem } from "@/components/ui/row-item";
@@ -203,7 +204,16 @@ export const ExpenseBlock = ({
                                 className={`group ${item.inactive ? "opacity-50" : ""}`}
                             >
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={32} />
+                                    {categoryType === 'subscription' ? (
+                                        <ServiceIcon
+                                            serviceName={item.name}
+                                            fallbackIcon={Icon || Sparkles}
+                                            fallbackHue={cat?.hue}
+                                            size={32}
+                                        />
+                                    ) : (
+                                        <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={32} />
+                                    )}
                                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                                         <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue
                                             ? 'text-ink'

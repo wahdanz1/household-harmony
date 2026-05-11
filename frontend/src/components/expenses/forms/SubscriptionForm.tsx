@@ -142,17 +142,33 @@ export const SubscriptionForm = ({
                             {usedCats.length > 0 && (
                                 <SelectGroup>
                                     <SelectLabel>Used in this household</SelectLabel>
-                                    {usedCats.map((cat) => (
-                                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                                    ))}
+                                    {usedCats.map((cat) => {
+                                        const Icon = cat.icon;
+                                        return (
+                                            <SelectItem key={cat.value} value={cat.value}>
+                                                <div className="flex items-center gap-2">
+                                                    {Icon && <Icon className="h-4 w-4" />}
+                                                    <span>{cat.label}</span>
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectGroup>
                             )}
                             {moreCats.length > 0 && (
                                 <SelectGroup>
                                     <SelectLabel>{usedCats.length > 0 ? "More categories" : "All categories"}</SelectLabel>
-                                    {moreCats.map((cat) => (
-                                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                                    ))}
+                                    {moreCats.map((cat) => {
+                                        const Icon = cat.icon;
+                                        return (
+                                            <SelectItem key={cat.value} value={cat.value}>
+                                                <div className="flex items-center gap-2">
+                                                    {Icon && <Icon className="h-4 w-4" />}
+                                                    <span>{cat.label}</span>
+                                                </div>
+                                            </SelectItem>
+                                        );
+                                    })}
                                 </SelectGroup>
                             )}
                         </SelectContent>
