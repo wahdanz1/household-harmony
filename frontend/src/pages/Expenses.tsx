@@ -185,39 +185,38 @@ const Expenses = () => {
       decrypt: decryptMonthlyExpenses,
     });
 
-    // Auto-create monthly_expenses records for categories that don't have them yet.
-    // Smart defaults: stable history → last month; variable → 3-month avg;
-    // no history → fall back to category default.
+    // Only seed missing rows for the current financial month. Past months
+    // stay read-only — viewing them shouldn't silently write rows.
     const missingRecords: any[] = [];
-    missingCategories.forEach((category: any) => {
-      if (!user) return;
-      const history = historyByCategory.get(category.id) ?? [];
-      const smart = computeSmartDefault(history);
-      const amount = smart.source != null
-        ? smart.value
-        : parseFloat((category.default_amount || "0").toString());
-      missingRecords.push({
-        expense_id: category.id,
-        household_id: household.id,
-        month: fetchMonth,
-        month_start: startStr,
-        month_end: endStr,
-        budget_amount: amount,
-        created_by: user.id,
+    const isCurrentMonth = fetchMonth === todayMonth;
+    if (isCurrentMonth) {
+      missingCategories.forEach((category: any) => {
+        if (!user) return;
+        const history = historyByCategory.get(category.id) ?? [];
+        const smart = computeSmartDefault(history);
+        const amount = smart.source != null
+          ? smart.value
+          : parseFloat((category.default_amount || "0").toString());
+        missingRecords.push({
+          expense_id: category.id,
+          household_id: household.id,
+          month: fetchMonth,
+          month_start: startStr,
+          month_end: endStr,
+          budget_amount: amount,
+          created_by: user.id,
+        });
       });
-    });
 
-    // Create missing records in batch if any (encrypted)
-    if (missingRecords.length > 0) {
-      const encryptedRecords = await Promise.all(
-        missingRecords.map(record => encryptExpense(record))
-      );
-      // Use upsert with ignoreDuplicates so concurrent fetchData runs (e.g.
-      // React strict-mode double effects, or rapid navigation) don't 409.
-      await supabase.from("monthly_expenses").upsert(encryptedRecords, {
-        onConflict: "expense_id,month",
-        ignoreDuplicates: true,
-      });
+      if (missingRecords.length > 0) {
+        const encryptedRecords = await Promise.all(
+          missingRecords.map(record => encryptExpense(record))
+        );
+        await supabase.from("monthly_expenses").upsert(encryptedRecords, {
+          onConflict: "expense_id,month",
+          ignoreDuplicates: true,
+        });
+      }
     }
 
     // Note: Don't set 'saved' status on initial load - only after actual user edits

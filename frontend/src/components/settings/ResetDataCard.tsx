@@ -29,15 +29,12 @@ const WIPED_TABLES = [
     "merchant_categories",
     "shared_expenses",
     "co_parent_settlements",
-    "savings_allocations",
-    "one_time_incomes",
     "temporary_expenses",
     "expenses",
     "income_sources",
     "subscriptions",
     "insurances",
     "credit_cards",
-    "savings_goals",
     "co_parents",
 ] as const;
 
@@ -54,26 +51,29 @@ export const ResetDataCard = ({ householdId, householdName, isOwner, onComplete 
     const handleReset = async () => {
         if (!canConfirm) return;
         setResetting(true);
-        try {
-            for (const table of WIPED_TABLES) {
-                const { error } = await (supabase as any)
-                    .from(table)
-                    .delete()
-                    .eq("household_id", householdId);
-                if (error) {
-                    console.error(`Failed to wipe ${table}:`, error);
-                    throw new Error(`Failed to wipe ${table}: ${error.message}`);
-                }
+        const failures: string[] = [];
+        for (const table of WIPED_TABLES) {
+            const { error } = await (supabase as any)
+                .from(table)
+                .delete()
+                .eq("household_id", householdId);
+            // Keep going if one table errors — partial wipes are worse than a
+            // best-effort full sweep with a clear failure report at the end.
+            if (error) {
+                console.error(`Failed to wipe ${table}:`, error);
+                failures.push(table);
             }
-            localStorage.removeItem(`hh_setup_done_${householdId}`);
-            toast.success("Financial data reset. Refreshing…");
-            setTimeout(() => {
-                window.location.reload();
-            }, 600);
-        } catch (err: any) {
-            toast.error(err.message || "Reset failed");
-            setResetting(false);
         }
+        if (failures.length > 0) {
+            toast.error(`Reset finished with errors on: ${failures.join(", ")}`);
+            setResetting(false);
+            return;
+        }
+        localStorage.removeItem(`hh_setup_done_${householdId}`);
+        toast.success("Financial data reset. Refreshing…");
+        setTimeout(() => {
+            window.location.reload();
+        }, 600);
     };
 
     return (

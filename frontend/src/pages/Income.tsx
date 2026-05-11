@@ -211,39 +211,38 @@ const Income = () => {
       decrypt: decryptIncomes,
     });
 
-    // Auto-create monthly_incomes records for sources that don't have them yet.
-    // Smart defaults: stable history → last month; variable → 3-month avg;
-    // no history → fall back to source default.
+    // Only seed missing rows for the current financial month. Past months
+    // stay read-only — viewing them shouldn't silently write rows.
     const missingRecords: any[] = [];
-    missingSources.forEach((source: any) => {
-      if (!user) return;
-      const history = historyBySource.get(source.id) ?? [];
-      const smart = computeSmartDefault(history);
-      const amount = smart.source != null
-        ? smart.value
-        : parseFloat((source.default_amount || "0").toString());
-      missingRecords.push({
-        income_source_id: source.id,
-        household_id: household.id,
-        month: fetchMonth,
-        month_start: startStr,
-        month_end: endStr,
-        budget_amount: amount,
-        created_by: user.id,
+    const isCurrentMonth = fetchMonth === todayMonth;
+    if (isCurrentMonth) {
+      missingSources.forEach((source: any) => {
+        if (!user) return;
+        const history = historyBySource.get(source.id) ?? [];
+        const smart = computeSmartDefault(history);
+        const amount = smart.source != null
+          ? smart.value
+          : parseFloat((source.default_amount || "0").toString());
+        missingRecords.push({
+          income_source_id: source.id,
+          household_id: household.id,
+          month: fetchMonth,
+          month_start: startStr,
+          month_end: endStr,
+          budget_amount: amount,
+          created_by: user.id,
+        });
       });
-    });
 
-    // Create missing records in batch if any (encrypted)
-    if (missingRecords.length > 0) {
-      const encryptedRecords = await Promise.all(
-        missingRecords.map(record => encryptIncome(record))
-      );
-      // Use upsert with ignoreDuplicates so concurrent fetchData runs (e.g.
-      // React strict-mode double effects, or rapid navigation) don't 409.
-      await supabase.from("monthly_incomes").upsert(encryptedRecords, {
-        onConflict: "income_source_id,month",
-        ignoreDuplicates: true,
-      });
+      if (missingRecords.length > 0) {
+        const encryptedRecords = await Promise.all(
+          missingRecords.map(record => encryptIncome(record))
+        );
+        await supabase.from("monthly_incomes").upsert(encryptedRecords, {
+          onConflict: "income_source_id,month",
+          ignoreDuplicates: true,
+        });
+      }
     }
 
     // Note: Don't set 'saved' status on initial load - only after actual user edits

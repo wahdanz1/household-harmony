@@ -51,12 +51,7 @@ interface EncryptionContextValue {
      */
     resetInactivityTimer: () => void;
 
-    /**
-     * Generate a code + DEK wrapping in memory. Does NOT persist yet —
-     * call `persistRecoveryCode` once the user confirms they've saved the
-     * plaintext code. Splitting it avoids the "user closes tab during
-     * setup modal" hole where the slot exists but they don't have the code.
-     */
+    // Two-step so persist happens only after the user has actually saved the code.
     prepareRecoveryCode: () => Promise<PreparedRecoverySlot | null>;
     persistRecoveryCode: (userId: string, slot: PreparedRecoverySlot) => Promise<boolean>;
     hasRecoveryCode: (userId: string) => Promise<boolean>;
@@ -357,7 +352,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
     const persistRecoveryCode = useCallback(async (userId: string, slot: PreparedRecoverySlot): Promise<boolean> => {
         try {
-            // Partial unique index can't drive ON CONFLICT — manual replace.
+            // Partial unique index can't drive ON CONFLICT, hence the delete+insert.
             await (supabase as any)
                 .from('user_vault_recovery_slots')
                 .delete()

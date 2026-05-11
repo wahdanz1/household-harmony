@@ -97,11 +97,12 @@ export async function exportDEK(dek: CryptoKey): Promise<ArrayBuffer> {
  * Import raw bytes as DEK
  */
 export async function importDEK(rawKey: ArrayBuffer): Promise<CryptoKey> {
+    // Extractable so the DEK can be re-wrapped under a new KEK (password change, recovery code).
     return crypto.subtle.importKey(
         'raw',
         rawKey,
         { name: 'AES-GCM', length: KEY_LENGTH },
-        false, // not extractable after import
+        true,
         ['encrypt', 'decrypt']
     );
 }
@@ -259,16 +260,12 @@ export async function reEncryptDEK(
     };
 }
 
-// ── Recovery code (BIP-39) ─────────────────────────────────────────────────
-
-/** 12-word BIP-39 phrase = 128 bits of entropy. */
 export async function generateRecoveryCode(): Promise<string> {
     const { generateMnemonic } = await import('@scure/bip39');
     const { wordlist } = await import('@scure/bip39/wordlists/english.js');
     return generateMnemonic(wordlist, 128);
 }
 
-/** Strip whitespace variations so the code matches regardless of input formatting. */
 export function normalizeRecoveryCode(code: string): string {
     return code.trim().toLowerCase().split(/\s+/).join(' ');
 }
@@ -279,7 +276,6 @@ export async function isValidRecoveryCode(code: string): Promise<boolean> {
     return validateMnemonic(normalizeRecoveryCode(code), wordlist);
 }
 
-/** Wrap a DEK with a key derived from a recovery code. Returns persistable fields. */
 export async function wrapDEKWithRecoveryCode(
     dek: CryptoKey,
     code: string
@@ -294,7 +290,6 @@ export async function wrapDEKWithRecoveryCode(
     };
 }
 
-/** Reverse of wrapDEKWithRecoveryCode — used by the password-recovery flow. */
 export async function unwrapDEKWithRecoveryCode(
     encryptedDEK: string,
     saltB64: string,

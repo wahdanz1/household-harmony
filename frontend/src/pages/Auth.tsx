@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { useToast } from "@/hooks/use-toast";
 import { JoinHouseholdWizard } from "@/components/JoinHouseholdWizard";
+import { RecoverPasswordDialog } from "@/components/auth/RecoverPasswordDialog";
 import { UserPlus, Sparkles, Loader2 } from "lucide-react";
 import { z } from "zod";
 import { PLACEHOLDERS } from "@/constants/ui";
@@ -43,6 +44,7 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [showRecoverDialog, setShowRecoverDialog] = useState(false);
   const [demoLoading, setDemoLoading] = useState(false);
   const [demoLoadingMessage, setDemoLoadingMessage] = useState("");
 
@@ -308,7 +310,16 @@ const Auth = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-baseline justify-between">
+                <Label htmlFor="password">Password</Label>
+                <button
+                  type="button"
+                  onClick={() => setShowRecoverDialog(true)}
+                  className="text-xs font-medium text-accent-dk hover:underline focus:outline-none focus-visible:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -425,6 +436,29 @@ const Auth = () => {
       </Card>
 
       <JoinHouseholdWizard open={showJoinDialog} onOpenChange={setShowJoinDialog} />
+
+      <RecoverPasswordDialog
+        open={showRecoverDialog}
+        onOpenChange={setShowRecoverDialog}
+        defaultEmail={email}
+        onRecovered={async (recoveredEmail, newPassword) => {
+          setIsLoading(true);
+          try {
+            const { error, data } = await signIn(recoveredEmail, newPassword);
+            if (error || !data?.user) {
+              toast({ title: "Sign-in failed", description: error?.message ?? "Try logging in manually.", variant: "destructive" });
+              return;
+            }
+            const unlocked = await unlockWithPassword(newPassword, data.user.id);
+            if (!unlocked) {
+              console.warn("Vault unlock failed after recovery — user may need to re-enter credentials");
+            }
+            navigate("/");
+          } finally {
+            setIsLoading(false);
+          }
+        }}
+      />
     </div>
   );
 };

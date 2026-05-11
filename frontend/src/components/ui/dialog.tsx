@@ -44,19 +44,15 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        // Positioning — mobile bottom-anchored, desktop centered
         "fixed z-50 flex flex-col",
-        "bottom-0 left-0 right-0", // mobile defaults
-        "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
-        // Sizing
+        "left-0 right-0 bottom-[var(--vv-inset,0px)]",
+        "sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:bottom-auto",
         "w-full max-h-[88dvh]",
         "sm:w-[calc(100%-3rem)] sm:max-w-lg sm:max-h-[80dvh]",
-        // Shape
         "rounded-t-[24px] sm:rounded-[20px]",
         "border border-line bg-surface shadow-xl",
-        // Spacing
         "p-4 sm:p-6 gap-4 overflow-y-auto",
-        // Animation
+        "transition-[bottom] duration-150 ease-out sm:transition-none",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
