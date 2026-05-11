@@ -731,6 +731,7 @@ export type Database = {
           month_end: string | null
           month_start: string | null
           notes: string | null
+          one_time_category: string | null
           one_time_name: string | null
           share_percentage: number
           updated_at: string | null
@@ -751,6 +752,7 @@ export type Database = {
           month_end?: string | null
           month_start?: string | null
           notes?: string | null
+          one_time_category?: string | null
           one_time_name?: string | null
           share_percentage?: number
           updated_at?: string | null
@@ -771,6 +773,7 @@ export type Database = {
           month_end?: string | null
           month_start?: string | null
           notes?: string | null
+          one_time_category?: string | null
           one_time_name?: string | null
           share_percentage?: number
           updated_at?: string | null

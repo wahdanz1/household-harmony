@@ -1,26 +1,20 @@
 import { useState } from "react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Gift, Plus } from "lucide-react";
+import { Gift } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
-import { useEncryptedFields } from "@/hooks/useEncryptedFields";
-import { getCurrentFinancialMonth } from "@/utils/dateUtils";
+import { useEncryptedFields, monthlyIncomeFields } from "@/hooks/useEncryptedFields";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 
-// Field config for one-time income encryption
-const oneTimeIncomeFields = [
-    { original: 'source', encrypted: 'encrypted_source' },
-    { original: 'amount', encrypted: 'encrypted_amount' },
-    { original: 'description', encrypted: 'encrypted_description' },
-];
-
-const incomeCategories = [
+const oneTimeCategories = [
     { value: "gift", label: "Gift Money" },
     { value: "lottery", label: "Lottery/Winnings" },
     { value: "tax_refund", label: "Tax Refund" },
@@ -39,46 +33,44 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
     const { user } = useAuth();
     const { financialMonthStart } = useHousehold();
     const { toast } = useToast();
-    const { encryptRecord } = useEncryptedFields(oneTimeIncomeFields);
+    const { encryptRecord } = useEncryptedFields(monthlyIncomeFields);
     const [isOpen, setIsOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState({
-        source: "",
+        name: "",
         category: "gift",
         amount: "",
         description: "",
     });
 
-    const currentMonth = getCurrentFinancialMonth(financialMonthStart);
-
     const resetForm = () => {
-        setFormData({
-            source: "",
-            category: "gift",
-            amount: "",
-            description: "",
-        });
+        setFormData({ name: "", category: "gift", amount: "", description: "" });
     };
 
     const handleSave = async () => {
         if (!user) return;
-
         setSaving(true);
+
+        const currentMonth = getCurrentFinancialMonth(financialMonthStart);
+        const { start, end } = getFinancialMonthRange(currentMonth, financialMonthStart);
+        const categoryLabel = oneTimeCategories.find(c => c.value === formData.category)?.label
+            ?? "One-time income";
 
         const baseData = {
             household_id: householdId,
+            income_source_id: null,
             month: currentMonth,
-            source: formData.source || incomeCategories.find(c => c.value === formData.category)?.label || "One-time income",
-            category: formData.category, // Save category to database (new enum field)
+            month_start: format(start, "yyyy-MM-dd"),
+            month_end: format(end, "yyyy-MM-dd"),
+            one_time_name: formData.name.trim() || categoryLabel,
+            one_time_category: formData.category,
             amount: parseFloat(formData.amount),
-            description: formData.description || null,
+            notes: formData.description.trim() || null,
             created_by: user.id,
         };
 
-        // Encrypt sensitive fields
         const data = await encryptRecord(baseData);
-
-        const { error } = await supabase.from("one_time_incomes" as any).insert(data);
+        const { error } = await supabase.from("monthly_incomes").insert(data as any);
 
         setSaving(false);
 
@@ -89,10 +81,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
                 variant: "destructive",
             });
         } else {
-            toast({
-                title: "Success",
-                description: "One-time income added",
-            });
+            toast({ title: "Success", description: "One-time income added" });
             resetForm();
             setIsOpen(false);
             onSuccess();
@@ -100,10 +89,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => {
-            setIsOpen(open);
-            if (!open) resetForm();
-        }}>
+        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
                 <Button variant="outline" size="lg" className="w-full justify-center gap-2">
                     <Gift className="h-4 w-4" />
@@ -125,7 +111,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {incomeCategories.map((cat) => (
+                                {oneTimeCategories.map((cat) => (
                                     <SelectItem key={cat.value} value={cat.value}>
                                         {cat.label}
                                     </SelectItem>
@@ -135,10 +121,10 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Source (Optional)</Label>
+                        <Label>Name (Optional)</Label>
                         <Input
-                            value={formData.source}
-                            onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             placeholder="e.g., Christmas gift from parents"
                         />
                     </div>
