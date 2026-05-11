@@ -202,7 +202,7 @@ export const MonthlyReviewWizard = ({
             const amount = resolveAmount(monthlyRecord, incomeCarry.get(source.id), source.default_amount);
             return {
                 id: monthlyRecord?.id || `new-${source.id}`,
-                name: source.name,
+                name: source.name || source.provider,
                 amount,
                 defaultAmount: source.default_amount ?? 0,
                 source_id: source.id,
