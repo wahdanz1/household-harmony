@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Gift } from "lucide-react";
+import { Gift, Ticket, Receipt, Star, Tag, Crown, MoreHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -15,13 +15,13 @@ import { useEncryptedFields, monthlyIncomeFields } from "@/hooks/useEncryptedFie
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 
 const oneTimeCategories = [
-    { value: "gift", label: "Gift Money" },
-    { value: "lottery", label: "Lottery/Winnings" },
-    { value: "tax_refund", label: "Tax Refund" },
-    { value: "bonus", label: "Bonus Payment" },
-    { value: "sale", label: "Sale of Items" },
-    { value: "inheritance", label: "Inheritance" },
-    { value: "other", label: "Other" },
+    { value: "gift", label: "Gift Money", icon: Gift },
+    { value: "lottery", label: "Lottery/Winnings", icon: Ticket },
+    { value: "tax_refund", label: "Tax Refund", icon: Receipt },
+    { value: "bonus", label: "Bonus Payment", icon: Star },
+    { value: "sale", label: "Sale of Items", icon: Tag },
+    { value: "inheritance", label: "Inheritance", icon: Crown },
+    { value: "other", label: "Other", icon: MoreHorizontal },
 ];
 
 interface OneTimeIncomeDialogProps {
@@ -98,9 +98,9 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Add One-Time Income</DialogTitle>
+                    <DialogTitle>Add one-off income</DialogTitle>
                     <DialogDescription>
-                        Record a one-time income like gift money, lottery winnings, or tax refund
+                        A one-time inflow outside your regular sources — gift, refund, bonus, sale, etc.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -111,11 +111,17 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {oneTimeCategories.map((cat) => (
-                                    <SelectItem key={cat.value} value={cat.value}>
-                                        {cat.label}
-                                    </SelectItem>
-                                ))}
+                                {oneTimeCategories.map((cat) => {
+                                    const Icon = cat.icon;
+                                    return (
+                                        <SelectItem key={cat.value} value={cat.value}>
+                                            <div className="flex items-center gap-2">
+                                                <Icon className="h-4 w-4" />
+                                                <span>{cat.label}</span>
+                                            </div>
+                                        </SelectItem>
+                                    );
+                                })}
                             </SelectContent>
                         </Select>
                     </div>
