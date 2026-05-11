@@ -4,8 +4,8 @@ import { NavLink } from "./NavLink";
 const MobileNav = () => {
   const navItems = [
     { icon: Home, label: "Overview", path: "/" },
-    { icon: Wallet, label: "Expenses", path: "/expenses" },
     { icon: HandCoins, label: "Income", path: "/income" },
+    { icon: Wallet, label: "Expenses", path: "/expenses" },
     { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
