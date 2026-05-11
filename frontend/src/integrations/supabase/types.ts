@@ -1197,30 +1197,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      calculate_expense_average: {
-        Args: {
-          p_household_id: string
-          p_months?: number
-          p_regular_expense_id: string
-        }
-        Returns: number
-      }
-      calculate_income_average: {
-        Args: {
-          p_household_id: string
-          p_income_source_id: string
-          p_months?: number
-        }
-        Returns: number
-      }
-      get_latest_expense_amount: {
-        Args: { p_household_id: string; p_regular_expense_id: string }
-        Returns: number
-      }
-      get_latest_income_amount: {
-        Args: { p_household_id: string; p_income_source_id: string }
-        Returns: number
-      }
       get_user_household_id: { Args: { _user_id: string }; Returns: string }
       is_email_whitelisted: { Args: { email_in: string }; Returns: boolean }
       is_household_member: {
