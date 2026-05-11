@@ -386,7 +386,7 @@ export type Database = {
       households: {
         Row: {
           created_at: string
-          created_by: string
+          owner_id: string
           currency: string
           custom_month_start_day: number | null
           enable_credit_cards: boolean | null
@@ -398,7 +398,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
+          owner_id: string
           currency?: string
           custom_month_start_day?: number | null
           enable_credit_cards?: boolean | null
@@ -410,7 +410,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
+          owner_id?: string
           currency?: string
           custom_month_start_day?: number | null
           enable_credit_cards?: boolean | null
@@ -423,7 +423,7 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "households_owner_id_fkey"
-            columns: ["created_by"]
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -435,7 +435,7 @@ export type Database = {
           category: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id: string | null
           created_at: string
-          created_by: string
+          owner_id: string
           custom_tax_rate: number | null
           encrypted_default_amount: string | null
           encrypted_name: string | null
@@ -452,7 +452,7 @@ export type Database = {
           category: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id?: string | null
           created_at?: string
-          created_by: string
+          owner_id: string
           custom_tax_rate?: number | null
           encrypted_default_amount?: string | null
           encrypted_name?: string | null
@@ -469,7 +469,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id?: string | null
           created_at?: string
-          created_by?: string
+          owner_id?: string
           custom_tax_rate?: number | null
           encrypted_default_amount?: string | null
           encrypted_name?: string | null
@@ -499,7 +499,7 @@ export type Database = {
           },
           {
             foreignKeyName: "income_sources_owner_id_fkey"
-            columns: ["created_by"]
+            columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

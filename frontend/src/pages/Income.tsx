@@ -597,7 +597,7 @@ const Income = () => {
             id: editingSource.id,
             category: editingSource.category,
             name: editingSource.name,
-            owner_id: editingSource.created_by ?? editingSource.owner_id,
+            owner_id: editingSource.owner_id,
             default_amount: editingSource.default_amount,
             is_shared: editingSource.is_shared,
             co_parent_id: editingSource.co_parent_id,
