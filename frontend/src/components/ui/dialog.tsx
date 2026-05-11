@@ -43,6 +43,7 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      onOpenAutoFocus={(e) => e.preventDefault()}
       className={cn(
         "fixed z-50 flex flex-col",
         "left-0 right-0 bottom-[var(--vv-inset,0px)]",
