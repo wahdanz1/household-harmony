@@ -37,8 +37,9 @@ interface InitialValues {
     provider?: string | null;
     category?: string;
     total_amount?: number | string;
-    payment_frequency?: string;
-    invoice_month?: number | string | null;
+    billing_cycle?: string;
+    billing_month?: number | string | null;
+    billing_day?: number | string | null;
     notes?: string | null;
     is_active?: boolean;
     is_shared?: boolean;
@@ -62,8 +63,9 @@ const blank = (): InitialValues => ({
     provider: "",
     category: "home",
     total_amount: "",
-    payment_frequency: "yearly",
-    invoice_month: "",
+    billing_cycle: "yearly",
+    billing_month: "",
+    billing_day: "",
     notes: "",
     is_active: true,
     is_shared: false,
@@ -98,7 +100,7 @@ export const InsuranceForm = ({
     }, [initialValues, editingId]);
 
     const isEditing = !!editingId;
-    const isRecurringNonMonthly = formData.payment_frequency && formData.payment_frequency !== "monthly";
+    const isRecurringNonMonthly = formData.billing_cycle && formData.billing_cycle !== "monthly";
     const canSave = !!String(formData.total_amount ?? "").trim()
         && (parseFloat(String(formData.total_amount)) || 0) > 0;
 
@@ -117,9 +119,12 @@ export const InsuranceForm = ({
                 provider: formData.provider || null,
                 category: formData.category ?? "home",
                 total_amount: parseFloat(String(formData.total_amount ?? 0)),
-                payment_frequency: formData.payment_frequency ?? "yearly",
-                invoice_month: formData.invoice_month && String(formData.invoice_month) !== "0" && String(formData.invoice_month) !== ""
-                    ? parseInt(String(formData.invoice_month))
+                billing_cycle: formData.billing_cycle ?? "yearly",
+                billing_month: formData.billing_month && String(formData.billing_month) !== "0" && String(formData.billing_month) !== ""
+                    ? parseInt(String(formData.billing_month))
+                    : null,
+                billing_day: formData.billing_day && String(formData.billing_day) !== "0" && String(formData.billing_day) !== ""
+                    ? parseInt(String(formData.billing_day))
                     : null,
                 notes: formData.notes || null,
                 is_active: formData.is_active ?? true,
@@ -193,10 +198,10 @@ export const InsuranceForm = ({
                         placeholder="0"
                     />
                 </FormField>
-                <FormField label="Payment frequency">
+                <FormField label="Billing cycle">
                     <Select
-                        value={formData.payment_frequency}
-                        onValueChange={(v) => setFormData({ ...formData, payment_frequency: v })}
+                        value={formData.billing_cycle}
+                        onValueChange={(v) => setFormData({ ...formData, billing_cycle: v })}
                     >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -209,25 +214,43 @@ export const InsuranceForm = ({
                 </FormField>
             </FormRow>
 
+            {isRecurringNonMonthly && (
+                <>
+                    <FormRow>
+                        <FormField label="Billing month" optional>
+                            <Select
+                                value={String(formData.billing_month ?? "")}
+                                onValueChange={(v) => setFormData({ ...formData, billing_month: v })}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Select month" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="0">Not set</SelectItem>
+                                    {monthNames.map((month, index) => (
+                                        <SelectItem key={index + 1} value={(index + 1).toString()}>
+                                            {month}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </FormField>
+                        <FormField label="Billing day" optional>
+                            <Input
+                                type="number"
+                                min="1"
+                                max="31"
+                                value={String(formData.billing_day ?? "")}
+                                onChange={(e) => setFormData({ ...formData, billing_day: e.target.value })}
+                                placeholder="Day of month"
+                            />
+                        </FormField>
+                    </FormRow>
+                    <p className="text-xs text-muted-foreground -mt-1">
+                        Set a billing date to get a heads-up when it's due.
+                    </p>
+                </>
+            )}
+
             <FormRow>
-                {isRecurringNonMonthly && (
-                    <FormField label="Invoice month" optional>
-                        <Select
-                            value={String(formData.invoice_month ?? "")}
-                            onValueChange={(v) => setFormData({ ...formData, invoice_month: v })}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Select month" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="0">Not set</SelectItem>
-                                {monthNames.map((month, index) => (
-                                    <SelectItem key={index + 1} value={(index + 1).toString()}>
-                                        {month}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </FormField>
-                )}
                 <SubjectPicker
                     householdId={householdId}
                     value={formData.subject_id}

@@ -514,12 +514,13 @@ export type Database = {
           encrypted_total_amount: string | null
           household_id: string
           id: string
-          invoice_month: number | null
+          billing_month: number | null
+          billing_day: number | null
           is_active: boolean
           is_encrypted: boolean | null
           is_shared: boolean
           notes: string | null
-          payment_frequency: string
+          billing_cycle: Database["public"]["Enums"]["billing_cycle_enum"]
           share_percentage: number
           subject_id: string | null
           updated_at: string
@@ -534,12 +535,13 @@ export type Database = {
           encrypted_total_amount?: string | null
           household_id: string
           id?: string
-          invoice_month?: number | null
+          billing_month?: number | null
+          billing_day?: number | null
           is_active?: boolean
           is_encrypted?: boolean | null
           is_shared?: boolean
           notes?: string | null
-          payment_frequency?: string
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           share_percentage?: number
           subject_id?: string | null
           updated_at?: string
@@ -554,12 +556,13 @@ export type Database = {
           encrypted_total_amount?: string | null
           household_id?: string
           id?: string
-          invoice_month?: number | null
+          billing_month?: number | null
+          billing_day?: number | null
           is_active?: boolean
           is_encrypted?: boolean | null
           is_shared?: boolean
           notes?: string | null
-          payment_frequency?: string
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           share_percentage?: number
           subject_id?: string | null
           updated_at?: string
@@ -981,7 +984,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
-          billing_cycle: string
+          billing_cycle: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day: number | null
           billing_month: number | null
           category: Database["public"]["Enums"]["subscription_category_enum"]
@@ -998,7 +1001,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          billing_cycle?: string
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day?: number | null
           billing_month?: number | null
           category: Database["public"]["Enums"]["subscription_category_enum"]
@@ -1015,7 +1018,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          billing_cycle?: string
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day?: number | null
           billing_month?: number | null
           category?: Database["public"]["Enums"]["subscription_category_enum"]
@@ -1232,6 +1235,7 @@ export type Database = {
       redeem_invite: { Args: { invite_code_in: string }; Returns: Json }
     }
     Enums: {
+      billing_cycle_enum: "monthly" | "quarterly" | "semi_annually" | "yearly"
       expense_category_enum:
         | "rent"
         | "internet"
@@ -1428,6 +1432,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      billing_cycle_enum: ["monthly", "quarterly", "semi_annually", "yearly"],
       expense_category_enum: [
         "rent",
         "internet",

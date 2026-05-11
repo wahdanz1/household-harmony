@@ -416,9 +416,9 @@ const Expenses = () => {
     .filter((ins) => ins.is_active)
     .reduce((sum, ins) => {
       let monthlyAmount = 0;
-      if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
-      else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
-      else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
+      if (ins.billing_cycle === "yearly") monthlyAmount = ins.total_amount / 12;
+      else if (ins.billing_cycle === "semi_annually") monthlyAmount = ins.total_amount / 6;
+      else if (ins.billing_cycle === "quarterly") monthlyAmount = ins.total_amount / 3;
       else monthlyAmount = ins.total_amount;
 
       if (ins.is_shared) {
@@ -647,11 +647,10 @@ const Expenses = () => {
               };
             })}
             insurances={[...insurances].sort((a, b) => (b.total_amount ?? 0) - (a.total_amount ?? 0)).map(ins => {
-              // Calculate monthly cost from total_amount and payment_frequency
               let monthlyAmount = 0;
-              if (ins.payment_frequency === "yearly") monthlyAmount = ins.total_amount / 12;
-              else if (ins.payment_frequency === "semi_annually") monthlyAmount = ins.total_amount / 6;
-              else if (ins.payment_frequency === "quarterly") monthlyAmount = ins.total_amount / 3;
+              if (ins.billing_cycle === "yearly") monthlyAmount = ins.total_amount / 12;
+              else if (ins.billing_cycle === "semi_annually") monthlyAmount = ins.total_amount / 6;
+              else if (ins.billing_cycle === "quarterly") monthlyAmount = ins.total_amount / 3;
               else monthlyAmount = ins.total_amount;
 
               if (ins.is_shared) {
@@ -668,7 +667,7 @@ const Expenses = () => {
                 name: customName || fallbackName,
                 monthly_cost: monthlyAmount,
                 total_amount: ins.total_amount,
-                payment_frequency: ins.payment_frequency,
+                billing_cycle: ins.billing_cycle,
                 category: ins.category,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
                 inactive: ins.is_active === false,
@@ -840,8 +839,9 @@ const Expenses = () => {
             provider: editingInsurance.provider,
             category: editingInsurance.category,
             total_amount: editingInsurance.total_amount,
-            payment_frequency: editingInsurance.payment_frequency,
-            invoice_month: editingInsurance.invoice_month,
+            billing_cycle: editingInsurance.billing_cycle,
+            billing_month: editingInsurance.billing_month,
+            billing_day: editingInsurance.billing_day,
             notes: editingInsurance.notes,
             is_active: editingInsurance.is_active,
             is_shared: editingInsurance.is_shared,

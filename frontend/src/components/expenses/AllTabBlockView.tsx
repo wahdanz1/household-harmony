@@ -284,7 +284,7 @@ export const ExpenseBlock = ({
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
     subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean; subject?: { name: string; type: string }; inactive?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; payment_frequency: string; category?: string; subject?: { name: string; type: string }; inactive?: boolean }[];
+    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; billing_cycle: string; category?: string; subject?: { name: string; type: string }; inactive?: boolean }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
@@ -346,16 +346,14 @@ export const AllTabBlockView = ({
         };
     });
 
-    // Convert insurances to ExpenseItem format with display info
     const insuranceItems: ExpenseItem[] = insurances.map(ins => {
-        // Map payment_frequency to display label
-        const frequencyLabels: Record<string, string> = {
+        const cycleLabels: Record<string, string> = {
             'yearly': '/year',
             'semi_annually': '/6 mo',
             'quarterly': '/quarter',
             'monthly': '/month',
         };
-        const displayLabel = frequencyLabels[ins.payment_frequency] || '/year';
+        const displayLabel = cycleLabels[ins.billing_cycle] || '/year';
 
         return {
             id: ins.id,
