@@ -173,13 +173,6 @@ const Auth = () => {
         if (!vaultUnlocked) {
           console.warn("Failed to unlock encryption vault - user may have legacy unencrypted data");
         }
-
-        toast({
-          title: "Welcome back!",
-          description: vaultUnlocked
-            ? "Vault unlocked. Your data is protected."
-            : "You've successfully logged in.",
-        });
         navigate("/");
       }
     } catch (error) {
