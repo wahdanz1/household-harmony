@@ -1162,6 +1162,42 @@ export type Database = {
           },
         ]
       }
+      user_vault_recovery_slots: {
+        Row: {
+          id: string
+          user_id: string
+          slot_type: string
+          encrypted_dek: string
+          salt: string | null
+          iv: string
+          label: string | null
+          granted_by_user_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          slot_type: string
+          encrypted_dek: string
+          salt?: string | null
+          iv: string
+          label?: string | null
+          granted_by_user_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          slot_type?: string
+          encrypted_dek?: string
+          salt?: string | null
+          iv?: string
+          label?: string | null
+          granted_by_user_id?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       user_vault_keys: {
         Row: {
           created_at: string

@@ -7,6 +7,7 @@ import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard
 import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
 import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
+import { RecoveryCodeCard } from "@/components/settings/RecoveryCodeCard";
 import { ResetDataCard } from "@/components/settings/ResetDataCard";
 import { SetupWizardCard } from "@/components/settings/SetupWizardCard";
 import { SubjectsCard } from "@/components/settings/SubjectsCard";
@@ -159,6 +160,7 @@ const Settings = () => {
 
         <TabsContent value="security" className="mt-5">
           <div className="space-y-5">
+            <RecoveryCodeCard />
             <ApiKeysCard />
           </div>
         </TabsContent>

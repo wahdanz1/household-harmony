@@ -5,6 +5,8 @@ import {
     createUserEncryptionKeys,
     unlockVault,
     reEncryptDEK,
+    generateRecoveryCode,
+    wrapDEKWithRecoveryCode,
 } from '@/services/encryption';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
@@ -48,6 +50,23 @@ interface EncryptionContextValue {
      * Reset inactivity timer (called on user activity).
      */
     resetInactivityTimer: () => void;
+
+    /**
+     * Generate a code + DEK wrapping in memory. Does NOT persist yet —
+     * call `persistRecoveryCode` once the user confirms they've saved the
+     * plaintext code. Splitting it avoids the "user closes tab during
+     * setup modal" hole where the slot exists but they don't have the code.
+     */
+    prepareRecoveryCode: () => Promise<PreparedRecoverySlot | null>;
+    persistRecoveryCode: (userId: string, slot: PreparedRecoverySlot) => Promise<boolean>;
+    hasRecoveryCode: (userId: string) => Promise<boolean>;
+}
+
+export interface PreparedRecoverySlot {
+    code: string;
+    encryptedDEK: string;
+    salt: string;
+    iv: string;
 }
 
 const EncryptionContext = createContext<EncryptionContextValue | null>(null);
@@ -321,6 +340,65 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         }
     }, []);
 
+    const prepareRecoveryCode = useCallback(async (): Promise<PreparedRecoverySlot | null> => {
+        if (!dekRef.current) {
+            console.warn('Cannot prepare recovery code: vault is locked');
+            return null;
+        }
+        try {
+            const code = await generateRecoveryCode();
+            const wrapped = await wrapDEKWithRecoveryCode(dekRef.current, code);
+            return { code, ...wrapped };
+        } catch (err) {
+            console.error('Failed to prepare recovery code:', err);
+            return null;
+        }
+    }, []);
+
+    const persistRecoveryCode = useCallback(async (userId: string, slot: PreparedRecoverySlot): Promise<boolean> => {
+        try {
+            // Partial unique index can't drive ON CONFLICT — manual replace.
+            await (supabase as any)
+                .from('user_vault_recovery_slots')
+                .delete()
+                .eq('user_id', userId)
+                .eq('slot_type', 'recovery_code');
+
+            const { error } = await (supabase as any)
+                .from('user_vault_recovery_slots')
+                .insert({
+                    user_id: userId,
+                    slot_type: 'recovery_code',
+                    encrypted_dek: slot.encryptedDEK,
+                    salt: slot.salt,
+                    iv: slot.iv,
+                    label: `Recovery code created ${new Date().toLocaleDateString()}`,
+                });
+            if (error) {
+                console.error('Failed to store recovery slot:', error);
+                return false;
+            }
+            return true;
+        } catch (err) {
+            console.error('Failed to persist recovery code:', err);
+            return false;
+        }
+    }, []);
+
+    const hasRecoveryCode = useCallback(async (userId: string): Promise<boolean> => {
+        const { data, error } = await (supabase as any)
+            .from('user_vault_recovery_slots')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('slot_type', 'recovery_code')
+            .maybeSingle();
+        if (error) {
+            console.error('Failed to check recovery slot:', error);
+            return false;
+        }
+        return !!data;
+    }, []);
+
     const value: EncryptionContextValue = {
         isUnlocked,
         isLoading,
@@ -331,6 +409,9 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         lockVault,
         changePassword,
         resetInactivityTimer,
+        prepareRecoveryCode,
+        persistRecoveryCode,
+        hasRecoveryCode,
     };
 
     // --- Developer Mode: Disable Auto-Lock ---
