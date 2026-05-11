@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import MobileNav from "./MobileNav";
 import DesktopNav from "./DesktopNav";
 import { DemoBanner } from "./shared/DemoBanner";
@@ -12,6 +12,22 @@ interface LayoutProps {
 }
 
 const Layout = ({ children }: LayoutProps) => {
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      const inset = Math.max(0, window.innerHeight - vv.height);
+      document.documentElement.style.setProperty("--vv-inset", `${inset}px`);
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen relative bg-bg">
       <DesktopNav />
