@@ -37,7 +37,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 # Imported after app creation to avoid circular imports.
-from app.routers import health, tax, smart_defaults, llm, api_keys, demo
+from app.routers import health, tax, smart_defaults, llm, api_keys, demo, auth_recovery
 
 app.include_router(health.router, tags=["health"])
 app.include_router(tax.router, prefix="/api/tax", tags=["tax"])
@@ -45,6 +45,7 @@ app.include_router(smart_defaults.router, prefix="/api/defaults", tags=["smart_d
 app.include_router(llm.router, prefix="/api/llm", tags=["llm"])
 app.include_router(api_keys.router, prefix="/api/api-keys", tags=["api_keys"])
 app.include_router(demo.router, prefix="/api/demo", tags=["demo"])
+app.include_router(auth_recovery.router, prefix="/api/auth", tags=["auth_recovery"])
 
 
 @app.get("/")
