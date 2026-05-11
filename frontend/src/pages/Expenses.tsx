@@ -638,7 +638,8 @@ const Expenses = () => {
               const subj = subjects.find(s => s.id === sub.subject_id);
               return {
                 ...sub,
-                category: sub.category, // Pass category for icon lookup
+                name: sub.name || sub.service,
+                category: sub.category,
                 total_amount: sub.amount,
                 isDue,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
@@ -803,6 +804,7 @@ const Expenses = () => {
           initialValues={editingSubscription ? {
             id: editingSubscription.id,
             name: editingSubscription.name,
+            service: editingSubscription.service,
             amount: editingSubscription.amount,
             billing_cycle: editingSubscription.billing_cycle,
             category: editingSubscription.category,

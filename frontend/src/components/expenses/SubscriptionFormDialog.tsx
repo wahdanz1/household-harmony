@@ -9,6 +9,7 @@ interface SubscriptionFormDialogProps {
     initialValues?: {
         id?: string;
         name?: string;
+        service?: string;
         amount?: number | string;
         billing_cycle?: string;
         category?: string;
