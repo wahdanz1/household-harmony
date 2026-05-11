@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { planMonth } from "@/services/monthlyPlanning";
 import { toast } from "sonner";
-import { DashboardSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { OverviewSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 import {
   useEncryptedFields,
   monthlyIncomeFields,
@@ -58,7 +58,7 @@ const formatRelative = (d: Date): string => {
   return format(d, "d MMM");
 };
 
-interface DashboardData {
+interface OverviewData {
   income: number;
   expenses: number;
   mandatoryOutflow: number;
@@ -84,7 +84,7 @@ const Dashboard = () => {
   const [householdHasSeedData, setHouseholdHasSeedData] = useState<boolean | null>(null);
   const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
-  const [data, setData] = useState<DashboardData>({
+  const [data, setData] = useState<OverviewData>({
     income: 0,
     expenses: 0,
     mandatoryOutflow: 0,
@@ -354,8 +354,8 @@ const Dashboard = () => {
   if (householdLoading || loading) {
     return (
       <div className="space-y-5">
-        <DashboardHeader monthLabel={monthLabel} hideMonthChip />
-        <DashboardSkeleton />
+        <OverviewHeader monthLabel={monthLabel} hideMonthChip />
+        <OverviewSkeleton />
       </div>
     );
   }
@@ -363,7 +363,7 @@ const Dashboard = () => {
   if (!isUnlocked) {
     return (
       <div className="space-y-5">
-        <DashboardHeader monthLabel={monthLabel} hideMonthChip />
+        <OverviewHeader monthLabel={monthLabel} hideMonthChip />
         <VaultLockedAlert />
       </div>
     );
@@ -412,7 +412,7 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-5">
-      <DashboardHeader
+      <OverviewHeader
         monthLabel={monthLabel}
         onPrev={atEarliestMonth ? undefined : () => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
         onNext={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
@@ -673,7 +673,7 @@ const Dashboard = () => {
   );
 };
 
-interface DashboardHeaderProps {
+interface OverviewHeaderProps {
   monthLabel: string;
   hideMonthChip?: boolean;
   onPrev?: () => void;
@@ -681,7 +681,7 @@ interface DashboardHeaderProps {
   onJumpToToday?: () => void;
 }
 
-const DashboardHeader = ({ monthLabel, hideMonthChip = false, onPrev, onNext, onJumpToToday }: DashboardHeaderProps) => (
+const OverviewHeader = ({ monthLabel, hideMonthChip = false, onPrev, onNext, onJumpToToday }: OverviewHeaderProps) => (
   <div className="flex items-center justify-between gap-4 min-h-9">
     <h1>Overview</h1>
     <div className={`flex items-center gap-1 ${hideMonthChip ? 'invisible' : ''}`}>

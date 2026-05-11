@@ -168,7 +168,7 @@ export const ExpensesPageSkeleton = () => (
     </>
 );
 
-export const DashboardSkeleton = () => (
+export const OverviewSkeleton = () => (
     <>
         <Card variant="flush">
             <div className="p-5 border-b border-line-2">
