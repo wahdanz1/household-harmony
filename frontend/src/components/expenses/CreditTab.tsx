@@ -67,7 +67,6 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
     const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
     // Credit expenses now use expenses table with is_credit=true (tracked via budgetedCredit)
     const [budgetedCredit, setBudgetedCredit] = useState<BudgetedCreditExpense[]>([]);
-    const [loading, setLoading] = useState(true);
     const [budgetExpanded, setBudgetExpanded] = useState(true);
     const [editedAmounts, setEditedAmounts] = useState<Record<string, string>>({});
     const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
@@ -149,8 +148,6 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
         } else {
             setBudgetedCredit([]);
         }
-
-        setLoading(false);
     };
 
     // Save a single expense amount
@@ -303,10 +300,6 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
             setParsing(false);
         }
     };
-
-    if (loading) {
-        return null;
-    }
 
     if (!isUnlocked) {
         return <VaultLockedAlert className="mt-6" />;
