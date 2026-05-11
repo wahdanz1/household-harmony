@@ -1,15 +1,15 @@
 ---
 name: skeleton-fidelity
-description: Use when building or fixing loading skeletons. Forces skeletons to mirror live element line-heights and structure so the swap from skeleton → real content causes zero layout shift.
+description: Use when building or fixing loading skeletons in React/Tailwind projects. Forces skeletons to mirror live element line-heights and structure so the swap from skeleton → real content causes zero layout shift.
 ---
 
 # Skeleton fidelity
 
-A skeleton's only job is to be **the same height** as the content that replaces it. Get that right and there is no flash, no jump, no domino-of-drift down the page.
+**The rule:** match the **line-height** of the live element, not its font-size. Get that right and there's no flash, no jump, no cascading drift down the page.
 
-## The rule
+A skeleton's only job is to be the same height as the content that replaces it.
 
-Match the **line-height** of the live element, not its font-size.
+## Line-height lookup (Tailwind)
 
 In Tailwind, every `text-N` utility sets both `font-size` and `line-height`. Skeleton heights must equal that line-height (not the font-size). Use `h-N` mapped from the line-height column:
 
@@ -26,15 +26,15 @@ In Tailwind, every `text-N` utility sets both `font-size` and `line-height`. Ske
 
 Custom `leading-N` overrides this. Always check.
 
-## Check the cascade
+## Check the cascade before sizing
 
-Base styles in [index.css](frontend/src/index.css) override defaults. Right now:
+Before sizing the skeleton, check whether the project's base stylesheet overrides line-height for the element you're matching. Common footguns:
 
-- `p { @apply leading-7 text-sm; }` — an unsized `<p>` is **28px tall**, not 20px
-- `h3 { @apply text-xl ...; }` — h3 is `h-7`
-- `h1 { ... leading-none ...; }` — h1 collapses line-height to font-size
+- `p` often gets a custom `leading-*` rule — an unsized `<p>` may not be `h-5`
+- `h1`, `h2`, `h3` typically have their own type-scale rules in base styles
+- `h1` with `leading-none` collapses line-height to font-size — different math entirely
 
-If the live element has no explicit `text-N` class, walk back to the base stylesheet and use *that* line-height. A frequent footgun: `<p className="font-medium">` looks unstyled but is `h-7` because of base `p { leading-7 }`.
+A frequent trap: `<p className="font-medium">` looks unstyled but its height is dictated by the base `p` rule, not the default `text-base`. If the live element has no explicit `text-N` class, walk back to the base stylesheet (`index.css`, `globals.css`, or equivalent) and use *that* line-height.
 
 ## Mirror the structure
 
