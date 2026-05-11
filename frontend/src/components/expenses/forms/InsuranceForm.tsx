@@ -333,7 +333,6 @@ export const InsuranceForm = ({
                 saving={form.saving}
                 deleting={form.deleting}
                 canSave={canSave && form.isDirty}
-                onCancel={onCancel}
                 onSave={form.handleSave}
                 onRequestDelete={onDelete ? form.requestDelete : undefined}
                 showCreateAnother={showCreateAnother}

@@ -335,7 +335,6 @@ export const IncomeFormDialog = ({
                     saving={entityForm.saving}
                     deleting={entityForm.deleting}
                     canSave={canSave && entityForm.isDirty}
-                    onCancel={() => onOpenChange(false)}
                     onSave={entityForm.handleSave}
                     onRequestDelete={editingId ? entityForm.requestDelete : undefined}
                     createAnother={entityForm.createAnother}
