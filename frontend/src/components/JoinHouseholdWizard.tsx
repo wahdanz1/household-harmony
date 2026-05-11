@@ -9,7 +9,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Check, Users, ArrowRight, ArrowLeft } from "lucide-react";
 import { PLACEHOLDERS } from "@/constants/ui";
-import { isEmailAllowed } from "@/config/emailWhitelist";
 import { passwordSchema } from "@/config/passwordSchema";
 
 interface JoinHouseholdWizardProps {
@@ -127,15 +126,8 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        const isAllowed = await isEmailAllowed(email);
-        if (!isAllowed) {
-            toast({
-                title: "Access Restricted",
-                description: "This application is currently in private beta. Your email is not on the approved list.",
-                variant: "destructive",
-            });
-            return;
-        }
+        // Invite IS the authorization here — don't double-gate behind the
+        // whitelist that's meant for unsolicited signups.
 
         if (password !== confirmPassword) {
             toast({

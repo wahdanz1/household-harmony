@@ -59,29 +59,48 @@ export const SubjectPicker = ({
                 .eq("household_id", householdId)
                 .eq("type", "member");
 
+            const allMemberSubjects = (existing ?? []) as Array<{ id: string; name: string; user_id: string | null }>;
             const existingByUser = new Map<string, { id: string; name: string }>();
-            for (const s of (existing ?? []) as Array<{ id: string; name: string; user_id: string | null }>) {
-                if (s.user_id) existingByUser.set(s.user_id, { id: s.id, name: s.name });
+            const orphansByName = new Map<string, { id: string; name: string }>();
+            for (const s of allMemberSubjects) {
+                if (s.user_id) {
+                    existingByUser.set(s.user_id, { id: s.id, name: s.name });
+                } else {
+                    orphansByName.set(s.name.trim().toLowerCase(), { id: s.id, name: s.name });
+                }
             }
 
             const toInsert: Array<{ household_id: string; user_id: string; name: string; type: "member"; sort_order: number }> = [];
+            const claims: Array<{ id: string; user_id: string; name: string }> = [];
             const renames: Array<{ id: string; name: string }> = [];
 
             for (const m of members as Array<{ user_id: string; profiles: any }>) {
                 const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
-                const name = p?.full_name || p?.email;
+                const name = (p?.full_name || p?.email || "").trim();
                 if (!name) continue;
                 const current = existingByUser.get(m.user_id);
-                if (!current) {
+                if (current) {
+                    if (current.name !== name) renames.push({ id: current.id, name });
+                    continue;
+                }
+                // No row for this user yet — claim a name-matching orphan if one exists,
+                // otherwise insert a fresh row.
+                const orphan = orphansByName.get(name.toLowerCase());
+                if (orphan) {
+                    claims.push({ id: orphan.id, user_id: m.user_id, name });
+                    orphansByName.delete(name.toLowerCase());
+                } else {
                     toInsert.push({ household_id: householdId, user_id: m.user_id, name, type: "member", sort_order: 0 });
-                } else if (current.name !== name) {
-                    renames.push({ id: current.id, name });
                 }
             }
 
             let changed = false;
             if (toInsert.length > 0) {
                 await supabase.from("subjects").insert(toInsert);
+                changed = true;
+            }
+            for (const c of claims) {
+                await supabase.from("subjects").update({ user_id: c.user_id, name: c.name }).eq("id", c.id);
                 changed = true;
             }
             for (const r of renames) {

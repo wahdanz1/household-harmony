@@ -10,6 +10,7 @@ import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import {
     useEncryptedFields,
     incomeSourceFields,
@@ -79,7 +80,9 @@ export const IncomeFormDialog = ({
     open, onOpenChange, mode, householdId, members, coParents = [],
     financialMonthStart, initialValues, onSuccess,
 }: IncomeFormDialogProps) => {
-    const defaultOwnerId = initialValues?.owner_id || members[0]?.user_id || "";
+    const { user } = useAuth();
+    // Default to the current user, not whoever happens to be members[0].
+    const defaultOwnerId = initialValues?.owner_id || user?.id || members[0]?.user_id || "";
     const [pristine, setPristine] = useState<InitialValues>(() => ({
         ...blankForm(defaultOwnerId),
         ...initialValues,
