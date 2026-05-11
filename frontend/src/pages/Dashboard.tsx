@@ -38,6 +38,7 @@ import { useEncryption } from "@/contexts/EncryptionContext";
 import { DemoEncryptionCard } from "@/components/demo/DemoEncryptionCard";
 import { isDemoMode } from "@/utils/demoMode";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
+import { useEarliestDataMonth } from "@/hooks/useEarliestDataMonth";
 
 interface ActivityItem {
   id: string;
@@ -101,6 +102,8 @@ const Dashboard = () => {
   const [reviewWizardOpen, setReviewWizardOpen] = useState(false);
 
   const { needsReview, markAsReviewed } = useMonthlyReviewStatus(household?.id, financialMonthStart);
+  const earliestDataMonth = useEarliestDataMonth(household?.id);
+  const atEarliestMonth = !!earliestDataMonth && selectedMonth <= earliestDataMonth;
 
   // Encryption hooks
   const { decryptRecords: decryptIncomes } = useEncryptedFields(monthlyIncomeFields);
@@ -411,7 +414,7 @@ const Dashboard = () => {
     <div className="space-y-5">
       <DashboardHeader
         monthLabel={monthLabel}
-        onPrev={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+        onPrev={atEarliestMonth ? undefined : () => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
         onNext={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
         onJumpToToday={isCurrentMonth ? undefined : () => setSelectedMonth(todayMonth)}
       />

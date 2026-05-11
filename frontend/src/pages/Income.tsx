@@ -33,11 +33,13 @@ import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/h
 
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
+import { useEarliestDataMonth } from "@/hooks/useEarliestDataMonth";
 
 const Income = () => {
   const { user } = useAuth();
   const { isUnlocked } = useEncryption();
   const { household, members, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
+  const earliestDataMonth = useEarliestDataMonth(household?.id);
   const { toast } = useToast();
   const [incomeSources, setIncomeSources] = useState<any[]>([]);
   const [monthlyIncomes, setMonthlyIncomes] = useState<any[]>([]);
@@ -432,6 +434,7 @@ const Income = () => {
   // Header — month nav hidden when there's no data to navigate (locked state).
   const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
   const monthLabel = format(monthEndDate, "MMM yyyy");
+  const atEarliestMonth = !!earliestDataMonth && selectedMonth <= earliestDataMonth;
   const renderHeader = (showMonthNav: boolean, isLoading = false) => (
     <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Income</h1>
@@ -447,7 +450,7 @@ const Income = () => {
             variant="ghost"
             size="icon"
             className="h-9 w-9"
-            disabled={!showMonthNav}
+            disabled={!showMonthNav || atEarliestMonth}
             onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
             aria-label="Previous month"
           >

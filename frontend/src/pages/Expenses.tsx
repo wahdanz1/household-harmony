@@ -35,12 +35,14 @@ import { ExpensesPageSkeleton } from "@/components/shared/skeletons/PageSkeleton
 import { Skeleton } from "@/components/ui/skeleton";
 import { MobileBottomBar, mobileBottomBarSpacer } from "@/components/shared/MobileBottomBar";
 import { useHouseholdSubjects } from "@/hooks/useHouseholdSubjects";
+import { useEarliestDataMonth } from "@/hooks/useEarliestDataMonth";
 
 const Expenses = () => {
   const { user } = useAuth();
   const { household, members, coParents } = useHousehold();
   const { isUnlocked } = useEncryption();
   const subjects = useHouseholdSubjects(household?.id);
+  const earliestDataMonth = useEarliestDataMonth(household?.id);
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
@@ -431,6 +433,7 @@ const Expenses = () => {
   // Header — month nav hidden when there's no data to navigate (locked state).
   const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
   const monthLabel = format(monthEndDate, "MMM yyyy");
+  const atEarliestMonth = !!earliestDataMonth && selectedMonth <= earliestDataMonth;
   const renderHeader = (showMonthNav: boolean, isLoading = false) => (
     <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Expenses</h1>
@@ -446,7 +449,7 @@ const Expenses = () => {
             variant="ghost"
             size="icon"
             className="h-9 w-9"
-            disabled={!showMonthNav}
+            disabled={!showMonthNav || atEarliestMonth}
             onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
             aria-label="Previous month"
           >
