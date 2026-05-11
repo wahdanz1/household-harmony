@@ -264,7 +264,7 @@ export async function reEncryptDEK(
 /** 12-word BIP-39 phrase = 128 bits of entropy. */
 export async function generateRecoveryCode(): Promise<string> {
     const { generateMnemonic } = await import('@scure/bip39');
-    const { wordlist } = await import('@scure/bip39/wordlists/english');
+    const { wordlist } = await import('@scure/bip39/wordlists/english.js');
     return generateMnemonic(wordlist, 128);
 }
 
@@ -275,7 +275,7 @@ export function normalizeRecoveryCode(code: string): string {
 
 export async function isValidRecoveryCode(code: string): Promise<boolean> {
     const { validateMnemonic } = await import('@scure/bip39');
-    const { wordlist } = await import('@scure/bip39/wordlists/english');
+    const { wordlist } = await import('@scure/bip39/wordlists/english.js');
     return validateMnemonic(normalizeRecoveryCode(code), wordlist);
 }
 
