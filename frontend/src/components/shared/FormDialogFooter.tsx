@@ -6,7 +6,6 @@ interface FormDialogFooterProps {
     isEdit: boolean;
     saving: boolean;
     canSave: boolean;
-    onCancel: () => void;
     onSave: () => void;
     /** Pass to show the Delete button (left side) in edit mode. */
     onRequestDelete?: () => void;
@@ -22,7 +21,6 @@ export const FormDialogFooter = ({
     isEdit,
     saving,
     canSave,
-    onCancel,
     onSave,
     onRequestDelete,
     deleting = false,
@@ -34,7 +32,7 @@ export const FormDialogFooter = ({
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
         <div className="flex items-center gap-3">
             {isEdit && onRequestDelete ? (
-                <Button variant="destructive" onClick={onRequestDelete} disabled={saving || deleting}>
+                <Button variant="destructive" onClick={onRequestDelete} disabled={saving || deleting} className="w-full sm:w-auto">
                     {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
                     Delete
                 </Button>
@@ -48,17 +46,12 @@ export const FormDialogFooter = ({
                 </label>
             ) : null}
         </div>
-        <div className="flex gap-2">
-            <Button variant="outline" onClick={onCancel} disabled={saving}>
-                Cancel
-            </Button>
-            <Button onClick={onSave} disabled={!canSave || saving}>
-                {saving ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
-                ) : (
-                    saveLabel ?? (isEdit ? "Save" : "Add")
-                )}
-            </Button>
-        </div>
+        <Button onClick={onSave} disabled={!canSave || saving} className="w-full sm:w-auto">
+            {saving ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving…</>
+            ) : (
+                saveLabel ?? (isEdit ? "Save" : "Add")
+            )}
+        </Button>
     </div>
 );

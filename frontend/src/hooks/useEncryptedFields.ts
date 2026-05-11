@@ -131,6 +131,7 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
 // Pre-configured hooks for specific data types
 export const incomeSourceFields: EncryptionFieldConfig[] = [
     { original: 'name', encrypted: 'encrypted_name' },
+    { original: 'provider', encrypted: 'encrypted_provider' },
     { original: 'default_amount', encrypted: 'encrypted_default_amount' },
 ];
 
@@ -153,6 +154,7 @@ export const monthlyExpenseFields: EncryptionFieldConfig[] = [
 
 export const subscriptionFields: EncryptionFieldConfig[] = [
     { original: 'name', encrypted: 'encrypted_name' },
+    { original: 'service', encrypted: 'encrypted_service' },
     { original: 'amount', encrypted: 'encrypted_amount' },
 ];
 

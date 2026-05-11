@@ -36,6 +36,7 @@ interface InitialValues {
     id?: string;
     category?: IncomeCategory;
     name?: string;
+    provider?: string;
     owner_id?: string;
     default_amount?: number | string;
     is_shared?: boolean;
@@ -61,6 +62,7 @@ interface IncomeFormDialogProps {
 const blankForm = (defaultOwnerId: string): InitialValues => ({
     category: "salary",
     name: "",
+    provider: "",
     default_amount: "0",
     owner_id: defaultOwnerId,
     is_shared: false,
@@ -93,7 +95,7 @@ export const IncomeFormDialog = ({
     }, [open, initialValues, defaultOwnerId]);
 
     const editingId = mode === "edit" ? initialValues?.id : undefined;
-    const canSave = !!form.name?.trim() && parseFloat(String(form.default_amount ?? 0)) >= 0 && !!form.owner_id;
+    const canSave = !!form.provider?.trim() && parseFloat(String(form.default_amount ?? 0)) >= 0 && !!form.owner_id;
 
     const entityForm = useEntityForm({
         entityName: "Income source",
@@ -103,7 +105,8 @@ export const IncomeFormDialog = ({
             const baseData = {
                 household_id: householdId,
                 category: form.category,
-                name: form.name?.trim() ?? "",
+                provider: form.provider?.trim() ?? "",
+                name: form.name?.trim() || null,
                 default_amount: numericAmount,
                 owner_id: form.owner_id ?? "",
                 is_shared: !!form.is_shared,
@@ -191,14 +194,22 @@ export const IncomeFormDialog = ({
                                 </SelectContent>
                             </Select>
                         </FormField>
-                        <FormField label="Name">
+                        <FormField label="Source / employer">
                             <Input
-                                value={form.name ?? ""}
-                                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                placeholder="e.g. Daniel salary"
+                                value={form.provider ?? ""}
+                                onChange={(e) => setForm({ ...form, provider: e.target.value })}
+                                placeholder="e.g. Spotify AB, CSN, Nordnet"
                             />
                         </FormField>
                     </FormRow>
+
+                    <FormField label="Name" optional optionalNote="optional, overrides display">
+                        <Input
+                            value={form.name ?? ""}
+                            onChange={(e) => setForm({ ...form, name: e.target.value })}
+                            placeholder="Defaults to 'Source / employer'"
+                        />
+                    </FormField>
 
                     {members.length > 1 && (
                         <FormField label="Belongs to">
@@ -335,7 +346,6 @@ export const IncomeFormDialog = ({
                     saving={entityForm.saving}
                     deleting={entityForm.deleting}
                     canSave={canSave && entityForm.isDirty}
-                    onCancel={() => onOpenChange(false)}
                     onSave={entityForm.handleSave}
                     onRequestDelete={editingId ? entityForm.requestDelete : undefined}
                     createAnother={entityForm.createAnother}

@@ -30,6 +30,7 @@ const subscriptionCategories = [
 interface InitialValues {
     id?: string;
     name?: string;
+    service?: string;
     amount?: number | string;
     billing_cycle?: string;
     category?: string;
@@ -54,6 +55,7 @@ interface SubscriptionFormProps {
 
 const blank = (): InitialValues => ({
     name: "",
+    service: "",
     amount: "",
     billing_cycle: "monthly",
     category: "other",
@@ -78,7 +80,7 @@ export const SubscriptionForm = ({
     }, [initialValues, editingId]);
 
     const isEditing = !!editingId;
-    const canSave = !!formData.name?.trim() && !!String(formData.amount ?? "").trim();
+    const canSave = !!formData.service?.trim() && !!String(formData.amount ?? "").trim();
 
     const usedCategorySet = useUsedCategoryValues("subscriptions", householdId);
     const usedCats = subscriptionCategories.filter(c => usedCategorySet.has(c.value) || c.value === formData.category);
@@ -91,7 +93,8 @@ export const SubscriptionForm = ({
             if (!user) throw new Error("Not authenticated");
             const baseData = {
                 household_id: householdId,
-                name: formData.name?.trim() ?? "",
+                service: formData.service?.trim() ?? "",
+                name: formData.name?.trim() || null,
                 amount: parseFloat(String(formData.amount ?? 0)),
                 billing_cycle: formData.billing_cycle ?? "monthly",
                 category: formData.category ?? "other",
@@ -125,11 +128,11 @@ export const SubscriptionForm = ({
     return (
         <div className="space-y-3">
             <FormRow>
-                <FormField label="Name">
+                <FormField label="Service">
                     <Input
-                        value={formData.name ?? ""}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="Netflix, Spotify, etc."
+                        value={formData.service ?? ""}
+                        onChange={(e) => setFormData({ ...formData, service: e.target.value })}
+                        placeholder="Netflix, Claude Pro, Spotify Family"
                     />
                 </FormField>
                 <FormField label="Category">
@@ -219,6 +222,14 @@ export const SubscriptionForm = ({
                 onChange={(id) => setFormData({ ...formData, subject_id: id })}
             />
 
+            <FormField label="Name" optional optionalNote="optional, overrides display">
+                <Input
+                    value={formData.name ?? ""}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="Defaults to 'Service'"
+                />
+            </FormField>
+
             <FormField label="Notes">
                 <Textarea
                     rows={2}
@@ -241,7 +252,6 @@ export const SubscriptionForm = ({
                 saving={form.saving}
                 deleting={form.deleting}
                 canSave={canSave && form.isDirty}
-                onCancel={onCancel}
                 onSave={form.handleSave}
                 onRequestDelete={onDelete ? form.requestDelete : undefined}
                 showCreateAnother={showCreateAnother}

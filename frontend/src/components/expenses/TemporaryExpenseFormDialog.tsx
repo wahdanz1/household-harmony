@@ -138,7 +138,6 @@ export const TemporaryExpenseFormDialog = ({
                     isEdit={false}
                     saving={entityForm.saving}
                     canSave={canSave && entityForm.isDirty}
-                    onCancel={() => onOpenChange(false)}
                     onSave={entityForm.handleSave}
                     createAnother={entityForm.createAnother}
                     onCreateAnotherChange={entityForm.setCreateAnother}

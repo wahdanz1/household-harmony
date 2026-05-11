@@ -436,6 +436,7 @@ export type Database = {
           custom_tax_rate: number | null
           encrypted_default_amount: string | null
           encrypted_name: string | null
+          encrypted_provider: string | null
           household_id: string
           id: string
           is_active: boolean
@@ -453,6 +454,7 @@ export type Database = {
           custom_tax_rate?: number | null
           encrypted_default_amount?: string | null
           encrypted_name?: string | null
+          encrypted_provider?: string | null
           household_id: string
           id?: string
           is_active?: boolean
@@ -470,6 +472,7 @@ export type Database = {
           custom_tax_rate?: number | null
           encrypted_default_amount?: string | null
           encrypted_name?: string | null
+          encrypted_provider?: string | null
           household_id?: string
           id?: string
           is_active?: boolean
@@ -992,6 +995,7 @@ export type Database = {
           created_by: string
           encrypted_amount: string | null
           encrypted_name: string | null
+          encrypted_service: string | null
           household_id: string
           id: string
           is_active: boolean
@@ -1009,6 +1013,7 @@ export type Database = {
           created_by: string
           encrypted_amount?: string | null
           encrypted_name?: string | null
+          encrypted_service?: string | null
           household_id: string
           id?: string
           is_active?: boolean
@@ -1026,6 +1031,7 @@ export type Database = {
           created_by?: string
           encrypted_amount?: string | null
           encrypted_name?: string | null
+          encrypted_service?: string | null
           household_id?: string
           id?: string
           is_active?: boolean

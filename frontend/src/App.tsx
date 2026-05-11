@@ -11,7 +11,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 
 // Lazy load route components for better code splitting
-const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Overview = lazy(() => import("./pages/Overview"));
 const Income = lazy(() => import("./pages/Income"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -39,7 +39,7 @@ const App = () => (
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/auth" element={<Auth />} />
-                  <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+                  <Route path="/" element={<ProtectedRoute><Layout><Overview /></Layout></ProtectedRoute>} />
                   <Route path="/income" element={<ProtectedRoute><Layout><Income /></Layout></ProtectedRoute>} />
                   <Route path="/expenses" element={<ProtectedRoute><Layout><Expenses /></Layout></ProtectedRoute>} />
                   <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />

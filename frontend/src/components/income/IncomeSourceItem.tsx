@@ -49,7 +49,7 @@ export const IncomeSourceItem = ({
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <CatIcon icon={Icon} hue={cat?.hue} size={32} />
                 <p className={`font-medium text-sm sm:text-base truncate ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
-                    {source.name}
+                    {(source.name || source.provider)}
                 </p>
             </div>
 
@@ -61,7 +61,7 @@ export const IncomeSourceItem = ({
                     status={inputStatus}
                     disabled={isSkipped || readOnly}
                     onChange={(v) => onAmountChange(source.id, v.toString())}
-                    aria-label={`${source.name} amount`}
+                    aria-label={`${(source.name || source.provider)} amount`}
                 />
 
                 {actualAmount !== undefined && Math.round(actualAmount) !== Math.round(parseFloat(amount || "0")) && (() => {
