@@ -589,7 +589,7 @@ const Expenses = () => {
               onClick={() => !isReadOnly && setAddTemporaryDialogOpen(true)}
             >
               <Zap className="h-4 w-4" />
-              One-time expense
+              One-off
             </Button>
           </div>
 
@@ -712,7 +712,7 @@ const Expenses = () => {
               onClick={() => !isReadOnly && setAddTemporaryDialogOpen(true)}
             >
               <Zap className="h-4 w-4" />
-              One-time expense
+              One-off
             </Button>
           </MobileBottomBar>
           </>
