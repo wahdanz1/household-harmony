@@ -1,23 +1,4 @@
-"""
-POST /api/auth/recover-with-code
-
-Anon endpoint. Trades a 12-word recovery phrase for a fresh login password.
-
-The phrase wraps the same DEK the user's regular password wraps. We:
-  1. Look up the user's recovery slot by email.
-  2. Derive a KEK from the phrase + slot salt (PBKDF2-SHA256, 100k iters).
-  3. AES-GCM decrypt the slot's encrypted DEK with that KEK — if this works,
-     the phrase is authentic; if it fails, the request is unauthorized.
-  4. Re-wrap the recovered DEK with a fresh KEK derived from the new password.
-  5. Write the re-wrapped DEK back to user_vault_keys.
-  6. Use the Supabase auth admin API to set the new password.
-
-Crypto must mirror frontend/src/services/encryption.ts exactly:
-  - PBKDF2-SHA256, 100_000 iterations, 32-byte key
-  - AES-GCM, 12-byte random IV, no AAD
-  - Salt: 16 random bytes
-  - All persisted material is base64-encoded.
-"""
+# Crypto params must mirror frontend/src/services/encryption.ts.
 
 from __future__ import annotations
 
@@ -43,9 +24,6 @@ KEY_LENGTH = 32
 SALT_LENGTH = 16
 IV_LENGTH = 12
 
-# Coarse in-memory rate limit. Real prod deployment should use Redis or a
-# request-throttling middleware, but the 128-bit phrase is infeasible to
-# brute-force at any rate; this just blunts obvious abuse.
 _attempts: dict[str, list[float]] = defaultdict(list)
 _MAX_ATTEMPTS_PER_WINDOW = 10
 _WINDOW_SECONDS = 60 * 60
@@ -111,9 +89,7 @@ def recover_with_code(payload: RecoverRequest, request: Request) -> dict:
         None,
     )
     if target_user is None:
-        # Don't leak account existence — return the same generic error
-        # auth-validation would emit. Constant-ish timing isn't perfect here
-        # but the lookup itself is the slowest part.
+        # Generic response so the endpoint doesn't double as an email enumerator.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or recovery code")
 
     user_id = target_user.id
