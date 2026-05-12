@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm your new email · Household Harmony</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #1F1D1B; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #F1EDE5;">
+  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #1F1D1B;">
+    <tr>
+      <td align="center" style="padding: 40px 16px;">
+        <table cellpadding="0" cellspacing="0" border="0" width="560" style="max-width: 100%; background-color: #2A2724; border: 1px solid #3A3631; border-radius: 16px; overflow: hidden;">
+          <tr>
+            <td align="center" style="padding: 36px 32px 8px;">
+              <img src="https://household-harmony.vercel.app/household-harmony-logo.svg" alt="" width="40" height="40" style="display: inline-block; vertical-align: middle; border: 0;">
+              <span style="display: inline-block; vertical-align: middle; margin-left: 10px; font-size: 19px; font-weight: 700; color: #F1EDE5; letter-spacing: -0.2px;">Household Harmony</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 36px 32px; color: #F1EDE5;">
+              <h1 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: #F1EDE5; letter-spacing: -0.3px;">
+                Confirm your new email
+              </h1>
+              <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #C2BDB4;">
+                We received a request to change your address from <strong style="color: #F1EDE5;">{{ .Email }}</strong> to <strong style="color: #54C470;">{{ .NewEmail }}</strong>. Confirm below to complete the switch.
+              </p>
+              <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td align="center" style="padding: 0 0 28px;">
+                    <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 14px 32px; background-color: #54C470; color: #0E1A12; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 15px;">
+                      Confirm new email
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0 0 6px; font-size: 13px; color: #8B857B;">
+                Or paste this link into your browser:
+              </p>
+              <p style="margin: 0 0 24px; word-break: break-all;">
+                <a href="{{ .ConfirmationURL }}" style="color: #54C470; text-decoration: none; font-size: 13px;">{{ .ConfirmationURL }}</a>
+              </p>
+              <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td style="padding: 14px 16px; background-color: rgba(224, 133, 102, 0.10); border-left: 3px solid #E08566; border-radius: 8px;">
+                    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #E8B8A4;">
+                      Didn't request this change? Your current email stays active until you confirm.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 20px 36px; border-top: 1px solid #3A3631; background-color: rgba(0,0,0,0.15);">
+              <p style="margin: 0; font-size: 12px; color: #8B857B; text-align: center;">
+                This link expires in 24 hours.
+              </p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin: 16px 0 0; font-size: 12px; color: #8B857B; text-align: center;">
+          © 2026 Household Harmony
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

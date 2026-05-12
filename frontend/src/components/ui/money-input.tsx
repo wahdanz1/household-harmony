@@ -62,7 +62,8 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
         },
         ref,
     ) => {
-        const display = value === "" || value == null
+        // Treat 0 as empty so clearing the field doesn't repopulate it.
+        const display = value === "" || value == null || value === 0
             ? ""
             : (typeof value === "number" ? Math.round(value).toString() : value.toString());
 

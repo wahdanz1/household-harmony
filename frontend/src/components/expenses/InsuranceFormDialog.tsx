@@ -40,11 +40,9 @@ export const InsuranceFormDialog = ({
                 householdId={householdId}
                 editingId={mode === "edit" ? initialValues?.id : undefined}
                 initialValues={initialValues}
-                onSuccess={() => {
-                    onSuccess?.();
-                    if (mode === "edit") onOpenChange(false);
-                }}
+                onSuccess={() => onSuccess?.()}
                 onCancel={() => onOpenChange(false)}
+                onClose={() => onOpenChange(false)}
                 onDelete={mode === "edit" ? () => {
                     onSuccess?.();
                     onOpenChange(false);

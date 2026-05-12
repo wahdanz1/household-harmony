@@ -1,12 +1,12 @@
-import { useEncryptedFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { isDemoMode } from "@/utils/demoMode";
+import { useEncryption } from "@/contexts/EncryptionContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Users, UserMinus, Crown, Copy, Check, Trash2 } from "lucide-react";
+import { Users, UserMinus, Crown, Copy, Check, Trash2, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,6 +44,7 @@ interface HouseholdMembersCardProps {
 export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }: HouseholdMembersCardProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { wrapDEKForInvite, isUnlocked } = useEncryption();
   const currentMember = members.find(m => m.user_id === user?.id);
   const isOwner = currentMember?.role === "owner";
   const [isGenerating, setIsGenerating] = useState(false);
@@ -77,10 +78,30 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
       return;
     }
 
+    if (!isUnlocked) {
+      toast({
+        title: "Vault Locked",
+        description: "Unlock your vault before inviting members so the encryption key can be shared.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsGenerating(true);
     const inviteCode = generateInviteCode();
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
+
+    const wrapped = await wrapDEKForInvite(inviteCode);
+    if (!wrapped) {
+      setIsGenerating(false);
+      toast({
+        title: "Error",
+        description: "Could not prepare encryption key for the invite. Try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const { error } = await supabase
       .from("household_invites")
@@ -91,6 +112,9 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
         created_by: user.id,
         expires_at: expiresAt.toISOString(),
         status: "pending",
+        encrypted_dek: wrapped.encryptedDEK,
+        dek_iv: wrapped.iv,
+        dek_salt: wrapped.salt,
       });
 
     setIsGenerating(false);
@@ -124,24 +148,37 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
   };
 
   const handleRemoveMember = async (memberId: string) => {
-    // Simply delete the member role (their owner role remains, they return to it automatically)
-    const { error: deleteError } = await supabase
-      .from("household_members")
-      .delete()
-      .eq("id", memberId);
+    const target = members.find(m => m.id === memberId);
+    const isSelf = target?.user_id === user?.id;
 
-    if (deleteError) {
+    const { error } = await (supabase as any).rpc("request_member_exit", {
+      member_id_in: memberId,
+    });
+
+    if (error) {
       toast({
         title: "Error",
-        description: "Failed to remove member",
+        description: error.message === "owner_must_transfer_first"
+          ? "The owner can't be removed. Transfer ownership first."
+          : "Failed to remove member",
         variant: "destructive",
       });
       return;
     }
 
+    if (isSelf) {
+      // Reload so unlockWithPassword sees the pending_exit_at and surfaces the dialog.
+      setTimeout(() => window.location.reload(), 1500);
+      toast({
+        title: "Leaving household…",
+        description: "Reloading to set up your own household.",
+      });
+      return;
+    }
+
     toast({
-      title: "Success",
-      description: "Member removed and returned to their household",
+      title: "Removed",
+      description: "They'll see a one-time dialog next time they log in to take items with them.",
     });
     onUpdate();
   };
@@ -206,8 +243,19 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                   variant="ghost"
                   size="icon"
                   onClick={() => handleRemoveMember(member.id)}
+                  title="Remove member"
                 >
                   <UserMinus className="h-4 w-4" />
+                </Button>
+              )}
+              {!isOwner && member.user_id === user?.id && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRemoveMember(member.id)}
+                  title="Leave household"
+                >
+                  <LogOut className="h-4 w-4" />
                 </Button>
               )}
             </div>

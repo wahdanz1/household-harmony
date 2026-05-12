@@ -2,14 +2,14 @@ import { Home, Car, Heart, User, PawPrint, Plane, Scale, Baby, MoreHorizontal } 
 import { CategoryConfig } from "@/utils/categoryHelpers";
 
 export const insuranceTypes: CategoryConfig[] = [
-    { value: "home", label: "Home Insurance", icon: Home, hue: 50 },
-    { value: "car", label: "Car Insurance", icon: Car, hue: 200 },
-    { value: "health", label: "Health Insurance", icon: Heart, hue: 150 },
-    { value: "child", label: "Child Insurance", icon: Baby, hue: 340 },
-    { value: "life", label: "Life Insurance", icon: User, hue: 100 },
-    { value: "pet", label: "Pet Insurance", icon: PawPrint, hue: 20 },
-    { value: "travel", label: "Travel Insurance", icon: Plane, hue: 200 },
-    { value: "liability", label: "Liability Insurance", icon: Scale, hue: 320 },
+    { value: "home", label: "Home", icon: Home, hue: 50 },
+    { value: "car", label: "Car", icon: Car, hue: 200 },
+    { value: "health", label: "Health", icon: Heart, hue: 150 },
+    { value: "child", label: "Child", icon: Baby, hue: 340 },
+    { value: "life", label: "Life", icon: User, hue: 100 },
+    { value: "pet", label: "Pet", icon: PawPrint, hue: 20 },
+    { value: "travel", label: "Travel", icon: Plane, hue: 200 },
+    { value: "liability", label: "Liability", icon: Scale, hue: 320 },
     { value: "other", label: "Other", icon: MoreHorizontal },
 ];
 

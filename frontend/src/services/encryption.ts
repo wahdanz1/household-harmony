@@ -300,3 +300,35 @@ export async function unwrapDEKWithRecoveryCode(
     const kek = await deriveKEK(normalizeRecoveryCode(code), salt);
     return decryptDEK(encryptedDEK, iv, kek);
 }
+
+function normalizeInviteCode(code: string): string {
+    return code.trim().toUpperCase();
+}
+
+export async function wrapDEKWithInviteCode(
+    dek: CryptoKey,
+    inviteCode: string,
+): Promise<{ encryptedDEK: string; salt: string; iv: string }> {
+    const salt = generateSalt();
+    const kek = await deriveKEK(normalizeInviteCode(inviteCode), salt);
+    const { encryptedDEK, iv } = await encryptDEK(dek, kek);
+    return { encryptedDEK, salt: arrayBufferToBase64(salt.buffer), iv };
+}
+
+export async function unwrapDEKWithInviteCode(
+    encryptedDEK: string,
+    saltB64: string,
+    iv: string,
+    inviteCode: string,
+): Promise<CryptoKey> {
+    const salt = new Uint8Array(base64ToArrayBuffer(saltB64));
+    const kek = await deriveKEK(normalizeInviteCode(inviteCode), salt);
+    return decryptDEK(encryptedDEK, iv, kek);
+}
+
+export async function rewrapDEKWithPassword(
+    dek: CryptoKey,
+    password: string,
+): Promise<{ encryptedDEK: string; dekSalt: string; dekIV: string }> {
+    return reEncryptDEK(dek, password);
+}

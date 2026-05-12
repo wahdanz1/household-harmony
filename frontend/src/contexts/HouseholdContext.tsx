@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
+import { toast } from "@/hooks/use-toast";
 
 // Types
 export interface Household {
@@ -55,8 +56,17 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
 
     const userId = user?.id;
+    // Concurrent fetches (e.g. an effect-triggered refetch racing the wizard's
+    // explicit refresh) would otherwise let a stale empty result overwrite a
+    // fresh complete one.
+    const fetchGenRef = useRef(0);
+
     const fetchHouseholdData = useCallback(async () => {
+        const gen = ++fetchGenRef.current;
+        const isLatest = () => gen === fetchGenRef.current;
+
         if (!userId) {
+            if (!isLatest()) return;
             setHousehold(null);
             setMembers([]);
             setCoParents([]);
@@ -66,17 +76,18 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
         }
 
         try {
-            // Get active household
             const { membership, household: householdData } = await getActiveHousehold(userId);
+            if (!isLatest()) return;
 
             if (!membership || !householdData) {
+                setHousehold(null);
+                setMembers([]);
+                setCoParents([]);
+                setUserRole("");
                 setLoading(false);
                 return;
             }
 
-            setUserRole(membership.role);
-
-            // Fetch complete household data with all related info
             const [
                 { data: fullHousehold },
                 { data: membersData },
@@ -96,21 +107,56 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
                     .select("*")
                     .eq("household_id", membership.household_id),
             ]);
+            if (!isLatest()) return;
 
+            setUserRole(membership.role);
             setHousehold(fullHousehold as Household);
             setMembers((membersData || []) as HouseholdMember[]);
             setCoParents((coParentsData || []) as CoParent[]);
         } catch (error) {
             console.error("Error fetching household data:", error);
         } finally {
-            setLoading(false);
+            if (isLatest()) setLoading(false);
         }
     }, [userId]);
 
-    // Fetch on user change
     useEffect(() => {
+        // Reset loading so consumers re-show skeletons across the userId boundary.
+        setLoading(true);
         fetchHouseholdData();
     }, [fetchHouseholdData]);
+
+    // Live notification: if an owner soft-removes the current user, reload
+    // so they land in the exit-dialog flow instead of continuing to write to
+    // a household they no longer belong to.
+    useEffect(() => {
+        if (!userId) return;
+        const channel = supabase
+            .channel(`household_members:${userId}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "household_members",
+                    filter: `user_id=eq.${userId}`,
+                },
+                (payload) => {
+                    const oldPending = (payload.old as any)?.pending_exit_at ?? null;
+                    const newPending = (payload.new as any)?.pending_exit_at ?? null;
+                    if (!oldPending && newPending) {
+                        toast({
+                            title: "You've been removed",
+                            description: "Reloading so you can pick which items to bring with you…",
+                            variant: "destructive",
+                        });
+                        setTimeout(() => window.location.reload(), 3000);
+                    }
+                },
+            )
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [userId]);
 
     // Computed value
     const financialMonthStart = household?.financial_month_start || 25;

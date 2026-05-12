@@ -274,7 +274,7 @@ export const HouseholdSetupWizard = ({
                                     key={it.id}
                                     className="flex items-center justify-between p-3 rounded-lg border border-line"
                                 >
-                                    <span className="font-medium truncate">{it.name}</span>
+                                    <span className="font-medium truncate">{itemLabel(step.key as Exclude<StepKey, "features">, it)}</span>
                                     <span className="text-sm text-muted-foreground tabular-nums">
                                         {summariseAmount(step.key as Exclude<StepKey, "features">, it)}
                                     </span>
@@ -342,6 +342,12 @@ export const HouseholdSetupWizard = ({
         </Dialog>
     );
 };
+
+function itemLabel(stepKey: Exclude<StepKey, "features">, item: any): string {
+    if (stepKey === "income") return item.provider || item.name || "Untitled";
+    if (stepKey === "subscription") return item.service || item.name || "Untitled";
+    return item.name || "Untitled";
+}
 
 function summariseAmount(stepKey: Exclude<StepKey, "features">, item: any): string {
     const v = Number(item.default_amount ?? item.amount ?? item.total_amount ?? 0);

@@ -13,31 +13,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       co_parent_settlements: {
@@ -297,6 +272,9 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          dek_iv: string | null
+          dek_salt: string | null
+          encrypted_dek: string | null
           expires_at: string
           household_id: string
           id: string
@@ -308,6 +286,9 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          dek_iv?: string | null
+          dek_salt?: string | null
+          encrypted_dek?: string | null
           expires_at: string
           household_id: string
           id?: string
@@ -319,6 +300,9 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          dek_iv?: string | null
+          dek_salt?: string | null
+          encrypted_dek?: string | null
           expires_at?: string
           household_id?: string
           id?: string
@@ -349,6 +333,7 @@ export type Database = {
           household_id: string
           id: string
           joined_at: string
+          pending_exit_at: string | null
           role: Database["public"]["Enums"]["household_role"]
           user_id: string
         }
@@ -356,6 +341,7 @@ export type Database = {
           household_id: string
           id?: string
           joined_at?: string
+          pending_exit_at?: string | null
           role: Database["public"]["Enums"]["household_role"]
           user_id: string
         }
@@ -363,6 +349,7 @@ export type Database = {
           household_id?: string
           id?: string
           joined_at?: string
+          pending_exit_at?: string | null
           role?: Database["public"]["Enums"]["household_role"]
           user_id?: string
         }
@@ -386,35 +373,35 @@ export type Database = {
       households: {
         Row: {
           created_at: string
-          owner_id: string
           currency: string
           enable_credit_cards: boolean | null
           enable_shared_expenses: boolean | null
           financial_month_start: number | null
           id: string
           name: string
+          owner_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
-          owner_id: string
           currency?: string
           enable_credit_cards?: boolean | null
           enable_shared_expenses?: boolean | null
           financial_month_start?: number | null
           id?: string
           name: string
+          owner_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
-          owner_id?: string
           currency?: string
           enable_credit_cards?: boolean | null
           enable_shared_expenses?: boolean | null
           financial_month_start?: number | null
           id?: string
           name?: string
+          owner_id?: string
           updated_at?: string
         }
         Relationships: [
@@ -432,7 +419,6 @@ export type Database = {
           category: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id: string | null
           created_at: string
-          owner_id: string
           custom_tax_rate: number | null
           encrypted_default_amount: string | null
           encrypted_name: string | null
@@ -442,6 +428,7 @@ export type Database = {
           is_active: boolean
           is_encrypted: boolean | null
           is_shared: boolean | null
+          owner_id: string
           share_percentage: number | null
           tax_type: Database["public"]["Enums"]["tax_type"] | null
           updated_at: string
@@ -450,7 +437,6 @@ export type Database = {
           category: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id?: string | null
           created_at?: string
-          owner_id: string
           custom_tax_rate?: number | null
           encrypted_default_amount?: string | null
           encrypted_name?: string | null
@@ -460,6 +446,7 @@ export type Database = {
           is_active?: boolean
           is_encrypted?: boolean | null
           is_shared?: boolean | null
+          owner_id: string
           share_percentage?: number | null
           tax_type?: Database["public"]["Enums"]["tax_type"] | null
           updated_at?: string
@@ -468,7 +455,6 @@ export type Database = {
           category?: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id?: string | null
           created_at?: string
-          owner_id?: string
           custom_tax_rate?: number | null
           encrypted_default_amount?: string | null
           encrypted_name?: string | null
@@ -478,6 +464,7 @@ export type Database = {
           is_active?: boolean
           is_encrypted?: boolean | null
           is_shared?: boolean | null
+          owner_id?: string
           share_percentage?: number | null
           tax_type?: Database["public"]["Enums"]["tax_type"] | null
           updated_at?: string
@@ -508,6 +495,9 @@ export type Database = {
       }
       insurances: {
         Row: {
+          billing_cycle: Database["public"]["Enums"]["billing_cycle_enum"]
+          billing_day: number | null
+          billing_month: number | null
           category: Database["public"]["Enums"]["insurance_category_enum"]
           co_parent_id: string | null
           created_at: string
@@ -517,18 +507,18 @@ export type Database = {
           encrypted_total_amount: string | null
           household_id: string
           id: string
-          billing_month: number | null
-          billing_day: number | null
           is_active: boolean
           is_encrypted: boolean | null
           is_shared: boolean
           notes: string | null
-          billing_cycle: Database["public"]["Enums"]["billing_cycle_enum"]
           share_percentage: number
           subject_id: string | null
           updated_at: string
         }
         Insert: {
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
+          billing_day?: number | null
+          billing_month?: number | null
           category: Database["public"]["Enums"]["insurance_category_enum"]
           co_parent_id?: string | null
           created_at?: string
@@ -538,18 +528,18 @@ export type Database = {
           encrypted_total_amount?: string | null
           household_id: string
           id?: string
-          billing_month?: number | null
-          billing_day?: number | null
           is_active?: boolean
           is_encrypted?: boolean | null
           is_shared?: boolean
           notes?: string | null
-          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           share_percentage?: number
           subject_id?: string | null
           updated_at?: string
         }
         Update: {
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
+          billing_day?: number | null
+          billing_month?: number | null
           category?: Database["public"]["Enums"]["insurance_category_enum"]
           co_parent_id?: string | null
           created_at?: string
@@ -559,13 +549,10 @@ export type Database = {
           encrypted_total_amount?: string | null
           household_id?: string
           id?: string
-          billing_month?: number | null
-          billing_day?: number | null
           is_active?: boolean
           is_encrypted?: boolean | null
           is_shared?: boolean
           notes?: string | null
-          billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           share_percentage?: number
           subject_id?: string | null
           updated_at?: string
@@ -1174,42 +1161,6 @@ export type Database = {
           },
         ]
       }
-      user_vault_recovery_slots: {
-        Row: {
-          id: string
-          user_id: string
-          slot_type: string
-          encrypted_dek: string
-          salt: string | null
-          iv: string
-          label: string | null
-          granted_by_user_id: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          slot_type: string
-          encrypted_dek: string
-          salt?: string | null
-          iv: string
-          label?: string | null
-          granted_by_user_id?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          slot_type?: string
-          encrypted_dek?: string
-          salt?: string | null
-          iv?: string
-          label?: string | null
-          granted_by_user_id?: string | null
-          created_at?: string
-        }
-        Relationships: []
-      }
       user_vault_keys: {
         Row: {
           created_at: string
@@ -1217,6 +1168,7 @@ export type Database = {
           dek_salt: string
           encrypted_dek: string
           encryption_version: number
+          household_id: string
           updated_at: string
           user_id: string
         }
@@ -1226,6 +1178,7 @@ export type Database = {
           dek_salt: string
           encrypted_dek: string
           encryption_version?: number
+          household_id: string
           updated_at?: string
           user_id: string
         }
@@ -1235,7 +1188,52 @@ export type Database = {
           dek_salt?: string
           encrypted_dek?: string
           encryption_version?: number
+          household_id?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_vault_keys_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_vault_recovery_slots: {
+        Row: {
+          created_at: string
+          encrypted_dek: string
+          granted_by_user_id: string | null
+          id: string
+          iv: string
+          label: string | null
+          salt: string | null
+          slot_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_dek: string
+          granted_by_user_id?: string | null
+          id?: string
+          iv: string
+          label?: string | null
+          salt?: string | null
+          slot_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_dek?: string
+          granted_by_user_id?: string | null
+          id?: string
+          iv?: string
+          label?: string | null
+          salt?: string | null
+          slot_type?: string
           user_id?: string
         }
         Relationships: []
@@ -1245,7 +1243,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirm_member_exit: { Args: never; Returns: undefined }
+      ensure_user_has_household: { Args: never; Returns: string }
       get_user_household_id: { Args: { _user_id: string }; Returns: string }
+      handle_owner_leave: {
+        Args: { successor_user_id_in: string }
+        Returns: undefined
+      }
+      household_has_any_vault_keys: {
+        Args: { household_id_in: string }
+        Returns: boolean
+      }
+      is_active_household_member: {
+        Args: { _household_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_email_whitelisted: { Args: { email_in: string }; Returns: boolean }
       is_household_member: {
         Args: { _household_id: string; _user_id: string }
@@ -1257,6 +1269,11 @@ export type Database = {
       }
       lookup_active_invite: { Args: { invite_code_in: string }; Returns: Json }
       redeem_invite: { Args: { invite_code_in: string }; Returns: Json }
+      request_member_exit: {
+        Args: { member_id_in: string }
+        Returns: undefined
+      }
+      sweep_pending_exits: { Args: never; Returns: number }
     }
     Enums: {
       billing_cycle_enum: "monthly" | "quarterly" | "semi_annually" | "yearly"
@@ -1451,9 +1468,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       billing_cycle_enum: ["monthly", "quarterly", "semi_annually", "yearly"],
@@ -1533,4 +1547,5 @@ export const Constants = {
     },
   },
 } as const
-<claude-code-hint v="1" type="plugin" value="supabase@claude-plugins-official" />
+A new version of Supabase CLI is available: v2.98.2 (currently installed v2.84.2)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

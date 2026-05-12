@@ -6,6 +6,7 @@ export interface HouseholdMembership {
     user_id: string;
     role: "owner" | "member";
     joined_at: string;
+    pending_exit_at: string | null;
 }
 
 export interface Household {
@@ -48,8 +49,11 @@ export async function getActiveHousehold(userId: string): Promise<ActiveHousehol
         return { membership: null, household: null, allMemberships: [] };
     }
 
-    // Explicitly prioritize member role over owner role (don't rely on alphabetical sorting)
-    const activeMembership = memberships.find(m => m.role === "member") || memberships.find(m => m.role === "owner");
+    // Soft-removed memberships drop to the back — the user has already been
+    // shown the exit dialog (or will be); they shouldn't land in that household.
+    const active = memberships.filter(m => !m.pending_exit_at);
+    const pool = active.length > 0 ? active : memberships;
+    const activeMembership = pool.find(m => m.role === "member") || pool.find(m => m.role === "owner");
 
     if (!activeMembership) {
         console.error("[getActiveHousehold] No valid membership found");

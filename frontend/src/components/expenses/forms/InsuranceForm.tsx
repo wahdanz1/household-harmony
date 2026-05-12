@@ -42,6 +42,7 @@ interface InsuranceFormProps {
     householdId: string;
     onSuccess: () => void;
     onCancel: () => void;
+    onClose?: () => void;
     editingId?: string;
     initialValues?: InitialValues;
     onDelete?: () => void;
@@ -65,7 +66,7 @@ const blank = (): InitialValues => ({
 });
 
 export const InsuranceForm = ({
-    householdId, onSuccess, onCancel,
+    householdId, onSuccess, onCancel, onClose,
     editingId, initialValues, onDelete, showCreateAnother = true,
 }: InsuranceFormProps) => {
     const { user } = useAuth();
@@ -138,6 +139,7 @@ export const InsuranceForm = ({
             if (error) throw error;
         } : undefined,
         onSaved: onSuccess,
+        onClose,
         onDeleted: onDelete,
         resetForm: () => { const b = blank(); setPristine(b); setFormData(b); },
         formValues: formData,
@@ -273,7 +275,7 @@ export const InsuranceForm = ({
                 />
             </FormField>
 
-            <FormField label="Notes">
+            <FormField label="Notes" optional>
                 <Textarea
                     rows={2}
                     value={formData.notes ?? ""}
