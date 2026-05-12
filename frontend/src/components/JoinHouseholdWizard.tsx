@@ -1,17 +1,15 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Users, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
-import { PLACEHOLDERS } from "@/constants/ui";
 import { passwordSchema } from "@/config/passwordSchema";
+import { JoinStepCode } from "./join/JoinStepCode";
+import { JoinStepPreview, type PreviewMember } from "./join/JoinStepPreview";
+import { JoinStepSignup } from "./join/JoinStepSignup";
+import { JoinInFlightView, JoinErrorView } from "./join/JoinPhaseView";
 
 interface JoinHouseholdWizardProps {
     open: boolean;
@@ -24,6 +22,16 @@ type JoinPhase =
     | { kind: "settling"; expected: { userId: string; householdId: string } }
     | { kind: "error"; message: string };
 
+interface PreviewedHousehold {
+    id: string;
+    name: string;
+    currency: string;
+    invited_email: string | null;
+    encrypted_dek: string;
+    dek_iv: string;
+    dek_salt: string;
+}
+
 export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardProps) => {
     const { user, signUpAndJoinHousehold } = useAuth();
     const { setupVaultFromInvite, isUnlocked } = useEncryption();
@@ -35,9 +43,8 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
     const [phase, setPhase] = useState<JoinPhase>({ kind: "idle" });
 
     const [inviteCode, setInviteCode] = useState("");
-
-    const [household, setHousehold] = useState<any>(null);
-    const [members, setMembers] = useState<any[]>([]);
+    const [household, setHousehold] = useState<PreviewedHousehold | null>(null);
+    const [members, setMembers] = useState<PreviewMember[]>([]);
 
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
@@ -113,11 +120,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             encrypted_dek: string | null;
             dek_iv: string | null;
             dek_salt: string | null;
-            members: Array<{
-                role: string;
-                full_name: string | null;
-                avatar_url: string | null;
-            }>;
+            members: Array<{ role: string; full_name: string | null; avatar_url: string | null }>;
         };
 
         if (!preview.encrypted_dek || !preview.dek_iv || !preview.dek_salt) {
@@ -156,6 +159,8 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
     };
 
     const handleSignUp = async () => {
+        if (!household) return;
+
         if (!fullName || !email || !password) {
             toast({
                 title: "Missing Information",
@@ -165,7 +170,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        if (household?.invited_email && email.toLowerCase() !== household.invited_email.toLowerCase()) {
+        if (household.invited_email && email.toLowerCase() !== household.invited_email.toLowerCase()) {
             toast({
                 title: "Email Mismatch",
                 description: `This invite is for ${household.invited_email}. Please use the correct email address.`,
@@ -173,9 +178,6 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             });
             return;
         }
-
-        // Invite IS the authorization here — don't double-gate behind the
-        // whitelist that's meant for unsolicited signups.
 
         if (password !== confirmPassword) {
             toast({
@@ -221,12 +223,6 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             return;
         }
 
-        if (!household.encrypted_dek || !household.dek_iv || !household.dek_salt) {
-            setPhase({ kind: "error", message: "Invite is missing the shared encryption key. Ask for a new one." });
-            setLoading(false);
-            return;
-        }
-
         setPhase({ kind: "joining", message: "Setting up your secure vault…" });
 
         const vaultOk = await setupVaultFromInvite({
@@ -249,8 +245,8 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
         setPhase({ kind: "joining", message: "Loading your household…" });
         await refreshHousehold();
 
-        // Hand off to the invariant-watcher effect; it closes the wizard only
-        // once auth, household, and vault have all caught up.
+        // Hand off to the invariant-watcher above; it closes only once auth,
+        // household, and vault have all caught up.
         setPhase({ kind: "settling", expected: { userId, householdId } });
         setLoading(false);
     };
@@ -263,10 +259,10 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             : "";
 
     return (
-        <Dialog open={open} onOpenChange={(open) => {
-            if (inFlight) return; // Block dismissal mid-flight.
-            onOpenChange(open);
-            if (!open) resetWizard();
+        <Dialog open={open} onOpenChange={(next) => {
+            if (inFlight) return;
+            onOpenChange(next);
+            if (!next) resetWizard();
         }}>
             <DialogContent
                 className="sm:max-w-[500px]"
@@ -275,159 +271,43 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                 onEscapeKeyDown={(e) => { if (inFlight) e.preventDefault(); }}
             >
                 {inFlight ? (
-                    <div className="flex flex-col items-center justify-center py-10 gap-4">
-                        <Loader2 className="h-8 w-8 animate-spin text-accent" />
-                        <p className="text-sm text-muted-foreground">
-                            {inFlightMessage}
-                        </p>
-                    </div>
+                    <JoinInFlightView message={inFlightMessage} />
                 ) : phase.kind === "error" ? (
-                    <>
-                        <DialogHeader>
-                            <DialogTitle>Something went wrong</DialogTitle>
-                            <DialogDescription>{phase.message}</DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-                            <Button onClick={() => setPhase({ kind: "idle" })}>Try again</Button>
-                        </DialogFooter>
-                    </>
+                    <JoinErrorView
+                        message={phase.message}
+                        onClose={() => onOpenChange(false)}
+                        onRetry={() => setPhase({ kind: "idle" })}
+                    />
                 ) : step === 1 ? (
-                    <>
-                        <DialogHeader>
-                            <DialogTitle>Join Existing Household</DialogTitle>
-                            <DialogDescription>
-                                Enter the 8-character invite code you received
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="invite-code">Invite Code</Label>
-                                <Input
-                                    id="invite-code"
-                                    placeholder="ABCD2345"
-                                    value={inviteCode}
-                                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                                    maxLength={8}
-                                    className="text-center text-2xl font-mono tracking-widest"
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => onOpenChange(false)}>
-                                Cancel
-                            </Button>
-                            <Button onClick={handleValidateCode} disabled={loading || inviteCode.length !== 8}>
-                                {loading ? "Validating..." : "Continue"}
-                                <ArrowRight className="ml-2 h-4 w-4" />
-                            </Button>
-                        </DialogFooter>
-                    </>
+                    <JoinStepCode
+                        inviteCode={inviteCode}
+                        setInviteCode={setInviteCode}
+                        loading={loading}
+                        onCancel={() => onOpenChange(false)}
+                        onContinue={handleValidateCode}
+                    />
                 ) : step === 2 && household ? (
-                    <>
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                                <Users className="h-5 w-5" />
-                                {household.name}
-                            </DialogTitle>
-                            <DialogDescription>
-                                You're about to join this household
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div>
-                                <h4 className="text-sm mb-3">Current Members ({members.length})</h4>
-                                <div className="space-y-2">
-                                    {members.map((member) => (
-                                        <div key={member.id} className="flex items-center gap-3 p-2 rounded-lg border">
-                                            <Avatar className="h-8 w-8">
-                                                <AvatarImage src={member.profiles?.avatar_url} />
-                                                <AvatarFallback>
-                                                    {member.profiles?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "?"}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="flex-1">
-                                                <p className="font-medium">{member.profiles?.full_name || "Unknown"}</p>
-                                                <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
-                                            </div>
-                                            {member.role === "owner" && (
-                                                <Check className="h-4 w-4 text-success" />
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setStep(1)}>
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back
-                            </Button>
-                            <Button onClick={() => setStep(3)}>
-                                Continue to Sign Up
-                                <ArrowRight className="ml-2 h-4 w-4" />
-                            </Button>
-                        </DialogFooter>
-                    </>
-                ) : step === 3 ? (
-                    <>
-                        <DialogHeader>
-                            <DialogTitle>Create Your Account</DialogTitle>
-                            <DialogDescription>
-                                You'll join {household?.name} after creating your account
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="fullName">Full Name</Label>
-                                <Input
-                                    id="fullName"
-                                    placeholder="John Doe"
-                                    value={fullName}
-                                    onChange={(e) => setFullName(e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder={PLACEHOLDERS.EMAIL}
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="password">Password</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                                <Input
-                                    id="confirmPassword"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setStep(2)}>
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back
-                            </Button>
-                            <Button onClick={handleSignUp} disabled={loading}>
-                                {loading ? "Creating Account..." : "Create Account & Join"}
-                            </Button>
-                        </DialogFooter>
-                    </>
+                    <JoinStepPreview
+                        householdName={household.name}
+                        members={members}
+                        onBack={() => setStep(1)}
+                        onContinue={() => setStep(3)}
+                    />
+                ) : step === 3 && household ? (
+                    <JoinStepSignup
+                        householdName={household.name}
+                        fullName={fullName}
+                        setFullName={setFullName}
+                        email={email}
+                        setEmail={setEmail}
+                        password={password}
+                        setPassword={setPassword}
+                        confirmPassword={confirmPassword}
+                        setConfirmPassword={setConfirmPassword}
+                        loading={loading}
+                        onBack={() => setStep(2)}
+                        onSignUp={handleSignUp}
+                    />
                 ) : null}
             </DialogContent>
         </Dialog>
