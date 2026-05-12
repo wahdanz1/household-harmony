@@ -8,8 +8,10 @@ interface UseEntityFormOpts {
     save: () => Promise<void>;
     /** Omit when not in edit mode or delete isn't supported. */
     remove?: () => Promise<void>;
-    /** Called after a successful save. Parent typically refetches + closes. */
+    /** Called after a successful save. Parent typically refetches the list. */
     onSaved?: () => void;
+    /** Called after save when the dialog should close (i.e. not staying open for "Create another"). */
+    onClose?: () => void;
     /** Called after a successful delete. */
     onDeleted?: () => void;
     /** Reset form fields to blank — used when "Create another" is checked. */
@@ -26,6 +28,7 @@ export function useEntityForm({
     save,
     remove,
     onSaved,
+    onClose,
     onDeleted,
     resetForm,
     formValues,
@@ -48,7 +51,11 @@ export function useEntityForm({
             await save();
             toast.success(`${entityName} ${isEdit ? "updated" : "added"}`);
             onSaved?.();
-            if (!isEdit && createAnother) resetForm?.();
+            if (!isEdit && createAnother) {
+                resetForm?.();
+            } else {
+                onClose?.();
+            }
         } catch (err: any) {
             toast.error(err?.message || `Failed to save ${lower}`);
         } finally {

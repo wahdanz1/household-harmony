@@ -45,6 +45,7 @@ interface SubscriptionFormProps {
     householdId: string;
     onSuccess: () => void;
     onCancel: () => void;
+    onClose?: () => void;
     /** Pass to enable edit mode. */
     editingId?: string;
     initialValues?: InitialValues;
@@ -65,7 +66,7 @@ const blank = (): InitialValues => ({
 });
 
 export const SubscriptionForm = ({
-    householdId, onSuccess, onCancel,
+    householdId, onSuccess, onCancel, onClose,
     editingId, initialValues, onDelete, showCreateAnother = true,
 }: SubscriptionFormProps) => {
     const { user } = useAuth();
@@ -119,6 +120,7 @@ export const SubscriptionForm = ({
             if (error) throw error;
         } : undefined,
         onSaved: onSuccess,
+        onClose,
         onDeleted: onDelete,
         resetForm: () => { const b = blank(); setPristine(b); setFormData(b); },
         formValues: formData,
@@ -246,7 +248,7 @@ export const SubscriptionForm = ({
                 />
             </FormField>
 
-            <FormField label="Notes">
+            <FormField label="Notes" optional>
                 <Textarea
                     rows={2}
                     value={formData.notes ?? ""}
