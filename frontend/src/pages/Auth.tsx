@@ -15,6 +15,7 @@ import { PLACEHOLDERS } from "@/constants/ui";
 import { isEmailAllowed } from "@/config/emailWhitelist";
 import { passwordSchema } from "@/config/passwordSchema";
 import { setDemoMode } from "@/utils/demoMode";
+import { supabase } from "@/integrations/supabase/client";
 
 // Feature flag: demo mode is hidden until the monthly review flow is rebuilt
 const DEMO_ENABLED = false;
@@ -123,8 +124,9 @@ const Auth = () => {
 
   // ─── Auto-redirect + email confirm hash handling ──────────
   useEffect(() => {
-    if (user) navigate("/", { replace: true });
-  }, [user, navigate]);
+    // The join wizard makes `user` truthy mid-flow; wait for it to finish.
+    if (user && !showJoinDialog) navigate("/", { replace: true });
+  }, [user, navigate, showJoinDialog]);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -223,7 +225,25 @@ const Auth = () => {
       }
 
       if (data?.user) {
-        const encryptionInitialized = await initializeEncryption(password, data.user.id);
+        // The signup trigger's household insert can briefly trail the auth response — poll until visible.
+        let householdId: string | null = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { data: membership } = await supabase
+            .from("household_members")
+            .select("household_id")
+            .eq("user_id", data.user.id)
+            .limit(1)
+            .maybeSingle();
+          if (membership?.household_id) {
+            householdId = membership.household_id;
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 250));
+        }
+
+        const encryptionInitialized = householdId
+          ? await initializeEncryption(password, data.user.id, householdId)
+          : false;
         if (encryptionInitialized) {
           toast({
             title: "Account Created & Secured!",

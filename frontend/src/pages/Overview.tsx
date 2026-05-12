@@ -75,7 +75,7 @@ interface OverviewData {
 const Dashboard = () => {
   const { user } = useAuth();
   const { household, coParents, members, financialMonthStart, loading: householdLoading } = useHousehold();
-  const { isUnlocked, encrypt, decrypt } = useEncryption();
+  const { isUnlocked, encrypt, decrypt, pendingExitHouseholdId } = useEncryption();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -346,7 +346,10 @@ const Dashboard = () => {
 
       const setupDone = localStorage.getItem(`hh_setup_done_${household.id}`) === "1";
       const explicitOpen = searchParams.get("setup") === "1";
-      if (explicitOpen || (!hasSeed && !setupDone)) {
+      // The exit dialog owns the welcome experience while a pending exit is unresolved.
+      if (pendingExitHouseholdId) {
+        setSetupOpen(false);
+      } else if (explicitOpen || (!hasSeed && !setupDone)) {
         setSetupOpen(true);
       } else if (hasSeed) {
         localStorage.setItem(`hh_setup_done_${household.id}`, "1");
@@ -357,7 +360,7 @@ const Dashboard = () => {
       }
     };
     checkSeedData();
-  }, [household?.id, isUnlocked, todayMonth]);
+  }, [household?.id, isUnlocked, todayMonth, pendingExitHouseholdId]);
 
   // ─── Loading + locked states ─────────────────────────────────
   if (householdLoading || loading) {

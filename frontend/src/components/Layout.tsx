@@ -6,6 +6,7 @@ import { GuidedTour } from "./shared/GuidedTour";
 import { OutageBanner } from "./shared/OutageBanner";
 import { DevTimeTravel } from "./dev/DevTimeTravel";
 import { RecoveryCodeGate } from "./auth/RecoveryCodeGate";
+import { MultiHouseholdExitDialog } from "./auth/MultiHouseholdExitDialog";
 
 interface LayoutProps {
   children: ReactNode;
@@ -42,6 +43,7 @@ const Layout = ({ children }: LayoutProps) => {
       <OutageBanner />
       <DevTimeTravel />
       <RecoveryCodeGate />
+      <MultiHouseholdExitDialog />
     </div>
   );
 };

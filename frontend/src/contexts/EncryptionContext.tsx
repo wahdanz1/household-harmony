@@ -7,54 +7,38 @@ import {
     reEncryptDEK,
     generateRecoveryCode,
     wrapDEKWithRecoveryCode,
+    wrapDEKWithInviteCode,
+    unwrapDEKWithInviteCode,
+    rewrapDEKWithPassword,
 } from '@/services/encryption';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
 interface EncryptionContextValue {
-    /** Whether the vault is unlocked (DEK is available) */
     isUnlocked: boolean;
-
-    /** Whether encryption is being initialized */
     isLoading: boolean;
-
-    /** Encrypt a string value. Returns null if vault is locked. */
     encrypt: (plaintext: string) => Promise<string | null>;
-
-    /** Decrypt a ciphertext. Returns null if vault is locked or decryption fails. */
     decrypt: (ciphertext: string) => Promise<string | null>;
 
-    /** 
-     * Initialize encryption for a new user (during registration).
-     * Generates DEK, encrypts with password, stores in profile.
-     */
-    initializeEncryption: (password: string, userId: string) => Promise<boolean>;
-
-    /**
-     * Unlock the vault using password (during login).
-     * Fetches encrypted DEK from profile, decrypts it.
-     */
+    initializeEncryption: (password: string, userId: string, householdId: string) => Promise<boolean>;
     unlockWithPassword: (password: string, userId: string) => Promise<boolean>;
+    setupVaultFromInvite: (params: SetupVaultFromInviteParams) => Promise<boolean>;
 
-    /**
-     * Lock the vault (clear DEK from memory).
-     */
     lockVault: () => void;
-
-    /**
-     * Change password - re-encrypt DEK with new password.
-     */
     changePassword: (oldPassword: string, newPassword: string, userId: string) => Promise<boolean>;
-
-    /**
-     * Reset inactivity timer (called on user activity).
-     */
     resetInactivityTimer: () => void;
 
-    // Two-step so persist happens only after the user has actually saved the code.
     prepareRecoveryCode: () => Promise<PreparedRecoverySlot | null>;
     persistRecoveryCode: (userId: string, slot: PreparedRecoverySlot) => Promise<boolean>;
     hasRecoveryCode: (userId: string) => Promise<boolean>;
+    wrapDEKForInvite: (inviteCode: string) => Promise<{ encryptedDEK: string; salt: string; iv: string } | null>;
+
+    /** The household the user has been soft-removed from. Null when no pending exit. */
+    pendingExitHouseholdId: string | null;
+    /** Decrypt a ciphertext using the soft-removed household's DEK. */
+    decryptFromPendingExit: (ciphertext: string) => Promise<string | null>;
+    /** Drop the pending-exit DEK from memory (call after the exit dialog completes). */
+    clearPendingExitDEK: () => void;
 }
 
 export interface PreparedRecoverySlot {
@@ -64,30 +48,57 @@ export interface PreparedRecoverySlot {
     iv: string;
 }
 
+export interface SetupVaultFromInviteParams {
+    userId: string;
+    householdId: string;
+    password: string;
+    inviteCode: string;
+    wrappedDEK: { encryptedDEK: string; dekSalt: string; dekIV: string };
+}
+
 const EncryptionContext = createContext<EncryptionContextValue | null>(null);
 
-// Inactivity timeout in milliseconds (30 minutes)
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
-// Warning before lock (60 seconds)
 const LOCK_WARNING_TIME = 60 * 1000;
 
 interface EncryptionProviderProps {
     children: React.ReactNode;
 }
 
+async function resolveActiveHouseholdId(userId: string): Promise<string | null> {
+    const { data, error } = await supabase
+        .from('household_members')
+        .select('household_id, role, pending_exit_at')
+        .eq('user_id', userId);
+    if (error) {
+        console.error('Failed to resolve household_id for vault:', error);
+        return null;
+    }
+    if (!data || data.length === 0) return null;
+    const active = data.filter((m: any) => !m.pending_exit_at);
+    // If every membership is pending exit, the user has nowhere active to
+    // land — return null and let the caller bootstrap a personal household.
+    if (active.length === 0) return null;
+    const chosen = active.find((m: any) => m.role === 'member') ?? active.find((m: any) => m.role === 'owner') ?? active[0];
+    return chosen?.household_id ?? null;
+}
+
 export function EncryptionProvider({ children }: EncryptionProviderProps) {
-    // DEK stored only in memory - never persisted!
     const dekRef = useRef<CryptoKey | null>(null);
+    // The user the in-memory DEK belongs to. Lets the auth-change listener
+    // distinguish "stale DEK from a different user" (lock) from "DEK just set
+    // up for the user we're transitioning into" (don't lock).
+    const dekUserIdRef = useRef<string | null>(null);
+    const pendingExitDekRef = useRef<CryptoKey | null>(null);
+    const [pendingExitHouseholdId, setPendingExitHouseholdId] = useState<string | null>(null);
     const [isUnlocked, setIsUnlocked] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Inactivity tracking
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
     const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [showLockWarning, setShowLockWarning] = useState(false);
     const autoLockDisabledRef = useRef(false);
 
-    // Clear timers on unmount
     useEffect(() => {
         return () => {
             if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -95,38 +106,52 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         };
     }, []);
 
-    // Auto-unlock vault for demo mode on app load
+    // Drop the DEK whenever it belongs to a different user than the current session.
+    useEffect(() => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            const nextId = session?.user?.id ?? null;
+            if (dekUserIdRef.current && dekUserIdRef.current !== nextId) {
+                dekRef.current = null;
+                dekUserIdRef.current = null;
+                pendingExitDekRef.current = null;
+                setPendingExitHouseholdId(null);
+                setIsUnlocked(false);
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, []);
+
     useEffect(() => {
         const autoUnlockDemo = async () => {
-            // Import here to avoid circular dependency
             const { isDemoMode } = await import('@/utils/demoMode');
 
-            // Only auto-unlock if: demo mode + vault locked + password available
             const demoPassword = sessionStorage.getItem('demo_password');
             if (!isDemoMode() || isUnlocked || !demoPassword) {
                 return;
             }
 
-            // Need user ID from auth
             const authData = await supabase.auth.getUser();
             if (!authData.data.user) return;
 
-            console.log('Auto-unlocking demo vault...');
-            // Import the unlock function from encryption service
+            const userId = authData.data.user.id;
+            const householdId = await resolveActiveHouseholdId(userId);
+            if (!householdId) return;
+
             const { unlockVault: unlockFn } = await import('@/services/encryption');
 
             try {
                 const { data: vault } = await (supabase as any)
                     .from('user_vault_keys')
                     .select('encrypted_dek, dek_salt, dek_iv')
-                    .eq('user_id', authData.data.user.id)
-                    .single();
+                    .eq('user_id', userId)
+                    .eq('household_id', householdId)
+                    .maybeSingle();
 
                 if (vault?.encrypted_dek) {
                     const dek = await unlockFn(demoPassword, vault.encrypted_dek, vault.dek_salt, vault.dek_iv);
                     dekRef.current = dek;
+                    dekUserIdRef.current = userId;
                     setIsUnlocked(true);
-                    console.log('Demo vault auto-unlocked successfully');
                 }
             } catch (error) {
                 console.warn('Demo vault auto-unlock failed:', error);
@@ -134,9 +159,8 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         };
 
         autoUnlockDemo();
-    }, [isUnlocked]); // Re-run if unlock status changes
+    }, [isUnlocked]);
 
-    // Reset inactivity timer
     const resetInactivityTimer = useCallback(() => {
         setShowLockWarning(false);
 
@@ -145,17 +169,15 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
         if (!isUnlocked || autoLockDisabledRef.current) return;
 
-        // Set warning timer (fires before lock) - show toast
         warningTimerRef.current = setTimeout(() => {
             setShowLockWarning(true);
             toast({
                 title: 'Vault Auto-Lock Warning',
                 description: 'You have been inactive. The vault will lock in 1 minute. Interact with the app to stay active.',
-                duration: 55000, // Show for almost the full minute
+                duration: 55000,
             });
         }, INACTIVITY_TIMEOUT - LOCK_WARNING_TIME);
 
-        // Set lock timer
         inactivityTimerRef.current = setTimeout(() => {
             if (!autoLockDisabledRef.current) {
                 lockVault();
@@ -168,16 +190,32 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         }, INACTIVITY_TIMEOUT);
     }, [isUnlocked]);
 
-    // Lock vault - clear DEK from memory
     const lockVault = useCallback(() => {
         dekRef.current = null;
+        dekUserIdRef.current = null;
+        pendingExitDekRef.current = null;
+        setPendingExitHouseholdId(null);
         setIsUnlocked(false);
         setShowLockWarning(false);
         if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
         if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
     }, []);
 
-    // Encrypt a value
+    const decryptFromPendingExit = useCallback(async (ciphertext: string): Promise<string | null> => {
+        if (!pendingExitDekRef.current) return null;
+        try {
+            return await decryptValue(ciphertext, pendingExitDekRef.current);
+        } catch (err) {
+            console.error('Failed to decrypt pending-exit ciphertext:', err);
+            return null;
+        }
+    }, []);
+
+    const clearPendingExitDEK = useCallback(() => {
+        pendingExitDekRef.current = null;
+        setPendingExitHouseholdId(null);
+    }, []);
+
     const encrypt = useCallback(async (plaintext: string): Promise<string | null> => {
         if (!dekRef.current) {
             console.warn('Encryption attempted while vault is locked');
@@ -191,7 +229,6 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         }
     }, []);
 
-    // Decrypt a value
     const decrypt = useCallback(async (ciphertext: string): Promise<string | null> => {
         if (!dekRef.current) {
             console.warn('Decryption attempted while vault is locked');
@@ -205,8 +242,11 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         }
     }, []);
 
-    // Initialize encryption for new user
-    const initializeEncryption = useCallback(async (password: string, userId: string): Promise<boolean> => {
+    const initializeEncryption = useCallback(async (
+        password: string,
+        userId: string,
+        householdId: string,
+    ): Promise<boolean> => {
         setIsLoading(true);
         try {
             const { encryptedDEK, dekSalt, dekIV, dek } = await createUserEncryptionKeys(password);
@@ -215,6 +255,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 .from('user_vault_keys')
                 .upsert({
                     user_id: userId,
+                    household_id: householdId,
                     encrypted_dek: encryptedDEK,
                     dek_salt: dekSalt,
                     dek_iv: dekIV,
@@ -226,8 +267,8 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 return false;
             }
 
-            // Store DEK in memory
             dekRef.current = dek;
+            dekUserIdRef.current = userId;
             setIsUnlocked(true);
             resetInactivityTimer();
 
@@ -240,14 +281,26 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         }
     }, [resetInactivityTimer]);
 
-    // Unlock vault with password
     const unlockWithPassword = useCallback(async (password: string, userId: string): Promise<boolean> => {
         setIsLoading(true);
         try {
+            let householdId = await resolveActiveHouseholdId(userId);
+            if (!householdId) {
+                // Stranded user (e.g. removed from the only household they joined).
+                // Provision a personal household via the RPC and continue.
+                const { data: bootstrappedId, error: bootstrapError } = await (supabase as any).rpc('ensure_user_has_household');
+                if (bootstrapError || !bootstrappedId) {
+                    console.error('Failed to provision a household for stranded user:', bootstrapError);
+                    return false;
+                }
+                householdId = bootstrappedId as string;
+            }
+
             const { data: vault, error } = await (supabase as any)
                 .from('user_vault_keys')
                 .select('encrypted_dek, dek_salt, dek_iv')
                 .eq('user_id', userId)
+                .eq('household_id', householdId)
                 .maybeSingle();
 
             if (error) {
@@ -255,21 +308,61 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 return false;
             }
 
-            if (!vault || !vault.encrypted_dek || !vault.dek_salt || !vault.dek_iv) {
-                return await initializeEncryption(password, userId);
+            if (!vault?.encrypted_dek) {
+                // Only auto-init when nobody in the household has a wrap yet —
+                // otherwise we'd fork the DEK and orphan existing data.
+                const { data: hasKeys } = await (supabase as any).rpc('household_has_any_vault_keys', {
+                    household_id_in: householdId,
+                });
+                if (hasKeys === false) {
+                    return await initializeEncryption(password, userId, householdId);
+                }
+                return false;
             }
 
             const dek = await unlockVault(
                 password,
                 vault.encrypted_dek,
                 vault.dek_salt,
-                vault.dek_iv
+                vault.dek_iv,
             );
 
-            // Store DEK in memory
             dekRef.current = dek;
+            dekUserIdRef.current = userId;
             setIsUnlocked(true);
             resetInactivityTimer();
+
+            // Also unlock any pending-exit household so the exit dialog can
+            // decrypt the old household's items for duplication.
+            const { data: pendingMembership } = await (supabase as any)
+                .from('household_members')
+                .select('household_id')
+                .eq('user_id', userId)
+                .not('pending_exit_at', 'is', null)
+                .limit(1)
+                .maybeSingle();
+            if (pendingMembership?.household_id) {
+                const { data: pendingVault } = await (supabase as any)
+                    .from('user_vault_keys')
+                    .select('encrypted_dek, dek_salt, dek_iv')
+                    .eq('user_id', userId)
+                    .eq('household_id', pendingMembership.household_id)
+                    .maybeSingle();
+                if (pendingVault?.encrypted_dek) {
+                    try {
+                        const pendingDek = await unlockVault(
+                            password,
+                            pendingVault.encrypted_dek,
+                            pendingVault.dek_salt,
+                            pendingVault.dek_iv,
+                        );
+                        pendingExitDekRef.current = pendingDek;
+                        setPendingExitHouseholdId(pendingMembership.household_id);
+                    } catch (err) {
+                        console.error('Failed to unlock pending-exit vault:', err);
+                    }
+                }
+            }
 
             return true;
         } catch (error) {
@@ -278,20 +371,73 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         } finally {
             setIsLoading(false);
         }
-    }, [initializeEncryption, resetInactivityTimer]);
+    }, [resetInactivityTimer, initializeEncryption]);
 
-    // Change password
+    const setupVaultFromInvite = useCallback(async ({
+        userId,
+        householdId,
+        password,
+        inviteCode,
+        wrappedDEK,
+    }: SetupVaultFromInviteParams): Promise<boolean> => {
+        setIsLoading(true);
+        try {
+            const dek = await unwrapDEKWithInviteCode(
+                wrappedDEK.encryptedDEK,
+                wrappedDEK.dekSalt,
+                wrappedDEK.dekIV,
+                inviteCode,
+            );
+
+            const { encryptedDEK, dekSalt, dekIV } = await rewrapDEKWithPassword(dek, password);
+
+            const { error } = await (supabase as any)
+                .from('user_vault_keys')
+                .upsert({
+                    user_id: userId,
+                    household_id: householdId,
+                    encrypted_dek: encryptedDEK,
+                    dek_salt: dekSalt,
+                    dek_iv: dekIV,
+                    encryption_version: 1,
+                });
+
+            if (error) {
+                console.error('Failed to store invite-derived vault key:', error);
+                return false;
+            }
+
+            dekRef.current = dek;
+            dekUserIdRef.current = userId;
+            setIsUnlocked(true);
+            resetInactivityTimer();
+            return true;
+        } catch (error) {
+            console.error('Failed to set up vault from invite:', error);
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    }, [resetInactivityTimer]);
+
     const changePassword = useCallback(async (
         oldPassword: string,
         newPassword: string,
-        userId: string
+        userId: string,
     ): Promise<boolean> => {
         setIsLoading(true);
         try {
+            const householdId = await resolveActiveHouseholdId(userId);
+            if (!householdId) {
+                console.error('No household membership; cannot change password');
+                return false;
+            }
+
             const { data: vault, error: fetchError } = await (supabase as any)
                 .from('user_vault_keys')
                 .select('encrypted_dek, dek_salt, dek_iv')
                 .eq('user_id', userId)
+                .eq('household_id', householdId)
                 .single();
 
             if (fetchError || !vault?.encrypted_dek) {
@@ -303,7 +449,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 oldPassword,
                 vault.encrypted_dek,
                 vault.dek_salt,
-                vault.dek_iv
+                vault.dek_iv,
             );
 
             const { encryptedDEK, dekSalt, dekIV } = await reEncryptDEK(dek, newPassword);
@@ -315,15 +461,16 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                     dek_salt: dekSalt,
                     dek_iv: dekIV,
                 })
-                .eq('user_id', userId);
+                .eq('user_id', userId)
+                .eq('household_id', householdId);
 
             if (updateError) {
                 console.error('Failed to update encryption keys:', updateError);
                 return false;
             }
 
-            // Update DEK in memory
             dekRef.current = dek;
+            dekUserIdRef.current = userId;
             setIsUnlocked(true);
 
             return true;
@@ -352,7 +499,6 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
     const persistRecoveryCode = useCallback(async (userId: string, slot: PreparedRecoverySlot): Promise<boolean> => {
         try {
-            // Partial unique index can't drive ON CONFLICT, hence the delete+insert.
             await (supabase as any)
                 .from('user_vault_recovery_slots')
                 .delete()
@@ -380,6 +526,19 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         }
     }, []);
 
+    const wrapDEKForInvite = useCallback(async (inviteCode: string) => {
+        if (!dekRef.current) {
+            console.warn('Cannot wrap DEK for invite: vault is locked');
+            return null;
+        }
+        try {
+            return await wrapDEKWithInviteCode(dekRef.current, inviteCode);
+        } catch (err) {
+            console.error('Failed to wrap DEK with invite code:', err);
+            return null;
+        }
+    }, []);
+
     const hasRecoveryCode = useCallback(async (userId: string): Promise<boolean> => {
         const { data, error } = await (supabase as any)
             .from('user_vault_recovery_slots')
@@ -401,17 +560,19 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         decrypt,
         initializeEncryption,
         unlockWithPassword,
+        setupVaultFromInvite,
         lockVault,
         changePassword,
         resetInactivityTimer,
         prepareRecoveryCode,
         persistRecoveryCode,
         hasRecoveryCode,
+        wrapDEKForInvite,
+        pendingExitHouseholdId,
+        decryptFromPendingExit,
+        clearPendingExitDEK,
     };
 
-    // --- Developer Mode: Disable Auto-Lock ---
-    // Expose functions to window for developers to control auto-lock
-    // Usage in console: window.disableVaultAutoLock() / window.enableVaultAutoLock()
     useEffect(() => {
         if (process.env.NODE_ENV === 'development') {
             (window as any).disableVaultAutoLock = () => {
@@ -427,12 +588,10 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             };
         }
     }, [resetInactivityTimer]);
-    // -----------------------------------------
 
     return (
         <EncryptionContext.Provider value={value}>
             {children}
-            {/* Lock Warning Modal */}
             {showLockWarning && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-background border border-border rounded-lg p-6 max-w-md mx-4 shadow-xl">

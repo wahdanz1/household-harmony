@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEncryption } from "@/contexts/EncryptionContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
-import { Check, Users, ArrowRight, ArrowLeft } from "lucide-react";
+import { Check, Users, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
 import { PLACEHOLDERS } from "@/constants/ui";
 import { passwordSchema } from "@/config/passwordSchema";
 
@@ -16,21 +18,27 @@ interface JoinHouseholdWizardProps {
     onOpenChange: (open: boolean) => void;
 }
 
+type JoinPhase =
+    | { kind: "idle" }
+    | { kind: "joining"; message: string }
+    | { kind: "settling"; expected: { userId: string; householdId: string } }
+    | { kind: "error"; message: string };
+
 export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardProps) => {
-    const { signUpAndJoinHousehold } = useAuth();
+    const { user, signUpAndJoinHousehold } = useAuth();
+    const { setupVaultFromInvite, isUnlocked } = useEncryption();
+    const { household: activeHousehold, refresh: refreshHousehold } = useHousehold();
     const { toast } = useToast();
 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [phase, setPhase] = useState<JoinPhase>({ kind: "idle" });
 
-    // Step 1: Invite code
     const [inviteCode, setInviteCode] = useState("");
 
-    // Step 2: Household preview
     const [household, setHousehold] = useState<any>(null);
     const [members, setMembers] = useState<any[]>([]);
 
-    // Step 3: Sign up form
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -45,7 +53,31 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
         setEmail("");
         setPassword("");
         setConfirmPassword("");
+        setPhase({ kind: "idle" });
     };
+
+    useEffect(() => {
+        if (phase.kind !== "settling") return;
+        const { userId, householdId } = phase.expected;
+        const userMatch = user?.id === userId;
+        const householdMatch = activeHousehold?.id === householdId;
+
+        // eslint-disable-next-line no-console
+        console.debug("[JoinWizard] settling check", {
+            userMatch, expectedUser: userId, actualUser: user?.id,
+            householdMatch, expectedHousehold: householdId, actualHousehold: activeHousehold?.id,
+            isUnlocked,
+        });
+
+        if (!userMatch || !householdMatch || !isUnlocked) return;
+
+        toast({
+            title: "Account Created!",
+            description: `You've joined ${household?.name ?? "the household"}.`,
+        });
+        resetWizard();
+        onOpenChange(false);
+    }, [phase, user?.id, activeHousehold?.id, isUnlocked]);
 
     const handleValidateCode = async () => {
         if (!inviteCode || inviteCode.length !== 8) {
@@ -78,6 +110,9 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             household_name: string;
             household_currency: string;
             invited_email: string | null;
+            encrypted_dek: string | null;
+            dek_iv: string | null;
+            dek_salt: string | null;
             members: Array<{
                 role: string;
                 full_name: string | null;
@@ -85,11 +120,24 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
             }>;
         };
 
+        if (!preview.encrypted_dek || !preview.dek_iv || !preview.dek_salt) {
+            toast({
+                title: "Invite outdated",
+                description: "This invite was created before encrypted sharing was set up. Ask the inviter to send a new one.",
+                variant: "destructive",
+            });
+            setLoading(false);
+            return;
+        }
+
         setHousehold({
             id: preview.household_id,
             name: preview.household_name,
             currency: preview.household_currency,
             invited_email: preview.invited_email,
+            encrypted_dek: preview.encrypted_dek,
+            dek_iv: preview.dek_iv,
+            dek_salt: preview.dek_salt,
         });
         setMembers(
             preview.members.map((m, idx) => ({
@@ -149,8 +197,9 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
         }
 
         setLoading(true);
+        setPhase({ kind: "joining", message: "Creating your account…" });
 
-        const { error } = await signUpAndJoinHousehold(email, password, fullName, inviteCode);
+        const { error, userId, householdId } = await signUpAndJoinHousehold(email, password, fullName, inviteCode);
 
         if (error) {
             const message =
@@ -161,33 +210,89 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                     : error.message === "already_member"
                     ? "You are already a member of this household."
                     : error.message || "Failed to create account";
-
-            toast({
-                title: "Sign Up Failed",
-                description: message,
-                variant: "destructive",
-            });
+            setPhase({ kind: "error", message });
             setLoading(false);
             return;
         }
 
-        toast({
-            title: "Account Created!",
-            description: `You've joined ${household.name}! Please check your email to confirm your account before logging in.`,
-        });
+        if (!userId || !householdId) {
+            setPhase({ kind: "error", message: "Account created but the invite could not be redeemed." });
+            setLoading(false);
+            return;
+        }
 
-        resetWizard();
-        onOpenChange(false);
+        if (!household.encrypted_dek || !household.dek_iv || !household.dek_salt) {
+            setPhase({ kind: "error", message: "Invite is missing the shared encryption key. Ask for a new one." });
+            setLoading(false);
+            return;
+        }
+
+        setPhase({ kind: "joining", message: "Setting up your secure vault…" });
+
+        const vaultOk = await setupVaultFromInvite({
+            userId,
+            householdId,
+            password,
+            inviteCode,
+            wrappedDEK: {
+                encryptedDEK: household.encrypted_dek,
+                dekSalt: household.dek_salt,
+                dekIV: household.dek_iv,
+            },
+        });
+        if (!vaultOk) {
+            setPhase({ kind: "error", message: "Your account was created but encryption setup failed. Contact the household owner." });
+            setLoading(false);
+            return;
+        }
+
+        setPhase({ kind: "joining", message: "Loading your household…" });
+        await refreshHousehold();
+
+        // Hand off to the invariant-watcher effect; it closes the wizard only
+        // once auth, household, and vault have all caught up.
+        setPhase({ kind: "settling", expected: { userId, householdId } });
         setLoading(false);
     };
 
+    const inFlight = phase.kind === "joining" || phase.kind === "settling";
+    const inFlightMessage = phase.kind === "joining"
+        ? phase.message
+        : phase.kind === "settling"
+            ? "Settling you into your household…"
+            : "";
+
     return (
         <Dialog open={open} onOpenChange={(open) => {
+            if (inFlight) return; // Block dismissal mid-flight.
             onOpenChange(open);
             if (!open) resetWizard();
         }}>
-            <DialogContent className="sm:max-w-[500px]">
-                {step === 1 && (
+            <DialogContent
+                className="sm:max-w-[500px]"
+                hideClose={inFlight}
+                onPointerDownOutside={(e) => { if (inFlight) e.preventDefault(); }}
+                onEscapeKeyDown={(e) => { if (inFlight) e.preventDefault(); }}
+            >
+                {inFlight ? (
+                    <div className="flex flex-col items-center justify-center py-10 gap-4">
+                        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                        <p className="text-sm text-muted-foreground">
+                            {inFlightMessage}
+                        </p>
+                    </div>
+                ) : phase.kind === "error" ? (
+                    <>
+                        <DialogHeader>
+                            <DialogTitle>Something went wrong</DialogTitle>
+                            <DialogDescription>{phase.message}</DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+                            <Button onClick={() => setPhase({ kind: "idle" })}>Try again</Button>
+                        </DialogFooter>
+                    </>
+                ) : step === 1 ? (
                     <>
                         <DialogHeader>
                             <DialogTitle>Join Existing Household</DialogTitle>
@@ -218,9 +323,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                             </Button>
                         </DialogFooter>
                     </>
-                )}
-
-                {step === 2 && household && (
+                ) : step === 2 && household ? (
                     <>
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
@@ -266,9 +369,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                             </Button>
                         </DialogFooter>
                     </>
-                )}
-
-                {step === 3 && (
+                ) : step === 3 ? (
                     <>
                         <DialogHeader>
                             <DialogTitle>Create Your Account</DialogTitle>
@@ -327,7 +428,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
                             </Button>
                         </DialogFooter>
                     </>
-                )}
+                ) : null}
             </DialogContent>
         </Dialog>
     );

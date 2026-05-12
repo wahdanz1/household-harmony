@@ -8,7 +8,12 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any; data: { user: User | null } | null }>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any; data: { user: User | null } | null }>;
-  signUpAndJoinHousehold: (email: string, password: string, fullName: string, inviteCode: string) => Promise<{ error: any }>;
+  signUpAndJoinHousehold: (
+    email: string,
+    password: string,
+    fullName: string,
+    inviteCode: string,
+  ) => Promise<{ error: any; userId?: string; householdId?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -82,7 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: signUpError };
     }
 
-    const { error: redeemError } = await supabase.rpc("redeem_invite", {
+    const { data: redeemData, error: redeemError } = await supabase.rpc("redeem_invite", {
       invite_code_in: inviteCode.toUpperCase(),
     });
 
@@ -90,29 +95,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { error: redeemError };
     }
 
-    // The signup trigger may have provisioned a default household — drop it
-    // so the user lands in the invited one only.
-    const { data: ownedHouseholds } = await supabase
-      .from("households")
-      .select("id")
-      .eq("owner_id", authData.user.id);
-
-    if (ownedHouseholds && ownedHouseholds.length > 0) {
-      for (const household of ownedHouseholds) {
-        await supabase
-          .from("household_members")
-          .delete()
-          .eq("household_id", household.id)
-          .eq("user_id", authData.user.id);
-
-        await supabase
-          .from("households")
-          .delete()
-          .eq("id", household.id);
-      }
-    }
-
-    return { error: null };
+    const householdId = (redeemData as { household_id?: string } | null)?.household_id;
+    return { error: null, userId: authData.user.id, householdId };
   };
 
   const signOut = async () => {
