@@ -41,7 +41,8 @@ const Expenses = () => {
   const { user } = useAuth();
   const { household, members, coParents } = useHousehold();
   const { isUnlocked } = useEncryption();
-  const subjects = useHouseholdSubjects(household?.id);
+  const [subjectsRefreshKey, setSubjectsRefreshKey] = useState(0);
+  const subjects = useHouseholdSubjects(household?.id, subjectsRefreshKey);
   const earliestDataMonth = useEarliestDataMonth(household?.id);
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
@@ -107,6 +108,9 @@ const Expenses = () => {
 
   const fetchData = useCallback(async () => {
     if (!user || !household) return;
+
+    // Forms may have created new subjects inline (SubjectPicker "+"); re-fetch them.
+    setSubjectsRefreshKey(k => k + 1);
 
     // If vault is locked, we can't fetch decrypted data safely
     if (!isUnlocked) {
