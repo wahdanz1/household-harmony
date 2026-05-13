@@ -25,12 +25,6 @@ interface SettingsCardProps {
     contentClassName?: string;
 }
 
-/**
- * Standard Settings tab card. Eyebrow at top, structured content below.
- * Matches the bundle's Allmänt/General layout — see
- * design-system/.../preview Allmänt screenshot and
- * docs/design/drift-audit.md § 4.6.
- */
 export const SettingsCard = ({ eyebrow, eyebrowRight, children, dim, tone = "default", className, contentClassName }: SettingsCardProps) => (
     <Card
         variant="flush"

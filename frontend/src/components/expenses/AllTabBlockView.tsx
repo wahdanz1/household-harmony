@@ -403,9 +403,9 @@ export const AllTabBlockView = ({
                     onAmountChange={onAmountChange}
                     headerMetrics={
                         <SectionFrames frames={[
-                            { v: expensesTotal, unit: "kr/mån", primary: true },
-                            { v: expensesTotal * 12, unit: "kr/år" },
-                            { v: expensesBudgetedTotal, unit: "kr", label: "varav budget" },
+                            { v: expensesTotal, unit: "kr/mo", primary: true },
+                            { v: expensesTotal * 12, unit: "kr/yr" },
+                            { v: expensesBudgetedTotal, unit: "kr", label: "of which budget" },
                         ]} />
                     }
                 />
@@ -430,9 +430,9 @@ export const AllTabBlockView = ({
                 }
                 headerMetrics={subscriptionsTotal > 0 ? (
                     <SectionFrames frames={[
-                        { v: subscriptionsTotal, unit: "kr/mån", primary: true },
-                        { v: yearlySubscriptions, unit: "kr/år" },
-                        { v: averageSub, unit: "kr/mån", label: "snitt/post" },
+                        { v: subscriptionsTotal, unit: "kr/mo", primary: true },
+                        { v: yearlySubscriptions, unit: "kr/yr" },
+                        { v: averageSub, unit: "kr/mo", label: "avg/item" },
                     ]} />
                 ) : undefined}
             />
@@ -446,9 +446,9 @@ export const AllTabBlockView = ({
                 onAdd={onAddInsurance}
                 headerMetrics={insuranceTotal > 0 ? (
                     <SectionFrames frames={[
-                        { v: insuranceTotal, unit: "kr/mån", primary: true },
-                        { v: yearlyInsurance, unit: "kr/år" },
-                        { v: averageInsurance, unit: "kr/mån", label: "snitt/post" },
+                        { v: insuranceTotal, unit: "kr/mo", primary: true },
+                        { v: yearlyInsurance, unit: "kr/yr" },
+                        { v: averageInsurance, unit: "kr/mo", label: "avg/item" },
                     ]} />
                 ) : undefined}
             />

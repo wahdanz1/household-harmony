@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 export interface SectionFrame {
     /** Numeric value (rounded for display). */
     v: number;
-    /** Unit suffix, e.g. "kr/mån", "kr/år", "kr". */
+    /** Unit suffix, e.g. "kr/mo", "kr/yr", "kr". */
     unit: string;
-    /** Optional label before the value, e.g. "varav budget", "snitt/post". */
+    /** Optional label before the value, e.g. "of which budget", "avg/item". */
     label?: string;
     /** Mark the primary headline frame — bolder ink. First true wins. */
     primary?: boolean;

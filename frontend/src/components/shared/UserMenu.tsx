@@ -19,12 +19,6 @@ interface UserMenuProps {
     side?: "top" | "right" | "bottom" | "left";
 }
 
-/**
- * Account-level menu (Inställningar, Logga ut). Anchored to whatever
- * `trigger` element is passed — used by both the mobile AvatarTrigger and
- * the desktop sidebar user-card. Household-switching is omitted because
- * the app is single-household per user.
- */
 export const UserMenu = ({ trigger, align = "end", side = "bottom" }: UserMenuProps) => {
     const navigate = useNavigate();
     const { signOut, user } = useAuth();
