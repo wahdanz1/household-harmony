@@ -14,7 +14,7 @@ import { SubjectsCard } from "@/components/settings/SubjectsCard";
 // import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Home, User, Shield } from "lucide-react";
+import { Settings as SettingsIcon, User, Home as HomeIcon, Shield } from "lucide-react";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
@@ -101,12 +101,16 @@ const Settings = () => {
       <Tabs defaultValue="general" className="w-full">
         <TabsList>
           <TabsTrigger value="general" className="flex items-center gap-2">
-            <Home className="h-4 w-4" />
+            <SettingsIcon className="h-4 w-4" />
             <span className="hidden sm:inline">General</span>
           </TabsTrigger>
           <TabsTrigger value="personal" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Personal</span>
+          </TabsTrigger>
+          <TabsTrigger value="household" className="flex items-center gap-2">
+            <HomeIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Household</span>
           </TabsTrigger>
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
@@ -116,7 +120,28 @@ const Settings = () => {
 
         <TabsContent value="general" className="mt-5">
           <div className="space-y-5">
-            {/* Household Info & Members - 2 column grid on desktop */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1.5 flex-1">
+                    <CardTitle>Appearance</CardTitle>
+                    <CardDescription>Switch between light and dark mode.</CardDescription>
+                  </div>
+                  <ThemeToggle showLabel />
+                </div>
+              </CardHeader>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="personal" className="mt-5">
+          <div className="space-y-5">
+            <PersonalSettingsCard />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="household" className="mt-5">
+          <div className="space-y-5">
             <div className="grid gap-5 lg:grid-cols-2">
               <HouseholdInfoCard household={household} userRole={userRole} members={members} onUpdate={fetchData} />
               <HouseholdMembersCard
@@ -140,23 +165,6 @@ const Settings = () => {
               isOwner={userRole === "owner"}
               onComplete={fetchData}
             />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="personal" className="mt-5">
-          <div className="space-y-5">
-            <PersonalSettingsCard />
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-1.5 flex-1">
-                    <CardTitle>Appearance</CardTitle>
-                    <CardDescription>Switch between light and dark mode.</CardDescription>
-                  </div>
-                  <ThemeToggle showLabel />
-                </div>
-              </CardHeader>
-            </Card>
           </div>
         </TabsContent>
 
