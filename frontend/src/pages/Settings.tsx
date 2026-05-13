@@ -11,10 +11,12 @@ import { RecoveryCodeCard } from "@/components/settings/RecoveryCodeCard";
 import { ResetDataCard } from "@/components/settings/ResetDataCard";
 import { SetupWizardCard } from "@/components/settings/SetupWizardCard";
 import { SubjectsCard } from "@/components/settings/SubjectsCard";
+import { ComingSoonCard } from "@/components/settings/ComingSoonCard";
+import { LanguageCard } from "@/components/settings/LanguageCard";
 // import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Settings as SettingsIcon, User, Home as HomeIcon, Shield } from "lucide-react";
+import { Settings as SettingsIcon, User, Home as HomeIcon, Shield, Bell, KeyRound } from "lucide-react";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
@@ -104,9 +106,9 @@ const Settings = () => {
             <SettingsIcon className="h-4 w-4" />
             <span className="hidden sm:inline">General</span>
           </TabsTrigger>
-          <TabsTrigger value="personal" className="flex items-center gap-2">
+          <TabsTrigger value="account" className="flex items-center gap-2">
             <User className="h-4 w-4" />
-            <span className="hidden sm:inline">Personal</span>
+            <span className="hidden sm:inline">Account</span>
           </TabsTrigger>
           <TabsTrigger value="household" className="flex items-center gap-2">
             <HomeIcon className="h-4 w-4" />
@@ -119,7 +121,7 @@ const Settings = () => {
         </TabsList>
 
         <TabsContent value="general" className="mt-5">
-          <div className="space-y-5">
+          <div className="grid gap-5 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between gap-4">
@@ -131,12 +133,23 @@ const Settings = () => {
                 </div>
               </CardHeader>
             </Card>
+            <LanguageCard />
+            <ComingSoonCard
+              title="Notifications"
+              description="Bill reminders, weekly summaries, settlement nudges."
+              icon={<Bell className="h-5 w-5" />}
+            />
           </div>
         </TabsContent>
 
-        <TabsContent value="personal" className="mt-5">
+        <TabsContent value="account" className="mt-5">
           <div className="space-y-5">
             <PersonalSettingsCard />
+            <ComingSoonCard
+              title="Two-factor authentication"
+              description="Extra protection at sign-in via authenticator app."
+              icon={<KeyRound className="h-5 w-5" />}
+            />
           </div>
         </TabsContent>
 
