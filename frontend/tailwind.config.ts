@@ -50,6 +50,10 @@ export default {
 
         // Pre-composed translucent (no alpha modifier)
         "bg-trans": "var(--bg-trans)",
+        overlay: "var(--overlay)",
+      },
+      boxShadow: {
+        DEFAULT: "var(--shadow)",
       },
       borderRadius: {
         lg: "var(--radius)",

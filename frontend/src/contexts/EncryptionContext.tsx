@@ -593,7 +593,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         <EncryptionContext.Provider value={value}>
             {children}
             {showLockWarning && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50">
                     <div className="bg-bg border border-line rounded-lg p-6 max-w-md mx-4 shadow-xl">
                         <h4 className="mb-2">
                             Session Timeout Warning
