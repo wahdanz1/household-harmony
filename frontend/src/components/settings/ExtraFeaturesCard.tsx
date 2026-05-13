@@ -31,8 +31,8 @@ export const ExtraFeaturesCard = ({ householdId, enableCreditCards, enableShared
                     title="Credit cards"
                     value={
                         enableCreditCards
-                            ? <>Track credit card expenses with monthly limits. Manage in <strong className="font-semibold text-ink">Expenses → Credit</strong>.</>
-                            : "Track credit card expenses with monthly limits."
+                            ? <>Mark expenses as credit-paid and import statements during Monthly Review. Statements are parsed off-device by a third-party AI service — only per-category totals are stored, encrypted.</>
+                            : "Mark expenses as credit-paid and import statements during Monthly Review."
                     }
                     control={
                         <Switch
