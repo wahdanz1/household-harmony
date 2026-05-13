@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import Cropper from "react-easy-crop";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Loader2 } from "lucide-react";
@@ -104,7 +104,8 @@ export function AvatarCropDialog({ open, imageSrc, onClose, onCropComplete }: Av
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Crop Profile Photo</DialogTitle>
+          <DialogTitle>Crop profile photo</DialogTitle>
+          <DialogDescription>Drag to position, scroll or use the slider to zoom.</DialogDescription>
         </DialogHeader>
         
         <div className="relative h-[400px] w-full">
