@@ -14,11 +14,11 @@ interface SummaryCardProps {
 }
 
 const colorClasses: Record<ColorVariant, string> = {
-    success: 'text-success',
-    destructive: 'text-destructive',
-    'accent-purple': 'text-accent-purple',
-    warning: 'text-warning',
-    default: 'text-foreground',
+    success: 'text-accent',
+    destructive: 'text-danger',
+    'accent-purple': 'text-accent',
+    warning: 'text-warn',
+    default: 'text-ink',
 };
 
 export const SummaryCard = ({
@@ -31,21 +31,21 @@ export const SummaryCard = ({
     currency = 'SEK',
 }: SummaryCardProps) => {
     const iconColor = colorClasses[color];
-    const amountColor = color === 'success' || color === 'destructive' ? colorClasses[color] : 'text-foreground';
+    const amountColor = color === 'success' || color === 'destructive' ? colorClasses[color] : 'text-ink';
 
     return (
         <Card
-            className="hover:bg-muted/60 cursor-pointer transition-colors"
+            className="hover:bg-surface-2/60 cursor-pointer transition-colors"
             onClick={onClick}
         >
             <div className="flex items-center gap-2 mb-2">
                 <Icon className={`h-4 w-4 ${iconColor}`} />
-                <span className="text-xs text-muted-foreground">{title}</span>
+                <span className="text-xs text-muted">{title}</span>
             </div>
             <p className={`text-xl font-bold ${amountColor}`}>
                 {amount} {currency}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">{periodLabel}</p>
+            <p className="text-xs text-muted mt-1">{periodLabel}</p>
         </Card>
     );
 };

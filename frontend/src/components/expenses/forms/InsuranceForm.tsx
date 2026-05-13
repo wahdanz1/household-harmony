@@ -252,7 +252,7 @@ export const InsuranceForm = ({
                             />
                         </FormField>
                     </FormRow>
-                    <p className="text-xs text-muted-foreground -mt-1">
+                    <p className="text-xs text-muted -mt-1">
                         Set a billing date to get a heads-up when it's due.
                     </p>
                 </>
@@ -293,7 +293,7 @@ export const InsuranceForm = ({
             </div>
 
             {coParents.length > 0 && (
-                <div className="space-y-4 border-t border-border pt-4">
+                <div className="space-y-4 border-t border-line pt-4">
                     <div className="flex items-center space-x-2">
                         <Switch
                             checked={!!formData.is_shared}
@@ -327,7 +327,7 @@ export const InsuranceForm = ({
                                     value={String(formData.share_percentage ?? "50")}
                                     onChange={(e) => setFormData({ ...formData, share_percentage: e.target.value })}
                                 />
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-muted">
                                     You pay {formData.share_percentage}%, they pay {100 - parseFloat(String(formData.share_percentage || "0"))}%
                                 </p>
                             </div>

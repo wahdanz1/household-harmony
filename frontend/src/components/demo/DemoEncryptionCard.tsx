@@ -1,5 +1,5 @@
 /**
- * DemoEncryptionCard - Dashboard component for demo mode
+ * DemoEncryptionCard - Overview component for demo mode
  * 
  * Shows encryption information and lets users view raw encrypted data.
  * Only visible when is_demo_mode is true.
@@ -65,15 +65,15 @@ export const DemoEncryptionCard = ({ householdId }: { householdId: string }) => 
 
     return (
         <>
-            <Card className="p-4 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/30">
+            <Card className="p-4 bg-gradient-to-r from-accent/10 to-accent/5 border-accent/30">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-primary/20">
-                            <Shield className="h-5 w-5 text-primary" />
+                        <div className="p-2 rounded-full bg-accent/20">
+                            <Shield className="h-5 w-5 text-accent" />
                         </div>
                         <div>
                             <p className="font-medium text-sm">End-to-End Encryption</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted">
                                 Your data is encrypted with AES-256-GCM
                             </p>
                         </div>
@@ -94,7 +94,7 @@ export const DemoEncryptionCard = ({ householdId }: { householdId: string }) => 
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <Lock className="h-5 w-5 text-primary" />
+                            <Lock className="h-5 w-5 text-accent" />
                             Real Encryption Proof
                         </DialogTitle>
                         <DialogDescription>
@@ -106,17 +106,17 @@ export const DemoEncryptionCard = ({ householdId }: { householdId: string }) => 
                     <div className="space-y-4">
                         {/* Raw Encrypted Data */}
                         <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-2 text-sm text-muted">
                                 <Database className="h-4 w-4" />
                                 <span>
-                                    Table: <code className="text-primary">{encryptedSample?.table || "..."}</code>
+                                    Table: <code className="text-accent">{encryptedSample?.table || "..."}</code>
                                     {" / "}
-                                    Field: <code className="text-primary">{encryptedSample?.field || "..."}</code>
+                                    Field: <code className="text-accent">{encryptedSample?.field || "..."}</code>
                                 </span>
                             </div>
-                            <div className="p-3 rounded-md bg-muted/50 border border-border font-mono text-xs break-all max-h-32 overflow-auto">
+                            <div className="p-3 rounded-md bg-surface-2/50 border border-line font-mono text-xs break-all max-h-32 overflow-auto">
                                 {loading ? (
-                                    <span className="text-muted-foreground">Loading...</span>
+                                    <span className="text-muted">Loading...</span>
                                 ) : encryptedSample?.value ? (
                                     encryptedSample.value.length > 150
                                         ? encryptedSample.value.substring(0, 150) + "..."
@@ -130,26 +130,26 @@ export const DemoEncryptionCard = ({ householdId }: { householdId: string }) => 
                         {/* Technical Details */}
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <span className="text-muted-foreground">Algorithm:</span>
+                                <span className="text-muted">Algorithm:</span>
                                 <p className="font-medium">AES-256-GCM</p>
                             </div>
                             <div>
-                                <span className="text-muted-foreground">Key Derivation:</span>
+                                <span className="text-muted">Key Derivation:</span>
                                 <p className="font-medium">PBKDF2 (100k iter)</p>
                             </div>
                             <div>
-                                <span className="text-muted-foreground">Key Storage:</span>
+                                <span className="text-muted">Key Storage:</span>
                                 <p className="font-medium">Browser only</p>
                             </div>
                             <div>
-                                <span className="text-muted-foreground">Server Access:</span>
-                                <p className="font-medium text-success">None</p>
+                                <span className="text-muted">Server Access:</span>
+                                <p className="font-medium text-accent">None</p>
                             </div>
                         </div>
 
                         {/* Explanation */}
-                        <div className="p-3 rounded-md bg-primary/5 border border-primary/20 text-sm">
-                            <p className="text-muted-foreground">
+                        <div className="p-3 rounded-md bg-accent/5 border border-accent/20 text-sm">
+                            <p className="text-muted">
                                 Household Harmony encrypts all sensitive data in your browser
                                 before sending it to the database. Only you can decrypt it
                                 with your vault password.

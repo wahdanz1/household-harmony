@@ -6,6 +6,11 @@ export interface ExpenseCategory {
     icon: LucideIcon;
     /** Hue in degrees (0-360) — drives theme-adaptive color-mix tint. */
     hue?: number;
+    /**
+     * Self-set budget envelope vs. provider-billed fixed cost. Drives the
+     * `~` muted amount treatment in row UIs. See docs/design/expenses-model.md.
+     */
+    isBudgeted?: boolean;
 }
 
 /**
@@ -18,12 +23,12 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
     { id: 'internet', label: 'Internet', icon: Wifi, hue: 200 },
     { id: 'phone_plan', label: 'Phone Plan', icon: Smartphone, hue: 260 },
     { id: 'electricity', label: 'Electricity', icon: Zap, hue: 30 },
-    { id: 'groceries', label: 'Groceries', icon: ShoppingCart, hue: 80 },
-    { id: 'dining_out', label: 'Dining Out', icon: UtensilsCrossed, hue: 80 },
-    { id: 'entertainment', label: 'Entertainment', icon: Film, hue: 320 },
-    { id: 'shopping', label: 'Shopping', icon: ShoppingBag, hue: 320 },
-    { id: 'fuel', label: 'Fuel', icon: Fuel, hue: 200 },
-    { id: 'travel', label: 'Travel', icon: Plane, hue: 200 },
+    { id: 'groceries', label: 'Groceries', icon: ShoppingCart, hue: 80, isBudgeted: true },
+    { id: 'dining_out', label: 'Dining Out', icon: UtensilsCrossed, hue: 80, isBudgeted: true },
+    { id: 'entertainment', label: 'Entertainment', icon: Film, hue: 320, isBudgeted: true },
+    { id: 'shopping', label: 'Shopping', icon: ShoppingBag, hue: 320, isBudgeted: true },
+    { id: 'fuel', label: 'Fuel', icon: Fuel, hue: 200, isBudgeted: true },
+    { id: 'travel', label: 'Travel', icon: Plane, hue: 200, isBudgeted: true },
     { id: 'car_repairs', label: 'Car Repairs', icon: Wrench, hue: 200 },
     { id: 'credit_card', label: 'Credit Card', icon: CreditCard, hue: 240 },
     { id: 'healthcare', label: 'Healthcare', icon: Heart, hue: 150 },
@@ -42,4 +47,9 @@ export const getCategoryIcon = (categoryId: string): LucideIcon => {
 
 export const getCategoryHue = (categoryId: string): number | undefined => {
     return getCategoryById(categoryId)?.hue;
+};
+
+export const isCategoryBudgeted = (categoryId: string | undefined | null): boolean => {
+    if (!categoryId) return false;
+    return getCategoryById(categoryId)?.isBudgeted === true;
 };

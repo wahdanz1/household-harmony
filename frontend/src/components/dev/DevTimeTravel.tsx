@@ -49,10 +49,10 @@ export const DevTimeTravel = () => {
     return (
         <div className="hidden sm:block fixed bottom-4 right-4 z-50">
             {open ? (
-                <div className="bg-background border-2 border-warning/60 rounded-lg shadow-xl p-4 w-80 space-y-3">
+                <div className="bg-bg border-2 border-warn/60 rounded-lg shadow-xl p-4 w-80 space-y-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-warning" />
+                            <Clock className="h-4 w-4 text-warn" />
                             <span className="font-semibold text-sm">Dev: Time Travel</span>
                         </div>
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOpen(false)}>
@@ -60,12 +60,12 @@ export const DevTimeTravel = () => {
                         </Button>
                     </div>
 
-                    <div className="text-xs text-muted-foreground space-y-1 pb-2 border-b border-border/50">
+                    <div className="text-xs text-muted space-y-1 pb-2 border-b border-line/50">
                         <div>
                             <span className="opacity-70">Effective today:</span>{" "}
                             <span className="font-mono">{format(effectiveNow, "yyyy-MM-dd")}</span>
                             {isOverridden && (
-                                <span className="ml-2 text-warning font-medium">(overridden)</span>
+                                <span className="ml-2 text-warn font-medium">(overridden)</span>
                             )}
                         </div>
                         <div>
@@ -96,7 +96,7 @@ export const DevTimeTravel = () => {
                         )}
                     </div>
 
-                    <p className="text-[10px] text-muted-foreground leading-tight">
+                    <p className="text-[10px] text-muted leading-tight">
                         Affects "current financial month" calculations only. Database
                         timestamps (accepted_at, created_at) still use the real clock.
                     </p>
@@ -106,10 +106,10 @@ export const DevTimeTravel = () => {
                     onClick={() => setOpen(true)}
                     size="icon"
                     variant="outline"
-                    className={`h-10 w-10 rounded-full shadow-lg ${isOverridden ? "border-warning bg-warning/10" : ""}`}
+                    className={`h-10 w-10 rounded-full shadow-lg ${isOverridden ? "border-warn bg-warn/10" : ""}`}
                     title={isOverridden ? `Time travel active: ${current}` : "Open time travel"}
                 >
-                    <Clock className={`h-4 w-4 ${isOverridden ? "text-warning" : ""}`} />
+                    <Clock className={`h-4 w-4 ${isOverridden ? "text-warn" : ""}`} />
                 </Button>
             )}
         </div>

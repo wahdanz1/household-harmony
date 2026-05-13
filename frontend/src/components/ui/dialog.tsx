@@ -49,7 +49,11 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
-      onOpenAutoFocus={(e) => e.preventDefault()}
+      onOpenAutoFocus={(e) => {
+        // Refocus the content root so the trigger isn't left inside the aria-hidden app shell.
+        e.preventDefault();
+        (e.currentTarget as HTMLElement)?.focus();
+      }}
       className={cn(
         "fixed z-50 flex flex-col",
         "left-0 right-0 bottom-[var(--vv-inset,0px)]",
@@ -112,7 +116,7 @@ const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  <DialogPrimitive.Description ref={ref} className={cn("text-sm text-muted", className)} {...props} />
 ));
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 

@@ -146,7 +146,7 @@ export const RecoverPasswordDialog = ({
                         />
                     </div>
 
-                    <div className="flex items-start gap-2 p-3 rounded-[10px] bg-warning/10 text-warning-dk text-xs">
+                    <div className="flex items-start gap-2 p-3 rounded-[10px] bg-warn/10 text-warn-dk text-xs">
                         <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
                         <span>After resetting, set up a new recovery code in Settings — your old phrase keeps working until you do.</span>
                     </div>

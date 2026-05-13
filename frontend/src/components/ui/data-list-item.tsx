@@ -12,7 +12,7 @@ export const DataListItem = ({ onClick, className, children }: DataListItemProps
             onClick={onClick}
             className={cn(
                 "list-row-compact sm:p-4 transition-colors",
-                onClick && "cursor-pointer hover:bg-background/60",
+                onClick && "cursor-pointer hover:bg-bg/60",
                 className
             )}
         >

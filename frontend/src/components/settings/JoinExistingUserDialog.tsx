@@ -285,9 +285,9 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
                                             </Avatar>
                                             <div className="flex-1">
                                                 <p className="font-medium">{member.profiles?.full_name || "Unknown"}</p>
-                                                <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+                                                <p className="text-xs text-muted capitalize">{member.role}</p>
                                             </div>
-                                            {member.role === "owner" && <Check className="h-4 w-4 text-success" />}
+                                            {member.role === "owner" && <Check className="h-4 w-4 text-accent" />}
                                         </div>
                                     ))}
                                 </div>

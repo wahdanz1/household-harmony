@@ -7,7 +7,7 @@ const SkeletonText = ({ className }: { className?: string }) => (
     <span
         aria-hidden
         className={cn(
-            "inline-block align-baseline rounded-md bg-muted animate-pulse text-transparent select-none",
+            "inline-block align-baseline rounded-md bg-surface-2 animate-pulse text-transparent select-none",
             className,
         )}
     >
@@ -263,8 +263,6 @@ const MetricTileSkeleton = () => (
         </div>
     </div>
 );
-
-export const CreditTabSkeleton = () => <CardSkeleton rows={3} />;
 
 export const SettingsPageSkeleton = () => (
     <>

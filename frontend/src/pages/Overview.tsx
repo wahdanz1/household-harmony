@@ -15,9 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Money, fmtKr } from "@/components/ui/money";
 import { MonthChip } from "@/components/ui/month-chip";
 import { MetricTile } from "@/components/ui/metric-tile";
-import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlementCard";
-import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
-import { HouseholdSetupWizard } from "@/components/dashboard/HouseholdSetupWizard";
+import { CoParentSettlementCard } from "@/components/overview/CoParentSettlementCard";
+import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
+import { HouseholdSetupWizard } from "@/components/overview/HouseholdSetupWizard";
 import {
   HandCoins, Wallet, Repeat, Shield, ClipboardCheck,
   ChevronRight, ChevronLeft, Users, Sparkles, CalendarPlus, Loader2, Zap,
@@ -25,6 +25,8 @@ import {
 import { planMonth } from "@/services/monthlyPlanning";
 import { toast } from "sonner";
 import { OverviewSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
+import { UserMenu } from "@/components/shared/UserMenu";
 import {
   useEncryptedFields,
   monthlyIncomeFields,
@@ -72,7 +74,7 @@ interface OverviewData {
   activity: ActivityItem[];
 }
 
-const Dashboard = () => {
+const Overview = () => {
   const { user } = useAuth();
   const { household, coParents, members, financialMonthStart, loading: householdLoading } = useHousehold();
   const { isUnlocked, encrypt, decrypt, pendingExitHouseholdId } = useEncryption();
@@ -203,43 +205,23 @@ const Dashboard = () => {
       const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + pickAmount(item), 0);
       const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + pickAmount(item), 0);
 
+      // Amortized monthly + annualised totals — see docs/design/expenses-model.md.
       let subscriptionsMonthly = 0;
       let subscriptionsYearly = 0;
       decryptedSubs.forEach((sub: any) => {
         const amount = parseFloat(sub.amount || "0");
         if (sub.billing_cycle === "yearly") {
+          subscriptionsMonthly += amount / 12;
           subscriptionsYearly += amount;
+        } else if (sub.billing_cycle === "semi_annually") {
+          subscriptionsMonthly += amount / 6;
+          subscriptionsYearly += amount * 2;
         } else if (sub.billing_cycle === "quarterly") {
+          subscriptionsMonthly += amount / 3;
           subscriptionsYearly += amount * 4;
         } else {
-          subscriptionsYearly += amount * 12;
-        }
-        if (sub.billing_cycle === "monthly") {
           subscriptionsMonthly += amount;
-        } else if (sub.billing_cycle === "yearly") {
-          if (sub.billing_month && sub.billing_day) {
-            const dateInStartYear = new Date(fetchStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
-            const dateInEndYear = new Date(fetchEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
-            const isDue = (dateInStartYear >= fetchStart && dateInStartYear <= fetchEnd) ||
-              (dateInEndYear >= fetchStart && dateInEndYear <= fetchEnd);
-            if (isDue) subscriptionsMonthly += amount;
-          }
-        } else if (sub.billing_cycle === "quarterly") {
-          if (sub.billing_month && sub.billing_day) {
-            const billingMonths = [
-              sub.billing_month - 1,
-              (sub.billing_month - 1 + 3) % 12,
-              (sub.billing_month - 1 + 6) % 12,
-              (sub.billing_month - 1 + 9) % 12,
-            ];
-            const isDue = billingMonths.some(monthIndex => {
-              const dateInStartYear = new Date(fetchStart.getFullYear(), monthIndex, sub.billing_day!);
-              const dateInEndYear = new Date(fetchEnd.getFullYear(), monthIndex, sub.billing_day!);
-              return (dateInStartYear >= fetchStart && dateInStartYear <= fetchEnd) ||
-                (dateInEndYear >= fetchStart && dateInEndYear <= fetchEnd);
-            });
-            if (isDue) subscriptionsMonthly += amount;
-          }
+          subscriptionsYearly += amount * 12;
         }
       });
 
@@ -329,19 +311,20 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, [user?.id, household?.id, household?.financial_month_start, household?.currency, householdLoading, isUnlocked, selectedMonth]);
+  }, [household?.id, isUnlocked, selectedMonth]);
 
   useEffect(() => {
     const checkSeedData = async () => {
       if (!household?.id || !isUnlocked) return;
-      const [{ count: incomeCount }, { count: expenseCount }, { count: priorExpenseCount }, { count: priorIncomeCount }] = await Promise.all([
-        supabase.from("income_sources").select("id", { count: "exact", head: true }).eq("household_id", household.id),
-        supabase.from("expenses").select("id", { count: "exact", head: true }).eq("household_id", household.id),
-        supabase.from("monthly_expenses").select("id", { count: "exact", head: true }).eq("household_id", household.id).lt("month", todayMonth),
-        supabase.from("monthly_incomes").select("id", { count: "exact", head: true }).eq("household_id", household.id).lt("month", todayMonth),
+      const [incomeRows, expenseRows, priorExpenseRows, priorIncomeRows] = await Promise.all([
+        supabase.from("income_sources").select("id").eq("household_id", household.id).limit(1),
+        supabase.from("expenses").select("id").eq("household_id", household.id).limit(1),
+        supabase.from("monthly_expenses").select("id").eq("household_id", household.id).lt("month", todayMonth).limit(1),
+        supabase.from("monthly_incomes").select("id").eq("household_id", household.id).lt("month", todayMonth).limit(1),
       ]);
-      setHasPriorMonthData((priorExpenseCount ?? 0) > 0 || (priorIncomeCount ?? 0) > 0);
-      const hasSeed = (incomeCount ?? 0) > 0 || (expenseCount ?? 0) > 0;
+      const hasPrior = (priorExpenseRows.data?.length ?? 0) > 0 || (priorIncomeRows.data?.length ?? 0) > 0;
+      setHasPriorMonthData(hasPrior);
+      const hasSeed = (incomeRows.data?.length ?? 0) > 0 || (expenseRows.data?.length ?? 0) > 0;
       setHouseholdHasSeedData(hasSeed);
 
       const setupDone = localStorage.getItem(`hh_setup_done_${household.id}`) === "1";
@@ -485,7 +468,7 @@ const Dashboard = () => {
         {/* HERO — survival on top, after-savings below */}
         <Card variant="flush">
           <div className="p-5 border-b border-line-2">
-            <p className="text-xs font-medium text-muted-foreground tracking-wide">
+            <p className="text-xs font-medium text-muted tracking-wide">
               After mandatory bills
             </p>
             <div className="mt-1 flex items-baseline gap-2">
@@ -500,7 +483,7 @@ const Dashboard = () => {
             </div>
             {data.savingsOutflow > 0 && (
               <div className="mt-3 flex items-baseline gap-2">
-                <p className="text-xs font-medium text-muted-foreground tracking-wide">
+                <p className="text-xs font-medium text-muted tracking-wide">
                   After savings
                 </p>
                 <Money
@@ -519,7 +502,7 @@ const Dashboard = () => {
                   style={{ width: `${usedPct}%` }}
                 />
               </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-1.5 text-xs text-muted">
                 {usedPct}% of income used
               </p>
             </div>
@@ -532,7 +515,7 @@ const Dashboard = () => {
               onClick={() => navigate("/income")}
               className="p-4 px-5 text-left border-r border-line-2 hover:bg-surface-2 transition-colors focus:outline-none"
             >
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-xs text-muted">
                 <HandCoins className="h-3 w-3 text-accent" />
                 <span>Income</span>
               </div>
@@ -545,7 +528,7 @@ const Dashboard = () => {
               onClick={() => navigate("/expenses")}
               className="p-4 px-5 text-left hover:bg-surface-2 transition-colors focus:outline-none"
             >
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-xs text-muted">
                 <Wallet className="h-3 w-3" />
                 <span>Expenses</span>
               </div>
@@ -560,7 +543,7 @@ const Dashboard = () => {
         {showRecurringTiles && (
           <section>
             <div className="flex items-baseline justify-between mb-3 px-0.5">
-              <h2 className="text-[11.5px] font-semibold text-muted-foreground tracking-[0.08em] uppercase">
+              <h2 className="text-[11.5px] font-semibold text-muted tracking-[0.08em] uppercase">
                 Recurring
               </h2>
               <button
@@ -613,7 +596,7 @@ const Dashboard = () => {
         {data.activity.length > 0 && (
           <section>
             <div className="flex items-baseline justify-between mb-3 px-0.5">
-              <h2 className="text-[11.5px] font-semibold text-muted-foreground tracking-[0.08em] uppercase">
+              <h2 className="text-[11.5px] font-semibold text-muted tracking-[0.08em] uppercase">
                 Recent activity
               </h2>
             </div>
@@ -636,7 +619,7 @@ const Dashboard = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-ink truncate">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted">
                         {item.kind === "shared" ? "Shared expense"
                           : item.kind === "one_time_expense" ? "One-off expense"
                           : "One-off income"}
@@ -700,30 +683,35 @@ interface OverviewHeaderProps {
 const OverviewHeader = ({ monthLabel, hideMonthChip = false, onPrev, onNext, onJumpToToday }: OverviewHeaderProps) => (
   <div className="flex items-center justify-between gap-4 min-h-9">
     <h1>Overview</h1>
-    <div className={`flex items-center gap-1 ${hideMonthChip ? 'invisible' : ''}`}>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-9 w-9"
-        disabled={hideMonthChip || !onPrev}
-        onClick={onPrev}
-        aria-label="Previous month"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <MonthChip value={monthLabel} onClick={onJumpToToday} />
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-9 w-9"
-        disabled={hideMonthChip || !onNext}
-        onClick={onNext}
-        aria-label="Next month"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
+    <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-1 ${hideMonthChip ? 'invisible' : ''}`}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          disabled={hideMonthChip || !onPrev}
+          onClick={onPrev}
+          aria-label="Previous month"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <MonthChip value={monthLabel} onClick={onJumpToToday} />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          disabled={hideMonthChip || !onNext}
+          onClick={onNext}
+          aria-label="Next month"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="md:hidden">
+        <UserMenu trigger={<AvatarTrigger />} />
+      </div>
     </div>
   </div>
 );
 
-export default Dashboard;
+export default Overview;

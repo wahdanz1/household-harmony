@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Zap } from "lucide-react";
+import { CalendarDays, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Zap } from "lucide-react";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { Money, fmtKr } from "@/components/ui/money";
@@ -13,7 +13,6 @@ import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
 import { Card } from "@/components/ui/card";
 import { Home } from "lucide-react";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
-import { CreditTab } from "@/components/expenses/CreditTab";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { SubscriptionFormDialog } from "@/components/expenses/SubscriptionFormDialog";
 import { InsuranceFormDialog } from "@/components/expenses/InsuranceFormDialog";
@@ -25,13 +24,15 @@ import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialM
 import { fetchHistoryByKey } from "@/utils/carryForward";
 import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
-import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
+import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { ExpensesPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
+import { UserMenu } from "@/components/shared/UserMenu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MobileBottomBar, mobileBottomBarSpacer } from "@/components/shared/MobileBottomBar";
 import { useHouseholdSubjects } from "@/hooks/useHouseholdSubjects";
@@ -136,7 +137,6 @@ const Expenses = () => {
       results = await Promise.all([
         supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
         supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-        supabase.from("monthly_expenses").select("*").eq("household_id", household.id).lt("month_start", startStr),
         supabase.from("subscriptions").select("*").eq("household_id", household.id),
         supabase.from("insurances").select("*").eq("household_id", household.id),
       ]);
@@ -157,7 +157,6 @@ const Expenses = () => {
     const [
       { data: categoriesData },
       { data: monthlyData },
-      { data: historicalData },
       { data: subscriptionsData },
       { data: insurancesData },
     ] = results;
@@ -165,7 +164,6 @@ const Expenses = () => {
     // Decrypt sensitive fields (if encrypted)
     const decryptedCategories = await decryptExpenses(categoriesData || []);
     const decryptedMonthly = await decryptMonthlyExpenses(monthlyData || []);
-    const decryptedHistorical = await decryptMonthlyExpenses(historicalData || []);
     const decryptedSubs = await decryptSubscriptions(subscriptionsData || []);
     const decryptedIns = await decryptInsurances(insurancesData || []);
 
@@ -331,43 +329,23 @@ const Expenses = () => {
     };
   }, []);
 
-  // Calculate this month's subscription cost (not average monthly!)
-  // - Monthly: always counts
-  // - Quarterly: full amount only if due this month
-  // - Yearly: full amount only if due this month
-  const subscriptionsTotal = subscriptions.filter(sub => sub.is_active).reduce((sum, sub) => {
-    const amount = parseFloat(sub.amount);
-
-    if (sub.billing_cycle === "monthly") return sum + amount;
-
-    if (sub.billing_cycle === "yearly") {
-      if (!sub.billing_month || !sub.billing_day) return sum; // No billing date set, don't include
-      const dateInStartYear = new Date(monthStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
-      const dateInEndYear = new Date(monthEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
-      const isDue = (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
-        (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-      return isDue ? sum + amount : sum;
-    }
-
-    if (sub.billing_cycle === "quarterly") {
-      if (!sub.billing_month || !sub.billing_day) return sum; // No billing date set, don't include
-      const billingMonths = [
-        sub.billing_month - 1,
-        (sub.billing_month - 1 + 3) % 12,
-        (sub.billing_month - 1 + 6) % 12,
-        (sub.billing_month - 1 + 9) % 12
-      ];
-      const isDue = billingMonths.some(monthIndex => {
-        const dateInStartYear = new Date(monthStart.getFullYear(), monthIndex, sub.billing_day!);
-        const dateInEndYear = new Date(monthEnd.getFullYear(), monthIndex, sub.billing_day!);
-        return (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
-          (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-      });
-      return isDue ? sum + amount : sum;
-    }
-
-    return sum;
-  }, 0);
+  // Amortized monthly contribution per subscription:
+  //   monthly       → full amount
+  //   quarterly     → amount / 3
+  //   semi_annually → amount / 6
+  //   yearly        → amount / 12
+  // Steady run-rate semantics so totals don't swing month-to-month based on
+  // when bills happen to land. The Subscriptions section severity below
+  // surfaces the actual "due this month" warning separately.
+  const subscriptionsTotal = subscriptions
+    .filter(sub => sub.is_active)
+    .reduce((sum, sub) => {
+      const amount = parseFloat(sub.amount);
+      if (sub.billing_cycle === "yearly") return sum + amount / 12;
+      if (sub.billing_cycle === "semi_annually") return sum + amount / 6;
+      if (sub.billing_cycle === "quarterly") return sum + amount / 3;
+      return sum + amount;
+    }, 0);
 
   // Calculate next month's start/end for "upcoming" warning
   const nextMonthStart = new Date(monthEnd);
@@ -440,47 +418,52 @@ const Expenses = () => {
   const renderHeader = (showMonthNav: boolean, isLoading = false) => (
     <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Expenses</h1>
-      {isLoading ? (
-        <div className="flex items-center gap-1">
-          <Skeleton className="h-9 w-9 rounded-[12px]" />
-          <Skeleton className="h-9 w-32 rounded-full" />
-          <Skeleton className="h-9 w-9 rounded-[12px]" />
+      <div className="flex items-center gap-2">
+        {isLoading ? (
+          <div className="flex items-center gap-1">
+            <Skeleton className="h-9 w-9 rounded-[12px]" />
+            <Skeleton className="h-9 w-32 rounded-full" />
+            <Skeleton className="h-9 w-9 rounded-[12px]" />
+          </div>
+        ) : (
+          <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              disabled={!showMonthNav || atEarliestMonth}
+              onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <MonthPickerPopover
+              selectedMonth={selectedMonth}
+              financialMonthStart={financialMonthStart}
+              onSelect={setSelectedMonth}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              disabled={!showMonthNav}
+              onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+              aria-label="Next month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        <div className="md:hidden">
+          <UserMenu trigger={<AvatarTrigger />} />
         </div>
-      ) : (
-        <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            disabled={!showMonthNav || atEarliestMonth}
-            onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
-            aria-label="Previous month"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <MonthPickerPopover
-            selectedMonth={selectedMonth}
-            financialMonthStart={financialMonthStart}
-            onSelect={setSelectedMonth}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            disabled={!showMonthNav}
-            onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
-            aria-label="Next month"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      </div>
     </div>
   );
 
   const hasAnyCategory = expenseCategories.length > 0;
   const showCoparentTab = !!household?.enable_shared_expenses || coParents.length > 0;
-  const showTabsList = !!(household?.enable_credit_cards || showCoparentTab);
+  const showTabsList = showCoparentTab;
 
   if (loading) {
     return (
@@ -506,7 +489,7 @@ const Expenses = () => {
 
       {hasAnyCategory && (
         <Card>
-          <p className="text-xs font-medium text-muted-foreground tracking-wide">
+          <p className="text-xs font-medium text-muted tracking-wide">
             Total expenses per month
           </p>
           <div className="mt-1">
@@ -519,7 +502,7 @@ const Expenses = () => {
               className="tracking-tighter"
             />
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-muted">
             {fmtKr(totalExpenses * 12, household?.currency || "SEK")} per year
           </p>
         </Card>
@@ -531,7 +514,7 @@ const Expenses = () => {
           <AlertContent>
             <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
             <AlertDescription>
-              Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
+              Edits are locked until the Monthly Review is complete. Use the wizard on the Overview to review and finalize.
             </AlertDescription>
           </AlertContent>
           <Button asChild size="sm" variant="outline" className="shrink-0">
@@ -541,25 +524,16 @@ const Expenses = () => {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {/* Only show tabs when there are multiple tabs (Credit or Co-Parent enabled) */}
         {showTabsList && (
           <TabsList>
             <TabsTrigger value="all" className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
               <span className="hidden sm:inline">All</span>
             </TabsTrigger>
-            {household?.enable_credit_cards && (
-              <TabsTrigger value="credit" className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                <span className="hidden sm:inline">Credit</span>
-              </TabsTrigger>
-            )}
-            {showCoparentTab && (
-              <TabsTrigger value="coparent" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Shared</span>
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="coparent" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Shared</span>
+            </TabsTrigger>
           </TabsList>
         )}
 
@@ -567,7 +541,7 @@ const Expenses = () => {
           {!hasAnyCategory ? (
             <EmptyStateCard
               icon={Home}
-              iconClassName="text-info"
+              iconClassName="text-accent"
               headline="No expenses yet"
               description="Add rent, utilities, phone plans, and other recurring bills."
               primaryLabel="Add your first expense"
@@ -613,6 +587,7 @@ const Expenses = () => {
                 actualAmount,
                 category: cat.category,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                isCredit: !!cat.is_credit,
               };
             }).sort((a, b) => (b.defaultAmount ?? 0) - (a.defaultAmount ?? 0))}
             subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.amount)) - parseFloat(String(a.amount))).map(sub => {
@@ -723,17 +698,6 @@ const Expenses = () => {
           </>
           )}
         </TabsContent>
-
-        {household?.enable_credit_cards && (
-          <TabsContent value="credit" className="mt-5">
-            <CreditTab
-              householdId={household?.id}
-              currency={household?.currency || "SEK"}
-              monthStart={monthStart}
-              monthEnd={monthEnd}
-            />
-          </TabsContent>
-        )}
 
         {showCoparentTab && (
           <TabsContent value="coparent" className="mt-5">

@@ -73,7 +73,7 @@ export const RecoveryCodeSetupModal = ({ open, code, onConfirm }: RecoveryCodeSe
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 font-mono text-sm">
                         {words.map((w, i) => (
                             <div key={i} className="flex items-baseline gap-1.5">
-                                <span className="text-xs text-muted-foreground tabular-nums w-4 text-right">{i + 1}.</span>
+                                <span className="text-xs text-muted tabular-nums w-4 text-right">{i + 1}.</span>
                                 <span className="text-ink">{w}</span>
                             </div>
                         ))}
@@ -91,7 +91,7 @@ export const RecoveryCodeSetupModal = ({ open, code, onConfirm }: RecoveryCodeSe
                     </Button>
                 </div>
 
-                <div className="flex items-start gap-2 p-3 rounded-[10px] bg-warning/10 text-warning-dk text-xs">
+                <div className="flex items-start gap-2 p-3 rounded-[10px] bg-warn/10 text-warn-dk text-xs">
                     <ShieldAlert className="h-4 w-4 mt-0.5 shrink-0" />
                     <span>
                         Store it in a password manager, on paper somewhere safe, or both. Losing

@@ -100,7 +100,7 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
                     .single(),
                 supabase
                     .from("household_members")
-                    .select("*, profiles(full_name, email, avatar_url)")
+                    .select("*, profiles(full_name, email, avatar_url, birthdate, email_public)")
                     .eq("household_id", membership.household_id),
                 supabase
                     .from("co_parents")

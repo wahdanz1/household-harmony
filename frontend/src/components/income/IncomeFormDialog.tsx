@@ -289,11 +289,11 @@ export const IncomeFormDialog = ({
                         const { gross, tax, effectiveRate } = computeFromNet(net, form.tax_type, customRate);
                         return (
                             <div className="rounded-md border border-line bg-surface-2 px-3 py-2 text-sm">
-                                <div className="flex justify-between text-muted-foreground">
+                                <div className="flex justify-between text-muted">
                                     <span>Pre-tax (gross)</span>
                                     <span className="tabular-nums">~{Math.round(gross).toLocaleString("sv-SE")} kr</span>
                                 </div>
-                                <div className="flex justify-between mt-1 text-muted-foreground">
+                                <div className="flex justify-between mt-1 text-muted">
                                     <span>Tax already deducted</span>
                                     <span className="tabular-nums">~{Math.round(tax).toLocaleString("sv-SE")} kr ({Math.round(effectiveRate * 100)}%)</span>
                                 </div>
@@ -306,7 +306,7 @@ export const IncomeFormDialog = ({
                             <div className="flex items-center justify-between pt-2">
                                 <div>
                                     <Label>Shared income</Label>
-                                    <p className="text-sm text-muted-foreground">Split this with a co-parent.</p>
+                                    <p className="text-sm text-muted">Split this with a co-parent.</p>
                                 </div>
                                 <Switch
                                     checked={!!form.is_shared}

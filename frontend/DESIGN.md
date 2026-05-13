@@ -9,7 +9,7 @@ it like any other.
 
 **Chlorophyll green is the only saturated accent.** Use it for:
 - Primary CTAs (`Button variant="primary"`)
-- The "saved this month" total on Dashboard
+- The "saved this month" total on Overview
 - Active tab indicator and active sidebar item
 - Progress bars under threshold
 - Positive deltas, positive money values
@@ -171,7 +171,7 @@ all page headers next to the title.
 
 ### `<MetricTile>`
 
-Dashboard's 2x2/4-col tile. Icon + label + mono primary + secondary line +
+Overview's 2x2/4-col tile. Icon + label + mono primary + secondary line +
 optional progress bar. `tone="accent"` for the soft-accent variant (used for
 the co-parent settlement tile).
 
@@ -239,7 +239,7 @@ Drop-in toggle. Reads/writes `hh-theme` in localStorage, sets `data-theme` on
 All design and UX phases shipped May 2026:
 - Token foundation (OKLCH, light + dark, theme toggle)
 - Primitives (Money, MonthChip, MetricTile, CatIcon, Tabs, Card, Button, Dialog/Sheet)
-- Pages (Dashboard with hero + tiles + recent activity, Expenses, Income)
+- Pages (Overview with hero + tiles + recent activity, Expenses, Income)
 - Category color recipe via `color-mix(in oklab, ...)`
 - Mobile bottom-sheet pattern in Dialog
 - Tax Prognosis modal re-wired on Income page

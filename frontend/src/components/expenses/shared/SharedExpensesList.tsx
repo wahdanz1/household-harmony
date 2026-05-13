@@ -289,7 +289,7 @@ export const SharedExpensesList = ({
 
                         return (
                             <div key={coParent.id} className="space-y-2">
-                                <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                                <h3 className="flex items-center gap-2 text-sm font-medium text-muted">
                                     <span>{coParent.name}</span>
                                     <span aria-hidden>·</span>
                                     <Money v={total} currency={currency} size="sm" weight={500} color="muted" />
@@ -307,11 +307,11 @@ export const SharedExpensesList = ({
                                                         {expense.paid_by === "user" ? "You paid" : "They paid"}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-sm text-muted-foreground">
+                                                <p className="text-sm text-muted">
                                                     {expense.amount} {currency}
                                                     {expense.notes && ` • ${expense.notes}`}
                                                 </p>
-                                                <p className="text-xs text-muted-foreground">
+                                                <p className="text-xs text-muted">
                                                     {format(new Date(expense.created_at), "MMM d, yyyy")}
                                                 </p>
                                             </div>
@@ -329,7 +329,7 @@ export const SharedExpensesList = ({
                     })}
 
                     {expenses.length === 0 && (
-                        <p className="text-center text-muted-foreground py-8">
+                        <p className="text-center text-muted py-8">
                             No shared expenses this month. Add one above!
                         </p>
                     )}

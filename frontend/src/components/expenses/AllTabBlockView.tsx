@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, Car, Baby, PawPrint, Box, Plus, CreditCard } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
 import { MoneyInput } from "@/components/ui/money-input";
 import { RowItem } from "@/components/ui/row-item";
+import { SectionFrames } from "@/components/ui/section-frames";
 import { useEffect, useRef, useState } from "react";
-import { getCategoryById } from "@/constants/expenseCategories";
+import { getCategoryById, isCategoryBudgeted } from "@/constants/expenseCategories";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
 import { Input } from "@/components/ui/input";
@@ -30,10 +31,10 @@ interface ExpenseItem {
     hasSpecialFields?: boolean; // Electricity/Rent - needs dialog to edit
     subject?: { name: string; type: string };
     inactive?: boolean;
+    isCredit?: boolean;
 }
 
 const SUBJECT_ICON: Record<string, any> = {
-    member: User,
     kid: Baby,
     car: Car,
     pet: PawPrint,
@@ -43,24 +44,30 @@ const SUBJECT_ICON: Record<string, any> = {
 const SubjectChip = ({ subject }: { subject: { name: string; type: string } }) => {
     const Icon = SUBJECT_ICON[subject.type] ?? Box;
     return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted-foreground">
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted">
             <Icon className="h-3 w-3" />
             {subject.name}
         </span>
     );
 }
 
+const CreditChip = () => (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted">
+        <CreditCard className="h-3 w-3" />
+        Credit
+    </span>
+);
+
 interface ExpenseBlockProps {
     title: string;
-    total: number;
     currency: string;
-    icon: React.ReactNode;
     items: ExpenseItem[];
-    colorClass?: string;
-    headerMetrics?: React.ReactNode; // Metrics shown in the header (always visible)
-    severity?: 'default' | 'upcoming' | 'warning' | 'danger'; // Border color severity
-    severityMessage?: string; // Tooltip message explaining the severity
-    categoryType?: 'expense' | 'subscription' | 'insurance'; // Which category constants to use
+    /** SectionFrames node rendered right-aligned in the header row. */
+    headerMetrics?: React.ReactNode;
+    /** Border tint + AlertTriangle next to title. */
+    severity?: 'default' | 'upcoming' | 'warning' | 'danger';
+    severityMessage?: string;
+    categoryType?: 'expense' | 'subscription' | 'insurance';
     onItemClick?: (id: string) => void;
     onAmountChange?: (id: string, amount: string) => void;
     editable?: boolean;
@@ -68,15 +75,14 @@ interface ExpenseBlockProps {
 }
 
 /**
- * A collapsible expense summary block showing category total with expandable item list
+ * Collapsible per-section card with a single-line header
+ * (chevron + title + count + severity + frames-right). Rows render below
+ * when expanded.
  */
 export const ExpenseBlock = ({
     title,
-    total,
     currency,
-    icon,
     items,
-    colorClass = "text-foreground",
     headerMetrics,
     severity = 'default',
     severityMessage,
@@ -113,63 +119,55 @@ export const ExpenseBlock = ({
 
     // Severity styling for the block border
     const severityBorder = severity === 'danger'
-        ? 'border-destructive'
+        ? 'border-danger'
         : severity === 'warning'
-            ? 'border-warning'
+            ? 'border-warn'
             : severity === 'upcoming'
-                ? 'border-alert'
+                ? 'border-warn'
                 : 'border-line';
     const severityWidth = severity !== 'default' ? 'border-2' : 'border';
     const severityIconColor = severity === 'danger'
-        ? 'text-destructive'
+        ? 'text-danger'
         : severity === 'upcoming'
-            ? 'text-alert'
-            : 'text-warning';
+            ? 'text-warn'
+            : 'text-warn';
+
+    const canExpand = items.length > 0 || !!onAdd;
 
     return (
         <div ref={blockRef} className={`rounded-[14px] bg-surface overflow-hidden ${severityBorder} ${severityWidth}`}>
-            {/* Header row */}
-            <div
-                className="px-4 py-4 sm:px-5 cursor-pointer hover:bg-surface-2 transition-colors"
-                onClick={() => (items.length > 0 || onAdd) && setIsExpanded(!isExpanded)}
+            {/* Single-line header: chevron + title + count + severity + frames-right */}
+            <button
+                type="button"
+                onClick={() => canExpand && setIsExpanded(!isExpanded)}
+                disabled={!canExpand}
+                className="w-full px-4 py-4 sm:px-5 flex items-center gap-3 text-left hover:bg-surface-2 transition-colors disabled:cursor-default"
             >
-                <div className="flex items-center gap-3">
-                    <div className="shrink-0">{icon}</div>
-                    <div className="flex-1 min-w-0">
-                        <p className="font-medium text-ink truncate">{title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{items.length} items</p>
-                    </div>
-                    {severity !== 'default' && severityMessage && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div className={`shrink-0 ${severityIconColor}`}>
-                                    <AlertTriangle className="h-5 w-5" />
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="max-w-xs">
-                                <p>{severityMessage}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-                    <Money
-                        v={total}
-                        currency={currency}
-                        size="lg"
-                        weight={600}
-                        className={colorClass}
-                    />
-                    {(items.length > 0 || onAdd) && (
-                        <div className="shrink-0 text-muted-foreground">
-                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                    )}
-                </div>
-                {headerMetrics && (
-                    <div className="mt-2 ml-9">
-                        {headerMetrics}
-                    </div>
+                <span className="shrink-0 text-muted">
+                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </span>
+                <span className="flex items-baseline gap-2 min-w-0 shrink-0">
+                    <span className="font-medium text-ink truncate">{title}</span>
+                    <span className="text-xs text-muted tabular-nums">{items.length}</span>
+                </span>
+                {severity !== 'default' && severityMessage && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className={`shrink-0 ${severityIconColor}`}>
+                                <AlertTriangle className="h-4 w-4" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-xs">
+                            <p>{severityMessage}</p>
+                        </TooltipContent>
+                    </Tooltip>
                 )}
-            </div>
+                {headerMetrics && (
+                    <span className="ml-auto shrink-0">
+                        {headerMetrics}
+                    </span>
+                )}
+            </button>
 
             {(items.length > 0 || onAdd) && (
                 <div
@@ -187,8 +185,8 @@ export const ExpenseBlock = ({
                             ? item.billingCycle === 'monthly' || !item.billingCycle
                                 ? 'text-ink'
                                 : item.isDue
-                                    ? item.billingCycle === 'yearly' ? 'text-destructive' : 'text-warning'
-                                    : 'text-muted-foreground'
+                                    ? item.billingCycle === 'yearly' ? 'text-danger' : 'text-warn'
+                                    : 'text-muted'
                             : 'text-ink';
 
                         const inputStatus =
@@ -217,9 +215,10 @@ export const ExpenseBlock = ({
                                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                                         <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue
                                             ? 'text-ink'
-                                            : 'text-muted-foreground'
+                                            : 'text-muted'
                                             }`}>{item.name}</span>
                                         {item.subject && <SubjectChip subject={item.subject} />}
+                                        {item.isCredit && <CreditChip />}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -242,7 +241,7 @@ export const ExpenseBlock = ({
                                                 className={displayColor}
                                             />
                                             {item.displayLabel && (
-                                                <span className="text-xs text-muted-foreground">{item.displayLabel}</span>
+                                                <span className="text-xs text-muted">{item.displayLabel}</span>
                                             )}
                                         </span>
                                     ) : (
@@ -251,6 +250,7 @@ export const ExpenseBlock = ({
                                             currency={currency}
                                             size="base"
                                             weight={500}
+                                            estimate={categoryType === 'expense' && isCategoryBudgeted(item.category)}
                                         />
                                     )}
                                     {item.actualAmount !== undefined && Math.round(item.actualAmount) !== Math.round(item.amount) && (() => {
@@ -259,8 +259,8 @@ export const ExpenseBlock = ({
                                         return (
                                             <span
                                                 className={`text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded ${over
-                                                    ? "bg-destructive/10 text-destructive"
-                                                    : "bg-success/10 text-success"
+                                                    ? "bg-danger/10 text-danger"
+                                                    : "bg-accent/10 text-accent"
                                                     }`}
                                                 title={`Actual: ${Math.round(item.actualAmount)} ${currency}`}
                                             >
@@ -268,7 +268,7 @@ export const ExpenseBlock = ({
                                             </span>
                                         );
                                     })()}
-                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                    <Pencil className="h-3.5 w-3.5 text-muted hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                                 </div>
                             </RowItem>
                         );
@@ -277,7 +277,7 @@ export const ExpenseBlock = ({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onAdd(); }}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 sm:px-5 sm:py-3.5 text-sm font-medium text-muted-foreground hover:bg-surface-2 hover:text-ink transition-colors"
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 sm:px-5 sm:py-3.5 text-sm font-medium text-muted hover:bg-surface-2 hover:text-ink transition-colors"
                                 >
                                     <Plus className="h-4 w-4" />
                                     Add {title.toLowerCase().replace(/s$/, "")}
@@ -326,6 +326,9 @@ export const AllTabBlockView = ({
     onAmountChange,
 }: AllTabBlockViewProps) => {
     const expensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
+    const expensesBudgetedTotal = expenses
+        .filter(e => isCategoryBudgeted(e.category))
+        .reduce((sum, item) => sum + item.amount, 0);
     const grandTotal = expensesTotal + subscriptionsTotal + insuranceTotal;
 
     // Convert subscriptions to ExpenseItem format with display info
@@ -401,63 +404,62 @@ export const AllTabBlockView = ({
             {expenses.length > 0 && (
                 <ExpenseBlock
                     title="Expenses"
-                    total={expensesTotal}
                     currency={currency}
-                    icon={<Home className="h-5 w-5 text-info" />}
                     items={expenses}
                     onItemClick={onExpenseClick}
                     editable={!!onAmountChange}
                     onAmountChange={onAmountChange}
+                    headerMetrics={
+                        <SectionFrames frames={[
+                            { v: expensesTotal, unit: "kr/mo", primary: true },
+                            { v: expensesTotal * 12, unit: "kr/yr" },
+                            { v: expensesBudgetedTotal, unit: "kr", label: "of which budget" },
+                        ]} />
+                    }
                 />
             )}
 
-            {/* Subscriptions Block with metrics in header */}
             <ExpenseBlock
-                    title="Subscriptions"
-                    total={subscriptionsTotal}
-                    currency={currency}
-                    icon={<Repeat className="h-5 w-5 text-accent-purple" />}
-                    items={subscriptionItems}
-                    categoryType="subscription"
-                    onItemClick={onSubscriptionClick}
-                    onAdd={onAddSubscription}
-                    severity={subscriptionSeverity}
-                    severityMessage={
-                        subscriptionSeverity === 'danger'
-                            ? "A yearly subscription is due this month!"
-                            : subscriptionSeverity === 'upcoming'
-                                ? "A yearly subscription is due next month"
-                                : subscriptionSeverity === 'warning'
-                                    ? "A quarterly subscription is due this month"
-                                    : undefined
-                    }
-                    headerMetrics={subscriptionsTotal > 0 ? (
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                            <span>{subscriptionsTotal.toFixed(0)} {currency}/month</span>
-                            <span>{yearlySubscriptions.toFixed(0)} {currency}/year</span>
-                            <span>{averageSub.toFixed(0)} {currency} avg</span>
-                        </div>
-                    ) : undefined}
-                />
+                title="Subscriptions"
+                currency={currency}
+                items={subscriptionItems}
+                categoryType="subscription"
+                onItemClick={onSubscriptionClick}
+                onAdd={onAddSubscription}
+                severity={subscriptionSeverity}
+                severityMessage={
+                    subscriptionSeverity === 'danger'
+                        ? "A yearly subscription is due this month!"
+                        : subscriptionSeverity === 'upcoming'
+                            ? "A yearly subscription is due next month"
+                            : subscriptionSeverity === 'warning'
+                                ? "A quarterly subscription is due this month"
+                                : undefined
+                }
+                headerMetrics={subscriptionsTotal > 0 ? (
+                    <SectionFrames frames={[
+                        { v: subscriptionsTotal, unit: "kr/mo", primary: true },
+                        { v: yearlySubscriptions, unit: "kr/yr" },
+                        { v: averageSub, unit: "kr/mo", label: "avg/item" },
+                    ]} />
+                ) : undefined}
+            />
 
-            {/* Insurances Block with metrics in header */}
             <ExpenseBlock
-                    title="Insurances"
-                    total={insuranceTotal}
-                    currency={currency}
-                    icon={<Shield className="h-5 w-5 text-warning" />}
-                    items={insuranceItems}
-                    categoryType="insurance"
-                    onItemClick={onInsuranceClick}
-                    onAdd={onAddInsurance}
-                    headerMetrics={insuranceTotal > 0 ? (
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                            <span>{insuranceTotal.toFixed(0)} {currency}/month</span>
-                            <span>{yearlyInsurance.toFixed(0)} {currency}/year</span>
-                            <span>{averageInsurance.toFixed(0)} {currency} avg</span>
-                        </div>
-                    ) : undefined}
-                />
+                title="Insurances"
+                currency={currency}
+                items={insuranceItems}
+                categoryType="insurance"
+                onItemClick={onInsuranceClick}
+                onAdd={onAddInsurance}
+                headerMetrics={insuranceTotal > 0 ? (
+                    <SectionFrames frames={[
+                        { v: insuranceTotal, unit: "kr/mo", primary: true },
+                        { v: yearlyInsurance, unit: "kr/yr" },
+                        { v: averageInsurance, unit: "kr/mo", label: "avg/item" },
+                    ]} />
+                ) : undefined}
+            />
 
         </div>
     );

@@ -23,9 +23,11 @@ import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialM
 import { fetchHistoryByKey } from "@/utils/carryForward";
 import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
-import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
+import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 
 import { IncomePageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
+import { UserMenu } from "@/components/shared/UserMenu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MobileBottomBar, mobileBottomBarSpacer } from "@/components/shared/MobileBottomBar";
 import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
@@ -366,41 +368,46 @@ const Income = () => {
   const renderHeader = (showMonthNav: boolean, isLoading = false) => (
     <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Income</h1>
-      {isLoading ? (
-        <div className="flex items-center gap-1">
-          <Skeleton className="h-9 w-9 rounded-[12px]" />
-          <Skeleton className="h-9 w-32 rounded-full" />
-          <Skeleton className="h-9 w-9 rounded-[12px]" />
+      <div className="flex items-center gap-2">
+        {isLoading ? (
+          <div className="flex items-center gap-1">
+            <Skeleton className="h-9 w-9 rounded-[12px]" />
+            <Skeleton className="h-9 w-32 rounded-full" />
+            <Skeleton className="h-9 w-9 rounded-[12px]" />
+          </div>
+        ) : (
+          <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              disabled={!showMonthNav || atEarliestMonth}
+              onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <MonthPickerPopover
+              selectedMonth={selectedMonth}
+              financialMonthStart={financialMonthStart}
+              onSelect={setSelectedMonth}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              disabled={!showMonthNav}
+              onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+              aria-label="Next month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        <div className="md:hidden">
+          <UserMenu trigger={<AvatarTrigger />} />
         </div>
-      ) : (
-        <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            disabled={!showMonthNav || atEarliestMonth}
-            onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
-            aria-label="Previous month"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <MonthPickerPopover
-            selectedMonth={selectedMonth}
-            financialMonthStart={financialMonthStart}
-            onSelect={setSelectedMonth}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            disabled={!showMonthNav}
-            onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
-            aria-label="Next month"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      </div>
     </div>
   );
 
@@ -430,7 +437,7 @@ const Income = () => {
 
       {hasAnySource && (
         <Card>
-          <p className="text-xs font-medium text-muted-foreground tracking-wide">
+          <p className="text-xs font-medium text-muted tracking-wide">
             Total income per month
           </p>
           <div className="mt-1">
@@ -443,7 +450,7 @@ const Income = () => {
               className="tracking-tighter"
             />
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-muted">
             {activeSourceCount} active {activeSourceCount === 1 ? "source" : "sources"} · {fmtKr(totalIncome * 12, currencyCode)} per year
           </p>
           {activeSourceCount > 0 && (
@@ -465,7 +472,7 @@ const Income = () => {
           <AlertContent>
             <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
             <AlertDescription>
-              Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
+              Edits are locked until the Monthly Review is complete. Use the wizard on the Overview to review and finalize.
             </AlertDescription>
           </AlertContent>
           <Button asChild size="sm" variant="outline" className="shrink-0">
@@ -492,7 +499,7 @@ const Income = () => {
       {!hasAnySource ? (
         <EmptyStateCard
           icon={HandCoins}
-          iconClassName="text-success"
+          iconClassName="text-accent"
           headline="No income sources yet"
           description="Add your salary, CSN, or any other recurring income."
           primaryLabel="Add your first source"
@@ -500,23 +507,20 @@ const Income = () => {
         />
       ) : (
         <Card variant="flush">
-          {/* Block Header */}
-          <div className="flex items-center gap-3 px-5 py-4 border-b border-line-2">
-            <HandCoins className="h-5 w-5 text-success" />
-            <div>
-              <h3>Income</h3>
-              <p className="text-xs text-muted-foreground">
-                {activeSourceCount} active {activeSourceCount === 1 ? 'source' : 'sources'}
-              </p>
-            </div>
+          {/* Section header — single-line: title + count + autosave status (matches Expenses accordion style) */}
+          <div className="flex items-center gap-3 px-4 py-4 sm:px-5 border-b border-line-2">
+            <span className="flex items-baseline gap-2 min-w-0">
+              <span className="font-medium text-ink">Income</span>
+              <span className="text-xs text-muted tabular-nums">{activeSourceCount}</span>
+            </span>
             <div className="ml-auto h-5">
               {(autoSaveStatus === 'saved' || autoSaveStatus === 'error') && (
                 <span
-                    className={`flex items-center gap-1 text-sm transition-opacity duration-1000 ${savedFading ? 'opacity-0' : 'opacity-100'} ${autoSaveStatus === 'error' ? 'text-destructive' : 'text-accent'}`}
+                  className={`flex items-center gap-1 text-sm transition-opacity duration-1000 ${savedFading ? 'opacity-0' : 'opacity-100'} ${autoSaveStatus === 'error' ? 'text-danger' : 'text-accent'}`}
                 >
-                    {autoSaveStatus === 'saved'
-                        ? <><Check className="h-4 w-4" /> Saved</>
-                        : <>Failed to save</>}
+                  {autoSaveStatus === 'saved'
+                    ? <><Check className="h-4 w-4" /> Saved</>
+                    : <>Failed to save</>}
                 </span>
               )}
             </div>

@@ -52,28 +52,28 @@ export const DemoBanner = () => {
                             </DialogHeader>
                             <div className="space-y-3 pt-2">
                                 <div className="flex items-center gap-3">
-                                    <MessageCircle className="h-5 w-5 text-primary" />
+                                    <MessageCircle className="h-5 w-5 text-accent" />
                                     <div>
                                         <p className="text-sm font-medium">Discord</p>
                                         <a
                                             href="https://discord.com/users/wahdanz#5803"
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-sm text-primary hover:underline"
+                                            className="text-sm text-accent hover:underline"
                                         >
                                             wahdanz#5803
                                         </a>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <Mail className="h-5 w-5 text-primary" />
+                                    <Mail className="h-5 w-5 text-accent" />
                                     <div>
                                         <p className="text-sm font-medium">LinkedIn</p>
                                         <a
                                             href="https://www.linkedin.com/in/dwahlgren/"
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-sm text-primary hover:underline"
+                                            className="text-sm text-accent hover:underline"
                                         >
                                             linkedin.com/in/dwahlgren
                                         </a>

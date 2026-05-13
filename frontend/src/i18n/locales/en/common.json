@@ -1,7 +1,7 @@
 {
   "appName": "Household Harmony",
   "nav": {
-    "dashboard": "Dashboard",
+    "overview": "Overview",
     "income": "Income",
     "expenses": "Expenses",
     "settings": "Settings"
@@ -45,7 +45,7 @@
   },
   "review": {
     "lockedTitle": "This month's review hasn't been finalized.",
-    "lockedDescription": "Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize."
+    "lockedDescription": "Edits are locked until the Monthly Review is complete. Use the wizard on the Overview to review and finalize."
   },
   "errors": {
     "generic": "An unexpected error occurred. Please try again.",

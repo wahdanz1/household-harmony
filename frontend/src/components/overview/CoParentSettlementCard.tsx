@@ -43,59 +43,69 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
 
     setCoParents(coParentsData || []);
 
+    const coParentIds = (coParentsData || []).map(cp => cp.id);
+    if (coParentIds.length === 0) {
+      setSettlements({});
+      return;
+    }
+
+    const monthStartStr = format(monthStart, "yyyy-MM-dd");
+    const monthEndStr = format(monthEnd, "yyyy-MM-dd");
+
+    const [incomesResult, insurancesResult, expensesResult] = await Promise.all([
+      supabase
+        .from("monthly_incomes")
+        .select("encrypted_amount, share_percentage, is_encrypted, co_parent_id")
+        .eq("household_id", householdId)
+        .gte("month_end", monthStartStr)
+        .lte("month_start", monthEndStr)
+        .eq("is_shared", true)
+        .in("co_parent_id", coParentIds),
+      supabase
+        .from("insurances")
+        .select("encrypted_total_amount, share_percentage, billing_month, is_encrypted, co_parent_id")
+        .eq("household_id", householdId)
+        .eq("is_shared", true)
+        .in("co_parent_id", coParentIds)
+        .eq("is_active", true)
+        .eq("billing_month", currentMonthNumber),
+      supabase
+        .from("shared_expenses")
+        .select("encrypted_amount, paid_by, is_encrypted, co_parent_id")
+        .eq("household_id", householdId)
+        .in("co_parent_id", coParentIds)
+        .gte("month_end", monthStartStr)
+        .lte("month_start", monthEndStr),
+    ]);
+
+    const decryptedIncomes = (await decryptIncomes(incomesResult.data || [])) as any[];
+    const decryptedInsurances = (await decryptInsurances(insurancesResult.data || [])) as any[];
+    const decryptedExpenses = (await decryptShared(expensesResult.data || [])) as any[];
+
     const settlementData: Record<string, any> = {};
 
     for (const coParent of coParentsData || []) {
-      const { data: sharedIncomesRaw } = await supabase
-        .from("monthly_incomes")
-        .select("encrypted_amount, share_percentage, is_encrypted")
-        .eq("household_id", householdId)
-        .gte("month_end", format(monthStart, "yyyy-MM-dd"))
-        .lte("month_start", format(monthEnd, "yyyy-MM-dd"))
-        .eq("is_shared", true)
-        .eq("co_parent_id", coParent.id);
+      const sharedIncomes = decryptedIncomes.filter(r => r.co_parent_id === coParent.id);
+      const sharedInsurances = decryptedInsurances.filter(r => r.co_parent_id === coParent.id);
+      const sharedExpenses = decryptedExpenses.filter(r => r.co_parent_id === coParent.id);
 
-      const sharedIncomes = (await decryptIncomes(sharedIncomesRaw || [])) as any[];
-
-      const incomeReceived = (sharedIncomes || []).reduce((sum, inc) => sum + parseFloat((inc.amount || 0).toString()), 0);
-      const yourShareOfIncome = (sharedIncomes || []).reduce((sum, inc) => {
+      const incomeReceived = sharedIncomes.reduce((sum, inc) => sum + parseFloat((inc.amount || 0).toString()), 0);
+      const yourShareOfIncome = sharedIncomes.reduce((sum, inc) => {
         const sharePercentage = parseFloat((inc.share_percentage || 0).toString());
         return sum + (parseFloat((inc.amount || 0).toString()) * sharePercentage / 100);
       }, 0);
 
-      const { data: sharedInsurancesRaw } = await supabase
-        .from("insurances")
-        .select("encrypted_total_amount, share_percentage, billing_month, is_encrypted")
-        .eq("household_id", householdId)
-        .eq("is_shared", true)
-        .eq("co_parent_id", coParent.id)
-        .eq("is_active", true)
-        .eq("billing_month", currentMonthNumber);
-
-      const sharedInsurances = (await decryptInsurances(sharedInsurancesRaw || [])) as any[];
-
       let insurancePaid = 0;
       let theirShareOfInsurance = 0;
-
-      (sharedInsurances || []).forEach((ins) => {
-        insurancePaid += parseFloat((ins.total_amount || 0).toString());
-        theirShareOfInsurance += parseFloat((ins.total_amount || 0).toString()) * parseFloat((ins.share_percentage || 0).toString()) / 100;
+      sharedInsurances.forEach((ins) => {
+        const amount = parseFloat((ins.total_amount || 0).toString());
+        insurancePaid += amount;
+        theirShareOfInsurance += amount * parseFloat((ins.share_percentage || 0).toString()) / 100;
       });
-
-      const { data: sharedExpensesRaw } = await supabase
-        .from("shared_expenses")
-        .select("encrypted_amount, paid_by, is_encrypted")
-        .eq("household_id", householdId)
-        .eq("co_parent_id", coParent.id)
-        .gte("month_end", format(monthStart, "yyyy-MM-dd"))
-        .lte("month_start", format(monthEnd, "yyyy-MM-dd"));
-
-      const sharedExpenses = (await decryptShared(sharedExpensesRaw || [])) as any[];
 
       let expensesYouPaid = 0;
       let expensesTheyPaid = 0;
-
-      (sharedExpenses || []).forEach((exp) => {
+      sharedExpenses.forEach((exp) => {
         const amount = parseFloat((exp.amount || 0).toString());
         if (exp.paid_by === "user") {
           expensesYouPaid += amount;
@@ -184,19 +194,19 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
         return (
           <div
             key={coParent.id}
-            className={`bg-muted/40 rounded-lg border ${isOwing ? 'border-warning/30' : 'border-success/30'}`}
+            className={`bg-surface-2/40 rounded-lg border ${isOwing ? 'border-warn/30' : 'border-accent/30'}`}
           >
             {/* Header - Always Visible */}
             <div
-              className="p-4 cursor-pointer hover:bg-muted/60 transition-colors"
+              className="p-4 cursor-pointer hover:bg-surface-2/60 transition-colors"
               onClick={() => toggleExpand(coParent.id)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <HandCoins className={`h-5 w-5 ${isOwing ? 'text-warning' : 'text-success'}`} />
+                  <HandCoins className={`h-5 w-5 ${isOwing ? 'text-warn' : 'text-accent'}`} />
                   <div>
                     <p className="font-medium">Settlement with {coParent.name}</p>
-                    <p className="text-xs text-muted-foreground">{format(new Date(currentMonth), "MMMM yyyy")}</p>
+                    <p className="text-xs text-muted">{format(new Date(currentMonth), "MMMM yyyy")}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -206,16 +216,16 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                       currency={currency}
                       size="lg"
                       weight={700}
-                      className={isOwing ? "text-warning" : "text-success"}
+                      className={isOwing ? "text-warn" : "text-accent"}
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted">
                       {isOwing ? 'You owe' : 'They owe'}
                     </p>
                   </div>
                   {isExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    <ChevronUp className="h-4 w-4 text-muted" />
                   ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <ChevronDown className="h-4 w-4 text-muted" />
                   )}
                 </div>
               </div>
@@ -223,15 +233,15 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
 
             {/* Expanded Details */}
             {isExpanded && (
-              <div className="px-4 pb-4 space-y-4 border-t border-border/50">
+              <div className="px-4 pb-4 space-y-4 border-t border-line/50">
                 <div className="space-y-2 text-sm pt-3">
                   {/* Income Section */}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shared Income Received</span>
+                    <span className="text-muted">Shared Income Received</span>
                     <Money v={settlement.incomeReceived} currency={currency} size="sm" weight={500} color="accent" />
                   </div>
                   <div className="flex justify-between text-xs pl-4">
-                    <span className="text-muted-foreground">
+                    <span className="text-muted">
                       Your {settlement.yourShareOfIncome > 0 ? (settlement.yourShareOfIncome / settlement.incomeReceived * 100).toFixed(0) : 0}% to keep
                     </span>
                     <Money v={-settlement.yourShareOfIncome} currency={currency} size="xs" weight={500} color="muted" />
@@ -241,11 +251,11 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                   {settlement.insurancePaid > 0 && (
                     <>
                       <div className="flex justify-between pt-2">
-                        <span className="text-muted-foreground">Insurance paid</span>
+                        <span className="text-muted">Insurance paid</span>
                         <Money v={-settlement.insurancePaid} currency={currency} size="sm" weight={500} />
                       </div>
                       <div className="flex justify-between text-xs pl-4">
-                        <span className="text-muted-foreground">
+                        <span className="text-muted">
                           Their {((settlement.theirShareOfInsurance / settlement.insurancePaid) * 100).toFixed(0)}% credit
                         </span>
                         <Money v={settlement.theirShareOfInsurance} currency={currency} size="xs" weight={500} color="accent" />
@@ -256,14 +266,14 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                   {/* Expenses Section */}
                   {settlement.expensesTheyPaid > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Expenses they paid (your 50%)</span>
+                      <span className="text-muted">Expenses they paid (your 50%)</span>
                       <Money v={settlement.expensesTheyPaid / 2} currency={currency} size="sm" weight={500} color="accent" />
                     </div>
                   )}
 
                   {settlement.expensesYouPaid > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Expenses you paid (their 50%)</span>
+                      <span className="text-muted">Expenses you paid (their 50%)</span>
                       <Money v={-settlement.expensesYouPaid / 2} currency={currency} size="sm" weight={500} color="danger" />
                     </div>
                   )}

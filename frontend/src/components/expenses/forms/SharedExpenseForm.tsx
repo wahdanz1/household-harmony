@@ -92,10 +92,10 @@ export const SharedExpenseForm = ({ householdId, onSuccess, onCancel }: SharedEx
     if (coParents.length === 0) {
         return (
             <div className="text-center py-8 space-y-4">
-                <p className="text-muted-foreground">
+                <p className="text-muted">
                     No co-parents configured.
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted">
                     Add a co-parent in Settings first to use shared expenses.
                 </p>
                 <Button onClick={onCancel} variant="outline">

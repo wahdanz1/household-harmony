@@ -348,20 +348,20 @@ export const DataMigrationCard = () => {
                                     <div key={status.table} className="flex items-center justify-between py-1">
                                         <span className="flex items-center gap-2">
                                             {status.status === "running" && (
-                                                <Loader2 className="h-3 w-3 animate-spin text-info" />
+                                                <Loader2 className="h-3 w-3 animate-spin text-accent" />
                                             )}
                                             {status.status === "done" && (
-                                                <CheckCircle2 className="h-3 w-3 text-success" />
+                                                <CheckCircle2 className="h-3 w-3 text-accent" />
                                             )}
                                             {status.status === "error" && (
-                                                <AlertTriangle className="h-3 w-3 text-destructive" />
+                                                <AlertTriangle className="h-3 w-3 text-danger" />
                                             )}
                                             {status.status === "pending" && (
-                                                <Database className="h-3 w-3 text-muted-foreground" />
+                                                <Database className="h-3 w-3 text-muted" />
                                             )}
                                             {TABLES_TO_MIGRATE.find(t => t.table === status.table)?.displayName}
                                         </span>
-                                        <span className="text-muted-foreground">
+                                        <span className="text-muted">
                                             {status.migrated}/{status.total}
                                         </span>
                                     </div>

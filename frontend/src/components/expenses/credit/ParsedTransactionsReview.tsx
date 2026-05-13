@@ -194,10 +194,10 @@ export const ParsedTransactionsReview = ({
 
     const getConfidenceColor = (confidence: string) => {
         switch (confidence) {
-            case "HIGH": return "bg-success/20 text-success border-success/50";
-            case "MEDIUM": return "bg-warning/20 text-warning border-warning/50";
-            case "LOW": return "bg-destructive/20 text-destructive border-destructive/50";
-            default: return "bg-muted text-muted-foreground";
+            case "HIGH": return "bg-accent/20 text-accent border-accent/50";
+            case "MEDIUM": return "bg-warn/20 text-warn border-warn/50";
+            case "LOW": return "bg-danger/20 text-danger border-danger/50";
+            default: return "bg-surface-2 text-muted";
         }
     };
 
@@ -219,11 +219,11 @@ export const ParsedTransactionsReview = ({
                 </div>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="flex flex-col sm:flex-row gap-4 items-end bg-background/40 p-4 rounded-lg border border-border">
+                <div className="flex flex-col sm:flex-row gap-4 items-end bg-bg/40 p-4 rounded-lg border border-line">
                     <div className="space-y-2 flex-1">
                         <label className="text-sm font-medium">Select Credit Card</label>
                         <Select value={selectedCardId} onValueChange={setSelectedCardId}>
-                            <SelectTrigger className="bg-background">
+                            <SelectTrigger className="bg-bg">
                                 <SelectValue placeholder="Select card..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -234,9 +234,9 @@ export const ParsedTransactionsReview = ({
                         </Select>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Selected Total</p>
-                        <p className="text-xl font-bold text-primary">{formatCurrency(totalSelected, currency)}</p>
-                        <p className="text-xs text-muted-foreground">{selectedIds.size} transactions selected</p>
+                        <p className="text-sm text-muted">Selected Total</p>
+                        <p className="text-xl font-bold text-accent">{formatCurrency(totalSelected, currency)}</p>
+                        <p className="text-xs text-muted">{selectedIds.size} transactions selected</p>
                     </div>
                 </div>
 
@@ -245,7 +245,7 @@ export const ParsedTransactionsReview = ({
                         return (
                             <div
                                 key={i}
-                                className={`flex flex-col gap-3 p-3 rounded-lg border transition-all ${selectedIds.has(i) ? 'bg-background/60 border-primary/30' : 'bg-background/20 border-border opacity-60'
+                                className={`flex flex-col gap-3 p-3 rounded-lg border transition-all ${selectedIds.has(i) ? 'bg-bg/60 border-accent/30' : 'bg-bg/20 border-line opacity-60'
                                     }`}
                             >
                                 <div className="flex items-center gap-3">
@@ -255,7 +255,7 @@ export const ParsedTransactionsReview = ({
                                     />
                                     <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
                                         <div className="space-y-1">
-                                            <p className="text-[10px] uppercase text-muted-foreground font-bold">Date</p>
+                                            <p className="text-[10px] uppercase text-muted font-bold">Date</p>
                                             <Input
                                                 type="date"
                                                 value={t.date}
@@ -264,7 +264,7 @@ export const ParsedTransactionsReview = ({
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-[10px] uppercase text-muted-foreground font-bold">Merchant</p>
+                                            <p className="text-[10px] uppercase text-muted font-bold">Merchant</p>
                                             <Input
                                                 value={t.merchant}
                                                 onChange={(e) => handleUpdateField(i, 'merchant', e.target.value)}
@@ -272,7 +272,7 @@ export const ParsedTransactionsReview = ({
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-[10px] uppercase text-muted-foreground font-bold">Amount</p>
+                                            <p className="text-[10px] uppercase text-muted font-bold">Amount</p>
                                             <div className="flex items-center gap-1">
                                                 <Input
                                                     type="number"
@@ -280,11 +280,11 @@ export const ParsedTransactionsReview = ({
                                                     onChange={(e) => handleUpdateField(i, 'amount', parseFloat(e.target.value))}
                                                     className="h-8 text-sm text-right"
                                                 />
-                                                <span className="text-xs text-muted-foreground">{currency}</span>
+                                                <span className="text-xs text-muted">{currency}</span>
                                             </div>
                                         </div>
                                         <div className="space-y-1">
-                                            <p className="text-[10px] uppercase text-muted-foreground font-bold">Category</p>
+                                            <p className="text-[10px] uppercase text-muted font-bold">Category</p>
                                             <Select
                                                 value={t.category}
                                                 onValueChange={(v) => handleUpdateField(i, 'category', v)}
@@ -313,7 +313,7 @@ export const ParsedTransactionsReview = ({
                     })}
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-border">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-line">
                     <Button
                         className="col-span-2"
                         onClick={handleAccept}

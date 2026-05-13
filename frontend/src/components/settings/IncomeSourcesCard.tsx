@@ -138,7 +138,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-success" />
+          <TrendingUp className="h-5 w-5 text-accent" />
           Income Sources
         </CardTitle>
         <CardDescription>Define your household's income sources</CardDescription>
@@ -232,7 +232,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
                   <p className="font-medium">{source.name}</p>
                   <Badge variant="outline">{formatCategory(source.category)}</Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted">
                   {source.profiles?.full_name || "Unknown"} • {source.default_amount} {currency}
                 </p>
               </div>
@@ -255,7 +255,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
             </div>
           ))}
           {incomeSources.length === 0 && (
-            <p className="text-center text-muted-foreground py-8">
+            <p className="text-center text-muted py-8">
               No income sources yet. Add your first one above!
             </p>
           )}

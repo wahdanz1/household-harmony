@@ -37,7 +37,7 @@ export const FormDialogFooter = ({
                     Delete
                 </Button>
             ) : !isEdit && showCreateAnother && onCreateAnotherChange ? (
-                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+                <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
                     <Checkbox
                         checked={createAnother}
                         onCheckedChange={(v) => onCreateAnotherChange(v === true)}

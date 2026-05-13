@@ -26,8 +26,8 @@ export const TaxPrognosisModal = ({
 
     const StatusIcon = prognosis?.status === 'owing' ? AlertCircle : CheckCircle;
     const statusColorClass = prognosis?.status === 'owing'
-        ? 'text-destructive bg-destructive/10 border-destructive/20'
-        : 'text-success bg-success/10 border-success/20';
+        ? 'text-danger bg-danger/10 border-danger/20'
+        : 'text-accent bg-accent/10 border-accent/20';
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -44,7 +44,7 @@ export const TaxPrognosisModal = ({
 
                 {loading ? (
                     <div className="flex items-center justify-center py-8">
-                        <p className="text-muted-foreground">Calculating prognosis...</p>
+                        <p className="text-muted">Calculating prognosis...</p>
                     </div>
                 ) : prognosis ? (
                     <div className="space-y-6 py-4">
@@ -69,20 +69,20 @@ export const TaxPrognosisModal = ({
                         {/* Breakdown */}
                         <div className="space-y-3">
                             <div className="flex justify-between items-center py-2 border-b">
-                                <span className="text-muted-foreground">Total Gross Annual Income</span>
+                                <span className="text-muted">Total Gross Annual Income</span>
                                 <span className="font-medium">{formatSEK(prognosis.total_gross_annual)}</span>
                             </div>
 
                             <div className="flex justify-between items-center py-2 border-b">
-                                <span className="text-muted-foreground">Expected Annual Tax</span>
-                                <span className="font-medium text-destructive">
+                                <span className="text-muted">Expected Annual Tax</span>
+                                <span className="font-medium text-danger">
                                     -{formatSEK(prognosis.expected_annual_tax)}
                                 </span>
                             </div>
 
                             <div className="flex justify-between items-center py-2 border-b">
-                                <span className="text-muted-foreground">Tax Already Deducted</span>
-                                <span className="font-medium text-muted-foreground">
+                                <span className="text-muted">Tax Already Deducted</span>
+                                <span className="font-medium text-muted">
                                     -{formatSEK(prognosis.actual_tax_deducted)}
                                 </span>
                             </div>
@@ -94,7 +94,7 @@ export const TaxPrognosisModal = ({
                         </div>
 
                         {/* Info Note */}
-                        <p className="text-xs text-muted-foreground text-center">
+                        <p className="text-xs text-muted text-center">
                             This is an estimate based on Swedish tax brackets (2025).
                             Actual tax may vary based on deductions and other factors.
                         </p>

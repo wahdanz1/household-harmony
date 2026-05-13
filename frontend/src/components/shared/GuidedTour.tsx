@@ -75,14 +75,14 @@ export const GuidedTour = () => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-            <Card className="w-full max-w-lg border-2 border-primary/20 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+            <Card className="w-full max-w-lg border-2 border-accent/20 shadow-2xl">
                 <CardContent className="pt-6">
                     <div className="space-y-4">
                         <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-primary/10">
-                                    <StepIcon className="h-5 w-5 text-primary" />
+                                <div className="p-2 rounded-lg bg-accent/10">
+                                    <StepIcon className="h-5 w-5 text-accent" />
                                 </div>
                                 <h3 className="text-lg font-semibold">{step.title}</h3>
                             </div>
@@ -96,7 +96,7 @@ export const GuidedTour = () => {
                             </Button>
                         </div>
 
-                        <p className="text-sm text-muted-foreground leading-relaxed">
+                        <p className="text-sm text-muted leading-relaxed">
                             {step.content}
                         </p>
 
@@ -106,10 +106,10 @@ export const GuidedTour = () => {
                                     <div
                                         key={idx}
                                         className={`h-1.5 rounded-full transition-all ${idx === currentStep
-                                            ? 'w-8 bg-primary'
+                                            ? 'w-8 bg-accent'
                                             : idx < currentStep
-                                                ? 'w-1.5 bg-primary/50'
-                                                : 'w-1.5 bg-muted'
+                                                ? 'w-1.5 bg-accent/50'
+                                                : 'w-1.5 bg-surface-2'
                                             }`}
                                     />
                                 ))}
