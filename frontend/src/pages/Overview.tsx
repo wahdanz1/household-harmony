@@ -205,43 +205,23 @@ const Overview = () => {
       const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + pickAmount(item), 0);
       const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + pickAmount(item), 0);
 
+      // Amortized monthly + annualised totals — see docs/design/expenses-model.md.
       let subscriptionsMonthly = 0;
       let subscriptionsYearly = 0;
       decryptedSubs.forEach((sub: any) => {
         const amount = parseFloat(sub.amount || "0");
         if (sub.billing_cycle === "yearly") {
+          subscriptionsMonthly += amount / 12;
           subscriptionsYearly += amount;
+        } else if (sub.billing_cycle === "semi_annually") {
+          subscriptionsMonthly += amount / 6;
+          subscriptionsYearly += amount * 2;
         } else if (sub.billing_cycle === "quarterly") {
+          subscriptionsMonthly += amount / 3;
           subscriptionsYearly += amount * 4;
         } else {
-          subscriptionsYearly += amount * 12;
-        }
-        if (sub.billing_cycle === "monthly") {
           subscriptionsMonthly += amount;
-        } else if (sub.billing_cycle === "yearly") {
-          if (sub.billing_month && sub.billing_day) {
-            const dateInStartYear = new Date(fetchStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
-            const dateInEndYear = new Date(fetchEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
-            const isDue = (dateInStartYear >= fetchStart && dateInStartYear <= fetchEnd) ||
-              (dateInEndYear >= fetchStart && dateInEndYear <= fetchEnd);
-            if (isDue) subscriptionsMonthly += amount;
-          }
-        } else if (sub.billing_cycle === "quarterly") {
-          if (sub.billing_month && sub.billing_day) {
-            const billingMonths = [
-              sub.billing_month - 1,
-              (sub.billing_month - 1 + 3) % 12,
-              (sub.billing_month - 1 + 6) % 12,
-              (sub.billing_month - 1 + 9) % 12,
-            ];
-            const isDue = billingMonths.some(monthIndex => {
-              const dateInStartYear = new Date(fetchStart.getFullYear(), monthIndex, sub.billing_day!);
-              const dateInEndYear = new Date(fetchEnd.getFullYear(), monthIndex, sub.billing_day!);
-              return (dateInStartYear >= fetchStart && dateInStartYear <= fetchEnd) ||
-                (dateInEndYear >= fetchStart && dateInEndYear <= fetchEnd);
-            });
-            if (isDue) subscriptionsMonthly += amount;
-          }
+          subscriptionsYearly += amount * 12;
         }
       });
 

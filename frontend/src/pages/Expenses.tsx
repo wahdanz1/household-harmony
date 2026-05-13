@@ -333,43 +333,23 @@ const Expenses = () => {
     };
   }, []);
 
-  // Calculate this month's subscription cost (not average monthly!)
-  // - Monthly: always counts
-  // - Quarterly: full amount only if due this month
-  // - Yearly: full amount only if due this month
-  const subscriptionsTotal = subscriptions.filter(sub => sub.is_active).reduce((sum, sub) => {
-    const amount = parseFloat(sub.amount);
-
-    if (sub.billing_cycle === "monthly") return sum + amount;
-
-    if (sub.billing_cycle === "yearly") {
-      if (!sub.billing_month || !sub.billing_day) return sum; // No billing date set, don't include
-      const dateInStartYear = new Date(monthStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
-      const dateInEndYear = new Date(monthEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
-      const isDue = (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
-        (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-      return isDue ? sum + amount : sum;
-    }
-
-    if (sub.billing_cycle === "quarterly") {
-      if (!sub.billing_month || !sub.billing_day) return sum; // No billing date set, don't include
-      const billingMonths = [
-        sub.billing_month - 1,
-        (sub.billing_month - 1 + 3) % 12,
-        (sub.billing_month - 1 + 6) % 12,
-        (sub.billing_month - 1 + 9) % 12
-      ];
-      const isDue = billingMonths.some(monthIndex => {
-        const dateInStartYear = new Date(monthStart.getFullYear(), monthIndex, sub.billing_day!);
-        const dateInEndYear = new Date(monthEnd.getFullYear(), monthIndex, sub.billing_day!);
-        return (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
-          (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-      });
-      return isDue ? sum + amount : sum;
-    }
-
-    return sum;
-  }, 0);
+  // Amortized monthly contribution per subscription:
+  //   monthly       → full amount
+  //   quarterly     → amount / 3
+  //   semi_annually → amount / 6
+  //   yearly        → amount / 12
+  // Steady run-rate semantics so totals don't swing month-to-month based on
+  // when bills happen to land. The Subscriptions section severity below
+  // surfaces the actual "due this month" warning separately.
+  const subscriptionsTotal = subscriptions
+    .filter(sub => sub.is_active)
+    .reduce((sum, sub) => {
+      const amount = parseFloat(sub.amount);
+      if (sub.billing_cycle === "yearly") return sum + amount / 12;
+      if (sub.billing_cycle === "semi_annually") return sum + amount / 6;
+      if (sub.billing_cycle === "quarterly") return sum + amount / 3;
+      return sum + amount;
+    }, 0);
 
   // Calculate next month's start/end for "upcoming" warning
   const nextMonthStart = new Date(monthEnd);
