@@ -1,19 +1,12 @@
-import { Home, Wallet, HandCoins, Settings, LogOut } from "lucide-react";
+import { Home, Wallet, HandCoins } from "lucide-react";
 import { NavLink } from "./NavLink";
-import { Button } from "./ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import { useNavigate } from "react-router-dom";
+import { UserMenu } from "./shared/UserMenu";
 
 const DesktopNav = () => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { members } = useHousehold();
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await signOut();
-    navigate("/auth");
-  };
 
   const me = members.find(m => m.user_id === user?.id);
   const fullName = me?.profiles?.full_name || "";
@@ -57,38 +50,29 @@ const DesktopNav = () => {
         ))}
       </div>
 
-      {/* User card */}
-      <div className="mt-auto pt-4">
-        {fullName && (
-          <div className="rounded-[12px] bg-surface-2 p-3 mb-3 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-accent text-accent-ink flex items-center justify-center font-bold text-[13px]">
-              {initial}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-semibold text-ink truncate">{firstName}</div>
-              <div className="text-[11px] text-muted truncate">Logged in</div>
-            </div>
-            <Button
-              onClick={() => navigate("/settings")}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0 hover:bg-accent-tint hover:text-accent-dk"
-              aria-label="Settings"
-              title="Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-        <Button
-          onClick={handleLogout}
-          variant="ghost"
-          className="w-full justify-start gap-3"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Logout</span>
-        </Button>
-      </div>
+      {/* User card — opens UserMenu */}
+      {fullName && (
+        <div className="mt-auto pt-4">
+          <UserMenu
+            side="top"
+            align="start"
+            trigger={
+              <button
+                type="button"
+                className="w-full rounded-[12px] bg-surface-2 p-3 flex items-center gap-2.5 hover:bg-accent-tint hover:text-accent-dk transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+                aria-label="Account menu"
+              >
+                <span className="w-8 h-8 rounded-full bg-accent text-accent-ink flex items-center justify-center font-bold text-[13px] shrink-0">
+                  {initial}
+                </span>
+                <span className="flex-1 min-w-0 text-left">
+                  <span className="block text-[13px] font-semibold text-ink truncate">{firstName}</span>
+                </span>
+              </button>
+            }
+          />
+        </div>
+      )}
     </nav>
   );
 };

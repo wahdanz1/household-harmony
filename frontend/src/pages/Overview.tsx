@@ -25,6 +25,8 @@ import {
 import { planMonth } from "@/services/monthlyPlanning";
 import { toast } from "sonner";
 import { OverviewSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
+import { UserMenu } from "@/components/shared/UserMenu";
 import {
   useEncryptedFields,
   monthlyIncomeFields,
@@ -700,28 +702,33 @@ interface OverviewHeaderProps {
 const OverviewHeader = ({ monthLabel, hideMonthChip = false, onPrev, onNext, onJumpToToday }: OverviewHeaderProps) => (
   <div className="flex items-center justify-between gap-4 min-h-9">
     <h1>Overview</h1>
-    <div className={`flex items-center gap-1 ${hideMonthChip ? 'invisible' : ''}`}>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-9 w-9"
-        disabled={hideMonthChip || !onPrev}
-        onClick={onPrev}
-        aria-label="Previous month"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <MonthChip value={monthLabel} onClick={onJumpToToday} />
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-9 w-9"
-        disabled={hideMonthChip || !onNext}
-        onClick={onNext}
-        aria-label="Next month"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
+    <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-1 ${hideMonthChip ? 'invisible' : ''}`}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          disabled={hideMonthChip || !onPrev}
+          onClick={onPrev}
+          aria-label="Previous month"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <MonthChip value={monthLabel} onClick={onJumpToToday} />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          disabled={hideMonthChip || !onNext}
+          onClick={onNext}
+          aria-label="Next month"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="md:hidden">
+        <UserMenu trigger={<AvatarTrigger />} />
+      </div>
     </div>
   </div>
 );

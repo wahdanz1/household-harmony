@@ -20,6 +20,8 @@ import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { LoadingState } from "@/components/shared/states";
 import { SettingsPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
+import { UserMenu } from "@/components/shared/UserMenu";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -172,6 +174,9 @@ const Settings = () => {
 const SettingsHeader = () => (
   <div className="flex items-center justify-between gap-4 min-h-9">
     <h1>Settings</h1>
+    <div className="md:hidden">
+      <UserMenu trigger={<AvatarTrigger />} />
+    </div>
   </div>
 );
 

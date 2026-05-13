@@ -26,6 +26,8 @@ import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 
 import { IncomePageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
+import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
+import { UserMenu } from "@/components/shared/UserMenu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MobileBottomBar, mobileBottomBarSpacer } from "@/components/shared/MobileBottomBar";
 import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
@@ -366,41 +368,46 @@ const Income = () => {
   const renderHeader = (showMonthNav: boolean, isLoading = false) => (
     <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Income</h1>
-      {isLoading ? (
-        <div className="flex items-center gap-1">
-          <Skeleton className="h-9 w-9 rounded-[12px]" />
-          <Skeleton className="h-9 w-32 rounded-full" />
-          <Skeleton className="h-9 w-9 rounded-[12px]" />
+      <div className="flex items-center gap-2">
+        {isLoading ? (
+          <div className="flex items-center gap-1">
+            <Skeleton className="h-9 w-9 rounded-[12px]" />
+            <Skeleton className="h-9 w-32 rounded-full" />
+            <Skeleton className="h-9 w-9 rounded-[12px]" />
+          </div>
+        ) : (
+          <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              disabled={!showMonthNav || atEarliestMonth}
+              onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <MonthPickerPopover
+              selectedMonth={selectedMonth}
+              financialMonthStart={financialMonthStart}
+              onSelect={setSelectedMonth}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              disabled={!showMonthNav}
+              onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
+              aria-label="Next month"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        <div className="md:hidden">
+          <UserMenu trigger={<AvatarTrigger />} />
         </div>
-      ) : (
-        <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            disabled={!showMonthNav || atEarliestMonth}
-            onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
-            aria-label="Previous month"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <MonthPickerPopover
-            selectedMonth={selectedMonth}
-            financialMonthStart={financialMonthStart}
-            onSelect={setSelectedMonth}
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-            disabled={!showMonthNav}
-            onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
-            aria-label="Next month"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+      </div>
     </div>
   );
 

@@ -1,4 +1,4 @@
-import { Home, Wallet, HandCoins, Settings } from "lucide-react";
+import { Home, Wallet, HandCoins } from "lucide-react";
 import { NavLink } from "./NavLink";
 
 const MobileNav = () => {
@@ -6,7 +6,6 @@ const MobileNav = () => {
     { icon: Home, label: "Overview", path: "/" },
     { icon: HandCoins, label: "Income", path: "/income" },
     { icon: Wallet, label: "Expenses", path: "/expenses" },
-    { icon: Settings, label: "Settings", path: "/settings" },
   ];
 
   return (
@@ -19,7 +18,7 @@ const MobileNav = () => {
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
-      <div className="grid grid-cols-4 h-[58px]">
+      <div className="grid grid-cols-3 h-[58px]">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
