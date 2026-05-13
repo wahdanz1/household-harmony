@@ -5,6 +5,7 @@ import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
 import { MoneyInput } from "@/components/ui/money-input";
 import { RowItem } from "@/components/ui/row-item";
+import { SectionFrames } from "@/components/ui/section-frames";
 import { useEffect, useRef, useState } from "react";
 import { getCategoryById, isCategoryBudgeted } from "@/constants/expenseCategories";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
@@ -327,6 +328,9 @@ export const AllTabBlockView = ({
     onAmountChange,
 }: AllTabBlockViewProps) => {
     const expensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
+    const expensesBudgetedTotal = expenses
+        .filter(e => isCategoryBudgeted(e.category))
+        .reduce((sum, item) => sum + item.amount, 0);
     const grandTotal = expensesTotal + subscriptionsTotal + insuranceTotal;
 
     // Convert subscriptions to ExpenseItem format with display info
@@ -409,6 +413,13 @@ export const AllTabBlockView = ({
                     onItemClick={onExpenseClick}
                     editable={!!onAmountChange}
                     onAmountChange={onAmountChange}
+                    headerMetrics={
+                        <SectionFrames frames={[
+                            { v: expensesTotal, unit: "kr/mån", primary: true },
+                            { v: expensesTotal * 12, unit: "kr/år" },
+                            { v: expensesBudgetedTotal, unit: "kr", label: "varav budget" },
+                        ]} />
+                    }
                 />
             )}
 
@@ -433,11 +444,11 @@ export const AllTabBlockView = ({
                                     : undefined
                     }
                     headerMetrics={subscriptionsTotal > 0 ? (
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                            <span>{subscriptionsTotal.toFixed(0)} {currency}/month</span>
-                            <span>{yearlySubscriptions.toFixed(0)} {currency}/year</span>
-                            <span>{averageSub.toFixed(0)} {currency} avg</span>
-                        </div>
+                        <SectionFrames frames={[
+                            { v: subscriptionsTotal, unit: "kr/mån", primary: true },
+                            { v: yearlySubscriptions, unit: "kr/år" },
+                            { v: averageSub, unit: "kr/mån", label: "snitt/post" },
+                        ]} />
                     ) : undefined}
                 />
 
@@ -452,11 +463,11 @@ export const AllTabBlockView = ({
                     onItemClick={onInsuranceClick}
                     onAdd={onAddInsurance}
                     headerMetrics={insuranceTotal > 0 ? (
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                            <span>{insuranceTotal.toFixed(0)} {currency}/month</span>
-                            <span>{yearlyInsurance.toFixed(0)} {currency}/year</span>
-                            <span>{averageInsurance.toFixed(0)} {currency} avg</span>
-                        </div>
+                        <SectionFrames frames={[
+                            { v: insuranceTotal, unit: "kr/mån", primary: true },
+                            { v: yearlyInsurance, unit: "kr/år" },
+                            { v: averageInsurance, unit: "kr/mån", label: "snitt/post" },
+                        ]} />
                     ) : undefined}
                 />
 
