@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box, Plus, CreditCard } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
@@ -31,6 +31,7 @@ interface ExpenseItem {
     hasSpecialFields?: boolean; // Electricity/Rent - needs dialog to edit
     subject?: { name: string; type: string };
     inactive?: boolean;
+    isCredit?: boolean;
 }
 
 const SUBJECT_ICON: Record<string, any> = {
@@ -50,6 +51,13 @@ const SubjectChip = ({ subject }: { subject: { name: string; type: string } }) =
         </span>
     );
 }
+
+const CreditChip = () => (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted">
+        <CreditCard className="h-3 w-3" />
+        Credit
+    </span>
+);
 
 interface ExpenseBlockProps {
     title: string;
@@ -211,6 +219,7 @@ export const ExpenseBlock = ({
                                             : 'text-muted'
                                             }`}>{item.name}</span>
                                         {item.subject && <SubjectChip subject={item.subject} />}
+                                        {item.isCredit && <CreditChip />}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>

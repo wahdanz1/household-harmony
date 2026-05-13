@@ -597,6 +597,7 @@ const Expenses = () => {
                 actualAmount,
                 category: cat.category,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                isCredit: !!cat.is_credit,
               };
             }).sort((a, b) => (b.defaultAmount ?? 0) - (a.defaultAmount ?? 0))}
             subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.amount)) - parseFloat(String(a.amount))).map(sub => {
