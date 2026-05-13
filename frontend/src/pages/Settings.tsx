@@ -6,6 +6,7 @@ import { HouseholdCard } from "@/components/settings/HouseholdCard";
 import { MembersCard } from "@/components/settings/MembersCard";
 import { InvitesCard } from "@/components/settings/InvitesCard";
 import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
+import { CreditCardsCard } from "@/components/settings/CreditCardsCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
 import { RecoveryCodeCard } from "@/components/settings/RecoveryCodeCard";
 import { ResetDataCard } from "@/components/settings/ResetDataCard";
@@ -180,6 +181,11 @@ const Settings = () => {
               />
               <SubjectsCard householdId={household.id} onUpdate={fetchData} />
             </div>
+            <CreditCardsCard
+              householdId={household.id}
+              currency={household.currency || "SEK"}
+              enabled={!!household.enable_credit_cards}
+            />
             <ResetDataCard
               householdId={household.id}
               householdName={household.name}
