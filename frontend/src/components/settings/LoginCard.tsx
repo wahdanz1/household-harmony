@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { toast } from "sonner";
-import { SettingsCard, SettingsList, SettingsListItem, SettingsBadge } from "./SettingsCard";
+import { SettingsCard, SettingsList, SettingsListItem } from "./SettingsCard";
 
 export const LoginCard = () => {
     const { user } = useAuth();
@@ -27,14 +27,15 @@ export const LoginCard = () => {
             <SettingsList>
                 <SettingsListItem
                     title="Change password"
-                    value="We'll email you a secure reset link."
+                    value={
+                        <>
+                            We'll email you a secure reset link.
+                            <br />
+                            Want stronger sign-in? Set up two-factor in Privacy &amp; Security.
+                        </>
+                    }
                     onClick={handleChangePassword}
                     disabled={!email}
-                />
-                <SettingsListItem
-                    title="Two-factor authentication"
-                    value="Extra protection at sign-in via authenticator app."
-                    badge={<SettingsBadge>Coming soon</SettingsBadge>}
                 />
             </SettingsList>
         </SettingsCard>

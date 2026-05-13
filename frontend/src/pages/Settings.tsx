@@ -9,7 +9,9 @@ import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { CreditCardsCard } from "@/components/settings/CreditCardsCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
 import { RecoveryCodeCard } from "@/components/settings/RecoveryCodeCard";
-import { ResetDataCard } from "@/components/settings/ResetDataCard";
+import { DangerZoneCard } from "@/components/settings/DangerZoneCard";
+import { DisclosuresCard } from "@/components/settings/DisclosuresCard";
+import { TwoFactorCard } from "@/components/settings/TwoFactorCard";
 import { SubjectsCard } from "@/components/settings/SubjectsCard";
 import { ProfileCard } from "@/components/settings/ProfileCard";
 import { PersonalInfoCard } from "@/components/settings/PersonalInfoCard";
@@ -93,11 +95,11 @@ const Settings = () => {
     <div className="space-y-5">
       <SettingsHeader />
 
-      <Tabs defaultValue="general" className="w-full">
+      <Tabs defaultValue="preferences" className="w-full">
         <TabsList>
-          <TabsTrigger value="general" className="flex items-center gap-2">
+          <TabsTrigger value="preferences" className="flex items-center gap-2">
             <SettingsIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">General</span>
+            <span className="hidden sm:inline">Preferences</span>
           </TabsTrigger>
           <TabsTrigger value="account" className="flex items-center gap-2">
             <User className="h-4 w-4" />
@@ -107,13 +109,13 @@ const Settings = () => {
             <HomeIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Household</span>
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
+          <TabsTrigger value="privacy" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline">Security</span>
+            <span className="hidden sm:inline">Privacy &amp; Security</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="mt-5">
+        <TabsContent value="preferences" className="mt-5">
           <div className="grid gap-5 lg:grid-cols-2">
             <SettingsCard eyebrow="Theme">
               <SettingsRow
@@ -148,6 +150,9 @@ const Settings = () => {
               <PersonalInfoCard />
               <LoginCard />
             </div>
+            <p className="text-xs text-muted text-center pt-2">
+              Looking for account deletion? See Privacy &amp; Security → Danger zone.
+            </p>
           </div>
         </TabsContent>
 
@@ -186,19 +191,23 @@ const Settings = () => {
               currency={household.currency || "SEK"}
               enabled={!!household.enable_credit_cards}
             />
-            <ResetDataCard
+          </div>
+        </TabsContent>
+
+        <TabsContent value="privacy" className="mt-5">
+          <div className="space-y-5">
+            <DisclosuresCard />
+            <div className="grid gap-5 lg:grid-cols-2">
+              <RecoveryCodeCard />
+              <TwoFactorCard />
+            </div>
+            <ApiKeysCard />
+            <DangerZoneCard
               householdId={household.id}
               householdName={household.name}
               isOwner={userRole === "owner"}
               onComplete={fetchData}
             />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="security" className="mt-5">
-          <div className="space-y-5">
-            <RecoveryCodeCard />
-            <ApiKeysCard />
           </div>
         </TabsContent>
       </Tabs>

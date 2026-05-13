@@ -10,12 +10,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, Trash2, UserX } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { SettingsCard } from "./SettingsCard";
+import { SettingsCard, SettingsList, SettingsListItem, SettingsBadge } from "./SettingsCard";
 
-interface ResetDataCardProps {
+interface DangerZoneCardProps {
     householdId: string;
     householdName: string;
     isOwner: boolean;
@@ -38,12 +38,10 @@ const WIPED_TABLES = [
     "co_parents",
 ] as const;
 
-export const ResetDataCard = ({ householdId, householdName, isOwner, onComplete }: ResetDataCardProps) => {
-    const [open, setOpen] = useState(false);
+export const DangerZoneCard = ({ householdId, householdName, isOwner, onComplete }: DangerZoneCardProps) => {
+    const [resetOpen, setResetOpen] = useState(false);
     const [confirmation, setConfirmation] = useState("");
     const [resetting, setResetting] = useState(false);
-
-    if (!isOwner) return null;
 
     const expectedConfirmation = householdName.trim();
     const canConfirm = confirmation.trim() === expectedConfirmation && expectedConfirmation.length > 0;
@@ -67,28 +65,31 @@ export const ResetDataCard = ({ householdId, householdName, isOwner, onComplete 
         localStorage.removeItem(`hh_setup_done_${householdId}`);
         toast.success("Financial data reset. Refreshing…");
         setTimeout(() => window.location.reload(), 600);
+        onComplete();
     };
 
     return (
         <>
-            <SettingsCard eyebrow="Danger zone" tone="danger">
-                <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                        <AlertTriangle className="h-5 w-5 text-danger shrink-0" />
-                        <p className="font-semibold text-danger">Reset all financial data</p>
-                    </div>
-                    <p className="text-sm text-muted">
-                        Deletes every income, expense, subscription, insurance, savings goal, credit card and per-month record in this household. Members and household settings stay. Cannot be undone.
-                    </p>
-                    <div className="flex justify-end">
-                        <Button variant="destructive" onClick={() => setOpen(true)}>
-                            Reset everything
-                        </Button>
-                    </div>
-                </div>
+            <SettingsCard eyebrow="Danger zone" tone="danger" contentClassName="p-0">
+                <SettingsList>
+                    {isOwner && (
+                        <SettingsListItem
+                            icon={<AlertTriangle className="h-5 w-5 text-danger" />}
+                            title="Reset all financial data"
+                            value="Wipes every income, expense, subscription, insurance, credit card, and per-month record in this household. Members and household settings stay. Cannot be undone."
+                            onClick={() => setResetOpen(true)}
+                        />
+                    )}
+                    <SettingsListItem
+                        icon={<UserX className="h-5 w-5 text-muted" />}
+                        title="Delete account"
+                        value="Removes your user account, memberships, and vault. Owned households need to be reassigned or deleted first."
+                        badge={<SettingsBadge>Coming soon</SettingsBadge>}
+                    />
+                </SettingsList>
             </SettingsCard>
 
-            <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) setConfirmation(""); }}>
+            <Dialog open={resetOpen} onOpenChange={(v) => { setResetOpen(v); if (!v) setConfirmation(""); }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Reset {householdName}?</DialogTitle>
@@ -108,9 +109,9 @@ export const ResetDataCard = ({ householdId, householdName, isOwner, onComplete 
                         />
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setOpen(false)} disabled={resetting}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setResetOpen(false)} disabled={resetting}>Cancel</Button>
                         <Button variant="destructive" onClick={handleReset} disabled={!canConfirm || resetting}>
-                            {resetting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Resetting…</> : "Reset everything"}
+                            {resetting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Resetting…</> : <><Trash2 className="h-4 w-4 mr-2" />Reset everything</>}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
