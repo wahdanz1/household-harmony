@@ -1,0 +1,201 @@
+import { useEffect, useState } from "react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Pencil, Trash2, Plus, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+export type SubjectType = "member" | "kid" | "car" | "pet" | "other";
+
+export interface Subject {
+    id: string;
+    name: string;
+    type: SubjectType;
+    sort_order?: number;
+}
+
+interface ManageSubjectsDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    /** The subject type this dialog is managing. */
+    type: SubjectType;
+    /** Display label (e.g. "Cars"). */
+    label: string;
+    householdId: string;
+    /** Re-fetch parent on any change. */
+    onChange: () => void;
+}
+
+export const ManageSubjectsDialog = ({ open, onOpenChange, type, label, householdId, onChange }: ManageSubjectsDialogProps) => {
+    const [subjects, setSubjects] = useState<Subject[]>([]);
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [draftName, setDraftName] = useState("");
+    const [adding, setAdding] = useState(false);
+    const [working, setWorking] = useState(false);
+
+    const fetchSubjects = async () => {
+        const { data } = await supabase
+            .from("subjects")
+            .select("*")
+            .eq("household_id", householdId)
+            .eq("type", type)
+            .order("sort_order")
+            .order("name");
+        setSubjects((data as Subject[]) ?? []);
+    };
+
+    useEffect(() => {
+        if (open) {
+            fetchSubjects();
+            setEditingId(null);
+            setDraftName("");
+            setAdding(false);
+        }
+    }, [open, householdId, type]);
+
+    const handleAdd = async () => {
+        if (!draftName.trim()) return;
+        setWorking(true);
+        const { error } = await supabase.from("subjects").insert({
+            household_id: householdId,
+            name: draftName.trim(),
+            type,
+        });
+        setWorking(false);
+        if (error) {
+            toast.error("Failed to add");
+            return;
+        }
+        setDraftName("");
+        setAdding(false);
+        await fetchSubjects();
+        onChange();
+    };
+
+    const handleSaveEdit = async (id: string) => {
+        if (!draftName.trim()) return;
+        setWorking(true);
+        const { error } = await supabase.from("subjects").update({ name: draftName.trim() }).eq("id", id);
+        setWorking(false);
+        if (error) {
+            toast.error("Failed to update");
+            return;
+        }
+        setEditingId(null);
+        setDraftName("");
+        await fetchSubjects();
+        onChange();
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!confirm("Delete this subject? Existing costs that reference it will lose the tag.")) return;
+        const { error } = await supabase.from("subjects").delete().eq("id", id);
+        if (error) {
+            toast.error("Failed to delete");
+            return;
+        }
+        await fetchSubjects();
+        onChange();
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Manage {label.toLowerCase()}</DialogTitle>
+                    <DialogDescription>
+                        Add, rename, or remove the {label.toLowerCase()} you want to track costs for.
+                    </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-2">
+                    {subjects.length === 0 && !adding && (
+                        <p className="text-sm text-muted py-2">No {label.toLowerCase()} yet.</p>
+                    )}
+                    {subjects.map(s => (
+                        <div key={s.id} className="flex items-center gap-2 py-1">
+                            {editingId === s.id ? (
+                                <>
+                                    <Input
+                                        value={draftName}
+                                        onChange={(e) => setDraftName(e.target.value)}
+                                        onKeyDown={(e) => e.key === "Enter" && handleSaveEdit(s.id)}
+                                        autoFocus
+                                        className="flex-1"
+                                    />
+                                    <Button size="sm" onClick={() => handleSaveEdit(s.id)} disabled={working}>
+                                        Save
+                                    </Button>
+                                    <Button size="sm" variant="ghost" onClick={() => { setEditingId(null); setDraftName(""); }}>
+                                        Cancel
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="flex-1 text-sm text-ink">{s.name}</span>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => { setEditingId(s.id); setDraftName(s.name); }}
+                                        aria-label="Edit"
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => handleDelete(s.id)}
+                                        aria-label="Delete"
+                                        className="text-danger hover:text-danger"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    ))}
+
+                    {adding && (
+                        <div className="flex items-center gap-2 py-1">
+                            <Input
+                                value={draftName}
+                                onChange={(e) => setDraftName(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                                placeholder={`e.g. ${type === "car" ? "Volvo XC40" : type === "kid" ? "Liam" : type === "pet" ? "Whiskers" : "Name"}`}
+                                autoFocus
+                                className="flex-1"
+                            />
+                            <Button size="sm" onClick={handleAdd} disabled={working || !draftName.trim()}>
+                                {working ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setDraftName(""); }}>
+                                Cancel
+                            </Button>
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter className="sm:justify-between">
+                    {!adding && (
+                        <Button variant="secondary" onClick={() => { setAdding(true); setDraftName(""); }}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add {label.slice(0, -1).toLowerCase()}
+                        </Button>
+                    )}
+                    <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                        Done
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};

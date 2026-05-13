@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
-import { HouseholdInfoCard } from "@/components/settings/HouseholdInfoCard";
-import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard";
+import { HouseholdCard } from "@/components/settings/HouseholdCard";
+import { MembersCard } from "@/components/settings/MembersCard";
+import { InvitesCard } from "@/components/settings/InvitesCard";
 import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
 import { RecoveryCodeCard } from "@/components/settings/RecoveryCodeCard";
@@ -161,21 +162,33 @@ const Settings = () => {
         <TabsContent value="household" className="mt-5">
           <div className="space-y-5">
             <div className="grid gap-5 lg:grid-cols-2">
-              <HouseholdInfoCard household={household} userRole={userRole} members={members} onUpdate={fetchData} />
-              <HouseholdMembersCard
+              <HouseholdCard
+                household={household}
                 members={members}
-                householdId={household.id}
-                invites={invites}
+                userRole={userRole}
+                onUpdate={fetchData}
+              />
+              <MembersCard
+                members={members}
+                userRole={userRole}
                 onUpdate={fetchData}
               />
             </div>
-            <ExtraFeaturesCard
+            <InvitesCard
               householdId={household.id}
-              enableCreditCards={household.enable_credit_cards || false}
-              enableSharedExpenses={household.enable_shared_expenses ?? true}
+              invites={invites}
+              isOwner={userRole === "owner"}
               onUpdate={fetchData}
             />
-            <SubjectsCard householdId={household.id} onUpdate={fetchData} />
+            <div className="grid gap-5 lg:grid-cols-2">
+              <ExtraFeaturesCard
+                householdId={household.id}
+                enableCreditCards={household.enable_credit_cards || false}
+                enableSharedExpenses={household.enable_shared_expenses ?? true}
+                onUpdate={fetchData}
+              />
+              <SubjectsCard householdId={household.id} onUpdate={fetchData} />
+            </div>
             <ResetDataCard
               householdId={household.id}
               householdName={household.name}

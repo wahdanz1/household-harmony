@@ -1,9 +1,8 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { CreditCard, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { SettingsCard, SettingsList, SettingsListItem } from "./SettingsCard";
 
 interface ExtraFeaturesCardProps {
     householdId: string;
@@ -15,107 +14,49 @@ interface ExtraFeaturesCardProps {
 export const ExtraFeaturesCard = ({ householdId, enableCreditCards, enableSharedExpenses, onUpdate }: ExtraFeaturesCardProps) => {
     const { toast } = useToast();
 
-    const handleToggleCreditCards = async (enabled: boolean) => {
-        const { error } = await supabase
-            .from("households")
-            .update({ enable_credit_cards: enabled })
-            .eq("id", householdId);
-
+    const toggle = async (column: "enable_credit_cards" | "enable_shared_expenses", enabled: boolean, label: string) => {
+        const { error } = await supabase.from("households").update({ [column]: enabled }).eq("id", householdId);
         if (error) {
-            toast({
-                title: "Error",
-                description: "Failed to update credit card settings",
-                variant: "destructive",
-            });
+            toast({ title: "Error", description: `Failed to update ${label}`, variant: "destructive" });
         } else {
-            toast({
-                title: "Success",
-                description: enabled ? "Credit cards enabled" : "Credit cards disabled",
-            });
-            onUpdate();
-        }
-    };
-
-    const handleToggleSharedExpenses = async (enabled: boolean) => {
-        const { error } = await supabase
-            .from("households")
-            .update({ enable_shared_expenses: enabled })
-            .eq("id", householdId);
-
-        if (error) {
-            toast({
-                title: "Error",
-                description: "Failed to update shared expenses settings",
-                variant: "destructive",
-            });
-        } else {
-            toast({
-                title: "Success",
-                description: enabled ? "Shared expenses enabled" : "Shared expenses disabled",
-            });
             onUpdate();
         }
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Extra Features</CardTitle>
-                <CardDescription>Enable optional features for your household</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="grid gap-6 md:grid-cols-2">
-                    {/* Credit Cards Column */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2 pb-2 border-b">
-                            <CreditCard className="h-5 w-5" />
-                            <h3>Credit Cards</h3>
-                        </div>
-                        <div className="list-row">
-                            <div className="space-y-0.5 flex-1">
-                                <Label>Enable Credit Card Tracking</Label>
-                                <p className="text-sm text-muted">
-                                    Track credit card expenses with monthly limits
-                                </p>
-                            </div>
-                            <Switch
-                                checked={enableCreditCards}
-                                onCheckedChange={handleToggleCreditCards}
-                            />
-                        </div>
-                        {enableCreditCards && (
-                            <p className="text-sm text-muted">
-                                Manage your credit cards in <strong>Expenses → Credit</strong>
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Shared Expenses / Co-Parents Column */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2 pb-2 border-b">
-                            <Users className="h-5 w-5" />
-                            <h3>Shared Expenses</h3>
-                        </div>
-                        <div className="list-row">
-                            <div className="space-y-0.5 flex-1">
-                                <Label>Enable Shared Expenses</Label>
-                                <p className="text-sm text-muted">
-                                    Track expenses shared with co-parents
-                                </p>
-                            </div>
-                            <Switch
-                                checked={enableSharedExpenses}
-                                onCheckedChange={handleToggleSharedExpenses}
-                            />
-                        </div>
-                        {enableSharedExpenses && (
-                            <p className="text-sm text-muted">
-                                Manage co-parents in <strong>Expenses → Shared</strong>
-                            </p>
-                        )}
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+        <SettingsCard eyebrow="Extra features" contentClassName="p-0">
+            <SettingsList>
+                <SettingsListItem
+                    icon={<CreditCard className="h-5 w-5" />}
+                    title="Credit cards"
+                    value={
+                        enableCreditCards
+                            ? <>Track credit card expenses with monthly limits. Manage in <strong className="font-semibold text-ink">Expenses → Credit</strong>.</>
+                            : "Track credit card expenses with monthly limits."
+                    }
+                    control={
+                        <Switch
+                            checked={enableCreditCards}
+                            onCheckedChange={(v) => toggle("enable_credit_cards", v, "credit cards")}
+                        />
+                    }
+                />
+                <SettingsListItem
+                    icon={<Users className="h-5 w-5" />}
+                    title="Shared expenses"
+                    value={
+                        enableSharedExpenses
+                            ? <>Track expenses shared with co-parents. Manage in <strong className="font-semibold text-ink">Expenses → Shared</strong>.</>
+                            : "Track expenses shared with co-parents."
+                    }
+                    control={
+                        <Switch
+                            checked={enableSharedExpenses}
+                            onCheckedChange={(v) => toggle("enable_shared_expenses", v, "shared expenses")}
+                        />
+                    }
+                />
+            </SettingsList>
+        </SettingsCard>
     );
 };

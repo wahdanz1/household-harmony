@@ -507,23 +507,20 @@ const Income = () => {
         />
       ) : (
         <Card variant="flush">
-          {/* Block Header */}
-          <div className="flex items-center gap-3 px-5 py-4 border-b border-line-2">
-            <HandCoins className="h-5 w-5 text-accent" />
-            <div>
-              <h3>Income</h3>
-              <p className="text-xs text-muted">
-                {activeSourceCount} active {activeSourceCount === 1 ? 'source' : 'sources'}
-              </p>
-            </div>
+          {/* Section header — single-line: title + count + autosave status (matches Expenses accordion style) */}
+          <div className="flex items-center gap-3 px-4 py-4 sm:px-5 border-b border-line-2">
+            <span className="flex items-baseline gap-2 min-w-0">
+              <span className="font-medium text-ink">Income</span>
+              <span className="text-xs text-muted tabular-nums">{activeSourceCount}</span>
+            </span>
             <div className="ml-auto h-5">
               {(autoSaveStatus === 'saved' || autoSaveStatus === 'error') && (
                 <span
-                    className={`flex items-center gap-1 text-sm transition-opacity duration-1000 ${savedFading ? 'opacity-0' : 'opacity-100'} ${autoSaveStatus === 'error' ? 'text-danger' : 'text-accent'}`}
+                  className={`flex items-center gap-1 text-sm transition-opacity duration-1000 ${savedFading ? 'opacity-0' : 'opacity-100'} ${autoSaveStatus === 'error' ? 'text-danger' : 'text-accent'}`}
                 >
-                    {autoSaveStatus === 'saved'
-                        ? <><Check className="h-4 w-4" /> Saved</>
-                        : <>Failed to save</>}
+                  {autoSaveStatus === 'saved'
+                    ? <><Check className="h-4 w-4" /> Saved</>
+                    : <>Failed to save</>}
                 </span>
               )}
             </div>

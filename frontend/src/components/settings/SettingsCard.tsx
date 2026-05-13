@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 interface SettingsCardProps {
     /** Uppercase eyebrow label (e.g. "THEME", "LANGUAGE"). */
     eyebrow: string;
+    /** Optional small node rendered right-aligned in the eyebrow row (count, status, etc.). */
+    eyebrowRight?: ReactNode;
     children: ReactNode;
     /** Soft-disabled appearance for not-yet-shipped sections. */
     dim?: boolean;
@@ -29,7 +31,7 @@ interface SettingsCardProps {
  * design-system/.../preview Allmänt screenshot and
  * docs/design/drift-audit.md § 4.6.
  */
-export const SettingsCard = ({ eyebrow, children, dim, tone = "default", className, contentClassName }: SettingsCardProps) => (
+export const SettingsCard = ({ eyebrow, eyebrowRight, children, dim, tone = "default", className, contentClassName }: SettingsCardProps) => (
     <Card
         variant="flush"
         className={cn(
@@ -39,7 +41,7 @@ export const SettingsCard = ({ eyebrow, children, dim, tone = "default", classNa
         )}
     >
         <CardHeader className={cn(
-            "p-0 space-y-0 border-b border-line-2",
+            "p-0 space-y-0 border-b border-line-2 flex-row items-center justify-between",
             tone === "danger" && "border-danger/30",
         )}>
             <p className={cn(
@@ -48,6 +50,11 @@ export const SettingsCard = ({ eyebrow, children, dim, tone = "default", classNa
             )}>
                 {eyebrow}
             </p>
+            {eyebrowRight && (
+                <div className="px-5 py-2.5 text-[11.5px] font-semibold text-muted tabular-nums leading-[1.5]">
+                    {eyebrowRight}
+                </div>
+            )}
         </CardHeader>
         <CardContent className={cn("mt-0", contentClassName ?? "p-5")}>{children}</CardContent>
     </Card>
@@ -95,7 +102,7 @@ export const SettingsList = ({ children, className }: SettingsListProps) => (
 
 interface SettingsListItemProps {
     title: string;
-    /** Current value or descriptive sub-line. */
+    /** Current value or descriptive sub-line. Wraps by default. */
     value?: ReactNode;
     /** Inline badge next to the title. */
     badge?: ReactNode;
@@ -104,6 +111,8 @@ interface SettingsListItemProps {
     control?: ReactNode;
     /** Click handler — opens a dialog or triggers an action. Renders chevron. */
     onClick?: () => void;
+    /** Optional leading icon node (e.g. lucide-react). */
+    icon?: ReactNode;
     disabled?: boolean;
 }
 
@@ -118,20 +127,22 @@ export const SettingsListItem = ({
     badge,
     control,
     onClick,
+    icon,
     disabled,
 }: SettingsListItemProps) => {
     const isClickable = !!onClick && !disabled;
     const showChevron = isClickable && !control;
     const inner = (
         <>
+            {icon && <div className="shrink-0 text-muted self-start mt-0.5">{icon}</div>}
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-ink leading-tight">{title}</p>
                     {badge}
                 </div>
-                {value && <div className="text-sm text-muted mt-0.5 truncate">{value}</div>}
+                {value && <div className="text-sm text-muted mt-1">{value}</div>}
             </div>
-            <div className="shrink-0 flex items-center gap-2">
+            <div className="shrink-0 flex items-center gap-2 self-center">
                 {control}
                 {showChevron && <ChevronRight className="h-4 w-4 text-muted" />}
             </div>
@@ -144,7 +155,7 @@ export const SettingsListItem = ({
                 type="button"
                 onClick={onClick}
                 disabled={disabled}
-                className="w-full flex items-center justify-between gap-4 px-5 py-3.5 text-left hover:bg-surface-2 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+                className="w-full flex items-start justify-between gap-4 px-5 py-3.5 text-left hover:bg-surface-2 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
             >
                 {inner}
             </button>
@@ -152,7 +163,7 @@ export const SettingsListItem = ({
     }
 
     return (
-        <div className="w-full flex items-center justify-between gap-4 px-5 py-3.5">
+        <div className="w-full flex items-start justify-between gap-4 px-5 py-3.5">
             {inner}
         </div>
     );
