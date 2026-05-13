@@ -52,7 +52,10 @@ export const UserMenu = ({ trigger, align = "end", side = "bottom" }: UserMenuPr
                     <span>Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="gap-2 cursor-pointer">
+                <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="gap-2 cursor-pointer text-danger focus:bg-danger/10 focus:text-danger"
+                >
                     <LogOut className="h-4 w-4" />
                     <span>Logout</span>
                 </DropdownMenuItem>
