@@ -20,6 +20,12 @@ interface MoneyProps {
      * - "ink" (default), "accent", "danger", "muted"
      */
     color?: "ink" | "accent" | "danger" | "muted" | "auto";
+    /**
+     * Renders as a budget estimate: leading `~` in accent-dk, digits in
+     * `text-ink-2` at weight 500. Overrides `color` and `weight`. Used for
+     * `isBudgeted` category rows. See docs/design/expenses-model.md.
+     */
+    estimate?: boolean;
     className?: string;
 }
 
@@ -51,8 +57,24 @@ export const Money = ({
     size = "base",
     weight = 500,
     color = "ink",
+    estimate = false,
     className,
 }: MoneyProps) => {
+    if (estimate) {
+        return (
+            <span
+                className={cn(
+                    "font-mono whitespace-nowrap tabular-nums tracking-tight font-medium text-ink-2",
+                    sizeClass[size],
+                    className,
+                )}
+            >
+                <span className="text-accent-dk mr-0.5">~</span>
+                {fmtKr(v, currency)}
+            </span>
+        );
+    }
+
     const colorClass =
         color === "auto"
             ? v > 0

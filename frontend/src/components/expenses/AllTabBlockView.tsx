@@ -6,7 +6,7 @@ import { Money } from "@/components/ui/money";
 import { MoneyInput } from "@/components/ui/money-input";
 import { RowItem } from "@/components/ui/row-item";
 import { useEffect, useRef, useState } from "react";
-import { getCategoryById } from "@/constants/expenseCategories";
+import { getCategoryById, isCategoryBudgeted } from "@/constants/expenseCategories";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
 import { Input } from "@/components/ui/input";
@@ -251,6 +251,7 @@ export const ExpenseBlock = ({
                                             currency={currency}
                                             size="base"
                                             weight={500}
+                                            estimate={categoryType === 'expense' && isCategoryBudgeted(item.category)}
                                         />
                                     )}
                                     {item.actualAmount !== undefined && Math.round(item.actualAmount) !== Math.round(item.amount) && (() => {
