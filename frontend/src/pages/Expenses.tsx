@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, CreditCard, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Zap } from "lucide-react";
+import { CalendarDays, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Zap } from "lucide-react";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { Money, fmtKr } from "@/components/ui/money";
@@ -13,7 +13,6 @@ import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
 import { Card } from "@/components/ui/card";
 import { Home } from "lucide-react";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
-import { CreditTab } from "@/components/expenses/CreditTab";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { SubscriptionFormDialog } from "@/components/expenses/SubscriptionFormDialog";
 import { InsuranceFormDialog } from "@/components/expenses/InsuranceFormDialog";
@@ -464,7 +463,7 @@ const Expenses = () => {
 
   const hasAnyCategory = expenseCategories.length > 0;
   const showCoparentTab = !!household?.enable_shared_expenses || coParents.length > 0;
-  const showTabsList = !!(household?.enable_credit_cards || showCoparentTab);
+  const showTabsList = showCoparentTab;
 
   if (loading) {
     return (
@@ -525,25 +524,16 @@ const Expenses = () => {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {/* Only show tabs when there are multiple tabs (Credit or Co-Parent enabled) */}
         {showTabsList && (
           <TabsList>
             <TabsTrigger value="all" className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
               <span className="hidden sm:inline">All</span>
             </TabsTrigger>
-            {household?.enable_credit_cards && (
-              <TabsTrigger value="credit" className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                <span className="hidden sm:inline">Credit</span>
-              </TabsTrigger>
-            )}
-            {showCoparentTab && (
-              <TabsTrigger value="coparent" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Shared</span>
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="coparent" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Shared</span>
+            </TabsTrigger>
           </TabsList>
         )}
 
@@ -708,17 +698,6 @@ const Expenses = () => {
           </>
           )}
         </TabsContent>
-
-        {household?.enable_credit_cards && (
-          <TabsContent value="credit" className="mt-5">
-            <CreditTab
-              householdId={household?.id}
-              currency={household?.currency || "SEK"}
-              monthStart={monthStart}
-              monthEnd={monthEnd}
-            />
-          </TabsContent>
-        )}
 
         {showCoparentTab && (
           <TabsContent value="coparent" className="mt-5">

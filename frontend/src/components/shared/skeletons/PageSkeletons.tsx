@@ -264,8 +264,6 @@ const MetricTileSkeleton = () => (
     </div>
 );
 
-export const CreditTabSkeleton = () => <CardSkeleton rows={3} />;
-
 export const SettingsPageSkeleton = () => (
     <>
         <TabsListSkeleton />
