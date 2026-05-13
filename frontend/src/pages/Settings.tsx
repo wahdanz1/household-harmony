@@ -4,13 +4,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
 import { HouseholdInfoCard } from "@/components/settings/HouseholdInfoCard";
 import { HouseholdMembersCard } from "@/components/settings/HouseholdMembersCard";
-import { PersonalSettingsCard } from "@/components/settings/PersonalSettingsCard";
 import { ExtraFeaturesCard } from "@/components/settings/ExtraFeaturesCard";
 import { ApiKeysCard } from "@/components/settings/ApiKeysCard";
 import { RecoveryCodeCard } from "@/components/settings/RecoveryCodeCard";
 import { ResetDataCard } from "@/components/settings/ResetDataCard";
-import { SetupWizardCard } from "@/components/settings/SetupWizardCard";
 import { SubjectsCard } from "@/components/settings/SubjectsCard";
+import { ProfileCard } from "@/components/settings/ProfileCard";
+import { PersonalInfoCard } from "@/components/settings/PersonalInfoCard";
+import { LoginCard } from "@/components/settings/LoginCard";
 import { SettingsCard, SettingsRow, SettingsBadge } from "@/components/settings/SettingsCard";
 // import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,6 +32,7 @@ const Settings = () => {
   const [invites, setInvites] = useState<any[]>([]);
   const [userRole, setUserRole] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [profileBumpKey, setProfileBumpKey] = useState(0);
 
   const fetchData = async () => {
     if (!user) return;
@@ -148,14 +150,11 @@ const Settings = () => {
 
         <TabsContent value="account" className="mt-5">
           <div className="space-y-5">
-            <PersonalSettingsCard />
-            <SettingsCard eyebrow="Login" dim>
-              <SettingsRow
-                title="Two-factor authentication"
-                description="Extra protection at sign-in via authenticator app."
-                badge={<SettingsBadge>Coming soon</SettingsBadge>}
-              />
-            </SettingsCard>
+            <ProfileCard key={profileBumpKey} />
+            <div className="grid gap-5 lg:grid-cols-2">
+              <PersonalInfoCard onProfileUpdate={() => setProfileBumpKey(k => k + 1)} />
+              <LoginCard />
+            </div>
           </div>
         </TabsContent>
 
@@ -177,7 +176,6 @@ const Settings = () => {
               onUpdate={fetchData}
             />
             <SubjectsCard householdId={household.id} onUpdate={fetchData} />
-            <SetupWizardCard />
             <ResetDataCard
               householdId={household.id}
               householdName={household.name}
