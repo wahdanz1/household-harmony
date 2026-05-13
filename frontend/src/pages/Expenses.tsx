@@ -25,7 +25,7 @@ import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialM
 import { fetchHistoryByKey } from "@/utils/carryForward";
 import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
-import { useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
+import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
@@ -531,7 +531,7 @@ const Expenses = () => {
           <AlertContent>
             <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
             <AlertDescription>
-              Edits are locked until the Monthly Review is complete. Use the wizard on the Dashboard to review and finalize.
+              Edits are locked until the Monthly Review is complete. Use the wizard on the Overview to review and finalize.
             </AlertDescription>
           </AlertContent>
           <Button asChild size="sm" variant="outline" className="shrink-0">

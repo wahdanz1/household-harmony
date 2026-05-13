@@ -19,7 +19,7 @@ interface MetricTileProps {
 }
 
 /**
- * Dashboard metric tile (Subscriptions / Insurance / Credit cards / Co-parent).
+ * Overview metric tile (Subscriptions / Insurance / Credit cards / Co-parent).
  * 4-tile grid on desktop, 2x2 on mobile.
  */
 export const MetricTile = ({

@@ -4,7 +4,7 @@ import LanguageDetector from "i18next-browser-languagedetector";
 
 import enCommon from "./locales/en/common.json";
 import enAuth from "./locales/en/auth.json";
-import enDashboard from "./locales/en/dashboard.json";
+import enOverview from "./locales/en/overview.json";
 import enIncome from "./locales/en/income.json";
 import enExpenses from "./locales/en/expenses.json";
 import enSettings from "./locales/en/settings.json";
@@ -12,7 +12,7 @@ import enNotFound from "./locales/en/notFound.json";
 
 import svCommon from "./locales/sv/common.json";
 import svAuth from "./locales/sv/auth.json";
-import svDashboard from "./locales/sv/dashboard.json";
+import svOverview from "./locales/sv/overview.json";
 import svIncome from "./locales/sv/income.json";
 import svExpenses from "./locales/sv/expenses.json";
 import svSettings from "./locales/sv/settings.json";
@@ -24,7 +24,7 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export const NAMESPACES = [
   "common",
   "auth",
-  "dashboard",
+  "overview",
   "income",
   "expenses",
   "settings",
@@ -35,7 +35,7 @@ const resources = {
   en: {
     common: enCommon,
     auth: enAuth,
-    dashboard: enDashboard,
+    overview: enOverview,
     income: enIncome,
     expenses: enExpenses,
     settings: enSettings,
@@ -44,7 +44,7 @@ const resources = {
   sv: {
     common: svCommon,
     auth: svAuth,
-    dashboard: svDashboard,
+    overview: svOverview,
     income: svIncome,
     expenses: svExpenses,
     settings: svSettings,

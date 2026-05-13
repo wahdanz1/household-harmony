@@ -28,7 +28,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Keep the user reference stable across token refreshes / focus events —
     // Supabase fires onAuthStateChange with a fresh `user` object even when
     // nothing about identity changed, which would otherwise cascade refetches
-    // through every consumer (HouseholdContext, Dashboard, Expenses, Income).
+    // through every consumer (HouseholdContext, Overview, Expenses, Income).
     const applySession = (next: Session | null) => {
       setSession(next);
       setUser(prev => (prev?.id === next?.user?.id ? prev : next?.user ?? null));

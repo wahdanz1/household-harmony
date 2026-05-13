@@ -21,7 +21,7 @@ Household Harmony is a household budgeting application built for Swedish househo
 - Subscription and insurance management with billing cycle awareness
 - Co-parent expense sharing and settlement tracking
 - Monthly records for historical analysis
-- Dashboard with summary metrics and charts
+- Overview with summary metrics and charts
 
 **Client-Side Encryption**
 - Two-tier key system: DEK (Data Encryption Key) + KEK (Key Encryption Key)
@@ -59,7 +59,7 @@ Household Harmony is a household budgeting application built for Swedish househo
 - **React Context** for state management (auth, encryption, household)
 - **TanStack React Query** for server state and data fetching
 - **React Hook Form** + **Zod** for form handling and validation
-- **Recharts** for dashboard visualizations
+- **Recharts** for overview visualizations
 
 ### Backend
 - **FastAPI** (Python 3.11+) for async API

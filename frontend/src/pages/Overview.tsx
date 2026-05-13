@@ -15,9 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Money, fmtKr } from "@/components/ui/money";
 import { MonthChip } from "@/components/ui/month-chip";
 import { MetricTile } from "@/components/ui/metric-tile";
-import { CoParentSettlementCard } from "@/components/dashboard/CoParentSettlementCard";
-import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/dashboard/MonthlyReviewWizard";
-import { HouseholdSetupWizard } from "@/components/dashboard/HouseholdSetupWizard";
+import { CoParentSettlementCard } from "@/components/overview/CoParentSettlementCard";
+import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
+import { HouseholdSetupWizard } from "@/components/overview/HouseholdSetupWizard";
 import {
   HandCoins, Wallet, Repeat, Shield, ClipboardCheck,
   ChevronRight, ChevronLeft, Users, Sparkles, CalendarPlus, Loader2, Zap,
@@ -72,7 +72,7 @@ interface OverviewData {
   activity: ActivityItem[];
 }
 
-const Dashboard = () => {
+const Overview = () => {
   const { user } = useAuth();
   const { household, coParents, members, financialMonthStart, loading: householdLoading } = useHousehold();
   const { isUnlocked, encrypt, decrypt, pendingExitHouseholdId } = useEncryption();
@@ -726,4 +726,4 @@ const OverviewHeader = ({ monthLabel, hideMonthChip = false, onPrev, onNext, onJ
   </div>
 );
 
-export default Dashboard;
+export default Overview;

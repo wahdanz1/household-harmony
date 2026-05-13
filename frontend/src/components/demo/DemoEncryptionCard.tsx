@@ -1,5 +1,5 @@
 /**
- * DemoEncryptionCard - Dashboard component for demo mode
+ * DemoEncryptionCard - Overview component for demo mode
  * 
  * Shows encryption information and lets users view raw encrypted data.
  * Only visible when is_demo_mode is true.

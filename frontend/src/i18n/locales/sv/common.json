@@ -1,7 +1,7 @@
 {
   "appName": "Household Harmony",
   "nav": {
-    "dashboard": "Översikt",
+    "overview": "Översikt",
     "income": "Inkomster",
     "expenses": "Utgifter",
     "settings": "Inställningar"
