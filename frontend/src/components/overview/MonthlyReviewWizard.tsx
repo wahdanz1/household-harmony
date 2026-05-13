@@ -6,14 +6,15 @@ import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/
 import { MoneyInput } from "@/components/ui/money-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, LockOpen, ShieldCheck, RotateCw, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, LockOpen, ShieldCheck, RotateCw, Sparkles, FileUp } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth, getPreviousFinancialMonth } from "@/utils/dateUtils";
+import { ImportStatementStep } from "./ImportStatementStep";
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields, expenseFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { fetchHistoryByKey } from "@/utils/carryForward";
@@ -59,7 +60,7 @@ export const MonthlyReviewWizard = ({
 }: MonthlyReviewWizardProps) => {
     const { user } = useAuth();
     const { household, members } = useHousehold();
-    const [activeTab, setActiveTab] = useState<"income" | "expenses">("income");
+    const [activeTab, setActiveTab] = useState<"reconcile" | "income" | "expenses">("reconcile");
     const [incomes, setIncomes] = useState<IncomeItem[]>([]);
     const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
     const [amounts, setAmounts] = useState<Record<string, string>>({});
@@ -102,6 +103,14 @@ export const MonthlyReviewWizard = ({
     const { start: monthStart, end: monthEnd } = useMemo(
         () => getFinancialMonthRange(currentMonth, financialMonthStart),
         [currentMonth, financialMonthStart]
+    );
+    const previousMonth = useMemo(
+        () => getPreviousFinancialMonth(currentMonth, financialMonthStart),
+        [currentMonth, financialMonthStart]
+    );
+    const { start: prevMonthStart, end: prevMonthEnd } = useMemo(
+        () => getFinancialMonthRange(previousMonth, financialMonthStart),
+        [previousMonth, financialMonthStart]
     );
     const currency = household?.currency || "SEK";
 
@@ -252,7 +261,7 @@ export const MonthlyReviewWizard = ({
     useEffect(() => {
         if (open) {
             setConfirmFinalize(false);
-            setActiveTab("income");
+            setActiveTab("reconcile");
         }
     }, [open]);
 
@@ -446,8 +455,12 @@ export const MonthlyReviewWizard = ({
                     </Alert>
                 )}
 
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "income" | "expenses")} className="flex-1 overflow-hidden flex flex-col">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "reconcile" | "income" | "expenses")} className="flex-1 overflow-hidden flex flex-col">
                     <TabsList>
+                        <TabsTrigger value="reconcile" className="flex items-center gap-2">
+                            <FileUp className="h-4 w-4" />
+                            Last month
+                        </TabsTrigger>
                         <TabsTrigger value="income" className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4" />
                             Income
@@ -459,6 +472,17 @@ export const MonthlyReviewWizard = ({
                             {expensesVerified && <Check className="h-3 w-3 text-accent" />}
                         </TabsTrigger>
                     </TabsList>
+
+                    <TabsContent value="reconcile" className="flex-1 overflow-y-auto mt-4">
+                        {household && (
+                            <ImportStatementStep
+                                householdId={household.id}
+                                currency={currency}
+                                monthStart={prevMonthStart}
+                                monthEnd={prevMonthEnd}
+                            />
+                        )}
+                    </TabsContent>
 
                     <TabsContent value="income" className="flex-1 overflow-y-auto mt-4 space-y-2">
                         {incomes.map(item => {
@@ -578,7 +602,16 @@ export const MonthlyReviewWizard = ({
                             </button>
                         </div>
 
-                        {activeTab === "income" ? (
+                        {activeTab === "reconcile" ? (
+                            <Button
+                                onClick={() => setActiveTab("income")}
+                                className="w-full"
+                                size="lg"
+                                variant="outline"
+                            >
+                                Continue to income
+                            </Button>
+                        ) : activeTab === "income" ? (
                             <div className="space-y-1">
                                 <Button
                                     onClick={acceptIncome}
