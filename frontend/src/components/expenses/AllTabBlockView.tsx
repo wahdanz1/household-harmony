@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Home, Repeat, Shield, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box, Plus } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
@@ -53,15 +53,14 @@ const SubjectChip = ({ subject }: { subject: { name: string; type: string } }) =
 
 interface ExpenseBlockProps {
     title: string;
-    total: number;
     currency: string;
-    icon: React.ReactNode;
     items: ExpenseItem[];
-    colorClass?: string;
-    headerMetrics?: React.ReactNode; // Metrics shown in the header (always visible)
-    severity?: 'default' | 'upcoming' | 'warning' | 'danger'; // Border color severity
-    severityMessage?: string; // Tooltip message explaining the severity
-    categoryType?: 'expense' | 'subscription' | 'insurance'; // Which category constants to use
+    /** SectionFrames node rendered right-aligned in the header row. */
+    headerMetrics?: React.ReactNode;
+    /** Border tint + AlertTriangle next to title. */
+    severity?: 'default' | 'upcoming' | 'warning' | 'danger';
+    severityMessage?: string;
+    categoryType?: 'expense' | 'subscription' | 'insurance';
     onItemClick?: (id: string) => void;
     onAmountChange?: (id: string, amount: string) => void;
     editable?: boolean;
@@ -69,15 +68,14 @@ interface ExpenseBlockProps {
 }
 
 /**
- * A collapsible expense summary block showing category total with expandable item list
+ * Collapsible per-section card with a single-line header
+ * (chevron + title + count + severity + frames-right). Rows render below
+ * when expanded.
  */
 export const ExpenseBlock = ({
     title,
-    total,
     currency,
-    icon,
     items,
-    colorClass = "text-ink",
     headerMetrics,
     severity = 'default',
     severityMessage,
@@ -127,50 +125,42 @@ export const ExpenseBlock = ({
             ? 'text-warn'
             : 'text-warn';
 
+    const canExpand = items.length > 0 || !!onAdd;
+
     return (
         <div ref={blockRef} className={`rounded-[14px] bg-surface overflow-hidden ${severityBorder} ${severityWidth}`}>
-            {/* Header row */}
-            <div
-                className="px-4 py-4 sm:px-5 cursor-pointer hover:bg-surface-2 transition-colors"
-                onClick={() => (items.length > 0 || onAdd) && setIsExpanded(!isExpanded)}
+            {/* Single-line header: chevron + title + count + severity + frames-right */}
+            <button
+                type="button"
+                onClick={() => canExpand && setIsExpanded(!isExpanded)}
+                disabled={!canExpand}
+                className="w-full px-4 py-4 sm:px-5 flex items-center gap-3 text-left hover:bg-surface-2 transition-colors disabled:cursor-default"
             >
-                <div className="flex items-center gap-3">
-                    <div className="shrink-0">{icon}</div>
-                    <div className="flex-1 min-w-0">
-                        <p className="font-medium text-ink truncate">{title}</p>
-                        <p className="text-xs text-muted mt-0.5">{items.length} items</p>
-                    </div>
-                    {severity !== 'default' && severityMessage && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div className={`shrink-0 ${severityIconColor}`}>
-                                    <AlertTriangle className="h-5 w-5" />
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="max-w-xs">
-                                <p>{severityMessage}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    )}
-                    <Money
-                        v={total}
-                        currency={currency}
-                        size="lg"
-                        weight={600}
-                        className={colorClass}
-                    />
-                    {(items.length > 0 || onAdd) && (
-                        <div className="shrink-0 text-muted">
-                            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </div>
-                    )}
-                </div>
-                {headerMetrics && (
-                    <div className="mt-2 ml-9">
-                        {headerMetrics}
-                    </div>
+                <span className="shrink-0 text-muted">
+                    {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </span>
+                <span className="flex items-baseline gap-2 min-w-0 shrink-0">
+                    <span className="font-medium text-ink truncate">{title}</span>
+                    <span className="text-xs text-muted tabular-nums">{items.length}</span>
+                </span>
+                {severity !== 'default' && severityMessage && (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className={`shrink-0 ${severityIconColor}`}>
+                                <AlertTriangle className="h-4 w-4" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-xs">
+                            <p>{severityMessage}</p>
+                        </TooltipContent>
+                    </Tooltip>
                 )}
-            </div>
+                {headerMetrics && (
+                    <span className="ml-auto shrink-0">
+                        {headerMetrics}
+                    </span>
+                )}
+            </button>
 
             {(items.length > 0 || onAdd) && (
                 <div
@@ -406,9 +396,7 @@ export const AllTabBlockView = ({
             {expenses.length > 0 && (
                 <ExpenseBlock
                     title="Expenses"
-                    total={expensesTotal}
                     currency={currency}
-                    icon={<Home className="h-5 w-5 text-accent" />}
                     items={expenses}
                     onItemClick={onExpenseClick}
                     editable={!!onAmountChange}
@@ -423,53 +411,47 @@ export const AllTabBlockView = ({
                 />
             )}
 
-            {/* Subscriptions Block with metrics in header */}
             <ExpenseBlock
-                    title="Subscriptions"
-                    total={subscriptionsTotal}
-                    currency={currency}
-                    icon={<Repeat className="h-5 w-5 text-accent" />}
-                    items={subscriptionItems}
-                    categoryType="subscription"
-                    onItemClick={onSubscriptionClick}
-                    onAdd={onAddSubscription}
-                    severity={subscriptionSeverity}
-                    severityMessage={
-                        subscriptionSeverity === 'danger'
-                            ? "A yearly subscription is due this month!"
-                            : subscriptionSeverity === 'upcoming'
-                                ? "A yearly subscription is due next month"
-                                : subscriptionSeverity === 'warning'
-                                    ? "A quarterly subscription is due this month"
-                                    : undefined
-                    }
-                    headerMetrics={subscriptionsTotal > 0 ? (
-                        <SectionFrames frames={[
-                            { v: subscriptionsTotal, unit: "kr/mån", primary: true },
-                            { v: yearlySubscriptions, unit: "kr/år" },
-                            { v: averageSub, unit: "kr/mån", label: "snitt/post" },
-                        ]} />
-                    ) : undefined}
-                />
+                title="Subscriptions"
+                currency={currency}
+                items={subscriptionItems}
+                categoryType="subscription"
+                onItemClick={onSubscriptionClick}
+                onAdd={onAddSubscription}
+                severity={subscriptionSeverity}
+                severityMessage={
+                    subscriptionSeverity === 'danger'
+                        ? "A yearly subscription is due this month!"
+                        : subscriptionSeverity === 'upcoming'
+                            ? "A yearly subscription is due next month"
+                            : subscriptionSeverity === 'warning'
+                                ? "A quarterly subscription is due this month"
+                                : undefined
+                }
+                headerMetrics={subscriptionsTotal > 0 ? (
+                    <SectionFrames frames={[
+                        { v: subscriptionsTotal, unit: "kr/mån", primary: true },
+                        { v: yearlySubscriptions, unit: "kr/år" },
+                        { v: averageSub, unit: "kr/mån", label: "snitt/post" },
+                    ]} />
+                ) : undefined}
+            />
 
-            {/* Insurances Block with metrics in header */}
             <ExpenseBlock
-                    title="Insurances"
-                    total={insuranceTotal}
-                    currency={currency}
-                    icon={<Shield className="h-5 w-5 text-warn" />}
-                    items={insuranceItems}
-                    categoryType="insurance"
-                    onItemClick={onInsuranceClick}
-                    onAdd={onAddInsurance}
-                    headerMetrics={insuranceTotal > 0 ? (
-                        <SectionFrames frames={[
-                            { v: insuranceTotal, unit: "kr/mån", primary: true },
-                            { v: yearlyInsurance, unit: "kr/år" },
-                            { v: averageInsurance, unit: "kr/mån", label: "snitt/post" },
-                        ]} />
-                    ) : undefined}
-                />
+                title="Insurances"
+                currency={currency}
+                items={insuranceItems}
+                categoryType="insurance"
+                onItemClick={onInsuranceClick}
+                onAdd={onAddInsurance}
+                headerMetrics={insuranceTotal > 0 ? (
+                    <SectionFrames frames={[
+                        { v: insuranceTotal, unit: "kr/mån", primary: true },
+                        { v: yearlyInsurance, unit: "kr/år" },
+                        { v: averageInsurance, unit: "kr/mån", label: "snitt/post" },
+                    ]} />
+                ) : undefined}
+            />
 
         </div>
     );
