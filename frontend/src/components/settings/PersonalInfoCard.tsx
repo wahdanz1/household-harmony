@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -8,77 +9,52 @@ import { SettingsCard, SettingsList, SettingsListItem } from "./SettingsCard";
 import { EditNameDialog } from "./dialogs/EditNameDialog";
 import { EditBirthdateDialog } from "./dialogs/EditBirthdateDialog";
 
-interface PersonalInfoCardProps {
-    /** Fired after a successful save so a parent can refresh sibling cards (e.g., ProfileCard). */
-    onProfileUpdate?: () => void;
-}
-
-export const PersonalInfoCard = ({ onProfileUpdate }: PersonalInfoCardProps = {}) => {
+/**
+ * Personal info rows. Reads from HouseholdContext.members (already populated)
+ * and writes through to the profiles table. Triggers a context refresh after
+ * any save so the rest of the app sees the new value.
+ */
+export const PersonalInfoCard = () => {
     const { user } = useAuth();
-    const [fullName, setFullName] = useState("");
-    const [email, setEmail] = useState("");
-    const [birthdate, setBirthdate] = useState<Date | undefined>(undefined);
-    const [emailPublic, setEmailPublic] = useState(true);
+    const { members, refresh: refreshHousehold } = useHousehold();
     const [editingName, setEditingName] = useState(false);
     const [editingBirthdate, setEditingBirthdate] = useState(false);
 
-    const fetchProfile = async () => {
-        if (!user) return;
-        const { data } = await supabase
-            .from("profiles")
-            .select("full_name, email, birthdate, email_public")
-            .eq("id", user.id)
-            .single();
-        if (data) {
-            setFullName(data.full_name || "");
-            setEmail(data.email);
-            setEmailPublic(data.email_public ?? true);
-            setBirthdate(data.birthdate ? new Date(data.birthdate) : undefined);
-        }
-    };
+    const me = members.find(m => m.user_id === user?.id);
+    const fullName = me?.profiles?.full_name || "";
+    const email = me?.profiles?.email || "";
+    const emailPublic = me?.profiles?.email_public ?? true;
+    const birthdate = me?.profiles?.birthdate ? new Date(me.profiles.birthdate) : undefined;
 
-    useEffect(() => {
-        fetchProfile();
-    }, [user]);
-
-    const handleNameSave = async (newName: string) => {
+    const updateProfile = async (patch: Record<string, any>, successMsg: string) => {
         if (!user) return;
-        const { error } = await supabase.from("profiles").update({ full_name: newName }).eq("id", user.id);
+        const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
         if (error) {
-            toast.error("Failed to update name");
+            toast.error("Failed to update profile");
             return;
         }
-        setFullName(newName);
-        toast.success("Name updated");
-        onProfileUpdate?.();
+        toast.success(successMsg);
+        await refreshHousehold();
     };
 
-    const handleBirthdateSave = async (newBirthdate: Date | undefined) => {
-        if (!user) return;
-        const { error } = await supabase
-            .from("profiles")
-            .update({ birthdate: newBirthdate ? format(newBirthdate, "yyyy-MM-dd") : null })
-            .eq("id", user.id);
-        if (error) {
-            toast.error("Failed to update date of birth");
-            return;
-        }
-        setBirthdate(newBirthdate);
-        toast.success("Date of birth updated");
-    };
+    const handleNameSave = (newName: string) => updateProfile({ full_name: newName }, "Name updated");
+    const handleBirthdateSave = (newBirthdate: Date | undefined) =>
+        updateProfile(
+            { birthdate: newBirthdate ? format(newBirthdate, "yyyy-MM-dd") : null },
+            "Date of birth updated",
+        );
 
     const handleEmailVisibilityChange = async (next: boolean) => {
         if (!user) return;
-        const prev = emailPublic;
-        setEmailPublic(next);
         const { error } = await supabase
             .from("profiles")
             .update({ email_public: next })
             .eq("id", user.id);
         if (error) {
-            setEmailPublic(prev);
             toast.error("Failed to update visibility");
+            return;
         }
+        await refreshHousehold();
     };
 
     return (

@@ -1,21 +1,14 @@
-import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { toast } from "sonner";
 import { SettingsCard, SettingsList, SettingsListItem, SettingsBadge } from "./SettingsCard";
 
 export const LoginCard = () => {
     const { user } = useAuth();
-    const [email, setEmail] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchEmail = async () => {
-            if (!user) return;
-            const { data } = await supabase.from("profiles").select("email").eq("id", user.id).single();
-            if (data) setEmail(data.email);
-        };
-        fetchEmail();
-    }, [user]);
+    const { members } = useHousehold();
+    const me = members.find(m => m.user_id === user?.id);
+    const email = me?.profiles?.email || null;
 
     const handleChangePassword = async () => {
         if (!email) return;

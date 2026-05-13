@@ -1,44 +1,30 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Loader2, User, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import { AvatarCropDialog } from "./AvatarCropDialog";
 
-interface ProfileCardProps {
-    /** Re-fetch parent state when avatar/profile changes. */
-    onUpdate?: () => void;
-}
-
-export const ProfileCard = ({ onUpdate }: ProfileCardProps) => {
+/**
+ * Display-only profile hero: avatar + name + email + Change avatar action.
+ * Reads identity from HouseholdContext.members (already populated, no extra
+ * fetch) and only writes when the user uploads a new avatar.
+ */
+export const ProfileCard = () => {
     const { user } = useAuth();
-    const [fullName, setFullName] = useState("");
-    const [email, setEmail] = useState("");
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+    const { members, refresh: refreshHousehold } = useHousehold();
     const [uploading, setUploading] = useState(false);
     const [cropDialogOpen, setCropDialogOpen] = useState(false);
     const [imageToCrop, setImageToCrop] = useState<string>("");
 
-    useEffect(() => {
-        const fetchProfile = async () => {
-            if (!user) return;
-            const { data } = await supabase
-                .from("profiles")
-                .select("full_name, email, avatar_url")
-                .eq("id", user.id)
-                .single();
-            if (data) {
-                setFullName(data.full_name || "");
-                setEmail(data.email || "");
-                setAvatarUrl(data.avatar_url);
-            }
-        };
-        fetchProfile();
-    }, [user]);
+    const me = members.find(m => m.user_id === user?.id);
+    const fullName = me?.profiles?.full_name?.trim() || "";
+    const email = me?.profiles?.email || "";
+    const avatarUrl = me?.profiles?.avatar_url || null;
 
     const handleFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -68,9 +54,8 @@ export const ProfileCard = ({ onUpdate }: ProfileCardProps) => {
                 .update({ avatar_url: urlWithCacheBust })
                 .eq("id", user.id);
             if (updateError) throw updateError;
-            setAvatarUrl(urlWithCacheBust);
             toast.success("Profile photo updated");
-            onUpdate?.();
+            await refreshHousehold();
         } catch (error: any) {
             console.error("Error uploading avatar:", error);
             toast.error(error.message || "Failed to upload profile photo");
@@ -81,7 +66,7 @@ export const ProfileCard = ({ onUpdate }: ProfileCardProps) => {
 
     return (
         <>
-            <Card variant="flush" className={cn(undefined)}>
+            <Card variant="flush">
                 <CardHeader className="p-0 space-y-0 border-b border-line-2">
                     <p className="px-5 py-2.5 text-[11.5px] font-semibold text-muted uppercase tracking-[0.08em] leading-[1.5]">
                         Profile

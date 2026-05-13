@@ -43,59 +43,75 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
 
     setCoParents(coParentsData || []);
 
+    const coParentIds = (coParentsData || []).map(cp => cp.id);
+    if (coParentIds.length === 0) {
+      setSettlements({});
+      return;
+    }
+
+    // Batched fetches — one query per table covering all co-parents. Was N+1
+    // (3 queries per co-parent) before; now 3 total regardless of count.
+    // See issue #50 for the audit that motivated this.
+    const monthStartStr = format(monthStart, "yyyy-MM-dd");
+    const monthEndStr = format(monthEnd, "yyyy-MM-dd");
+
+    const [incomesResult, insurancesResult, expensesResult] = await Promise.all([
+      supabase
+        .from("monthly_incomes")
+        .select("encrypted_amount, share_percentage, is_encrypted, co_parent_id")
+        .eq("household_id", householdId)
+        .gte("month_end", monthStartStr)
+        .lte("month_start", monthEndStr)
+        .eq("is_shared", true)
+        .in("co_parent_id", coParentIds),
+      supabase
+        .from("insurances")
+        .select("encrypted_total_amount, share_percentage, billing_month, is_encrypted, co_parent_id")
+        .eq("household_id", householdId)
+        .eq("is_shared", true)
+        .in("co_parent_id", coParentIds)
+        .eq("is_active", true)
+        .eq("billing_month", currentMonthNumber),
+      supabase
+        .from("shared_expenses")
+        .select("encrypted_amount, paid_by, is_encrypted, co_parent_id")
+        .eq("household_id", householdId)
+        .in("co_parent_id", coParentIds)
+        .gte("month_end", monthStartStr)
+        .lte("month_start", monthEndStr),
+    ]);
+
+    // Defensive: if any of these queries errored (see issue #48 for the
+    // monthly_incomes 400), treat as empty so the rest of the card still
+    // renders without crashing.
+    const decryptedIncomes = (await decryptIncomes(incomesResult.data || [])) as any[];
+    const decryptedInsurances = (await decryptInsurances(insurancesResult.data || [])) as any[];
+    const decryptedExpenses = (await decryptShared(expensesResult.data || [])) as any[];
+
     const settlementData: Record<string, any> = {};
 
     for (const coParent of coParentsData || []) {
-      const { data: sharedIncomesRaw } = await supabase
-        .from("monthly_incomes")
-        .select("encrypted_amount, share_percentage, is_encrypted")
-        .eq("household_id", householdId)
-        .gte("month_end", format(monthStart, "yyyy-MM-dd"))
-        .lte("month_start", format(monthEnd, "yyyy-MM-dd"))
-        .eq("is_shared", true)
-        .eq("co_parent_id", coParent.id);
+      const sharedIncomes = decryptedIncomes.filter(r => r.co_parent_id === coParent.id);
+      const sharedInsurances = decryptedInsurances.filter(r => r.co_parent_id === coParent.id);
+      const sharedExpenses = decryptedExpenses.filter(r => r.co_parent_id === coParent.id);
 
-      const sharedIncomes = (await decryptIncomes(sharedIncomesRaw || [])) as any[];
-
-      const incomeReceived = (sharedIncomes || []).reduce((sum, inc) => sum + parseFloat((inc.amount || 0).toString()), 0);
-      const yourShareOfIncome = (sharedIncomes || []).reduce((sum, inc) => {
+      const incomeReceived = sharedIncomes.reduce((sum, inc) => sum + parseFloat((inc.amount || 0).toString()), 0);
+      const yourShareOfIncome = sharedIncomes.reduce((sum, inc) => {
         const sharePercentage = parseFloat((inc.share_percentage || 0).toString());
         return sum + (parseFloat((inc.amount || 0).toString()) * sharePercentage / 100);
       }, 0);
 
-      const { data: sharedInsurancesRaw } = await supabase
-        .from("insurances")
-        .select("encrypted_total_amount, share_percentage, billing_month, is_encrypted")
-        .eq("household_id", householdId)
-        .eq("is_shared", true)
-        .eq("co_parent_id", coParent.id)
-        .eq("is_active", true)
-        .eq("billing_month", currentMonthNumber);
-
-      const sharedInsurances = (await decryptInsurances(sharedInsurancesRaw || [])) as any[];
-
       let insurancePaid = 0;
       let theirShareOfInsurance = 0;
-
-      (sharedInsurances || []).forEach((ins) => {
-        insurancePaid += parseFloat((ins.total_amount || 0).toString());
-        theirShareOfInsurance += parseFloat((ins.total_amount || 0).toString()) * parseFloat((ins.share_percentage || 0).toString()) / 100;
+      sharedInsurances.forEach((ins) => {
+        const amount = parseFloat((ins.total_amount || 0).toString());
+        insurancePaid += amount;
+        theirShareOfInsurance += amount * parseFloat((ins.share_percentage || 0).toString()) / 100;
       });
-
-      const { data: sharedExpensesRaw } = await supabase
-        .from("shared_expenses")
-        .select("encrypted_amount, paid_by, is_encrypted")
-        .eq("household_id", householdId)
-        .eq("co_parent_id", coParent.id)
-        .gte("month_end", format(monthStart, "yyyy-MM-dd"))
-        .lte("month_start", format(monthEnd, "yyyy-MM-dd"));
-
-      const sharedExpenses = (await decryptShared(sharedExpensesRaw || [])) as any[];
 
       let expensesYouPaid = 0;
       let expensesTheyPaid = 0;
-
-      (sharedExpenses || []).forEach((exp) => {
+      sharedExpenses.forEach((exp) => {
         const amount = parseFloat((exp.amount || 0).toString());
         if (exp.paid_by === "user") {
           expensesYouPaid += amount;

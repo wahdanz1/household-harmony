@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { getActiveHousehold } from "@/utils/householdHelpers";
+import { useHousehold } from "@/contexts/HouseholdContext";
 import { HouseholdCard } from "@/components/settings/HouseholdCard";
 import { MembersCard } from "@/components/settings/MembersCard";
 import { InvitesCard } from "@/components/settings/InvitesCard";
@@ -28,45 +28,36 @@ import { UserMenu } from "@/components/shared/UserMenu";
 const Settings = () => {
   const { user } = useAuth();
   const { isUnlocked } = useEncryption();
-  const [household, setHousehold] = useState<any>(null);
-  const [members, setMembers] = useState<any[]>([]);
+  // Household, members, and userRole come from HouseholdContext — no
+  // separate fetch needed. Only invites are unique to this page.
+  const { household, members, userRole, loading: householdLoading, refresh: refreshHousehold } = useHousehold();
   const [invites, setInvites] = useState<any[]>([]);
-  const [userRole, setUserRole] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-  const [profileBumpKey, setProfileBumpKey] = useState(0);
+  const [loadingInvites, setLoadingInvites] = useState(true);
 
-  const fetchData = async () => {
-    if (!user) return;
-    if (!isUnlocked) {
-      setLoading(false);
+  const fetchInvites = async () => {
+    if (!user || !isUnlocked || !household?.id) {
+      setLoadingInvites(false);
       return;
     }
-
-    // Use new helper to get active household
-    const { membership, household: householdInfo } = await getActiveHousehold(user.id);
-
-    if (!membership || !householdInfo) return;
-
-    setUserRole(membership.role);
-    setHousehold(householdInfo);
-
-    // Fetch members and invites for the active household
-    const [
-      { data: membersData },
-      { data: invitesData },
-    ] = await Promise.all([
-      supabase.from("household_members").select("*, profiles(full_name, email, email_public)").eq("household_id", membership.household_id),
-      supabase.from("household_invites").select("*").eq("household_id", membership.household_id).order("created_at", { ascending: false }),
-    ]);
-
-    setMembers(membersData || []);
-    setInvites(invitesData || []);
-    setLoading(false);
+    const { data } = await supabase
+      .from("household_invites")
+      .select("*")
+      .eq("household_id", household.id)
+      .order("created_at", { ascending: false });
+    setInvites(data || []);
+    setLoadingInvites(false);
   };
 
   useEffect(() => {
-    fetchData();
-  }, [user, isUnlocked]);
+    fetchInvites();
+  }, [user, isUnlocked, household?.id]);
+
+  // Re-fetch both household state (via context) and invites after edits.
+  const fetchData = async () => {
+    await Promise.all([refreshHousehold(), fetchInvites()]);
+  };
+
+  const loading = householdLoading || loadingInvites;
 
   if (loading) {
     return (
@@ -151,9 +142,9 @@ const Settings = () => {
 
         <TabsContent value="account" className="mt-5">
           <div className="space-y-5">
-            <ProfileCard key={profileBumpKey} />
+            <ProfileCard />
             <div className="grid gap-5 lg:grid-cols-2">
-              <PersonalInfoCard onProfileUpdate={() => setProfileBumpKey(k => k + 1)} />
+              <PersonalInfoCard />
               <LoginCard />
             </div>
           </div>
