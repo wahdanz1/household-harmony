@@ -91,18 +91,29 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
     if (!user) return;
     setIsLeaving(true);
 
-    // Simply delete the member role (owner role remains, user returns to it automatically)
-    const { error: deleteError } = await supabase
+    const { data: membership } = await supabase
       .from("household_members")
-      .delete()
+      .select("id")
       .eq("user_id", user.id)
       .eq("household_id", household.id)
-      .eq("role", "member"); // Only delete member role, keep owner role
+      .maybeSingle();
 
-    if (deleteError) {
+    if (!membership) {
+      toast({ title: "Error", description: "Membership not found", variant: "destructive" });
+      setIsLeaving(false);
+      return;
+    }
+
+    const { error } = await (supabase as any).rpc("request_member_exit", {
+      member_id_in: membership.id,
+    });
+
+    if (error) {
       toast({
         title: "Error",
-        description: "Failed to leave household",
+        description: error.message === "owner_must_transfer_first"
+          ? "You're the owner. Transfer ownership before leaving."
+          : "Failed to leave household",
         variant: "destructive",
       });
       setIsLeaving(false);
@@ -110,17 +121,12 @@ export const HouseholdInfoCard = ({ household, userRole, members, onUpdate }: Ho
     }
 
     toast({
-      title: "Success",
-      description: "You've left the household and returned to your own",
+      title: "Leaving household…",
+      description: "Reloading so you can pick which items to bring with you.",
     });
 
     setShowLeaveDialog(false);
-    setIsLeaving(false);
-
-    // Reload page to show original household
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
+    setTimeout(() => window.location.reload(), 1000);
   };
 
   return (
