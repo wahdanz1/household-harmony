@@ -138,7 +138,6 @@ const Expenses = () => {
       results = await Promise.all([
         supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
         supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-        supabase.from("monthly_expenses").select("*").eq("household_id", household.id).lt("month_start", startStr),
         supabase.from("subscriptions").select("*").eq("household_id", household.id),
         supabase.from("insurances").select("*").eq("household_id", household.id),
       ]);
@@ -159,7 +158,6 @@ const Expenses = () => {
     const [
       { data: categoriesData },
       { data: monthlyData },
-      { data: historicalData },
       { data: subscriptionsData },
       { data: insurancesData },
     ] = results;
@@ -167,7 +165,6 @@ const Expenses = () => {
     // Decrypt sensitive fields (if encrypted)
     const decryptedCategories = await decryptExpenses(categoriesData || []);
     const decryptedMonthly = await decryptMonthlyExpenses(monthlyData || []);
-    const decryptedHistorical = await decryptMonthlyExpenses(historicalData || []);
     const decryptedSubs = await decryptSubscriptions(subscriptionsData || []);
     const decryptedIns = await decryptInsurances(insurancesData || []);
 

@@ -311,19 +311,25 @@ const Overview = () => {
     };
 
     fetchData();
-  }, [user?.id, household?.id, household?.financial_month_start, household?.currency, householdLoading, isUnlocked, selectedMonth]);
+    // financial_month_start and currency travel with household.id; including
+    // them in the dep list causes redundant refetches when the household
+    // context refreshes for unrelated reasons.
+  }, [household?.id, isUnlocked, selectedMonth]);
 
   useEffect(() => {
     const checkSeedData = async () => {
       if (!household?.id || !isUnlocked) return;
-      const [{ count: incomeCount }, { count: expenseCount }, { count: priorExpenseCount }, { count: priorIncomeCount }] = await Promise.all([
-        supabase.from("income_sources").select("id", { count: "exact", head: true }).eq("household_id", household.id),
-        supabase.from("expenses").select("id", { count: "exact", head: true }).eq("household_id", household.id),
-        supabase.from("monthly_expenses").select("id", { count: "exact", head: true }).eq("household_id", household.id).lt("month", todayMonth),
-        supabase.from("monthly_incomes").select("id", { count: "exact", head: true }).eq("household_id", household.id).lt("month", todayMonth),
+      // Existence checks only — `.limit(1)` skips the row count entirely,
+      // way cheaper than `count: 'exact'` which scans all rows.
+      const [incomeRows, expenseRows, priorExpenseRows, priorIncomeRows] = await Promise.all([
+        supabase.from("income_sources").select("id").eq("household_id", household.id).limit(1),
+        supabase.from("expenses").select("id").eq("household_id", household.id).limit(1),
+        supabase.from("monthly_expenses").select("id").eq("household_id", household.id).lt("month", todayMonth).limit(1),
+        supabase.from("monthly_incomes").select("id").eq("household_id", household.id).lt("month", todayMonth).limit(1),
       ]);
-      setHasPriorMonthData((priorExpenseCount ?? 0) > 0 || (priorIncomeCount ?? 0) > 0);
-      const hasSeed = (incomeCount ?? 0) > 0 || (expenseCount ?? 0) > 0;
+      const hasPrior = (priorExpenseRows.data?.length ?? 0) > 0 || (priorIncomeRows.data?.length ?? 0) > 0;
+      setHasPriorMonthData(hasPrior);
+      const hasSeed = (incomeRows.data?.length ?? 0) > 0 || (expenseRows.data?.length ?? 0) > 0;
       setHouseholdHasSeedData(hasSeed);
 
       const setupDone = localStorage.getItem(`hh_setup_done_${household.id}`) === "1";
