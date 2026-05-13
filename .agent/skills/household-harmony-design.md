@@ -12,6 +12,7 @@ Privacy-first Swedish household finance + planner. The design system is HH-scope
 Always cross-reference the live code over any external mockups. The bundle that produced this system has been retired; **these docs are now the source of truth**:
 
 - **Domain model** — [`docs/design/expenses-model.md`](../../docs/design/expenses-model.md). One concept, two visual states. The `isBudgeted` axis. What "an expense" means in HH and what each surface (Expenses inventory, Subs, Insurances, Overview, Forecast, Review) is for.
+- **Credit-card flow** — [`docs/design/credit-flow.md`](../../docs/design/credit-flow.md). Why credit exists as a concept, the planning-vs-reconciliation split, where PDF import lives (Monthly Review, not Expenses), what it writes to (`actual_amount` only), the privacy tradeoff.
 - **System tiers** — [`docs/design/design-system-tiers.md`](../../docs/design/design-system-tiers.md). Three tiers (primitives → patterns → pages). The five canonical patterns and which flows compose which.
 - **Icons + categories** — [`docs/design/icons-and-categories.md`](../../docs/design/icons-and-categories.md). Lucide names per nav surface and per category, plus the OKLCH hue palette.
 - **Token contract** — [`frontend/src/index.css`](../../frontend/src/index.css). Canonical OKLCH triplets for both themes. Tailwind config maps `bg-accent`, `text-ink`, `border-line`, etc. to these.
