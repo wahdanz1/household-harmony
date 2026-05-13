@@ -50,9 +50,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       onOpenAutoFocus={(e) => {
-        // Skip Radix's default focus-first-tabbable (avoids mobile keyboard
-        // scroll jumps on inputs) but focus the content root so the trigger
-        // button isn't left in the aria-hidden app shell.
+        // Refocus the content root so the trigger isn't left inside the aria-hidden app shell.
         e.preventDefault();
         (e.currentTarget as HTMLElement)?.focus();
       }}

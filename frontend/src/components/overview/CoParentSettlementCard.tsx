@@ -49,9 +49,6 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
       return;
     }
 
-    // Batched fetches — one query per table covering all co-parents. Was N+1
-    // (3 queries per co-parent) before; now 3 total regardless of count.
-    // See issue #50 for the audit that motivated this.
     const monthStartStr = format(monthStart, "yyyy-MM-dd");
     const monthEndStr = format(monthEnd, "yyyy-MM-dd");
 
@@ -81,9 +78,6 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
         .lte("month_start", monthEndStr),
     ]);
 
-    // Defensive: if any of these queries errored (see issue #48 for the
-    // monthly_incomes 400), treat as empty so the rest of the card still
-    // renders without crashing.
     const decryptedIncomes = (await decryptIncomes(incomesResult.data || [])) as any[];
     const decryptedInsurances = (await decryptInsurances(insurancesResult.data || [])) as any[];
     const decryptedExpenses = (await decryptShared(expensesResult.data || [])) as any[];

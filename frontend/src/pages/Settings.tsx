@@ -32,8 +32,6 @@ import { APP_VERSION, BUILD_SHA } from "@/lib/version";
 const Settings = () => {
   const { user } = useAuth();
   const { isUnlocked } = useEncryption();
-  // Household, members, and userRole come from HouseholdContext — no
-  // separate fetch needed. Only invites are unique to this page.
   const { household, members, userRole, loading: householdLoading, refresh: refreshHousehold } = useHousehold();
   const [invites, setInvites] = useState<any[]>([]);
   const [loadingInvites, setLoadingInvites] = useState(true);
@@ -56,7 +54,6 @@ const Settings = () => {
     fetchInvites();
   }, [user, isUnlocked, household?.id]);
 
-  // Re-fetch both household state (via context) and invites after edits.
   const fetchData = async () => {
     await Promise.all([refreshHousehold(), fetchInvites()]);
   };

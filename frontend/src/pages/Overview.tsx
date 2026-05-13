@@ -311,16 +311,11 @@ const Overview = () => {
     };
 
     fetchData();
-    // financial_month_start and currency travel with household.id; including
-    // them in the dep list causes redundant refetches when the household
-    // context refreshes for unrelated reasons.
   }, [household?.id, isUnlocked, selectedMonth]);
 
   useEffect(() => {
     const checkSeedData = async () => {
       if (!household?.id || !isUnlocked) return;
-      // Existence checks only — `.limit(1)` skips the row count entirely,
-      // way cheaper than `count: 'exact'` which scans all rows.
       const [incomeRows, expenseRows, priorExpenseRows, priorIncomeRows] = await Promise.all([
         supabase.from("income_sources").select("id").eq("household_id", household.id).limit(1),
         supabase.from("expenses").select("id").eq("household_id", household.id).limit(1),
