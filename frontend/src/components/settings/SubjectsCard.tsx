@@ -10,9 +10,6 @@ interface SubjectsCardProps {
     onUpdate?: () => void;
 }
 
-// "member" subject type intentionally excluded — household members are
-// managed in the Members card. If we ever need to tag non-member people,
-// "Other" covers it. See issue #49 (orphan cleanup) for the migration story.
 const TYPE_GROUPS: { type: SubjectType; label: string; icon: LucideIcon; singularEmpty: string }[] = [
     { type: "car", label: "Cars", icon: Car, singularEmpty: "Add a car to tag costs to" },
     { type: "kid", label: "Kids", icon: Baby, singularEmpty: "Add a kid to tag costs to" },

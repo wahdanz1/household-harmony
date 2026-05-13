@@ -14,7 +14,7 @@ import { Pencil, Trash2, Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type SubjectType = "member" | "kid" | "car" | "pet" | "other";
+export type SubjectType = "kid" | "car" | "pet" | "other";
 
 export interface Subject {
     id: string;

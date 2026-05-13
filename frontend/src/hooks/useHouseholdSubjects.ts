@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type SubjectType = "member" | "car" | "kid" | "pet" | "other";
+export type SubjectType = "car" | "kid" | "pet" | "other";
 
 export interface SubjectOption {
     id: string;

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, User, Car, Baby, PawPrint, Box, Plus, CreditCard } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, Car, Baby, PawPrint, Box, Plus, CreditCard } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
@@ -35,7 +35,6 @@ interface ExpenseItem {
 }
 
 const SUBJECT_ICON: Record<string, any> = {
-    member: User,
     kid: Baby,
     car: Car,
     pet: PawPrint,
