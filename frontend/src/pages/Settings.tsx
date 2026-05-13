@@ -213,7 +213,7 @@ const Settings = () => {
         </TabsContent>
       </Tabs>
 
-      <p className="font-mono text-[11px] text-muted text-center pt-4">
+      <p className="font-mono text-[11px] text-muted pt-2">
         v{APP_VERSION} · build {BUILD_SHA}
       </p>
     </div>
