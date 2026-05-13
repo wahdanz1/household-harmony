@@ -49,7 +49,13 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
-      onOpenAutoFocus={(e) => e.preventDefault()}
+      onOpenAutoFocus={(e) => {
+        // Skip Radix's default focus-first-tabbable (avoids mobile keyboard
+        // scroll jumps on inputs) but focus the content root so the trigger
+        // button isn't left in the aria-hidden app shell.
+        e.preventDefault();
+        (e.currentTarget as HTMLElement)?.focus();
+      }}
       className={cn(
         "fixed z-50 flex flex-col",
         "left-0 right-0 bottom-[var(--vv-inset,0px)]",
