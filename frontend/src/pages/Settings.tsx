@@ -11,12 +11,10 @@ import { RecoveryCodeCard } from "@/components/settings/RecoveryCodeCard";
 import { ResetDataCard } from "@/components/settings/ResetDataCard";
 import { SetupWizardCard } from "@/components/settings/SetupWizardCard";
 import { SubjectsCard } from "@/components/settings/SubjectsCard";
-import { ComingSoonCard } from "@/components/settings/ComingSoonCard";
-import { LanguageCard } from "@/components/settings/LanguageCard";
+import { SettingsCard, SettingsRow, SettingsBadge } from "@/components/settings/SettingsCard";
 // import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Settings as SettingsIcon, User, Home as HomeIcon, Shield, Bell, KeyRound } from "lucide-react";
+import { Settings as SettingsIcon, User, Home as HomeIcon, Shield } from "lucide-react";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
@@ -122,34 +120,42 @@ const Settings = () => {
 
         <TabsContent value="general" className="mt-5">
           <div className="grid gap-5 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="space-y-1.5 flex-1">
-                    <CardTitle>Appearance</CardTitle>
-                    <CardDescription>Switch between light and dark mode.</CardDescription>
-                  </div>
-                  <ThemeToggle showLabel />
-                </div>
-              </CardHeader>
-            </Card>
-            <LanguageCard />
-            <ComingSoonCard
-              title="Notifications"
-              description="Bill reminders, weekly summaries, settlement nudges."
-              icon={<Bell className="h-5 w-5" />}
-            />
+            <SettingsCard eyebrow="Theme">
+              <SettingsRow
+                title="Appearance"
+                description="Switch between light and dark mode. Saved per device."
+                control={<ThemeToggle showLabel />}
+              />
+            </SettingsCard>
+
+            <SettingsCard eyebrow="Language">
+              <SettingsRow
+                title="English (en-US)"
+                description="More languages coming soon"
+                badge={<SettingsBadge tone="accent">Active</SettingsBadge>}
+              />
+            </SettingsCard>
+
+            <SettingsCard eyebrow="Notifications" dim>
+              <SettingsRow
+                title="Bill reminders & summaries"
+                description="Weekly recap, Monthly Review nudges, settlement reminders."
+                badge={<SettingsBadge>Coming soon</SettingsBadge>}
+              />
+            </SettingsCard>
           </div>
         </TabsContent>
 
         <TabsContent value="account" className="mt-5">
           <div className="space-y-5">
             <PersonalSettingsCard />
-            <ComingSoonCard
-              title="Two-factor authentication"
-              description="Extra protection at sign-in via authenticator app."
-              icon={<KeyRound className="h-5 w-5" />}
-            />
+            <SettingsCard eyebrow="Login" dim>
+              <SettingsRow
+                title="Two-factor authentication"
+                description="Extra protection at sign-in via authenticator app."
+                badge={<SettingsBadge>Coming soon</SettingsBadge>}
+              />
+            </SettingsCard>
           </div>
         </TabsContent>
 
