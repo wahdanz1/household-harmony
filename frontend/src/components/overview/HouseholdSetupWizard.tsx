@@ -229,12 +229,12 @@ export const HouseholdSetupWizard = ({
                 onEscapeKeyDown={(e) => e.preventDefault()}
             >
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground tracking-wide uppercase">
-                        <Sparkles className="h-3.5 w-3.5 text-warning" />
+                    <div className="flex items-center gap-2 text-xs text-muted tracking-wide uppercase">
+                        <Sparkles className="h-3.5 w-3.5 text-warn" />
                         Setup · Step {stepIdx + 1} of {STEPS.length}
                     </div>
                     <DialogTitle className="flex items-center gap-2 mt-1">
-                        <step.icon className="h-5 w-5 text-info" />
+                        <step.icon className="h-5 w-5 text-accent" />
                         {step.title}
                     </DialogTitle>
                     <DialogDescription>{step.description}</DialogDescription>
@@ -250,10 +250,10 @@ export const HouseholdSetupWizard = ({
                                         key={f.key}
                                         className="flex items-start gap-3 p-3 rounded-lg border border-line"
                                     >
-                                        <Icon className="h-5 w-5 text-info shrink-0 mt-0.5" />
+                                        <Icon className="h-5 w-5 text-accent shrink-0 mt-0.5" />
                                         <div className="flex-1 min-w-0">
                                             <p className="font-medium">{f.title}</p>
-                                            <p className="text-sm text-muted-foreground">{f.description}</p>
+                                            <p className="text-sm text-muted">{f.description}</p>
                                         </div>
                                         <Switch
                                             checked={featureState[f.key]}
@@ -264,7 +264,7 @@ export const HouseholdSetupWizard = ({
                             })}
                         </ul>
                     ) : stepItems.length === 0 ? (
-                        <Card className="p-6 text-center text-sm text-muted-foreground border-dashed">
+                        <Card className="p-6 text-center text-sm text-muted border-dashed">
                             Nothing added yet. You can add what you have or skip this step.
                         </Card>
                     ) : (
@@ -275,7 +275,7 @@ export const HouseholdSetupWizard = ({
                                     className="flex items-center justify-between p-3 rounded-lg border border-line"
                                 >
                                     <span className="font-medium truncate">{itemLabel(step.key as Exclude<StepKey, "features">, it)}</span>
-                                    <span className="text-sm text-muted-foreground tabular-nums">
+                                    <span className="text-sm text-muted tabular-nums">
                                         {summariseAmount(step.key as Exclude<StepKey, "features">, it)}
                                     </span>
                                 </li>

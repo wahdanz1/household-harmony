@@ -140,7 +140,7 @@ export const CoParentManagement = ({
                             <Users className="h-5 w-5" />
                             Manage Co-Parents
                         </h3>
-                        <p className="text-muted-foreground">Add and manage people you share expenses with</p>
+                        <p className="text-muted">Add and manage people you share expenses with</p>
                     </div>
                     <DialogTrigger asChild>
                         <Button size="sm">
@@ -152,7 +152,7 @@ export const CoParentManagement = ({
 
                 <div>
                     {coParents.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-8 border rounded-lg border-dashed">
+                        <p className="text-center text-muted py-8 border rounded-lg border-dashed">
                             No co-parents yet. Add one to get started!
                         </p>
                     ) : (
@@ -165,7 +165,7 @@ export const CoParentManagement = ({
                                     <div>
                                         <p className="font-medium">{coParent.name}</p>
                                         {coParent.notes && (
-                                            <p className="text-sm text-muted-foreground">{coParent.notes}</p>
+                                            <p className="text-sm text-muted">{coParent.notes}</p>
                                         )}
                                     </div>
                                     <div className="flex gap-2">

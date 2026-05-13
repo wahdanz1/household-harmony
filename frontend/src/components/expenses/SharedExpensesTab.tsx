@@ -80,7 +80,7 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
       <div className="space-y-6">
         <EmptyStateCard
           icon={Users}
-          iconClassName="text-info"
+          iconClassName="text-accent"
           headline="No co-parents yet"
           description="Add a co-parent to start tracking shared expenses and settlements with them."
           primaryLabel="Add your first co-parent"
@@ -106,10 +106,10 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
           <div className="space-y-4">
             <div>
               <h3>Shared Expenses Summary</h3>
-              <p className="text-sm text-muted-foreground">Track expenses you share with co-parents</p>
+              <p className="text-sm text-muted">Track expenses you share with co-parents</p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total this month</p>
+              <p className="text-sm text-muted">Total this month</p>
               <Money v={totalSharedExpenses} currency={currency} size="3xl" weight={600} className="tracking-tight" />
             </div>
           </div>

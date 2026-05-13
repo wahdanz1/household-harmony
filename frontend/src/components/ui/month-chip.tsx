@@ -25,9 +25,9 @@ export const MonthChip = forwardRef<HTMLButtonElement, MonthChipProps>(
             )}
             {...props}
         >
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+            <Calendar className="h-3.5 w-3.5 text-muted" />
             <span>{value}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            <ChevronDown className="h-3.5 w-3.5 text-muted" />
         </button>
     ),
 );

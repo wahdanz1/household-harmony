@@ -87,7 +87,7 @@ const Settings = () => {
   if (!household) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">No household found</p>
+        <p className="text-muted">No household found</p>
       </div>
     );
   }

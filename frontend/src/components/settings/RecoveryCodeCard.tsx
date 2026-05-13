@@ -66,7 +66,7 @@ export const RecoveryCodeCard = () => {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <KeyRound className="h-5 w-5 text-primary" />
+                        <KeyRound className="h-5 w-5 text-accent" />
                         Recovery code
                     </CardTitle>
                     <CardDescription>
@@ -75,14 +75,14 @@ export const RecoveryCodeCard = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                     {exists === null ? (
-                        <p className="text-sm text-muted-foreground">Loading…</p>
+                        <p className="text-sm text-muted">Loading…</p>
                     ) : exists ? (
                         <>
-                            <div className="flex items-center gap-2 text-sm text-success">
+                            <div className="flex items-center gap-2 text-sm text-accent">
                                 <ShieldCheck className="h-4 w-4" />
                                 <span>Recovery code set{createdAt ? ` on ${new Date(createdAt).toLocaleDateString()}` : ""}.</span>
                             </div>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted">
                                 You can't view the code again. Regenerate to replace it with a new one — the old code stops working.
                             </p>
                             <Button
@@ -98,7 +98,7 @@ export const RecoveryCodeCard = () => {
                         </>
                     ) : (
                         <>
-                            <div className="flex items-start gap-2 p-3 rounded-[10px] bg-warning/10 text-warning-dk text-xs">
+                            <div className="flex items-start gap-2 p-3 rounded-[10px] bg-warn/10 text-warn-dk text-xs">
                                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                                 <span>No recovery code set yet. Without one, a forgotten password means losing access to your encrypted data.</span>
                             </div>

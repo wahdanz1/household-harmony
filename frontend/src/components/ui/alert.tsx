@@ -25,11 +25,11 @@ const alertVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-background text-foreground border-line",
-        destructive: "border-destructive/50 bg-destructive/10 text-destructive [&>svg]:text-destructive",
-        warning: "border-warning/50 bg-warning/10 text-warning [&>svg]:text-warning",
-        success: "border-success/50 bg-success/10 text-success [&>svg]:text-success",
-        info: "border-info/50 bg-info/10 text-info [&>svg]:text-info",
+        default: "bg-bg text-ink border-line",
+        destructive: "border-danger/50 bg-danger/10 text-danger [&>svg]:text-danger",
+        warning: "border-warn/50 bg-warn/10 text-warn [&>svg]:text-warn",
+        success: "border-accent/50 bg-accent/10 text-accent [&>svg]:text-accent",
+        info: "border-accent/50 bg-accent/10 text-accent [&>svg]:text-accent",
       },
     },
     defaultVariants: {

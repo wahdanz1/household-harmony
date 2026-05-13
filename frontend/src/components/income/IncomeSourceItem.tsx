@@ -48,7 +48,7 @@ export const IncomeSourceItem = ({
             {/* Icon + Name */}
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <CatIcon icon={Icon} hue={cat?.hue} size={32} />
-                <p className={`font-medium text-sm sm:text-base truncate ${isSkipped ? "line-through text-muted-foreground" : ""}`}>
+                <p className={`font-medium text-sm sm:text-base truncate ${isSkipped ? "line-through text-muted" : ""}`}>
                     {(source.name || source.provider)}
                 </p>
             </div>
@@ -70,8 +70,8 @@ export const IncomeSourceItem = ({
                     return (
                         <span
                             className={`text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded ${moreReceived
-                                ? "bg-success/10 text-success"
-                                : "bg-destructive/10 text-destructive"
+                                ? "bg-accent/10 text-accent"
+                                : "bg-danger/10 text-danger"
                                 }`}
                             title={`Actual: ${Math.round(actualAmount)} ${currency}`}
                         >
@@ -88,7 +88,7 @@ export const IncomeSourceItem = ({
                 />
 
                 {!readOnly && (
-                    <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                    <Pencil className="h-3.5 w-3.5 text-muted hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                 )}
             </div>
         </RowItem>

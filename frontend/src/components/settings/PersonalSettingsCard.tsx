@@ -151,7 +151,7 @@ export const PersonalSettingsCard = () => {
                 <User className="h-12 w-12" />
               </AvatarFallback>
             </Avatar>
-            <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 p-2 bg-primary text-primary-foreground rounded-full cursor-pointer hover:bg-primary/90 transition-colors">
+            <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 p-2 bg-accent text-accent-ink rounded-full cursor-pointer hover:bg-accent/90 transition-colors">
               {uploading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -169,7 +169,7 @@ export const PersonalSettingsCard = () => {
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium">Profile Photo</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted">
               Click the upload icon to change your photo
             </p>
           </div>
@@ -190,7 +190,7 @@ export const PersonalSettingsCard = () => {
             <div className="flex items-center justify-between">
               <Label htmlFor="email">Email</Label>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted">
                   {emailPublic ? "Visible" : "Hidden"}
                 </span>
                 <Switch
@@ -204,7 +204,7 @@ export const PersonalSettingsCard = () => {
               type="email"
               value={email}
               disabled
-              className="bg-muted"
+              className="bg-surface-2"
             />
           </div>
 

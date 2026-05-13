@@ -35,7 +35,7 @@ export const MetricTile = ({
     onClick,
 }: MetricTileProps) => {
     const isAccent = tone === "accent";
-    const labelColor = isAccent ? "text-accent-dk" : "text-muted-foreground";
+    const labelColor = isAccent ? "text-accent-dk" : "text-muted";
     const valueColor = isAccent ? "text-accent-dk" : "text-ink";
 
     return (
@@ -60,7 +60,7 @@ export const MetricTile = ({
                     <Icon className="h-[15px] w-[15px]" strokeWidth={1.8} />
                 </div>
                 {count !== undefined && (
-                    <span className="text-[11.5px] font-semibold text-muted-foreground tabular-nums">
+                    <span className="text-[11.5px] font-semibold text-muted tabular-nums">
                         {count}
                     </span>
                 )}

@@ -24,7 +24,7 @@ const MobileNav = () => {
           <NavLink
             key={item.path}
             to={item.path}
-            className="flex flex-col items-center justify-center gap-0.5 text-muted-foreground transition-colors"
+            className="flex flex-col items-center justify-center gap-0.5 text-muted transition-colors"
             activeClassName="text-accent font-semibold"
           >
             <item.icon className="h-[22px] w-[22px]" strokeWidth={1.6} />

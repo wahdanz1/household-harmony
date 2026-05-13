@@ -77,10 +77,10 @@ export const ResetDataCard = ({ householdId, householdName, isOwner, onComplete 
     };
 
     return (
-        <Card className="border-destructive/40">
+        <Card className="border-danger/40">
             <CardHeader>
                 <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <AlertTriangle className="h-5 w-5 text-danger shrink-0 mt-0.5" />
                     <div className="flex-1 space-y-1.5">
                         <CardTitle>Reset financial data</CardTitle>
                         <CardDescription>

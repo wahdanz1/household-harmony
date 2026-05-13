@@ -430,7 +430,7 @@ const Income = () => {
 
       {hasAnySource && (
         <Card>
-          <p className="text-xs font-medium text-muted-foreground tracking-wide">
+          <p className="text-xs font-medium text-muted tracking-wide">
             Total income per month
           </p>
           <div className="mt-1">
@@ -443,7 +443,7 @@ const Income = () => {
               className="tracking-tighter"
             />
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-muted">
             {activeSourceCount} active {activeSourceCount === 1 ? "source" : "sources"} · {fmtKr(totalIncome * 12, currencyCode)} per year
           </p>
           {activeSourceCount > 0 && (
@@ -492,7 +492,7 @@ const Income = () => {
       {!hasAnySource ? (
         <EmptyStateCard
           icon={HandCoins}
-          iconClassName="text-success"
+          iconClassName="text-accent"
           headline="No income sources yet"
           description="Add your salary, CSN, or any other recurring income."
           primaryLabel="Add your first source"
@@ -502,17 +502,17 @@ const Income = () => {
         <Card variant="flush">
           {/* Block Header */}
           <div className="flex items-center gap-3 px-5 py-4 border-b border-line-2">
-            <HandCoins className="h-5 w-5 text-success" />
+            <HandCoins className="h-5 w-5 text-accent" />
             <div>
               <h3>Income</h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted">
                 {activeSourceCount} active {activeSourceCount === 1 ? 'source' : 'sources'}
               </p>
             </div>
             <div className="ml-auto h-5">
               {(autoSaveStatus === 'saved' || autoSaveStatus === 'error') && (
                 <span
-                    className={`flex items-center gap-1 text-sm transition-opacity duration-1000 ${savedFading ? 'opacity-0' : 'opacity-100'} ${autoSaveStatus === 'error' ? 'text-destructive' : 'text-accent'}`}
+                    className={`flex items-center gap-1 text-sm transition-opacity duration-1000 ${savedFading ? 'opacity-0' : 'opacity-100'} ${autoSaveStatus === 'error' ? 'text-danger' : 'text-accent'}`}
                 >
                     {autoSaveStatus === 'saved'
                         ? <><Check className="h-4 w-4" /> Saved</>

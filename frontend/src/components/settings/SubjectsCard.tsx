@@ -169,7 +169,7 @@ export const SubjectsCard = ({ householdId, onUpdate, compact = false }: Subject
                         return (
                             <div key={s.id} className="list-row-compact">
                                 <div className="flex items-center gap-2">
-                                    <Icon className="h-4 w-4 text-muted-foreground" />
+                                    <Icon className="h-4 w-4 text-muted" />
                                     <p className="font-medium">{s.name}</p>
                                 </div>
                                 <div className="flex gap-2">
@@ -185,7 +185,7 @@ export const SubjectsCard = ({ householdId, onUpdate, compact = false }: Subject
                     })}
                 </div>
             ) : (
-                <p className="text-center text-muted-foreground py-4 text-sm">
+                <p className="text-center text-muted py-4 text-sm">
                     No subjects yet. Add a car, kid, or pet to tag costs to.
                 </p>
             )}

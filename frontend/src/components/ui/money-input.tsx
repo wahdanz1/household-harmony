@@ -35,7 +35,7 @@ const sizeMap = {
 const statusBorder: Record<Status, string> = {
     default: "border-line",
     saved: "border-accent",
-    modified: "border-warning",
+    modified: "border-warn",
 };
 
 /**
@@ -102,7 +102,7 @@ export const MoneyInput = React.forwardRef<HTMLInputElement, MoneyInputProps>(
                         "disabled:cursor-not-allowed",
                     )}
                 />
-                <span className="text-xs text-muted-foreground select-none whitespace-nowrap">
+                <span className="text-xs text-muted select-none whitespace-nowrap">
                     {suffix}
                 </span>
             </span>

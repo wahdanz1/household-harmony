@@ -96,7 +96,7 @@ export const CreditCardsSettingsCard = ({ householdId, enableCreditCards, curren
                 <div className="list-row">
                     <div className="space-y-0.5">
                         <Label>Enable Credit Card Tracking</Label>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted">
                             Track credit card expenses with monthly limits
                         </p>
                     </div>
@@ -155,7 +155,7 @@ export const CreditCardsSettingsCard = ({ householdId, enableCreditCards, curren
 
                         <div className="space-y-2">
                             {creditCards.length === 0 ? (
-                                <p className="text-center text-muted-foreground py-8">
+                                <p className="text-center text-muted py-8">
                                     No credit cards yet. Add one to get started!
                                 </p>
                             ) : (
@@ -169,7 +169,7 @@ export const CreditCardsSettingsCard = ({ householdId, enableCreditCards, curren
                                                 <CreditCard className="h-4 w-4" />
                                                 <p className="font-medium">{card.name}</p>
                                             </div>
-                                            <p className="text-sm text-muted-foreground">
+                                            <p className="text-sm text-muted">
                                                 Monthly Limit: {card.monthly_limit.toFixed(0)} {currency}
                                             </p>
                                         </div>

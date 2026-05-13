@@ -506,7 +506,7 @@ const Expenses = () => {
 
       {hasAnyCategory && (
         <Card>
-          <p className="text-xs font-medium text-muted-foreground tracking-wide">
+          <p className="text-xs font-medium text-muted tracking-wide">
             Total expenses per month
           </p>
           <div className="mt-1">
@@ -519,7 +519,7 @@ const Expenses = () => {
               className="tracking-tighter"
             />
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-muted">
             {fmtKr(totalExpenses * 12, household?.currency || "SEK")} per year
           </p>
         </Card>
@@ -567,7 +567,7 @@ const Expenses = () => {
           {!hasAnyCategory ? (
             <EmptyStateCard
               icon={Home}
-              iconClassName="text-info"
+              iconClassName="text-accent"
               headline="No expenses yet"
               description="Add rent, utilities, phone plans, and other recurring bills."
               primaryLabel="Add your first expense"

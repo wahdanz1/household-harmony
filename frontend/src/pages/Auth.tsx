@@ -300,7 +300,7 @@ const Auth = () => {
             className="w-12 h-12 mb-3"
           />
           <h1 className="text-2xl sm:text-2xl font-bold tracking-tight">Household Harmony</h1>
-          <p className="text-sm text-muted-foreground mt-1.5">
+          <p className="text-sm text-muted mt-1.5">
             {mode === "login"
               ? "Sign in to your household"
               : "Create your account"}
@@ -350,7 +350,7 @@ const Auth = () => {
         ) : (
           <form onSubmit={handleSignup} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="fullname">Full name <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <Label htmlFor="fullname">Full name <span className="text-muted font-normal">(optional)</span></Label>
               <Input
                 id="fullname"
                 type="text"
@@ -403,7 +403,7 @@ const Auth = () => {
         )}
 
         {/* Mode switcher */}
-        <p className="text-sm text-center text-muted-foreground mt-6">
+        <p className="text-sm text-center text-muted mt-6">
           {mode === "login" ? "New to Household Harmony?" : "Already have an account?"}{" "}
           <button
             type="button"

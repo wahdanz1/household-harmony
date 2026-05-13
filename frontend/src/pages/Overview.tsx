@@ -485,7 +485,7 @@ const Overview = () => {
         {/* HERO — survival on top, after-savings below */}
         <Card variant="flush">
           <div className="p-5 border-b border-line-2">
-            <p className="text-xs font-medium text-muted-foreground tracking-wide">
+            <p className="text-xs font-medium text-muted tracking-wide">
               After mandatory bills
             </p>
             <div className="mt-1 flex items-baseline gap-2">
@@ -500,7 +500,7 @@ const Overview = () => {
             </div>
             {data.savingsOutflow > 0 && (
               <div className="mt-3 flex items-baseline gap-2">
-                <p className="text-xs font-medium text-muted-foreground tracking-wide">
+                <p className="text-xs font-medium text-muted tracking-wide">
                   After savings
                 </p>
                 <Money
@@ -519,7 +519,7 @@ const Overview = () => {
                   style={{ width: `${usedPct}%` }}
                 />
               </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-1.5 text-xs text-muted">
                 {usedPct}% of income used
               </p>
             </div>
@@ -532,7 +532,7 @@ const Overview = () => {
               onClick={() => navigate("/income")}
               className="p-4 px-5 text-left border-r border-line-2 hover:bg-surface-2 transition-colors focus:outline-none"
             >
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-xs text-muted">
                 <HandCoins className="h-3 w-3 text-accent" />
                 <span>Income</span>
               </div>
@@ -545,7 +545,7 @@ const Overview = () => {
               onClick={() => navigate("/expenses")}
               className="p-4 px-5 text-left hover:bg-surface-2 transition-colors focus:outline-none"
             >
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-xs text-muted">
                 <Wallet className="h-3 w-3" />
                 <span>Expenses</span>
               </div>
@@ -560,7 +560,7 @@ const Overview = () => {
         {showRecurringTiles && (
           <section>
             <div className="flex items-baseline justify-between mb-3 px-0.5">
-              <h2 className="text-[11.5px] font-semibold text-muted-foreground tracking-[0.08em] uppercase">
+              <h2 className="text-[11.5px] font-semibold text-muted tracking-[0.08em] uppercase">
                 Recurring
               </h2>
               <button
@@ -613,7 +613,7 @@ const Overview = () => {
         {data.activity.length > 0 && (
           <section>
             <div className="flex items-baseline justify-between mb-3 px-0.5">
-              <h2 className="text-[11.5px] font-semibold text-muted-foreground tracking-[0.08em] uppercase">
+              <h2 className="text-[11.5px] font-semibold text-muted tracking-[0.08em] uppercase">
                 Recent activity
               </h2>
             </div>
@@ -636,7 +636,7 @@ const Overview = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-ink truncate">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted">
                         {item.kind === "shared" ? "Shared expense"
                           : item.kind === "one_time_expense" ? "One-off expense"
                           : "One-off income"}

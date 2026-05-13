@@ -137,12 +137,12 @@ export const ShowEncryptedData = ({
                         </div>
 
                         {loading ? (
-                            <div className="bg-muted/30 p-4 rounded-md animate-pulse">
-                                <div className="h-4 bg-muted rounded w-3/4"></div>
+                            <div className="bg-surface-2/30 p-4 rounded-md animate-pulse">
+                                <div className="h-4 bg-surface-2 rounded w-3/4"></div>
                             </div>
                         ) : (
                             <div className="relative">
-                                <div className="bg-muted/30 p-4 rounded-md font-mono text-xs break-all max-h-48 overflow-y-auto">
+                                <div className="bg-surface-2/30 p-4 rounded-md font-mono text-xs break-all max-h-48 overflow-y-auto">
                                     {encryptedValue || "Click 'Show Encrypted Data' to load..."}
                                 </div>
                                 {encryptedValue && (
@@ -153,7 +153,7 @@ export const ShowEncryptedData = ({
                                         onClick={handleCopy}
                                     >
                                         {copied ? (
-                                            <CheckCircle2 className="h-4 w-4 text-success" />
+                                            <CheckCircle2 className="h-4 w-4 text-accent" />
                                         ) : (
                                             <Copy className="h-4 w-4" />
                                         )}
@@ -163,7 +163,7 @@ export const ShowEncryptedData = ({
                         )}
                     </div>
 
-                    <div className="bg-primary/5 p-4 rounded-md space-y-3">
+                    <div className="bg-accent/5 p-4 rounded-md space-y-3">
                         <p className="text-sm">
                             Household Harmony encrypts all sensitive data in your browser before sending it to the server.
                         </p>
@@ -175,14 +175,14 @@ export const ShowEncryptedData = ({
                         </p>
                         <div className="pt-2 border-t space-y-1">
                             <h4 className="font-semibold text-sm">Technical Details:</h4>
-                            <ul className="text-xs space-y-1 text-muted-foreground">
+                            <ul className="text-xs space-y-1 text-muted">
                                 <li>• Algorithm: AES-256-GCM</li>
                                 <li>• Key Derivation: PBKDF2 (100k iterations)</li>
                                 <li>• Key Storage: Your browser only</li>
                                 <li>• Server Access: None</li>
                             </ul>
                         </div>
-                        <p className="text-xs text-muted-foreground italic pt-2">
+                        <p className="text-xs text-muted italic pt-2">
                             This isn't marketing - it's actual cryptography. Your privacy is guaranteed by mathematics, not promises.
                         </p>
                     </div>

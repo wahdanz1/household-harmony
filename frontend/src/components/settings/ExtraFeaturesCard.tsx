@@ -74,7 +74,7 @@ export const ExtraFeaturesCard = ({ householdId, enableCreditCards, enableShared
                         <div className="list-row">
                             <div className="space-y-0.5 flex-1">
                                 <Label>Enable Credit Card Tracking</Label>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-sm text-muted">
                                     Track credit card expenses with monthly limits
                                 </p>
                             </div>
@@ -84,7 +84,7 @@ export const ExtraFeaturesCard = ({ householdId, enableCreditCards, enableShared
                             />
                         </div>
                         {enableCreditCards && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted">
                                 Manage your credit cards in <strong>Expenses → Credit</strong>
                             </p>
                         )}
@@ -99,7 +99,7 @@ export const ExtraFeaturesCard = ({ householdId, enableCreditCards, enableShared
                         <div className="list-row">
                             <div className="space-y-0.5 flex-1">
                                 <Label>Enable Shared Expenses</Label>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-sm text-muted">
                                     Track expenses shared with co-parents
                                 </p>
                             </div>
@@ -109,7 +109,7 @@ export const ExtraFeaturesCard = ({ householdId, enableCreditCards, enableShared
                             />
                         </div>
                         {enableSharedExpenses && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted">
                                 Manage co-parents in <strong>Expenses → Shared</strong>
                             </p>
                         )}

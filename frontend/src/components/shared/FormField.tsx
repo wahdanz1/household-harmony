@@ -18,11 +18,11 @@ export const FormField = ({
         <Label htmlFor={htmlFor}>
             {label}
             {optional ? (
-                <span className="text-xs text-muted-foreground font-normal ml-1">
+                <span className="text-xs text-muted font-normal ml-1">
                     ({optionalNote ?? "optional"})
                 </span>
             ) : (
-                <span className="text-destructive ml-0.5" aria-hidden="true">*</span>
+                <span className="text-danger ml-0.5" aria-hidden="true">*</span>
             )}
         </Label>
         {children}

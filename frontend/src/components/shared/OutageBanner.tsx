@@ -27,7 +27,7 @@ export const OutageBanner = () => {
 
     return (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-1.5rem)]">
-            <Alert variant="destructive" className="bg-destructive/10 backdrop-blur-sm shadow-lg">
+            <Alert variant="destructive" className="bg-danger/10 backdrop-blur-sm shadow-lg">
                 <AlertTriangle />
                 <AlertContent>
                     <AlertTitle>Can't reach the server right now.</AlertTitle>

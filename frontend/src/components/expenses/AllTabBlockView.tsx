@@ -43,7 +43,7 @@ const SUBJECT_ICON: Record<string, any> = {
 const SubjectChip = ({ subject }: { subject: { name: string; type: string } }) => {
     const Icon = SUBJECT_ICON[subject.type] ?? Box;
     return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted-foreground">
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted">
             <Icon className="h-3 w-3" />
             {subject.name}
         </span>
@@ -76,7 +76,7 @@ export const ExpenseBlock = ({
     currency,
     icon,
     items,
-    colorClass = "text-foreground",
+    colorClass = "text-ink",
     headerMetrics,
     severity = 'default',
     severityMessage,
@@ -113,18 +113,18 @@ export const ExpenseBlock = ({
 
     // Severity styling for the block border
     const severityBorder = severity === 'danger'
-        ? 'border-destructive'
+        ? 'border-danger'
         : severity === 'warning'
-            ? 'border-warning'
+            ? 'border-warn'
             : severity === 'upcoming'
-                ? 'border-alert'
+                ? 'border-warn'
                 : 'border-line';
     const severityWidth = severity !== 'default' ? 'border-2' : 'border';
     const severityIconColor = severity === 'danger'
-        ? 'text-destructive'
+        ? 'text-danger'
         : severity === 'upcoming'
-            ? 'text-alert'
-            : 'text-warning';
+            ? 'text-warn'
+            : 'text-warn';
 
     return (
         <div ref={blockRef} className={`rounded-[14px] bg-surface overflow-hidden ${severityBorder} ${severityWidth}`}>
@@ -137,7 +137,7 @@ export const ExpenseBlock = ({
                     <div className="shrink-0">{icon}</div>
                     <div className="flex-1 min-w-0">
                         <p className="font-medium text-ink truncate">{title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">{items.length} items</p>
+                        <p className="text-xs text-muted mt-0.5">{items.length} items</p>
                     </div>
                     {severity !== 'default' && severityMessage && (
                         <Tooltip>
@@ -159,7 +159,7 @@ export const ExpenseBlock = ({
                         className={colorClass}
                     />
                     {(items.length > 0 || onAdd) && (
-                        <div className="shrink-0 text-muted-foreground">
+                        <div className="shrink-0 text-muted">
                             {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </div>
                     )}
@@ -187,8 +187,8 @@ export const ExpenseBlock = ({
                             ? item.billingCycle === 'monthly' || !item.billingCycle
                                 ? 'text-ink'
                                 : item.isDue
-                                    ? item.billingCycle === 'yearly' ? 'text-destructive' : 'text-warning'
-                                    : 'text-muted-foreground'
+                                    ? item.billingCycle === 'yearly' ? 'text-danger' : 'text-warn'
+                                    : 'text-muted'
                             : 'text-ink';
 
                         const inputStatus =
@@ -217,7 +217,7 @@ export const ExpenseBlock = ({
                                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
                                         <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue
                                             ? 'text-ink'
-                                            : 'text-muted-foreground'
+                                            : 'text-muted'
                                             }`}>{item.name}</span>
                                         {item.subject && <SubjectChip subject={item.subject} />}
                                     </div>
@@ -242,7 +242,7 @@ export const ExpenseBlock = ({
                                                 className={displayColor}
                                             />
                                             {item.displayLabel && (
-                                                <span className="text-xs text-muted-foreground">{item.displayLabel}</span>
+                                                <span className="text-xs text-muted">{item.displayLabel}</span>
                                             )}
                                         </span>
                                     ) : (
@@ -259,8 +259,8 @@ export const ExpenseBlock = ({
                                         return (
                                             <span
                                                 className={`text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded ${over
-                                                    ? "bg-destructive/10 text-destructive"
-                                                    : "bg-success/10 text-success"
+                                                    ? "bg-danger/10 text-danger"
+                                                    : "bg-accent/10 text-accent"
                                                     }`}
                                                 title={`Actual: ${Math.round(item.actualAmount)} ${currency}`}
                                             >
@@ -268,7 +268,7 @@ export const ExpenseBlock = ({
                                             </span>
                                         );
                                     })()}
-                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                    <Pencil className="h-3.5 w-3.5 text-muted hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                                 </div>
                             </RowItem>
                         );
@@ -277,7 +277,7 @@ export const ExpenseBlock = ({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); onAdd(); }}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 sm:px-5 sm:py-3.5 text-sm font-medium text-muted-foreground hover:bg-surface-2 hover:text-ink transition-colors"
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 sm:px-5 sm:py-3.5 text-sm font-medium text-muted hover:bg-surface-2 hover:text-ink transition-colors"
                                 >
                                     <Plus className="h-4 w-4" />
                                     Add {title.toLowerCase().replace(/s$/, "")}
@@ -403,7 +403,7 @@ export const AllTabBlockView = ({
                     title="Expenses"
                     total={expensesTotal}
                     currency={currency}
-                    icon={<Home className="h-5 w-5 text-info" />}
+                    icon={<Home className="h-5 w-5 text-accent" />}
                     items={expenses}
                     onItemClick={onExpenseClick}
                     editable={!!onAmountChange}
@@ -416,7 +416,7 @@ export const AllTabBlockView = ({
                     title="Subscriptions"
                     total={subscriptionsTotal}
                     currency={currency}
-                    icon={<Repeat className="h-5 w-5 text-accent-purple" />}
+                    icon={<Repeat className="h-5 w-5 text-accent" />}
                     items={subscriptionItems}
                     categoryType="subscription"
                     onItemClick={onSubscriptionClick}
@@ -432,7 +432,7 @@ export const AllTabBlockView = ({
                                     : undefined
                     }
                     headerMetrics={subscriptionsTotal > 0 ? (
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                             <span>{subscriptionsTotal.toFixed(0)} {currency}/month</span>
                             <span>{yearlySubscriptions.toFixed(0)} {currency}/year</span>
                             <span>{averageSub.toFixed(0)} {currency} avg</span>
@@ -445,13 +445,13 @@ export const AllTabBlockView = ({
                     title="Insurances"
                     total={insuranceTotal}
                     currency={currency}
-                    icon={<Shield className="h-5 w-5 text-warning" />}
+                    icon={<Shield className="h-5 w-5 text-warn" />}
                     items={insuranceItems}
                     categoryType="insurance"
                     onItemClick={onInsuranceClick}
                     onAdd={onAddInsurance}
                     headerMetrics={insuranceTotal > 0 ? (
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                             <span>{insuranceTotal.toFixed(0)} {currency}/month</span>
                             <span>{yearlyInsurance.toFixed(0)} {currency}/year</span>
                             <span>{averageInsurance.toFixed(0)} {currency} avg</span>

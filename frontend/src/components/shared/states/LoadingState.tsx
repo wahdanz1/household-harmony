@@ -9,7 +9,7 @@ export const LoadingState = ({ message = "Loading..." }: LoadingStateProps) => {
         <div className="loading-container">
             <div className="text-center">
                 <Loader2 className="loading-spinner" />
-                <p className="text-muted-foreground mt-2">{message}</p>
+                <p className="text-muted mt-2">{message}</p>
             </div>
         </div>
     );

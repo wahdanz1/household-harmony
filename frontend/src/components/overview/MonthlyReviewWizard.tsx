@@ -426,7 +426,7 @@ export const MonthlyReviewWizard = ({
             <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <ClipboardCheck className="h-5 w-5 text-primary" /> Monthly Review
+                        <ClipboardCheck className="h-5 w-5 text-accent" /> Monthly Review
                     </DialogTitle>
                     <DialogDescription>
                         {formatFinancialMonth(currentMonth, financialMonthStart)}
@@ -451,12 +451,12 @@ export const MonthlyReviewWizard = ({
                         <TabsTrigger value="income" className="flex items-center gap-2">
                             <TrendingUp className="h-4 w-4" />
                             Income
-                            {myIncomeAccepted && <Check className="h-3 w-3 text-success" />}
+                            {myIncomeAccepted && <Check className="h-3 w-3 text-accent" />}
                         </TabsTrigger>
                         <TabsTrigger value="expenses" className="flex items-center gap-2">
                             <TrendingDown className="h-4 w-4" />
                             Expenses
-                            {expensesVerified && <Check className="h-3 w-3 text-success" />}
+                            {expensesVerified && <Check className="h-3 w-3 text-accent" />}
                         </TabsTrigger>
                     </TabsList>
 
@@ -469,7 +469,7 @@ export const MonthlyReviewWizard = ({
                             const editable = !isFinalized && (item.isMine || isUnlocked);
                             const showsLockButton = !item.isMine && !isFinalized;
                             return (
-                                <div key={item.source_id} className={`flex items-center gap-3 p-3 rounded-lg border bg-background/50 ${editable ? 'border-border' : 'border-border/40'} ${!item.isMine && !isUnlocked ? 'opacity-70' : ''}`}>
+                                <div key={item.source_id} className={`flex items-center gap-3 p-3 rounded-lg border bg-bg/50 ${editable ? 'border-line' : 'border-line/40'} ${!item.isMine && !isUnlocked ? 'opacity-70' : ''}`}>
                                     <Avatar className="h-8 w-8 flex-shrink-0" title={item.isMine ? "Your income" : ownerName}>
                                         {ownerMember?.profiles?.avatar_url && (
                                             <AvatarImage src={ownerMember.profiles.avatar_url} alt={ownerName} />
@@ -482,7 +482,7 @@ export const MonthlyReviewWizard = ({
                                             <button
                                                 type="button"
                                                 onClick={() => toggleUnlock(item.source_id)}
-                                                className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors flex-shrink-0 ${isUnlocked ? 'bg-warning/20 text-warning hover:bg-warning/30' : 'bg-muted text-muted-foreground hover:bg-muted/70'}`}
+                                                className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors flex-shrink-0 ${isUnlocked ? 'bg-warn/20 text-warn hover:bg-warn/30' : 'bg-surface-2 text-muted hover:bg-surface-2/70'}`}
                                                 title={isUnlocked ? `Lock — ${ownerName}'s value still saves` : `Unlock to enter ${ownerName}'s value`}
                                                 aria-label={isUnlocked ? "Lock item" : "Unlock to edit"}
                                             >
@@ -508,7 +508,7 @@ export const MonthlyReviewWizard = ({
                             );
                         })}
                         {incomes.length === 0 && (
-                            <p className="text-sm text-muted-foreground text-center py-6">No income sources configured for this household.</p>
+                            <p className="text-sm text-muted text-center py-6">No income sources configured for this household.</p>
                         )}
                     </TabsContent>
 
@@ -541,9 +541,9 @@ export const MonthlyReviewWizard = ({
                 </Tabs>
 
                 {!isFinalized && (
-                    <div className="pt-4 border-t border-border space-y-3">
-                        <div className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/20 border border-border/40 text-xs">
-                            <span className="text-muted-foreground font-medium">Income</span>
+                    <div className="pt-4 border-t border-line space-y-3">
+                        <div className="flex items-center gap-3 p-2.5 rounded-lg bg-surface-2/20 border border-line/40 text-xs">
+                            <span className="text-muted font-medium">Income</span>
                             <div className="flex items-center gap-1.5">
                                 {members.map(m => {
                                     const accepted = incomeAcceptedUserIds.has(m.user_id);
@@ -555,22 +555,22 @@ export const MonthlyReviewWizard = ({
                                                 {m.profiles?.avatar_url && <AvatarImage src={m.profiles.avatar_url} alt={name} />}
                                                 <AvatarFallback className="text-[9px] font-medium">{initials}</AvatarFallback>
                                             </Avatar>
-                                            <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background ${accepted ? "bg-success" : "bg-warning"}`} />
+                                            <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-bg ${accepted ? "bg-accent" : "bg-warn"}`} />
                                         </div>
                                     );
                                 })}
                             </div>
-                            <div className="h-5 w-px bg-border/60 mx-1" />
-                            <span className="text-muted-foreground font-medium">Expenses</span>
+                            <div className="h-5 w-px bg-line/60 mx-1" />
+                            <span className="text-muted font-medium">Expenses</span>
                             <span
-                                className={`h-3 w-3 rounded-full ${expensesVerified ? "bg-success" : "bg-warning"}`}
+                                className={`h-3 w-3 rounded-full ${expensesVerified ? "bg-accent" : "bg-warn"}`}
                                 title={expensesVerified ? "Verified" : "Pending"}
                             />
                             <button
                                 type="button"
                                 onClick={manualRefresh}
                                 disabled={refreshing}
-                                className="ml-auto h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted/70 transition-colors flex-shrink-0 disabled:opacity-50"
+                                className="ml-auto h-7 w-7 rounded-md flex items-center justify-center text-muted hover:bg-surface-2/70 transition-colors flex-shrink-0 disabled:opacity-50"
                                 title="Refresh — pull the latest from the server"
                                 aria-label="Refresh"
                             >
@@ -599,7 +599,7 @@ export const MonthlyReviewWizard = ({
                                                     : "Accept my income"}
                                 </Button>
                                 {unlockedItems.size > 0 && (
-                                    <p className="text-[11px] text-muted-foreground text-center">
+                                    <p className="text-[11px] text-muted text-center">
                                         You'll also accept on behalf of the unlocked income{unlockedItems.size > 1 ? "s" : ""}.
                                     </p>
                                 )}
@@ -619,13 +619,13 @@ export const MonthlyReviewWizard = ({
 
                         {canFinalize && (
                             <>
-                                <label className="flex items-start gap-2 p-3 rounded-lg bg-muted/30 border border-border/50 cursor-pointer">
+                                <label className="flex items-start gap-2 p-3 rounded-lg bg-surface-2/30 border border-line/50 cursor-pointer">
                                     <Checkbox
                                         checked={confirmFinalize}
                                         onCheckedChange={(v) => setConfirmFinalize(v === true)}
                                         className="mt-0.5"
                                     />
-                                    <span className="text-xs text-muted-foreground leading-snug">
+                                    <span className="text-xs text-muted leading-snug">
                                         I confirm this month's review is complete. The Income and Expenses
                                         pages will switch to this month after finalizing. Further changes
                                         happen on those pages, not here.

@@ -310,7 +310,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
             <div className="space-y-6">
                 <EmptyStateCard
                     icon={CreditCardIcon}
-                    iconClassName="text-accent-purple"
+                    iconClassName="text-accent"
                     headline="No credit cards yet"
                     description="Add a credit card to import its monthly invoice and have categories filled in for you."
                     primaryLabel="Add your first credit card"
@@ -336,10 +336,10 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                 <div className="flex items-center justify-between">
                     <div>
                         <h3 className="flex items-center gap-2">
-                            <FileUp className="h-5 w-5 text-info" />
+                            <FileUp className="h-5 w-5 text-accent" />
                             Import credit card invoice
                         </h3>
-                        <p className="text-sm text-muted-foreground">Upload your monthly statement to fill in actuals.</p>
+                        <p className="text-sm text-muted">Upload your monthly statement to fill in actuals.</p>
                     </div>
                     <Button
                         variant="accentSoft"
@@ -381,7 +381,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                                     </Badge>
                                 )}
                             </div>
-                            <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                            <span className="text-[10px] text-muted uppercase font-bold">
                                 {(parseResult.duration_ms / 1000).toFixed(1)}s
                             </span>
                         </div>
@@ -407,7 +407,7 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                     title="Credit Card Spend"
                     total={totalBudgetedCredit}
                     currency={currency}
-                    icon={<CreditCardIcon className="h-5 w-5 text-accent-purple" />}
+                    icon={<CreditCardIcon className="h-5 w-5 text-accent" />}
                     items={budgetedCredit.map(item => ({
                         id: item.id,
                         name: item.name,
@@ -418,12 +418,12 @@ export const CreditTab = ({ householdId, currency, monthStart, monthEnd }: Credi
                     }))}
                     editable={true}
                     onAmountChange={handleAmountChange}
-                    colorClass="text-accent-purple"
+                    colorClass="text-accent"
                     headerMetrics={
                         saveStatus !== 'idle' ? (
                             <div className="flex items-center gap-1 text-xs animate-in fade-in">
-                                {saveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> <span className="text-muted-foreground">Saving...</span></>}
-                                {saveStatus === "saved" && <><Check className="h-3 w-3 text-success" /> <span className="text-success">Saved</span></>}
+                                {saveStatus === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> <span className="text-muted">Saving...</span></>}
+                                {saveStatus === "saved" && <><Check className="h-3 w-3 text-accent" /> <span className="text-accent">Saved</span></>}
                             </div>
                         ) : undefined
                     }

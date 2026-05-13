@@ -237,10 +237,10 @@ export const ExpenseFormDialog = ({
                     {showCreditToggle && (
                         <div className="flex items-center justify-between gap-3 pt-2 border-t border-line-2">
                             <div className="flex items-center gap-3">
-                                <CreditCard className="h-4 w-4 text-muted-foreground" />
+                                <CreditCard className="h-4 w-4 text-muted" />
                                 <div>
                                     <Label className="text-sm font-medium cursor-pointer">Credit-card tracked</Label>
-                                    <p className="text-xs text-muted-foreground">Actuals come from PDF invoice imports.</p>
+                                    <p className="text-xs text-muted">Actuals come from PDF invoice imports.</p>
                                 </div>
                             </div>
                             <Switch

@@ -594,16 +594,16 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             {children}
             {showLockWarning && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-background border border-border rounded-lg p-6 max-w-md mx-4 shadow-xl">
+                    <div className="bg-bg border border-line rounded-lg p-6 max-w-md mx-4 shadow-xl">
                         <h4 className="mb-2">
                             Session Timeout Warning
                         </h4>
-                        <p className="text-muted-foreground mb-4">
+                        <p className="text-muted mb-4">
                             Your vault will lock in 60 seconds due to inactivity.
                         </p>
                         <button
                             onClick={resetInactivityTimer}
-                            className="w-full bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary/90 transition-colors"
+                            className="w-full bg-accent text-accent-ink py-2 px-4 rounded-md hover:bg-accent/90 transition-colors"
                         >
                             Stay Active
                         </button>

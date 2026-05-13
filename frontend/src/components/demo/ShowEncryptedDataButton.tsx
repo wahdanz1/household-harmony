@@ -91,7 +91,7 @@ export const ShowEncryptedDataButton = ({
                 variant="ghost"
                 size={size}
                 onClick={handleOpen}
-                className="text-muted-foreground hover:text-primary"
+                className="text-muted hover:text-accent"
                 title="View raw encrypted data (demo only)"
             >
                 <Eye className="h-4 w-4" />
@@ -102,7 +102,7 @@ export const ShowEncryptedDataButton = ({
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <Lock className="h-5 w-5 text-primary" />
+                            <Lock className="h-5 w-5 text-accent" />
                             Raw Encrypted Data
                         </DialogTitle>
                         <DialogDescription>
@@ -114,7 +114,7 @@ export const ShowEncryptedDataButton = ({
                     <div className="space-y-4">
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-muted-foreground">
+                                <span className="text-sm font-medium text-muted">
                                     Field: {displayLabel || fieldName}
                                 </span>
                                 <Button
@@ -124,16 +124,16 @@ export const ShowEncryptedDataButton = ({
                                     disabled={!encryptedValue}
                                 >
                                     {copied ? (
-                                        <Check className="h-4 w-4 text-success" />
+                                        <Check className="h-4 w-4 text-accent" />
                                     ) : (
                                         <Copy className="h-4 w-4" />
                                     )}
                                 </Button>
                             </div>
 
-                            <div className="p-3 rounded-md bg-muted/50 border border-border font-mono text-xs break-all">
+                            <div className="p-3 rounded-md bg-surface-2/50 border border-line font-mono text-xs break-all">
                                 {loading ? (
-                                    <span className="text-muted-foreground">Loading...</span>
+                                    <span className="text-muted">Loading...</span>
                                 ) : (
                                     displayValue || "No encrypted data found"
                                 )}
@@ -142,17 +142,17 @@ export const ShowEncryptedDataButton = ({
 
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                                <span className="text-muted-foreground">Algorithm:</span>
+                                <span className="text-muted">Algorithm:</span>
                                 <p className="font-medium">AES-256-GCM</p>
                             </div>
                             <div>
-                                <span className="text-muted-foreground">Key Derivation:</span>
+                                <span className="text-muted">Key Derivation:</span>
                                 <p className="font-medium">PBKDF2 (100k iterations)</p>
                             </div>
                         </div>
 
-                        <div className="p-3 rounded-md bg-primary/5 border border-primary/20 text-sm">
-                            <p className="text-muted-foreground">
+                        <div className="p-3 rounded-md bg-accent/5 border border-accent/20 text-sm">
+                            <p className="text-muted">
                                 This ciphertext can only be decrypted with your vault password.
                                 Even database administrators cannot read your financial data.
                             </p>

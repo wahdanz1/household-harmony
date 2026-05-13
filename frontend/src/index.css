@@ -58,54 +58,8 @@
     --overlay:      rgba(0, 0, 0, 0.45);
   }
 
-  /*
-   * Backwards-compat aliases — old token names point to new ones so existing
-   * Tailwind classes (bg-primary, text-foreground, etc.) keep working during
-   * the phased migration. These can be removed once all primitives + pages
-   * are refactored to the new token names.
-   */
-  :root {
-    --background:             var(--bg);
-    --foreground:             var(--ink);
-    --card:                   var(--surface);
-    --card-foreground:        var(--ink);
-    --popover:                var(--surface);
-    --popover-foreground:     var(--ink);
-    --primary:                var(--accent);
-    --primary-foreground:     var(--accent-ink);
-    --secondary:              var(--surface-2);
-    --secondary-foreground:   var(--ink);
-    --muted-bg:               var(--surface-2);
-    --muted-foreground:       var(--muted);
-    --accent-foreground:      var(--accent-dk);
-    --destructive:            var(--danger);
-    --destructive-foreground: var(--accent-ink);
-    --success:                var(--accent);
-    --success-foreground:     var(--accent-ink);
-    --warning:                var(--warn);
-    --warning-foreground:     var(--accent-ink);
-    --alert:                  var(--warn);
-    --alert-foreground:       var(--accent-ink);
-    --info:                   var(--accent);
-    --info-foreground:        var(--accent-ink);
-    --accent-purple:          var(--accent);
-    --accent-purple-foreground: var(--accent-ink);
-    --border:                 var(--line);
-    --input:                  var(--line);
-    --ring:                   var(--accent);
-
-    --sidebar-background:         var(--surface);
-    --sidebar-foreground:         var(--ink);
-    --sidebar-primary:            var(--accent);
-    --sidebar-primary-foreground: var(--accent-ink);
-    --sidebar-accent:             var(--accent-tint);
-    --sidebar-accent-foreground:  var(--accent-dk);
-    --sidebar-border:             var(--line);
-    --sidebar-ring:               var(--accent);
-  }
-
   * {
-    @apply border-border;
+    @apply border-line;
   }
 
   body {
@@ -262,7 +216,7 @@
 
   /* Empty State */
   .empty-state {
-    @apply text-center py-12 text-muted-foreground;
+    @apply text-center py-12 text-muted;
   }
 
   .empty-state-icon {
@@ -293,7 +247,7 @@
 
   /* Semantic Text Classes (for override) */
   .text-subtitle {
-    @apply text-muted-foreground mt-1;
+    @apply text-muted mt-1;
   }
 
   .card-title {
@@ -301,12 +255,12 @@
   }
 
   .card-description {
-    @apply text-sm text-muted-foreground;
+    @apply text-sm text-muted;
   }
 
   /* Navigation Item */
   .nav-item {
-    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-surface-2 hover:text-ink transition-all;
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-muted hover:bg-surface-2 hover:text-ink transition-all;
   }
 
   .nav-item-active {

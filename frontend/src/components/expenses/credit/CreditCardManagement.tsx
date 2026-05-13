@@ -176,7 +176,7 @@ export const CreditCardManagement = ({
                 </CardHeader>
                 <CardContent>
                     {creditCards.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-8">
+                        <p className="text-center text-muted py-8">
                             No credit cards yet. Add one to get started!
                         </p>
                     ) : (
@@ -220,7 +220,7 @@ export const CreditCardManagement = ({
                                             <div className="flex justify-between items-baseline text-sm">
                                                 <span className="flex items-baseline gap-1">
                                                     <Money v={total} currency={currency} size="sm" weight={600} />
-                                                    <span className="text-muted-foreground">/</span>
+                                                    <span className="text-muted">/</span>
                                                     <Money v={limit} currency={currency} size="sm" weight={500} color="muted" />
                                                 </span>
                                                 <span className="flex items-baseline gap-1">
@@ -231,14 +231,14 @@ export const CreditCardManagement = ({
                                                         weight={500}
                                                         color={remaining < 0 ? "danger" : "accent"}
                                                     />
-                                                    <span className={remaining < 0 ? "text-destructive" : "text-accent"}>
+                                                    <span className={remaining < 0 ? "text-danger" : "text-accent"}>
                                                         {remaining >= 0 ? "left" : "over"}
                                                     </span>
                                                 </span>
                                             </div>
-                                            <div className="w-full bg-secondary rounded-full h-2">
+                                            <div className="w-full bg-surface-2 rounded-full h-2">
                                                 <div
-                                                    className={`h-2 rounded-full transition-all ${percentage > 100 ? "bg-destructive" : percentage > 80 ? "bg-alert" : "bg-success"}`}
+                                                    className={`h-2 rounded-full transition-all ${percentage > 100 ? "bg-danger" : percentage > 80 ? "bg-warn" : "bg-accent"}`}
                                                     style={{ width: `${Math.min(percentage, 100)}%` }}
                                                 />
                                             </div>

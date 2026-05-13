@@ -17,7 +17,7 @@ interface EmptyStateCardProps {
 
 export const EmptyStateCard = ({
     icon: Icon,
-    iconClassName = "text-info",
+    iconClassName = "text-accent",
     headline,
     description,
     primaryLabel,
@@ -31,7 +31,7 @@ export const EmptyStateCard = ({
             </div>
             <div className="space-y-1.5 max-w-sm">
                 <h3 className="text-lg font-semibold">{headline}</h3>
-                <p className="text-sm text-muted-foreground">{description}</p>
+                <p className="text-sm text-muted">{description}</p>
             </div>
             <Button onClick={onPrimary} size="lg">
                 <Plus className="h-4 w-4 mr-2" />

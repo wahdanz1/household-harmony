@@ -133,7 +133,7 @@ export const SubjectPicker = ({
 
     return (
         <div className="space-y-1.5">
-            <Label>{label} <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+            <Label>{label} <span className="text-xs text-muted font-normal">(optional)</span></Label>
             <div className="flex gap-2">
                 <Select
                     value={value ?? NONE_VALUE}
@@ -142,7 +142,7 @@ export const SubjectPicker = ({
                     <SelectTrigger className="flex-1"><SelectValue placeholder="Nobody / shared" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value={NONE_VALUE}>
-                            <span className="text-muted-foreground">Nobody / shared</span>
+                            <span className="text-muted">Nobody / shared</span>
                         </SelectItem>
                         {members.map(renderItem)}
                         {members.length > 0 && others.length > 0 && (

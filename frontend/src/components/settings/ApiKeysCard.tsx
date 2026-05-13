@@ -173,7 +173,7 @@ export const ApiKeysCard = () => {
     if (loading) {
         return (
             <Card>
-                <p className="text-muted-foreground">Loading...</p>
+                <p className="text-muted">Loading...</p>
             </Card>
         );
     }
@@ -185,7 +185,7 @@ export const ApiKeysCard = () => {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <Key className="h-5 w-5 text-primary" />
+                        <Key className="h-5 w-5 text-accent" />
                         LLM API Key
                     </CardTitle>
                     <CardDescription>Used for AI-powered features like invoice parsing</CardDescription>
@@ -233,7 +233,7 @@ export const ApiKeysCard = () => {
                             <button
                                 type="button"
                                 onClick={() => setShowKey(!showKey)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
                             >
                                 {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
@@ -258,13 +258,13 @@ export const ApiKeysCard = () => {
                         href={currentConfig.helpUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
                     >
                         {currentConfig.helpText} <ExternalLink className="h-3 w-3" />
                     </a>
 
                     {hasKey && (
-                        <div className="flex items-center gap-2 text-sm text-success">
+                        <div className="flex items-center gap-2 text-sm text-accent">
                             <Check className="h-4 w-4" />
                             <span>{currentConfig.name} API key configured</span>
                         </div>

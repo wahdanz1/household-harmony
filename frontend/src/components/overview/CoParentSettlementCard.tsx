@@ -184,19 +184,19 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
         return (
           <div
             key={coParent.id}
-            className={`bg-muted/40 rounded-lg border ${isOwing ? 'border-warning/30' : 'border-success/30'}`}
+            className={`bg-surface-2/40 rounded-lg border ${isOwing ? 'border-warn/30' : 'border-accent/30'}`}
           >
             {/* Header - Always Visible */}
             <div
-              className="p-4 cursor-pointer hover:bg-muted/60 transition-colors"
+              className="p-4 cursor-pointer hover:bg-surface-2/60 transition-colors"
               onClick={() => toggleExpand(coParent.id)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <HandCoins className={`h-5 w-5 ${isOwing ? 'text-warning' : 'text-success'}`} />
+                  <HandCoins className={`h-5 w-5 ${isOwing ? 'text-warn' : 'text-accent'}`} />
                   <div>
                     <p className="font-medium">Settlement with {coParent.name}</p>
-                    <p className="text-xs text-muted-foreground">{format(new Date(currentMonth), "MMMM yyyy")}</p>
+                    <p className="text-xs text-muted">{format(new Date(currentMonth), "MMMM yyyy")}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -206,16 +206,16 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                       currency={currency}
                       size="lg"
                       weight={700}
-                      className={isOwing ? "text-warning" : "text-success"}
+                      className={isOwing ? "text-warn" : "text-accent"}
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted">
                       {isOwing ? 'You owe' : 'They owe'}
                     </p>
                   </div>
                   {isExpanded ? (
-                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    <ChevronUp className="h-4 w-4 text-muted" />
                   ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    <ChevronDown className="h-4 w-4 text-muted" />
                   )}
                 </div>
               </div>
@@ -223,15 +223,15 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
 
             {/* Expanded Details */}
             {isExpanded && (
-              <div className="px-4 pb-4 space-y-4 border-t border-border/50">
+              <div className="px-4 pb-4 space-y-4 border-t border-line/50">
                 <div className="space-y-2 text-sm pt-3">
                   {/* Income Section */}
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shared Income Received</span>
+                    <span className="text-muted">Shared Income Received</span>
                     <Money v={settlement.incomeReceived} currency={currency} size="sm" weight={500} color="accent" />
                   </div>
                   <div className="flex justify-between text-xs pl-4">
-                    <span className="text-muted-foreground">
+                    <span className="text-muted">
                       Your {settlement.yourShareOfIncome > 0 ? (settlement.yourShareOfIncome / settlement.incomeReceived * 100).toFixed(0) : 0}% to keep
                     </span>
                     <Money v={-settlement.yourShareOfIncome} currency={currency} size="xs" weight={500} color="muted" />
@@ -241,11 +241,11 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                   {settlement.insurancePaid > 0 && (
                     <>
                       <div className="flex justify-between pt-2">
-                        <span className="text-muted-foreground">Insurance paid</span>
+                        <span className="text-muted">Insurance paid</span>
                         <Money v={-settlement.insurancePaid} currency={currency} size="sm" weight={500} />
                       </div>
                       <div className="flex justify-between text-xs pl-4">
-                        <span className="text-muted-foreground">
+                        <span className="text-muted">
                           Their {((settlement.theirShareOfInsurance / settlement.insurancePaid) * 100).toFixed(0)}% credit
                         </span>
                         <Money v={settlement.theirShareOfInsurance} currency={currency} size="xs" weight={500} color="accent" />
@@ -256,14 +256,14 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
                   {/* Expenses Section */}
                   {settlement.expensesTheyPaid > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Expenses they paid (your 50%)</span>
+                      <span className="text-muted">Expenses they paid (your 50%)</span>
                       <Money v={settlement.expensesTheyPaid / 2} currency={currency} size="sm" weight={500} color="accent" />
                     </div>
                   )}
 
                   {settlement.expensesYouPaid > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Expenses you paid (their 50%)</span>
+                      <span className="text-muted">Expenses you paid (their 50%)</span>
                       <Money v={-settlement.expensesYouPaid / 2} currency={currency} size="sm" weight={500} color="danger" />
                     </div>
                   )}

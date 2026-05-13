@@ -376,10 +376,10 @@ export const MultiHouseholdExitDialog = () => {
 
                 {loading ? (
                     <div className="py-10 flex justify-center">
-                        <Loader2 className="animate-spin h-6 w-6 text-muted-foreground" />
+                        <Loader2 className="animate-spin h-6 w-6 text-muted" />
                     </div>
                 ) : items.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-6 text-center">
+                    <p className="text-sm text-muted py-6 text-center">
                         Nothing to bring across. Click finish to continue.
                     </p>
                 ) : (
@@ -391,7 +391,7 @@ export const MultiHouseholdExitDialog = () => {
                             return (
                                 <div key={section.key} className="space-y-2">
                                     <h4 className="text-sm font-medium flex items-center gap-2">
-                                        <SectionIcon className="h-4 w-4 text-muted-foreground" />
+                                        <SectionIcon className="h-4 w-4 text-muted" />
                                         {section.title}
                                     </h4>
                                     <Card variant="flush">
@@ -424,7 +424,7 @@ export const MultiHouseholdExitDialog = () => {
                                                         <div className="flex items-center gap-2">
                                                             <span className="font-medium text-sm sm:text-base truncate">{item.label}</span>
                                                             {item.authoredByMe && (
-                                                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">by you</span>
+                                                                <span className="text-[10px] uppercase tracking-wide text-muted">by you</span>
                                                             )}
                                                         </div>
                                                     </div>
@@ -432,7 +432,7 @@ export const MultiHouseholdExitDialog = () => {
                                                         <span className="flex items-baseline gap-1 shrink-0">
                                                             <Money v={item.amount} currency="SEK" size="base" weight={500} />
                                                             {billingSuffix(item.billingCycle) && (
-                                                                <span className="text-xs text-muted-foreground">{billingSuffix(item.billingCycle)}</span>
+                                                                <span className="text-xs text-muted">{billingSuffix(item.billingCycle)}</span>
                                                             )}
                                                         </span>
                                                     )}

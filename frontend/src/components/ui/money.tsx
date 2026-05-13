@@ -65,7 +65,7 @@ export const Money = ({
                 : color === "danger"
                     ? "text-danger"
                     : color === "muted"
-                        ? "text-muted-foreground"
+                        ? "text-muted"
                         : "text-ink";
 
     return (

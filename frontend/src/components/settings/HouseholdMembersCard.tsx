@@ -208,7 +208,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-primary" />
+          <Users className="h-5 w-5 text-accent" />
           Household Members
         </CardTitle>
         <CardDescription>Manage who has access to this household</CardDescription>
@@ -234,7 +234,7 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                   )}
                 </div>
                 {member.profiles?.email_public && (
-                  <p className="text-sm text-muted-foreground">{member.profiles?.email}</p>
+                  <p className="text-sm text-muted">{member.profiles?.email}</p>
                 )}
               </div>
 
@@ -267,13 +267,13 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
             <div className={`pt-6 border-t relative ${isDemoMode() ? 'opacity-50' : ''}`}>
               {isDemoMode() && (
                 <div className="absolute inset-0 flex items-center justify-center z-10">
-                  <p className="text-sm text-muted-foreground font-medium bg-background/80 px-3 py-1 rounded">This feature is disabled in the demo</p>
+                  <p className="text-sm text-muted font-medium bg-bg/80 px-3 py-1 rounded">This feature is disabled in the demo</p>
                 </div>
               )}
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3>Invite Members</h3>
-                  <p className="text-sm text-muted-foreground">Generate an 8-character code that expires in 24 hours</p>
+                  <p className="text-sm text-muted">Generate an 8-character code that expires in 24 hours</p>
                 </div>
                 <Button onClick={() => setShowEmailDialog(true)} disabled={isDemoMode()}>
                   Invite Member
@@ -300,11 +300,11 @@ export const HouseholdMembersCard = ({ members, householdId, invites, onUpdate }
                         })()}
                       </div>
                       {invite.invited_email && (
-                        <div className="text-sm text-muted-foreground mt-1">
+                        <div className="text-sm text-muted mt-1">
                           For: <Badge variant="secondary">{invite.invited_email}</Badge>
                         </div>
                       )}
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-muted mt-1">
                         Expires: {format(new Date(invite.expires_at), "PPP")}
                       </p>
                     </div>

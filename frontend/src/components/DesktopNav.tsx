@@ -38,7 +38,7 @@ const DesktopNav = () => {
         />
         <div>
           <div className="text-sm font-bold text-ink leading-tight tracking-tight">Household</div>
-          <div className="text-[11px] text-muted-foreground leading-tight">Harmony</div>
+          <div className="text-[11px] text-muted leading-tight">Harmony</div>
         </div>
       </div>
 
@@ -66,7 +66,7 @@ const DesktopNav = () => {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-[13px] font-semibold text-ink truncate">{firstName}</div>
-              <div className="text-[11px] text-muted-foreground truncate">Logged in</div>
+              <div className="text-[11px] text-muted truncate">Logged in</div>
             </div>
             <Button
               onClick={() => navigate("/settings")}

@@ -9,7 +9,7 @@ export const MobileBottomBar = ({ children }: MobileBottomBarProps) => (
         className="fixed inset-x-0 z-30 sm:hidden pointer-events-none"
         style={{ bottom: "calc(58px + env(safe-area-inset-bottom))" }}
     >
-        <div className="h-8 bg-gradient-to-t from-background to-transparent" aria-hidden />
+        <div className="h-8 bg-gradient-to-t from-bg to-transparent" aria-hidden />
         <div
             className="px-4 pt-2 pb-3 pointer-events-auto"
             style={{

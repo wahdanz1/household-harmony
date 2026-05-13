@@ -163,7 +163,7 @@ export const CoParentsCard = ({ householdId, onUpdate, compact = false }: CoPare
               <div>
                 <p className="font-medium">{coParent.name}</p>
                 {coParent.notes && (
-                  <p className="text-sm text-muted-foreground">{coParent.notes}</p>
+                  <p className="text-sm text-muted">{coParent.notes}</p>
                 )}
               </div>
               <div className="flex gap-2">
@@ -178,7 +178,7 @@ export const CoParentsCard = ({ householdId, onUpdate, compact = false }: CoPare
           ))}
         </div>
       ) : (
-        <p className="text-center text-muted-foreground py-4">
+        <p className="text-center text-muted py-4">
           No co-parents added yet
         </p>
       )}

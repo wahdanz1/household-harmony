@@ -9,7 +9,7 @@ export const SetupWizardCard = () => {
         <Card>
             <CardHeader>
                 <div className="flex items-start gap-3">
-                    <Sparkles className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                    <Sparkles className="h-5 w-5 text-warn shrink-0 mt-0.5" />
                     <div className="flex-1 space-y-1.5">
                         <CardTitle>Setup wizard</CardTitle>
                         <CardDescription>

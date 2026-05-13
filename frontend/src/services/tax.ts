@@ -44,5 +44,5 @@ export const formatSEK = (amount: number): string => {
  * Get status color for tax prognosis
  */
 export const getTaxStatusColor = (status: 'owing' | 'refund'): string => {
-    return status === 'owing' ? 'text-destructive' : 'text-success';
+    return status === 'owing' ? 'text-danger' : 'text-accent';
 };
