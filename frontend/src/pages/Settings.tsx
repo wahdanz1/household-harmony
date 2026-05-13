@@ -27,6 +27,7 @@ import { LoadingState } from "@/components/shared/states";
 import { SettingsPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
 import { UserMenu } from "@/components/shared/UserMenu";
+import { APP_VERSION, BUILD_SHA } from "@/lib/version";
 
 const Settings = () => {
   const { user } = useAuth();
@@ -211,6 +212,10 @@ const Settings = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      <p className="font-mono text-[11px] text-muted text-center pt-4">
+        v{APP_VERSION} · build {BUILD_SHA}
+      </p>
     </div>
   );
 };
