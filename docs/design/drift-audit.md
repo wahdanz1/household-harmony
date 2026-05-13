@@ -8,6 +8,17 @@ Severity legend:
 - 🟢 **Polish** — small visual difference. Nice to have.
 - ⚪ **Deferred** — out of scope for this rollout (e.g., patterns waiting for flows).
 
+Status legend (added 2026-05-13 after rollout):
+- ✅ **Done** — landed in this rollout (commit ref noted).
+- 🟪 **Already-done in live** — audit was wrong about live state; no live change needed.
+- ⏸ **Deferred** — intentional defer per plan.
+
+---
+
+## Rollout status (post-implementation, 2026-05-13)
+
+Stages 1–3 shipped on `staging` in **8 commits** (`ecab376` through `70673dd`). Every audit finding below has a status tag in its heading. Items I'd assumed were live drift but turned out to already match the design system are tagged `🟪 Already-done in live` — useful to know so future audits don't re-grade them as gaps.
+
 ---
 
 ## 0 · Already aligned (no action)
@@ -26,17 +37,17 @@ These are tracking the design system cleanly today. Listed so the rollout doesn'
 
 ## 1 · Tokens & globals
 
-### 1.1 🟡 Backwards-compat token aliases (live only)
+### 1.1 🟡 ✅ Backwards-compat token aliases (live only) — `1de578b`
 **Where:** `frontend/src/index.css` lines 67-105.
 **What:** Old shadcn names (`--background`, `--foreground`, `--card`, `--primary`, `--secondary`, `--destructive`, `--ring`, `--sidebar-*`, etc.) aliased to the new canonical names.
 **Why drift exists:** Phased migration. README in `index.css` says "can be removed once all primitives + pages are refactored."
 **Fix:** Confirmed as Stage 1 in the rollout. Grep every usage of the old aliases (`bg-primary`, `text-foreground`, `border-border`, etc.) and migrate to canonical names. Then delete the alias block. **Stage 1 action item.**
 
-### 1.2 🟢 Missing `--shadow` token export in live `index.css`
+### 1.2 🟢 ✅ Missing `--shadow` token export in live `index.css` — `5973caf`
 **Where:** `colors_and_type.css` defines `--shadow: 0 1px 2px rgba(0,0,0,0.04)` (light) / `0.4` (dark). Live `index.css` doesn't expose it as a CSS var (the value is hard-coded in some components instead).
 **Fix:** Add `--shadow` to both theme blocks in `index.css`. Update Tailwind config if `shadow-default` should map to it. Low priority — only used for active segmented-tab pill and toggle thumb.
 
-### 1.3 🟢 Missing `--overlay` documentation
+### 1.3 🟢 ✅ Missing `--overlay` documentation — `5973caf`
 **Where:** Live `index.css` has `--overlay: rgba(20, 15, 10, 0.32)` (light) / `0.45` (dark) but no Tailwind utility uses it. The design system specifies it as the canonical modal scrim.
 **Fix:** Make sure all dialog/sheet primitives use `var(--overlay)` rather than hardcoded `rgba(0,0,0,0.5)` (which several shadcn dialogs do by default).
 
@@ -44,7 +55,7 @@ These are tracking the design system cleanly today. Listed so the rollout doesn'
 
 ## 2 · Row primitive — THE big one
 
-### 2.1 🔴 Row has no `isBudgeted` state
+### 2.1 🔴 ✅ Row has no `isBudgeted` state — `52aae64` + `4db4d29`
 **Where:** `frontend/src/components/ui/row-item.tsx` is a generic flush row. The Expenses-specific row logic lives in `frontend/src/components/expenses/AllTabBlockView.tsx` (`ExpenseRow` and similar).
 **What's missing:** The design model's central rule — `isBudgeted=true` rows render `~ X kr` muted (DM Mono 500, `--ink-2`, leading `~` in `--accent-dk`); `isBudgeted=false` rows render `X kr` exact (DM Mono 600, `--ink`).
 **Where it should live:** `EXPENSE_CATEGORIES` constant gets an `isBudgeted: boolean` field per [`expenses-model.md`](./expenses-model.md). The row component reads from the category.
@@ -53,12 +64,12 @@ These are tracking the design system cleanly today. Listed so the rollout doesn'
 2. Update `Money` component (or extend it) to support an `estimate` prop that prefixes `~` and switches color/weight: `text-ink-2 font-medium` + `~` rendered in `text-accent-dk` (Swedish reading order — see § 9 for `~` placement question).
 3. Update `ExpenseRow` in `AllTabBlockView.tsx` to read `category.isBudgeted` and pass to Money.
 
-### 2.2 🔴 Row hover state lacks edit/delete fade
+### 2.2 🔴 ⏸ Row hover state lacks edit/delete fade — deferred
 **Where:** Design system `Row` (in `screens-dashboard.jsx` line 90-119) shows pattern: amount fades out on hover, edit/delete icon buttons (32×32, surface bg, line border, 8px radius) fade in.
 **Live:** `ExpenseRow` in `AllTabBlockView.tsx` has some hover affordances but inconsistent. Need to verify each row type (expense, subscription, insurance) implements the swap.
 **Fix:** Stage 2 (composed components). One canonical hover-actions slot on RowItem, used by every list-row implementation.
 
-### 2.3 🟡 Row sub-line conventions not standardized
+### 2.3 🟡 🟪 Row sub-line conventions not standardized
 **Where:** Design system `Row` accepts a generic `sub` slot. Bundle's `ExpenseRow` shows:
 - Expenses: no sub-line at all (matches the model)
 - Subs/Insurances: cadence badge + optional `förfaller 15 mar` for non-monthly only
@@ -69,14 +80,14 @@ These are tracking the design system cleanly today. Listed so the rollout doesn'
 
 ## 3 · Section headers — triple-frame totals
 
-### 3.1 🔴 Triple-frame totals missing on section headers
+### 3.1 🔴 ✅ Triple-frame totals missing on section headers — `23074ff`
 **Where:** Design system `CollapsibleSection` (`screens-app.jsx` line 265-324) renders three frames on the section header: `kr/mån (primary, bold) · kr/år (muted) · varav budget X kr` (or `snitt/post X kr/mån`).
 **Live:** `ExpenseBlock` in `AllTabBlockView.tsx` accepts a `headerMetrics` prop — flexible but not standardized. Each call site builds its own.
 **Fix:** Stage 2 (composed components). Build a canonical `SectionFrames` component that takes `[{v, unit, primary?, label?}]` and renders the row. Centralize the conventions:
 - Expenses: `kr/mån · kr/år · varav budget X kr`
 - Subs/Insurances: `kr/mån · kr/år · snitt/post X kr/mån`
 
-### 3.2 🔴 Mobile: triple-frame collapses to compact total
+### 3.2 🔴 ✅ Mobile: triple-frame collapses to compact total — `23074ff`
 **Where:** Design system collapses to `primary only` on mobile (`isDesktop ? full : compact`). Live: ExpenseBlock header may overflow on small screens with current frame logic (you saw this — `var bud…` truncation).
 **Fix:** Same component as 3.1. Pass `isDesktop` (or use Tailwind responsive classes). Mobile renders only primary frame + count.
 
@@ -84,33 +95,33 @@ These are tracking the design system cleanly today. Listed so the rollout doesn'
 
 ## 4 · Page-level drifts
 
-### 4.1 🔴 Översikt — "Senaste aktivitet" feed not implemented
+### 4.1 🔴 ⏸ Översikt — "Senaste aktivitet" feed not implemented — deferred until bank API / CSV lands
 **Where:** Design system `Dashboard` (`screens-dashboard.jsx` line 314-351) shows a Recent Activity feed listing one-offs, settlements, inventory changes. The activity item has a kind-label badge (`Engångsutgift`, `Engångsinkomst`, `Avräkning`, `Inventarie`) + amount + time.
 **Live:** Overview.tsx doesn't surface this section. The i18n `overview.json` has the keys (`activity.shared`, `activity.oneTimeIncome`) but no component consumes them.
 **Decision needed:** Build this section now, or defer? The data exists (`monthly_expenses` one-offs, `monthly_incomes` one-offs, settlement entries) — composing the feed is straightforward. **See § 9, question 2.**
 
-### 4.2 🟡 Utgifter — hero card per-year sub-line
+### 4.2 🟡 🟪 Utgifter — hero card per-year sub-line
 **Where:** Design system Expenses hero (`screens-app.jsx` line 38-58): title + amount + `kr/år per år` sub-line.
 **Live:** Expenses page hero shows only title + amount. Same pattern works on Income (which shows `3 aktiva källor · 770 400 kr per år`).
 **Fix:** Stage 3 — add the per-year sub-line to Expenses hero. Match Income's structure.
 
-### 4.3 🟡 Utgifter — "Sambo" tab → "Delat"
+### 4.3 🟡 🟪 Utgifter — "Sambo" tab → "Delat"
 **Where:** Design system `tabs` constant (`screens-app.jsx` line 14): `{ id: 'co', label: 'Delat' }`. Live: tab label is `Sambo`.
 **Why:** "Sambo" implies live-in partner; the feature is for co-parents you don't live with.
 **Fix:** Stage 3 — rename in Expenses tab strip + any i18n keys + the `coparent` tab value in Expenses.tsx (currently uses `"coparent"` as value, just relabel display).
 
-### 4.4 🟡 Utgifter — "Lägg till utgift" + "Engångsutgift" CTAs
+### 4.4 🟡 🟪 Utgifter — "Lägg till utgift" + "Engångsutgift" CTAs
 **Where:** Design system shows two CTAs in a row right under the segmented tabs on the Alla tab (`screens-app.jsx` line 86-95): `Lägg till utgift` (primary) + `Engångsutgift` (secondary with sparkle icon).
 **Live:** Expenses.tsx has these but layout/icon may differ. Verify and align.
 **Fix:** Stage 3 — match the desktop two-button row pattern; mobile uses the bottom-sticky CTA (already exists).
 
-### 4.5 🔴 Inkomst — pause toggle and "Månatlig" badge on rows
+### 4.5 🔴 🟪 Inkomst — pause toggle and "Månatlig" badge on rows
 **Where:** Live Income rows show an inline pause/resume toggle per source + `Månatlig` badge. Per our recent grilling: both should go (toggle moves to form, cadence badge implies non-monthly cadences that aren't supported).
 **Design system:** Income source rows in the bundle still show toggle + Månatlig badge (the bundle hasn't fully caught up to this asks from our last Claude Design round).
 **Fix:** Stage 3 — remove from live. Pause/resume happens inside the form's status field. No cadence badge on monthly-only sources.
 **Note to Claude Design:** the bundle's Income screen still has these — flag in next review.
 
-### 4.6 🔴 Inställningar — restructure to 4 tabs
+### 4.6 🔴 ✅ Inställningar — restructure to 4 tabs — `70673dd`
 **Where:** Design system `SettingsScreen` (`screens-app.jsx` line 727-790) has 4 tabs: Allmänt / Personligt / Hushåll / Säkerhet, with 2-col grid on desktop.
 **Live:** Settings.tsx has 3 tabs: General / Personal / Security. Cards inside don't all map cleanly (e.g., HouseholdInfoCard + HouseholdMembersCard live under General; design moves them to Hushåll tab).
 **Fix:** Stage 3 — full Settings page refactor.
@@ -132,12 +143,12 @@ These are tracking the design system cleanly today. Listed so the rollout doesn'
 | (new) | Auto-lock interval | Säkerhet |
 | (new) | Notification preferences | Allmänt or new Notiser section |
 
-### 4.7 🟡 Mobile top-bar avatar trigger
+### 4.7 🟡 ✅ Mobile top-bar avatar trigger — `6587b7e`
 **Where:** Design system shows an `AvatarTrigger` (round, accent-tinted) in every screen header on mobile (`screens-dashboard.jsx` line 228, `screens-app.jsx` line 34). It opens a `UserMenu` sheet with: Byt hushåll, Inställningar, Logga ut.
 **Live:** No avatar in mobile top bar. Settings lives as 4th bottom tab; logout lives inside Settings page.
 **Decision needed:** Adopt the avatar-menu pattern on mobile? If yes, Settings moves out of the bottom tab bar (which becomes Översikt / Inkomst / Utgifter, 3 tabs). If no, keep current 4-tab pattern and don't add the avatar. **See § 9, question 3.**
 
-### 4.8 🟢 Desktop user-card refactor
+### 4.8 🟢 ✅ Desktop user-card refactor — `6587b7e`
 **Where:** Design system desktop `Sidebar` has user-card at bottom that opens `UserMenu` popover (Byt hushåll / Inställningar / Logga ut). Live: user-card has a Settings cog icon button that navigates straight to /settings + a Logout button.
 **Fix:** Stage 3 — if § 4.7 chooses avatar-menu pattern, refactor user-card to match (clicking opens menu). Otherwise leave the cog-icon shortcut as-is.
 
