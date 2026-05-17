@@ -31,7 +31,7 @@ interface InitialValues {
     id?: string;
     name?: string;
     service?: string;
-    amount?: number | string;
+    budget?: number | string;
     billing_cycle?: string;
     category?: string;
     notes?: string;
@@ -57,7 +57,7 @@ interface SubscriptionFormProps {
 const blank = (): InitialValues => ({
     name: "",
     service: "",
-    amount: "",
+    budget: "",
     billing_cycle: "monthly",
     category: "other",
     notes: "",
@@ -81,7 +81,7 @@ export const SubscriptionForm = ({
     }, [initialValues, editingId]);
 
     const isEditing = !!editingId;
-    const canSave = !!formData.service?.trim() && !!String(formData.amount ?? "").trim();
+    const canSave = !!formData.service?.trim() && !!String(formData.budget ?? "").trim();
 
     const usedCategorySet = useUsedCategoryValues("subscriptions", householdId);
     const usedCats = subscriptionCategories.filter(c => usedCategorySet.has(c.value) || c.value === formData.category);
@@ -96,7 +96,7 @@ export const SubscriptionForm = ({
                 household_id: householdId,
                 service: formData.service?.trim() ?? "",
                 name: formData.name?.trim() || null,
-                amount: parseFloat(String(formData.amount ?? 0)),
+                budget: parseFloat(String(formData.budget ?? 0)),
                 billing_cycle: formData.billing_cycle ?? "monthly",
                 category: formData.category ?? "other",
                 notes: formData.notes ?? "",
@@ -182,8 +182,8 @@ export const SubscriptionForm = ({
                 <FormField label="Amount">
                     <Input
                         type="number"
-                        value={String(formData.amount ?? "")}
-                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                        value={String(formData.budget ?? "")}
+                        onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                         placeholder="0"
                     />
                 </FormField>

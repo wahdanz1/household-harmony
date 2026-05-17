@@ -21,8 +21,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
-import { fetchHistoryByKey } from "@/utils/carryForward";
-import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
@@ -178,15 +176,6 @@ const Expenses = () => {
       !decryptedMonthly.find((m: any) => m.expense_id === cat.id)
     );
 
-    const historyByCategory = await fetchHistoryByKey({
-      table: "monthly_expenses",
-      keyField: "expense_id",
-      keys: missingCategories.map((c: any) => c.id),
-      householdId: household.id,
-      beforeMonth: fetchMonth,
-      decrypt: decryptMonthlyExpenses,
-    });
-
     // Only seed missing rows for the current financial month. Past months
     // stay read-only — viewing them shouldn't silently write rows.
     const missingRecords: any[] = [];
@@ -194,18 +183,13 @@ const Expenses = () => {
     if (isCurrentMonth) {
       missingCategories.forEach((category: any) => {
         if (!user) return;
-        const history = historyByCategory.get(category.id) ?? [];
-        const smart = computeSmartDefault(history);
-        const amount = smart.source != null
-          ? smart.value
-          : parseFloat((category.default_amount || "0").toString());
         missingRecords.push({
           expense_id: category.id,
           household_id: household.id,
           month: fetchMonth,
           month_start: startStr,
           month_end: endStr,
-          budget_amount: amount,
+          budget_snapshot: parseFloat((category.budget || "0").toString()),
           created_by: user.id,
         });
       });
@@ -227,13 +211,13 @@ const Expenses = () => {
     decryptedCategories.forEach((category: any) => {
       const existing = decryptedMonthly.find((m: any) => m.expense_id === category.id);
       if (existing) {
-        const value = existing.actual_amount ?? existing.budget_amount ?? existing.amount ?? 0;
+        const value = existing.actual_amount ?? existing.budget_snapshot ?? existing.amount ?? 0;
         initialAmounts[category.id] = value.toString();
       } else {
         const missing = missingRecords.find((r: any) => r.expense_id === category.id);
         initialAmounts[category.id] = missing
-          ? missing.budget_amount.toString()
-          : (category.default_amount || "0").toString();
+          ? missing.budget_snapshot.toString()
+          : (category.budget || "0").toString();
       }
     });
 
@@ -275,7 +259,7 @@ const Expenses = () => {
         month: saveMonth,
         month_start: format(saveStart, "yyyy-MM-dd"),
         month_end: format(saveEnd, "yyyy-MM-dd"),
-        budget_amount: parseFloat(currentAmounts[category.id] || "0"),
+        budget_snapshot: parseFloat(currentAmounts[category.id] || "0"),
         created_by: user.id,
       };
       // Encrypt the entry (encrypts amount field)
@@ -397,10 +381,10 @@ const Expenses = () => {
     .filter((ins) => ins.is_active)
     .reduce((sum, ins) => {
       let monthlyAmount = 0;
-      if (ins.billing_cycle === "yearly") monthlyAmount = ins.total_amount / 12;
-      else if (ins.billing_cycle === "semi_annually") monthlyAmount = ins.total_amount / 6;
-      else if (ins.billing_cycle === "quarterly") monthlyAmount = ins.total_amount / 3;
-      else monthlyAmount = ins.total_amount;
+      if (ins.billing_cycle === "yearly") monthlyAmount = ins.budget / 12;
+      else if (ins.billing_cycle === "semi_annually") monthlyAmount = ins.budget / 6;
+      else if (ins.billing_cycle === "quarterly") monthlyAmount = ins.budget / 3;
+      else monthlyAmount = ins.budget;
 
       if (ins.is_shared) {
         monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
@@ -582,14 +566,14 @@ const Expenses = () => {
               return {
                 id: cat.id,
                 name: cat.name,
-                amount: parseFloat(amounts[cat.id] || cat.default_amount || '0'),
-                defaultAmount: parseFloat(cat.default_amount || '0'),
+                amount: parseFloat(amounts[cat.id] || cat.budget || '0'),
+                budget: parseFloat(cat.budget || '0'),
                 actualAmount,
                 category: cat.category,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
                 isCredit: !!cat.is_credit,
               };
-            }).sort((a, b) => (b.defaultAmount ?? 0) - (a.defaultAmount ?? 0))}
+            }).sort((a, b) => (b.budget ?? 0) - (a.budget ?? 0))}
             subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.amount)) - parseFloat(String(a.amount))).map(sub => {
               // Calculate if this subscription is due in current financial month
               let isDue = false;
@@ -619,18 +603,18 @@ const Expenses = () => {
                 ...sub,
                 name: sub.name || sub.service,
                 category: sub.category,
-                total_amount: sub.amount,
+                budget: sub.amount,
                 isDue,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
                 inactive: sub.is_active === false,
               };
             })}
-            insurances={[...insurances].sort((a, b) => (b.total_amount ?? 0) - (a.total_amount ?? 0)).map(ins => {
+            insurances={[...insurances].sort((a, b) => (b.budget ?? 0) - (a.budget ?? 0)).map(ins => {
               let monthlyAmount = 0;
-              if (ins.billing_cycle === "yearly") monthlyAmount = ins.total_amount / 12;
-              else if (ins.billing_cycle === "semi_annually") monthlyAmount = ins.total_amount / 6;
-              else if (ins.billing_cycle === "quarterly") monthlyAmount = ins.total_amount / 3;
-              else monthlyAmount = ins.total_amount;
+              if (ins.billing_cycle === "yearly") monthlyAmount = ins.budget / 12;
+              else if (ins.billing_cycle === "semi_annually") monthlyAmount = ins.budget / 6;
+              else if (ins.billing_cycle === "quarterly") monthlyAmount = ins.budget / 3;
+              else monthlyAmount = ins.budget;
 
               if (ins.is_shared) {
                 monthlyAmount = monthlyAmount * (ins.share_percentage / 100);
@@ -645,7 +629,7 @@ const Expenses = () => {
                 id: ins.id,
                 name: customName || fallbackName,
                 monthly_cost: monthlyAmount,
-                total_amount: ins.total_amount,
+                budget: ins.budget,
                 billing_cycle: ins.billing_cycle,
                 category: ins.category,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
@@ -746,7 +730,7 @@ const Expenses = () => {
             id: editingCategory.id,
             category: editingCategory.category,
             name: editingCategory.name,
-            default_amount: editingCategory.default_amount,
+            budget: editingCategory.budget,
             is_credit: editingCategory.is_credit,
             subject_id: editingCategory.subject_id,
           } : undefined}
@@ -807,7 +791,7 @@ const Expenses = () => {
             name: editingInsurance.name,
             provider: editingInsurance.provider,
             category: editingInsurance.category,
-            total_amount: editingInsurance.total_amount,
+            budget: editingInsurance.budget,
             billing_cycle: editingInsurance.billing_cycle,
             billing_month: editingInsurance.billing_month,
             billing_day: editingInsurance.billing_day,

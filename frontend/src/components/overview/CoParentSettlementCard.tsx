@@ -55,7 +55,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
     const [incomesResult, insurancesResult, expensesResult] = await Promise.all([
       supabase
         .from("monthly_incomes")
-        .select("encrypted_amount, share_percentage, is_encrypted, co_parent_id")
+        .select("encrypted_budget_snapshot, encrypted_actual_amount, share_percentage, is_encrypted, co_parent_id")
         .eq("household_id", householdId)
         .gte("month_end", monthStartStr)
         .lte("month_start", monthEndStr)
@@ -63,7 +63,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
         .in("co_parent_id", coParentIds),
       supabase
         .from("insurances")
-        .select("encrypted_total_amount, share_percentage, billing_month, is_encrypted, co_parent_id")
+        .select("encrypted_budget, share_percentage, billing_month, is_encrypted, co_parent_id")
         .eq("household_id", householdId)
         .eq("is_shared", true)
         .in("co_parent_id", coParentIds)
@@ -89,16 +89,16 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
       const sharedInsurances = decryptedInsurances.filter(r => r.co_parent_id === coParent.id);
       const sharedExpenses = decryptedExpenses.filter(r => r.co_parent_id === coParent.id);
 
-      const incomeReceived = sharedIncomes.reduce((sum, inc) => sum + parseFloat((inc.amount || 0).toString()), 0);
+      const incomeReceived = sharedIncomes.reduce((sum, inc) => sum + parseFloat(((inc.actual_amount ?? inc.budget_snapshot) || 0).toString()), 0);
       const yourShareOfIncome = sharedIncomes.reduce((sum, inc) => {
         const sharePercentage = parseFloat((inc.share_percentage || 0).toString());
-        return sum + (parseFloat((inc.amount || 0).toString()) * sharePercentage / 100);
+        return sum + (parseFloat(((inc.actual_amount ?? inc.budget_snapshot) || 0).toString()) * sharePercentage / 100);
       }, 0);
 
       let insurancePaid = 0;
       let theirShareOfInsurance = 0;
       sharedInsurances.forEach((ins) => {
-        const amount = parseFloat((ins.total_amount || 0).toString());
+        const amount = parseFloat((ins.budget || 0).toString());
         insurancePaid += amount;
         theirShareOfInsurance += amount * parseFloat((ins.share_percentage || 0).toString()) / 100;
       });

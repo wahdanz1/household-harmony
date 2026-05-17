@@ -350,7 +350,7 @@ function itemLabel(stepKey: Exclude<StepKey, "features">, item: any): string {
 }
 
 function summariseAmount(stepKey: Exclude<StepKey, "features">, item: any): string {
-    const v = Number(item.default_amount ?? item.amount ?? item.total_amount ?? 0);
+    const v = Number(item.budget ?? 0);
     if (Number.isNaN(v)) return "";
     if (stepKey === "subscription" && item.billing_cycle && item.billing_cycle !== "monthly") {
         return `${Math.round(v)} kr / ${item.billing_cycle}`;

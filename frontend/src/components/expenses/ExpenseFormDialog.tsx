@@ -30,7 +30,7 @@ interface InitialValues {
     id?: string;
     category?: string;
     name?: string;
-    default_amount?: number | string;
+    budget?: number | string;
     is_credit?: boolean;
     subject_id?: string | null;
 }
@@ -52,7 +52,7 @@ interface ExpenseFormDialogProps {
 const blankForm: InitialValues = {
     category: "rent",
     name: "",
-    default_amount: "0",
+    budget: "0",
     is_credit: false,
     subject_id: null,
 };
@@ -86,7 +86,7 @@ export const ExpenseFormDialog = ({
     const moreCategories = allCategories.filter(c => !usedCategorySet.has(c.id) && c.id !== form.category);
     const selectedCategory = allCategories.find(c => c.id === form.category);
     const SelectedIcon = selectedCategory?.icon;
-    const canSave = !!form.category && !!form.name?.trim() && parseFloat(String(form.default_amount ?? 0)) >= 0;
+    const canSave = !!form.category && !!form.name?.trim() && parseFloat(String(form.budget ?? 0)) >= 0;
 
     const renderCategoryItem = (c: typeof allCategories[number]) => {
         const Icon = c.icon;
@@ -105,12 +105,12 @@ export const ExpenseFormDialog = ({
         isEdit: mode === "edit",
         save: async () => {
             if (!user) throw new Error("Not authenticated");
-            const numericAmount = parseFloat(String(form.default_amount ?? 0));
+            const numericAmount = parseFloat(String(form.budget ?? 0));
             const baseData: any = {
                 household_id: householdId,
                 category: form.category,
                 name: form.name?.trim() ?? "",
-                default_amount: numericAmount,
+                budget: numericAmount,
                 is_credit: !!form.is_credit,
                 subject_id: form.subject_id ?? null,
                 created_by: user.id,
@@ -142,7 +142,7 @@ export const ExpenseFormDialog = ({
                     month,
                     month_start: format(start, "yyyy-MM-dd"),
                     month_end: format(end, "yyyy-MM-dd"),
-                    budget_amount: numericAmount,
+                    budget_snapshot: numericAmount,
                     created_by: user.id,
                 });
                 await supabase
@@ -228,8 +228,8 @@ export const ExpenseFormDialog = ({
                         <Input
                             type="number"
                             inputMode="numeric"
-                            value={String(form.default_amount ?? "")}
-                            onChange={(e) => setForm({ ...form, default_amount: e.target.value })}
+                            value={String(form.budget ?? "")}
+                            onChange={(e) => setForm({ ...form, budget: e.target.value })}
                             placeholder="0"
                         />
                     </FormField>

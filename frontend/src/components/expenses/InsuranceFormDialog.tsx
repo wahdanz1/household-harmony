@@ -11,7 +11,7 @@ interface InsuranceFormDialogProps {
         name?: string;
         provider?: string | null;
         category?: string;
-        total_amount?: number | string;
+        budget?: number | string;
         billing_cycle?: string;
         billing_month?: number | string | null;
         billing_day?: number | string | null;

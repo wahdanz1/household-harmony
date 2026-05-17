@@ -17,7 +17,6 @@ import { ProfileCard } from "@/components/settings/ProfileCard";
 import { PersonalInfoCard } from "@/components/settings/PersonalInfoCard";
 import { LoginCard } from "@/components/settings/LoginCard";
 import { SettingsCard, SettingsRow, SettingsBadge } from "@/components/settings/SettingsCard";
-// import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings as SettingsIcon, User, Home as HomeIcon, Shield } from "lucide-react";
 import { useEncryption } from "@/contexts/EncryptionContext";

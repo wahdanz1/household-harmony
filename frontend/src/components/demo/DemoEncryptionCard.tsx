@@ -36,19 +36,19 @@ export const DemoEncryptionCard = ({ householdId }: { householdId: string }) => 
     const fetchEncryptedSample = async () => {
         setLoading(true);
         try {
-            // Fetch first income source's encrypted default_amount
+            // Fetch first income source's encrypted budget
             const { data, error } = await supabase
                 .from("income_sources")
-                .select("encrypted_default_amount")
+                .select("encrypted_budget")
                 .eq("household_id", householdId)
                 .limit(1)
                 .single();
 
-            if (!error && data?.encrypted_default_amount) {
+            if (!error && data?.encrypted_budget) {
                 setEncryptedSample({
                     table: "income_sources",
-                    field: "encrypted_default_amount",
-                    value: data.encrypted_default_amount,
+                    field: "encrypted_budget",
+                    value: data.encrypted_budget,
                 });
             }
         } catch {

@@ -53,7 +53,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "category": "salary",
                 "encrypted_name": enc("Lön (IT-konsult)"),
                 "type": "static",
-                "encrypted_default_amount": enc(45000),
+                "encrypted_budget": enc(45000),
                 "created_by": user_id,
                 "is_encrypted": True
             },
@@ -62,7 +62,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "category": "government_benefits",
                 "encrypted_name": enc("Barnbidrag"),
                 "type": "static",
-                "encrypted_default_amount": enc(1250),
+                "encrypted_budget": enc(1250),
                 "created_by": user_id,
                 "is_encrypted": True
             }
@@ -76,7 +76,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "category": "rent",
                 "encrypted_name": enc("Hyra"),
                 "type": "static",
-                "encrypted_default_amount": enc(12000),
+                "encrypted_budget": enc(12000),
                 "created_by": user_id,
                 "is_encrypted": True
             },
@@ -85,7 +85,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "category": "groceries",
                 "encrypted_name": enc("Mat (ICA)"),
                 "type": "dynamic",
-                "encrypted_default_amount": enc(4500),
+                "encrypted_budget": enc(4500),
                 "is_credit": True,
                 "created_by": user_id,
                 "is_encrypted": True
@@ -95,7 +95,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "category": "electricity",
                 "encrypted_name": enc("El"),
                 "type": "dynamic",
-                "encrypted_default_amount": enc(800),
+                "encrypted_budget": enc(800),
                 "created_by": user_id,
                 "is_encrypted": True
             },
@@ -104,7 +104,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "category": "internet",
                 "encrypted_name": enc("Internet"),
                 "type": "static",
-                "encrypted_default_amount": enc(349),
+                "encrypted_budget": enc(349),
                 "created_by": user_id,
                 "is_encrypted": True
             },
@@ -113,7 +113,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "category": "phone_plan",
                 "encrypted_name": enc("Mobilabonnemang"),
                 "type": "static",
-                "encrypted_default_amount": enc(299),
+                "encrypted_budget": enc(299),
                 "created_by": user_id,
                 "is_encrypted": True
             },
@@ -122,7 +122,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "category": "other",
                 "encrypted_name": enc("SL-kort"),
                 "type": "static",
-                "encrypted_default_amount": enc(990),
+                "encrypted_budget": enc(990),
                 "created_by": user_id,
                 "is_encrypted": True
             },
@@ -131,7 +131,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "category": "fuel",
                 "encrypted_name": enc("Bensin"),
                 "type": "dynamic",
-                "encrypted_default_amount": enc(1500),
+                "encrypted_budget": enc(1500),
                 "is_credit": True,
                 "created_by": user_id,
                 "is_encrypted": True
@@ -141,12 +141,12 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
         
         # 4.5. Get income_sources and expenses IDs for creating monthly records
         income_sources_result = supabase.table("income_sources")\
-            .select("id, encrypted_default_amount")\
+            .select("id, encrypted_budget")\
             .eq("household_id", household_id)\
             .execute()
         
         expenses_result = supabase.table("expenses")\
-            .select("id, encrypted_default_amount")\
+            .select("id, encrypted_budget")\
             .eq("household_id", household_id)\
             .execute()
         
@@ -179,7 +179,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "month": month_date,  # Use ISO date format
                 "month_start": month_start.isoformat(),
                 "month_end": month_end.isoformat(),
-                "encrypted_amount": source["encrypted_default_amount"],  # Use same encrypted value
+                "encrypted_budget_snapshot": source["encrypted_budget"],  # Snapshot the source's current budget
                 "created_by": user_id,
                 "is_encrypted": True
             })
@@ -197,7 +197,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
                 "month": month_date,  # Use ISO date format
                 "month_start": month_start.isoformat(),
                 "month_end": month_end.isoformat(),
-                "encrypted_amount": expense["encrypted_default_amount"],  # Use same encrypted value
+                "encrypted_budget_snapshot": expense["encrypted_budget"],  # Snapshot the source's current budget
                 "created_by": user_id,
                 "is_encrypted": True
             })
@@ -211,7 +211,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
             {
                 "household_id": household_id,
                 "encrypted_name": enc("Netflix"),
-                "encrypted_amount": enc(179),
+                "encrypted_budget": enc(179),
                 "billing_cycle": "monthly",
                 "category": "streaming",
                 "created_by": user_id,
@@ -220,7 +220,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
             {
                 "household_id": household_id,
                 "encrypted_name": enc("Spotify Family"),
-                "encrypted_amount": enc(189),
+                "encrypted_budget": enc(189),
                 "billing_cycle": "monthly",
                 "category": "music",
                 "created_by": user_id,
@@ -234,7 +234,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
             {
                 "household_id": household_id,
                 "encrypted_name": enc("Hemförsäkring (Länsförsäkringar)"),
-                "encrypted_total_amount": enc(2800),
+                "encrypted_budget": enc(2800),
                 "billing_cycle": "yearly",
                 "category": "home",
                 "created_by": user_id,
@@ -243,7 +243,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
             {
                 "household_id": household_id,
                 "encrypted_name": enc("Bil försäkring (If)"),
-                "encrypted_total_amount": enc(4200),
+                "encrypted_budget": enc(4200),
                 "billing_cycle": "yearly",
                 "category": "vehicle",
                 "created_by": user_id,
@@ -252,7 +252,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
             {
                 "household_id": household_id,
                 "encrypted_name": enc("Sjukvård tilläggsförsäkring"),
-                "encrypted_total_amount": enc(1800),
+                "encrypted_budget": enc(1800),
                 "billing_cycle": "yearly",
                 "category": "health",
                 "created_by": user_id,

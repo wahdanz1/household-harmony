@@ -1,8 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { AddButton } from "@/components/ui/add-button";
-import { Card, CardContent } from "@/components/ui/card";
-import { HandCoins, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { HandCoins, ClipboardCheck, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { Money, fmtKr } from "@/components/ui/money";
@@ -20,8 +19,6 @@ import { IncomeFormDialog } from "@/components/income/IncomeFormDialog";
 import { OneTimeIncomeDialog } from "@/components/income/OneTimeIncomeDialog";
 
 import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
-import { fetchHistoryByKey } from "@/utils/carryForward";
-import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 
@@ -45,9 +42,7 @@ const Income = () => {
   const { toast } = useToast();
   const [incomeSources, setIncomeSources] = useState<any[]>([]);
   const [monthlyIncomes, setMonthlyIncomes] = useState<any[]>([]);
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
 
   // Tax prognosis state
   const [prognosisOpen, setPrognosisOpen] = useState(false);
@@ -62,7 +57,7 @@ const Income = () => {
       const incomesForTax: IncomeForTax[] = incomeSources
         .filter((s: any) => s.is_active !== false && s.tax_type)
         .map((s: any) => ({
-          gross_monthly: parseFloat(amounts[s.id] || s.default_amount || "0") || 0,
+          gross_monthly: parseFloat(s.budget || "0") || 0,
           tax_type: s.tax_type,
           custom_rate: s.custom_tax_rate ?? undefined,
         }))
@@ -123,23 +118,7 @@ const Income = () => {
     initialDefaultRef.current = true;
   }, [needsReview, latestFinalizedMonth, selectedMonth, todayMonth]);
 
-  // Autosave state
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const amountsRef = useRef<Record<string, string>>({}); // Track latest amounts for autosave
-
-  const [savedFading, setSavedFading] = useState(false);
-  useEffect(() => {
-    if (autoSaveStatus !== 'saved' && autoSaveStatus !== 'error') return;
-    setSavedFading(false);
-    const startFade = window.setTimeout(() => setSavedFading(true), 2500);
-    const clearStatus = window.setTimeout(() => setAutoSaveStatus('idle'), 3500);
-    return () => { window.clearTimeout(startFade); window.clearTimeout(clearStatus); };
-  }, [autoSaveStatus]);
-
-  // Keep these for display/header purposes only (will update on re-render)
   const currentMonth = selectedMonth;
-  const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth, financialMonthStart);
 
   // Encryption hooks for income data
   const { decryptRecords: decryptSources } = useEncryptedFields(incomeSourceFields);
@@ -199,71 +178,30 @@ const Income = () => {
 
     setMonthlyIncomes(regularIncomes);
 
-    // Carry-forward: find most recent record per source (from any month before this one)
-    const missingSources = decryptedSources.filter((source: any) =>
-      !decryptedMonthly.find((m: any) => m.income_source_id === source.id)
-    );
-
-    const historyBySource = await fetchHistoryByKey({
-      table: "monthly_incomes",
-      keyField: "income_source_id",
-      keys: missingSources.map((s: any) => s.id),
-      householdId: household.id,
-      beforeMonth: fetchMonth,
-      decrypt: decryptIncomes,
-    });
-
-    // Only seed missing rows for the current financial month. Past months
-    // stay read-only — viewing them shouldn't silently write rows.
-    const missingRecords: any[] = [];
-    const isCurrentMonth = fetchMonth === todayMonth;
-    if (isCurrentMonth) {
-      missingSources.forEach((source: any) => {
-        if (!user) return;
-        const history = historyBySource.get(source.id) ?? [];
-        const smart = computeSmartDefault(history);
-        const amount = smart.source != null
-          ? smart.value
-          : parseFloat((source.default_amount || "0").toString());
-        missingRecords.push({
+    // Seed missing rows for the current financial month only, with
+    // budget_snapshot = source.budget. Past months stay read-only.
+    if (fetchMonth === todayMonth && user) {
+      const missingSources = decryptedSources.filter((source: any) =>
+        !decryptedMonthly.find((m: any) => m.income_source_id === source.id)
+      );
+      if (missingSources.length > 0) {
+        const records = missingSources.map((source: any) => ({
           income_source_id: source.id,
           household_id: household.id,
           month: fetchMonth,
           month_start: startStr,
           month_end: endStr,
-          budget_amount: amount,
+          budget_snapshot: parseFloat((source.budget || "0").toString()),
           created_by: user.id,
-        });
-      });
-
-      if (missingRecords.length > 0) {
-        const encryptedRecords = await Promise.all(
-          missingRecords.map(record => encryptIncome(record))
-        );
-        await supabase.from("monthly_incomes").upsert(encryptedRecords, {
+        }));
+        const encrypted = await Promise.all(records.map(r => encryptIncome(r)));
+        await supabase.from("monthly_incomes").upsert(encrypted, {
           onConflict: "income_source_id,month",
           ignoreDuplicates: true,
         });
       }
     }
 
-    // Note: Don't set 'saved' status on initial load - only after actual user edits
-
-    const initialAmounts: Record<string, string> = {};
-    decryptedSources.forEach((source: any) => {
-      const existing = decryptedMonthly.find((m: any) => m.income_source_id === source.id);
-      if (existing) {
-        const value = existing.actual_amount ?? existing.budget_amount ?? existing.amount ?? 0;
-        initialAmounts[source.id] = value.toString();
-      } else {
-        const missing = missingRecords.find((r: any) => r.income_source_id === source.id);
-        initialAmounts[source.id] = missing
-          ? missing.budget_amount.toString()
-          : (source.default_amount || "0").toString();
-      }
-    });
-    setAmounts(initialAmounts);
-    amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
   }, [household?.id, financialMonthStart, selectedMonth, user?.id, isUnlocked]);
 
@@ -273,11 +211,6 @@ const Income = () => {
     }
   }, [householdLoading, household?.id, fetchData]);
 
-  // Smart Defaults backend call removed — the service was disabled during
-  // the encryption migration and never restored. Client-side carry-forward
-  // (above, in fetchData) now handles seeding amounts from the most recent
-  // month with data, which is more useful anyway.
-
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<any | null>(null);
   const handleEditSource = (source: any) => {
@@ -285,80 +218,20 @@ const Income = () => {
     setSourceDialogOpen(true);
   };
 
-
-  // Handle amount change - track modifications and trigger autosave
-  const handleAmountChange = (sourceId: string, value: string) => {
-    if (isReadOnly) return;
-    const newAmounts = { ...amounts, [sourceId]: value };
-    setAmounts(newAmounts);
-    amountsRef.current = newAmounts; // Keep ref in sync for autosave
-
-    // Trigger debounced autosave
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-    }
-
-    setAutoSaveStatus('idle'); // Show as pending
-    autoSaveTimerRef.current = setTimeout(() => {
-      if (household && user && incomeSources.length > 0) {
-        handleSave();
-      }
-    }, 500); // 500ms debounce
+  // Effective amount per source for display + totals.
+  // Precedence: confirmed actual > frozen snapshot > current source.budget.
+  const amountFor = (source: any): number => {
+    const monthly = monthlyIncomes.find((m: any) => m.income_source_id === source.id);
+    if (monthly?.actual_amount != null) return Number(monthly.actual_amount);
+    if (monthly?.budget_snapshot != null) return Number(monthly.budget_snapshot);
+    return parseFloat((source.budget || "0").toString());
   };
 
-
-
-  const handleSave = useCallback(async () => {
-    if (!household || !user) return;
-    setSaving(true);
-    setAutoSaveStatus('saving');
-
-    // Use amountsRef to get the latest amounts value
-    const currentAmounts = amountsRef.current;
-
-    // Use the selected month for saving
-    const saveMonth = selectedMonth;
-    const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, financialMonthStart);
-
-    // Build entries and encrypt them
-    const entries = await Promise.all(incomeSources.map(async (source) => {
-      const baseEntry = {
-        income_source_id: source.id,
-        household_id: household.id,
-        month: saveMonth,
-        month_start: format(saveStart, "yyyy-MM-dd"),
-        month_end: format(saveEnd, "yyyy-MM-dd"),
-        budget_amount: parseFloat(currentAmounts[source.id] || "0"),
-        created_by: user.id,
-      };
-      // Encrypt the entry (encrypts amount field)
-      return await encryptIncome(baseEntry);
-    }));
-
-    const { error } = await supabase
-      .from("monthly_incomes")
-      .upsert(entries as any, { onConflict: "income_source_id,month" });
-
-    if (error) {
-      setAutoSaveStatus('error');
-      toast({
-        title: "Error",
-        description: "Failed to save income data",
-        variant: "destructive",
-      });
-    } else {
-      setAutoSaveStatus('saved');
-      // Don't show toast for autosave - only show brief status indicator
-    }
-    setSaving(false);
-  }, [household, user, incomeSources, financialMonthStart, toast, encryptIncome]);
-
-  const totalIncome = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0);
+  const totalIncome = incomeSources.reduce((sum, s) => sum + amountFor(s), 0);
   const currencyCode = household?.currency || "SEK";
-  const activeSourceCount = incomeSources.filter(s => {
+  const activeSourceCount = incomeSources.filter((s: any) => {
     if (s.is_active === false) return false;
-    const current = parseFloat(amounts[s.id] ?? String(s.default_amount ?? 0));
-    return current > 0;
+    return amountFor(s) > 0;
   }).length;
 
   // Header — month nav hidden when there's no data to navigate (locked state).
@@ -507,35 +380,15 @@ const Income = () => {
         />
       ) : (
         <Card variant="flush">
-          {/* Section header — single-line: title + count + autosave status (matches Expenses accordion style) */}
           <div className="flex items-center gap-3 px-4 py-4 sm:px-5 border-b border-line-2">
             <span className="flex items-baseline gap-2 min-w-0">
               <span className="font-medium text-ink">Income</span>
               <span className="text-xs text-muted tabular-nums">{activeSourceCount}</span>
             </span>
-            <div className="ml-auto h-5">
-              {(autoSaveStatus === 'saved' || autoSaveStatus === 'error') && (
-                <span
-                  className={`flex items-center gap-1 text-sm transition-opacity duration-1000 ${savedFading ? 'opacity-0' : 'opacity-100'} ${autoSaveStatus === 'error' ? 'text-danger' : 'text-accent'}`}
-                >
-                  {autoSaveStatus === 'saved'
-                    ? <><Check className="h-4 w-4" /> Saved</>
-                    : <>Failed to save</>}
-                </span>
-              )}
-            </div>
           </div>
 
-          {/* Income Sources List — flush rows with dividers */}
           <div>
             {incomeSources.map((source, idx) => {
-              const currentAmount = amounts[source.id];
-              let status: 'saved' | 'modified' | 'none' = 'none';
-              if (currentAmount !== undefined) {
-                const defaultStr = (source.default_amount || 0).toString();
-                status = currentAmount === defaultStr ? 'saved' : 'modified';
-              }
-
               const monthly = monthlyIncomes.find((m: any) => m.income_source_id === source.id);
               const rawActual = monthly?.actual_amount;
               const actualAmount = rawActual !== undefined && rawActual !== null
@@ -546,13 +399,10 @@ const Income = () => {
                 <IncomeSourceItem
                   key={source.id}
                   source={source}
-                  amount={amounts[source.id] || (source.default_amount || "0").toString()}
+                  amount={amountFor(source)}
                   actualAmount={actualAmount}
                   currency={household?.currency || "SEK"}
-                  onAmountChange={handleAmountChange}
                   onEdit={handleEditSource}
-                  onDelete={() => {}}
-                  status={status}
                   readOnly={isReadOnly}
                   last={idx === incomeSources.length - 1}
                 />
@@ -602,7 +452,7 @@ const Income = () => {
             name: editingSource.name,
             provider: editingSource.provider,
             owner_id: editingSource.owner_id,
-            default_amount: editingSource.default_amount,
+            budget: editingSource.budget,
             is_shared: editingSource.is_shared,
             co_parent_id: editingSource.co_parent_id,
             share_percentage: editingSource.share_percentage,

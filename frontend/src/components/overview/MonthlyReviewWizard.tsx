@@ -17,8 +17,6 @@ import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth,
 import { ImportStatementStep } from "./ImportStatementStep";
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields, expenseFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
 import { getCategoryById } from "@/constants/expenseCategories";
-import { fetchHistoryByKey } from "@/utils/carryForward";
-import { computeSmartDefault } from "@/services/smartDefaults";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 
 type ReviewScope = "income" | "expenses" | "finalized";
@@ -38,7 +36,7 @@ interface IncomeItem {
     id: string;
     name: string;
     amount: number;
-    defaultAmount: number;
+    budget: number;
     source_id: string;
     owner_id: string;
     isMine: boolean;
@@ -48,7 +46,7 @@ interface ExpenseItem {
     id: string;
     name: string;
     amount: number;
-    defaultAmount: number;
+    budget: number;
     category?: string;
     expense_id: string;
 }
@@ -164,56 +162,25 @@ export const MonthlyReviewWizard = ({
         const decryptedCategories = await decryptExpenses(categoriesData || []);
         const decryptedMonthlyExpenses = await decryptRefs.current.decryptMonthlyExpenses(monthlyExpensesData || []);
 
-        // Carry-forward: for sources/categories without a record this month,
-        // fall back to most recent prior record (not the static default).
-        const sourcesNeedingCarry = decryptedSources.filter(
-            (s: any) => !decryptedMonthlyIncomes.find((m: any) => m.income_source_id === s.id)
-        );
-        const expensesNeedingCarry = decryptedCategories.filter(
-            (c: any) => !decryptedMonthlyExpenses.find((m: any) => m.expense_id === c.id)
-        );
-
-        const [incomeCarry, expenseCarry] = await Promise.all([
-            fetchHistoryByKey({
-                table: "monthly_incomes",
-                keyField: "income_source_id",
-                keys: sourcesNeedingCarry.map((s: any) => s.id),
-                householdId: household.id,
-                beforeMonth: currentMonth,
-                decrypt: decryptRefs.current.decryptMonthlyIncomes,
-            }),
-            fetchHistoryByKey({
-                table: "monthly_expenses",
-                keyField: "expense_id",
-                keys: expensesNeedingCarry.map((c: any) => c.id),
-                householdId: household.id,
-                beforeMonth: currentMonth,
-                decrypt: decryptRefs.current.decryptMonthlyExpenses,
-            }),
-        ]);
-
         const resolveAmount = (
             existing: any | undefined,
-            history: any[] | undefined,
             staticDefault: any
         ): number => {
             if (existing) {
-                const v = existing.actual_amount ?? existing.budget_amount ?? existing.amount ?? 0;
+                const v = existing.actual_amount ?? existing.budget_snapshot ?? 0;
                 return parseFloat(v.toString());
             }
-            const smart = computeSmartDefault(history ?? []);
-            if (smart.source != null) return smart.value;
             return parseFloat((staticDefault || "0").toString());
         };
 
         const incomeItems: IncomeItem[] = decryptedSources.map((source: any) => {
             const monthlyRecord = decryptedMonthlyIncomes.find((m: any) => m.income_source_id === source.id);
-            const amount = resolveAmount(monthlyRecord, incomeCarry.get(source.id), source.default_amount);
+            const amount = resolveAmount(monthlyRecord, source.budget);
             return {
                 id: monthlyRecord?.id || `new-${source.id}`,
                 name: source.name || source.provider,
                 amount,
-                defaultAmount: source.default_amount ?? 0,
+                budget: source.budget ?? 0,
                 source_id: source.id,
                 owner_id: source.owner_id,
                 isMine: source.owner_id === user.id,
@@ -222,12 +189,12 @@ export const MonthlyReviewWizard = ({
 
         const expenseItems: ExpenseItem[] = decryptedCategories.map((category: any) => {
             const monthlyRecord = decryptedMonthlyExpenses.find((m: any) => m.expense_id === category.id);
-            const amount = resolveAmount(monthlyRecord, expenseCarry.get(category.id), category.default_amount);
+            const amount = resolveAmount(monthlyRecord, category.budget);
             return {
                 id: monthlyRecord?.id || `new-${category.id}`,
                 name: category.name,
                 amount,
-                defaultAmount: category.default_amount ?? 0,
+                budget: category.budget ?? 0,
                 category: category.category,
                 expense_id: category.id,
             };
@@ -520,7 +487,7 @@ export const MonthlyReviewWizard = ({
                                             currency={currency}
                                             disabled={!editable}
                                             status={
-                                                Math.abs(parseFloat(amounts[`income-${item.source_id}`] || "0") - item.defaultAmount) < 0.01
+                                                Math.abs(parseFloat(amounts[`income-${item.source_id}`] || "0") - item.budget) < 0.01
                                                     ? "saved"
                                                     : "modified"
                                             }
@@ -551,7 +518,7 @@ export const MonthlyReviewWizard = ({
                                         currency={currency}
                                         disabled={isFinalized}
                                         status={
-                                            Math.abs(parseFloat(amounts[`expense-${item.expense_id}`] || "0") - item.defaultAmount) < 0.01
+                                            Math.abs(parseFloat(amounts[`expense-${item.expense_id}`] || "0") - item.budget) < 0.01
                                                 ? "saved"
                                                 : "modified"
                                         }

@@ -26,7 +26,7 @@ interface InitialValues {
     name?: string;
     provider?: string | null;
     category?: string;
-    total_amount?: number | string;
+    budget?: number | string;
     billing_cycle?: string;
     billing_month?: number | string | null;
     billing_day?: number | string | null;
@@ -53,7 +53,7 @@ const blank = (): InitialValues => ({
     name: "",
     provider: "",
     category: "home",
-    total_amount: "",
+    budget: "",
     billing_cycle: "yearly",
     billing_month: "",
     billing_day: "",
@@ -92,8 +92,8 @@ export const InsuranceForm = ({
 
     const isEditing = !!editingId;
     const isRecurringNonMonthly = formData.billing_cycle && formData.billing_cycle !== "monthly";
-    const canSave = !!String(formData.total_amount ?? "").trim()
-        && (parseFloat(String(formData.total_amount)) || 0) > 0;
+    const canSave = !!String(formData.budget ?? "").trim()
+        && (parseFloat(String(formData.budget)) || 0) > 0;
 
     const usedCategorySet = useUsedCategoryValues("insurances", householdId);
     const usedTypes = insuranceTypes.filter(t => usedCategorySet.has(t.value) || t.value === formData.category);
@@ -109,7 +109,7 @@ export const InsuranceForm = ({
                 name: formData.name?.trim() ?? "",
                 provider: formData.provider || null,
                 category: formData.category ?? "home",
-                total_amount: parseFloat(String(formData.total_amount ?? 0)),
+                budget: parseFloat(String(formData.budget ?? 0)),
                 billing_cycle: formData.billing_cycle ?? "yearly",
                 billing_month: formData.billing_month && String(formData.billing_month) !== "0" && String(formData.billing_month) !== ""
                     ? parseInt(String(formData.billing_month))
@@ -201,8 +201,8 @@ export const InsuranceForm = ({
                 <FormField label="Total amount">
                     <Input
                         type="number"
-                        value={String(formData.total_amount ?? "")}
-                        onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
+                        value={String(formData.budget ?? "")}
+                        onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                         placeholder="0"
                     />
                 </FormField>

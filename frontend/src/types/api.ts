@@ -1,9 +1,5 @@
 // API Types for Backend Integration
 
-// Smart Defaults — see services/smartDefaults.ts. The legacy backend-served
-// IncomeSuggestion / ExpenseSuggestion types were removed when defaults moved
-// fully client-side (encrypted records can't be aggregated server-side).
-
 // Tax Calculations
 export interface IncomeForTax {
     gross_monthly: number;

@@ -121,7 +121,7 @@ export const ParsedTransactionsReview = ({
                         household_id: householdId,
                         category,
                         name: expenseName,
-                        default_amount: 0,
+                        budget: 0,
                         created_by: user.id,
                         is_active: true,
                         is_credit: true,

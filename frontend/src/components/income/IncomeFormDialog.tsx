@@ -41,7 +41,7 @@ interface InitialValues {
     name?: string;
     provider?: string;
     owner_id?: string;
-    default_amount?: number | string;
+    budget?: number | string;
     is_shared?: boolean;
     co_parent_id?: string | null;
     share_percentage?: number | string | null;
@@ -66,7 +66,7 @@ const blankForm = (defaultOwnerId: string): InitialValues => ({
     category: "salary",
     name: "",
     provider: "",
-    default_amount: "0",
+    budget: "0",
     owner_id: defaultOwnerId,
     is_shared: false,
     co_parent_id: "",
@@ -100,19 +100,19 @@ export const IncomeFormDialog = ({
     }, [open, initialValues, defaultOwnerId]);
 
     const editingId = mode === "edit" ? initialValues?.id : undefined;
-    const canSave = !!form.provider?.trim() && parseFloat(String(form.default_amount ?? 0)) >= 0 && !!form.owner_id;
+    const canSave = !!form.provider?.trim() && parseFloat(String(form.budget ?? 0)) >= 0 && !!form.owner_id;
 
     const entityForm = useEntityForm({
         entityName: "Income source",
         isEdit: mode === "edit",
         save: async () => {
-            const numericAmount = parseFloat(String(form.default_amount ?? 0));
+            const numericAmount = parseFloat(String(form.budget ?? 0));
             const baseData = {
                 household_id: householdId,
                 category: form.category,
                 provider: form.provider?.trim() ?? "",
                 name: form.name?.trim() || null,
-                default_amount: numericAmount,
+                budget: numericAmount,
                 owner_id: form.owner_id ?? "",
                 is_shared: !!form.is_shared,
                 co_parent_id: form.is_shared ? (form.co_parent_id || null) : null,
@@ -149,7 +149,7 @@ export const IncomeFormDialog = ({
                     month,
                     month_start: format(start, "yyyy-MM-dd"),
                     month_end: format(end, "yyyy-MM-dd"),
-                    budget_amount: numericAmount,
+                    budget_snapshot: numericAmount,
                     created_by: form.owner_id ?? "",
                 });
                 await supabase
@@ -247,8 +247,8 @@ export const IncomeFormDialog = ({
                             <Input
                                 type="number"
                                 inputMode="numeric"
-                                value={String(form.default_amount ?? "")}
-                                onChange={(e) => setForm({ ...form, default_amount: e.target.value })}
+                                value={String(form.budget ?? "")}
+                                onChange={(e) => setForm({ ...form, budget: e.target.value })}
                                 placeholder="0"
                             />
                         </FormField>
@@ -281,7 +281,7 @@ export const IncomeFormDialog = ({
                     )}
 
                     {(() => {
-                        const net = parseFloat(String(form.default_amount ?? 0)) || 0;
+                        const net = parseFloat(String(form.budget ?? 0)) || 0;
                         if (net <= 0 || form.tax_type === "no_tax" || !form.tax_type) return null;
                         const customRate = form.custom_tax_rate
                             ? parseFloat(String(form.custom_tax_rate)) || 0

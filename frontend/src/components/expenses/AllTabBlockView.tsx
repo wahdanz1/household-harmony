@@ -18,7 +18,7 @@ interface ExpenseItem {
     name: string;
     /** The editable/budget amount for the month. */
     amount: number;
-    defaultAmount?: number;
+    budget?: number;
     /** Realised amount from a credit-card invoice. When set and ≠ amount, a variance badge is shown. */
     actualAmount?: number;
     category?: string;
@@ -190,7 +190,7 @@ export const ExpenseBlock = ({
                             : 'text-ink';
 
                         const inputStatus =
-                            item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
+                            item.budget !== undefined && Math.abs(item.amount - item.budget) < 0.01
                                 ? 'saved'
                                 : 'modified';
 
@@ -293,8 +293,8 @@ export const ExpenseBlock = ({
 
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean; subject?: { name: string; type: string }; inactive?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; billing_cycle: string; category?: string; subject?: { name: string; type: string }; inactive?: boolean }[];
+    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; budget?: number; isDue?: boolean; subject?: { name: string; type: string }; inactive?: boolean }[];
+    insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; subject?: { name: string; type: string }; inactive?: boolean }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
@@ -340,7 +340,7 @@ export const AllTabBlockView = ({
             'monthly': '/month',
         };
         const displayLabel = cycleLabels[sub.billing_cycle] || '/month';
-        const actualAmount = sub.total_amount ?? sub.amount; // Use total_amount if available
+        const actualAmount = sub.budget ?? sub.amount; // Use budget if available
 
         // Get category info for icon
         const catInfo = subscriptionCategories.find(c => c.value === sub.category);
@@ -373,7 +373,7 @@ export const AllTabBlockView = ({
             name: ins.name,
             amount: ins.monthly_cost ?? 0,
             category: ins.category,
-            displayAmount: ins.total_amount,
+            displayAmount: ins.budget,
             displayLabel,
             subject: ins.subject,
             inactive: ins.inactive,

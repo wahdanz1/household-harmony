@@ -145,7 +145,7 @@ const Overview = () => {
           supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
           supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
           supabase.from("subscriptions").select("encrypted_amount, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id).eq("is_active", true),
-          supabase.from("insurances").select("encrypted_total_amount, billing_cycle, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true),
+          supabase.from("insurances").select("encrypted_budget, billing_cycle, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true),
           supabase.from("shared_expenses").select("id, encrypted_amount, encrypted_description, paid_by, is_encrypted, created_at").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr).order("created_at", { ascending: false }),
         ]);
       } catch (err) {
@@ -200,7 +200,7 @@ const Overview = () => {
       const uniqueExpenses = deduplicateItems(decryptedExpenses, "expense_id");
 
       const pickAmount = (item: any): number =>
-        parseFloat(item.actual_amount ?? item.budget_amount ?? item.amount) || 0;
+        parseFloat(item.actual_amount ?? item.budget_snapshot) || 0;
 
       const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + pickAmount(item), 0);
       const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + pickAmount(item), 0);
@@ -228,7 +228,7 @@ const Overview = () => {
       let insuranceMonthly = 0;
       let insuranceYearly = 0;
       decryptedInsurances.forEach((ins: any) => {
-        const totalAmount = parseFloat(ins.total_amount || "0");
+        const totalAmount = parseFloat(ins.budget || "0");
         let monthlyAmount = 0;
         let yearlyAmount = 0;
         if (ins.billing_cycle === "yearly") {

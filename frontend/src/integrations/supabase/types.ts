@@ -188,7 +188,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           credit_card_id: string | null
-          encrypted_default_amount: string | null
+          encrypted_budget: string | null
           encrypted_name: string | null
           household_id: string
           icon: string | null
@@ -206,7 +206,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit_card_id?: string | null
-          encrypted_default_amount?: string | null
+          encrypted_budget?: string | null
           encrypted_name?: string | null
           household_id: string
           icon?: string | null
@@ -224,7 +224,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit_card_id?: string | null
-          encrypted_default_amount?: string | null
+          encrypted_budget?: string | null
           encrypted_name?: string | null
           household_id?: string
           icon?: string | null
@@ -420,7 +420,7 @@ export type Database = {
           co_parent_id: string | null
           created_at: string
           custom_tax_rate: number | null
-          encrypted_default_amount: string | null
+          encrypted_budget: string | null
           encrypted_name: string | null
           encrypted_provider: string | null
           household_id: string
@@ -438,7 +438,7 @@ export type Database = {
           co_parent_id?: string | null
           created_at?: string
           custom_tax_rate?: number | null
-          encrypted_default_amount?: string | null
+          encrypted_budget?: string | null
           encrypted_name?: string | null
           encrypted_provider?: string | null
           household_id: string
@@ -456,7 +456,7 @@ export type Database = {
           co_parent_id?: string | null
           created_at?: string
           custom_tax_rate?: number | null
-          encrypted_default_amount?: string | null
+          encrypted_budget?: string | null
           encrypted_name?: string | null
           encrypted_provider?: string | null
           household_id?: string
@@ -504,7 +504,7 @@ export type Database = {
           created_by: string
           encrypted_name: string | null
           encrypted_provider: string | null
-          encrypted_total_amount: string | null
+          encrypted_budget: string | null
           household_id: string
           id: string
           is_active: boolean
@@ -525,7 +525,7 @@ export type Database = {
           created_by: string
           encrypted_name?: string | null
           encrypted_provider?: string | null
-          encrypted_total_amount?: string | null
+          encrypted_budget?: string | null
           household_id: string
           id?: string
           is_active?: boolean
@@ -546,7 +546,7 @@ export type Database = {
           created_by?: string
           encrypted_name?: string | null
           encrypted_provider?: string | null
-          encrypted_total_amount?: string | null
+          encrypted_budget?: string | null
           household_id?: string
           id?: string
           is_active?: boolean
@@ -639,7 +639,7 @@ export type Database = {
           electricity_grid: number | null
           electricity_market: number | null
           encrypted_actual_amount: string | null
-          encrypted_budget_amount: string | null
+          encrypted_budget_snapshot: string | null
           expense_id: string | null
           household_id: string
           id: string
@@ -658,7 +658,7 @@ export type Database = {
           electricity_grid?: number | null
           electricity_market?: number | null
           encrypted_actual_amount?: string | null
-          encrypted_budget_amount?: string | null
+          encrypted_budget_snapshot?: string | null
           expense_id?: string | null
           household_id: string
           id?: string
@@ -677,7 +677,7 @@ export type Database = {
           electricity_grid?: number | null
           electricity_market?: number | null
           encrypted_actual_amount?: string | null
-          encrypted_budget_amount?: string | null
+          encrypted_budget_snapshot?: string | null
           expense_id?: string | null
           household_id?: string
           id?: string
@@ -713,7 +713,7 @@ export type Database = {
           created_at: string
           created_by: string
           encrypted_actual_amount: string | null
-          encrypted_budget_amount: string | null
+          encrypted_budget_snapshot: string | null
           household_id: string
           id: string
           income_source_id: string | null
@@ -733,7 +733,7 @@ export type Database = {
           created_at?: string
           created_by: string
           encrypted_actual_amount?: string | null
-          encrypted_budget_amount?: string | null
+          encrypted_budget_snapshot?: string | null
           household_id: string
           id?: string
           income_source_id?: string | null
@@ -753,7 +753,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           encrypted_actual_amount?: string | null
-          encrypted_budget_amount?: string | null
+          encrypted_budget_snapshot?: string | null
           household_id?: string
           id?: string
           income_source_id?: string | null
