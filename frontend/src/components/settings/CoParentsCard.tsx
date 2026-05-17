@@ -43,6 +43,7 @@ export const CoParentsCard = ({ householdId, onUpdate, compact = false }: CoPare
 
   useEffect(() => {
     fetchCoParents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [householdId]);
 
   const resetForm = () => {

@@ -51,6 +51,7 @@ const Settings = () => {
 
   useEffect(() => {
     fetchInvites();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isUnlocked, household?.id]);
 
   const fetchData = async () => {

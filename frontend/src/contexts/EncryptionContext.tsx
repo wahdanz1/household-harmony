@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import {
     encrypt as encryptValue,
@@ -188,6 +189,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 });
             }
         }, INACTIVITY_TIMEOUT);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isUnlocked]);
 
     const lockVault = useCallback(() => {

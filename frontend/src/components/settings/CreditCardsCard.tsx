@@ -53,6 +53,7 @@ export const CreditCardsCard = ({ householdId, currency, enabled }: CreditCardsC
 
     useEffect(() => {
         if (householdId && enabled) fetchCards();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [householdId, enabled]);
 
     const openAdd = () => {

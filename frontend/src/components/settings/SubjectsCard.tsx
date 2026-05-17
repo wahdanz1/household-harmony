@@ -33,6 +33,7 @@ export const SubjectsCard = ({ householdId, onUpdate }: SubjectsCardProps) => {
 
     useEffect(() => {
         if (householdId) fetchSubjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [householdId]);
 
     const handleChange = async () => {

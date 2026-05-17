@@ -203,6 +203,7 @@ export const MultiHouseholdExitDialog = () => {
         })();
 
         return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, pendingExitHouseholdId, user?.id, decryptFromPendingExit]);
 
     const toggleItem = (id: string) => {

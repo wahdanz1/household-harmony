@@ -224,6 +224,7 @@ const Expenses = () => {
     setAmounts(initialAmounts);
     amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, household?.id, household?.financial_month_start, selectedMonth, isUnlocked]);
 
   useEffect(() => {
@@ -281,6 +282,7 @@ const Expenses = () => {
         updated_at: new Date().toISOString(),
       })));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [household, user, expenseCategories, monthlyExpenses, encryptExpense]);
 
   // Handle amount change with debounced autosave

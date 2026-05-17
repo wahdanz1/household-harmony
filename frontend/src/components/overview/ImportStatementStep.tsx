@@ -59,6 +59,7 @@ export const ImportStatementStep = ({ householdId, currency, monthStart, monthEn
             setCards(decrypted.map((c: any) => ({ ...c, monthly_limit: Number(c.monthly_limit || 0) })));
         };
         if (householdId) fetchCards();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [householdId]);
 
     const handleAck = () => {

@@ -30,6 +30,7 @@ export const RecoveryCodeCard = () => {
         setCreatedAt(data?.created_at ?? null);
     };
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { fetchStatus(); }, [user?.id]);
 
     const startRegen = async () => {

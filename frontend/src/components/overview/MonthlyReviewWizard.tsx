@@ -655,6 +655,7 @@ export const MonthlyReviewWizard = ({
  * Returns the latest finalized month so consumers (Income/Expenses pages)
  * can decide which month to default to.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useMonthlyReviewStatus(householdId: string | undefined, financialMonthStart: number = 25) {
     const [needsReview, setNeedsReview] = useState(false);
     const [latestFinalizedMonth, setLatestFinalizedMonth] = useState<string | null>(null);

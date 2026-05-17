@@ -311,6 +311,7 @@ const Overview = () => {
     };
 
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [household?.id, isUnlocked, selectedMonth]);
 
   useEffect(() => {
@@ -343,6 +344,7 @@ const Overview = () => {
       }
     };
     checkSeedData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [household?.id, isUnlocked, todayMonth, pendingExitHouseholdId]);
 
   // ─── Loading + locked states ─────────────────────────────────

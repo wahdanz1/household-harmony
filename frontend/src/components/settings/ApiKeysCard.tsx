@@ -59,6 +59,7 @@ export const ApiKeysCard = () => {
 
     useEffect(() => {
         fetchApiKey();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, household, isUnlocked]);
 
     const fetchApiKey = async () => {

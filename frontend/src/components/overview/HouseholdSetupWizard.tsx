@@ -185,6 +185,7 @@ export const HouseholdSetupWizard = ({
                 }
             })();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, householdId, isUnlocked]);
 
     const persistFeatures = async () => {

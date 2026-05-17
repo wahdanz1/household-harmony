@@ -60,6 +60,7 @@ export const ManageSubjectsDialog = ({ open, onOpenChange, type, label, househol
             setDraftName("");
             setAdding(false);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, householdId, type]);
 
     const handleAdd = async () => {

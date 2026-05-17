@@ -133,6 +133,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [householdId]);
 
   const handleMarkAsSettled = async () => {

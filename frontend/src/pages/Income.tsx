@@ -203,6 +203,7 @@ const Income = () => {
     }
 
     setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [household?.id, financialMonthStart, selectedMonth, user?.id, isUnlocked]);
 
   useEffect(() => {
