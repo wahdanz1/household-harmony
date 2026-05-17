@@ -170,7 +170,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
         month_str = month_start.strftime("%Y-%m")
         month_date = month_start.isoformat()  # Proper date format for database
         
-        # Create monthly_incomes records for Dashboard
+        # Create monthly_incomes records for Overview
         monthly_incomes = []
         for source in income_sources_result.data:
             monthly_incomes.append({
@@ -188,7 +188,7 @@ async def seed_demo_household(user_id: str, dek: bytes) -> str:
             supabase.table("monthly_incomes").insert(monthly_incomes).execute()
             logger.info(f"Created {len(monthly_incomes)} monthly_incomes records")
         
-        # Create monthly_expenses records for Dashboard
+        # Create monthly_expenses records for Overview
         monthly_expenses = []
         for expense in expenses_result.data:
             monthly_expenses.append({

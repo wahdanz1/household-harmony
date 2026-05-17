@@ -184,7 +184,7 @@ Each will get pattern-aligned when it's touched for other reasons. Don't pre-ref
 
 ---
 
-## 7 · Forecast page
+## 7 · Plan page
 
 ⚪ Not in live. Not in design system bundle (mentioned in nav icons table as `LineChart`, but no screen mock). Out of scope for this rollout.
 
