@@ -336,6 +336,17 @@ export const HouseholdSetupWizard = ({
         return editingItem;
     }, [editingItem]);
 
+    /** Blur the currently-focused element before opening a child dialog —
+     *  prevents the "aria-hidden on focused ancestor" warning that Radix
+     *  triggers when the wizard's DialogContent gets aria-hidden while its
+     *  descendant (e.g. the "Add another" button) is still focused. */
+    const blurAndOpen = (fn: () => void) => {
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+        fn();
+    };
+
     const isFeatureStep = step.key === "features";
     const isReviewStep = step.key === "review";
     const sectionKey = (!isFeatureStep && !isReviewStep) ? (step.key as SectionKey) : null;
@@ -349,7 +360,7 @@ export const HouseholdSetupWizard = ({
             <RowItem
                 key={it.id}
                 last={last}
-                onClick={() => setEditingItem({ stepKey: sk, data: it })}
+                onClick={() => blurAndOpen(() => setEditingItem({ stepKey: sk, data: it }))}
             >
                 <CatIcon icon={icon} hue={hue} size={32} />
                 <span className="flex-1 font-medium text-sm sm:text-base truncate">
@@ -452,7 +463,7 @@ export const HouseholdSetupWizard = ({
                         <Button
                             variant="outline"
                             className="w-full"
-                            onClick={() => setAddOpen(true)}
+                            onClick={() => blurAndOpen(() => setAddOpen(true))}
                         >
                             <Plus className="h-4 w-4 mr-2" />
                             {hasAny ? `Add another ${step.title.slice(0, -1).toLowerCase()}` : `Add ${step.title.slice(0, -1).toLowerCase()}`}
