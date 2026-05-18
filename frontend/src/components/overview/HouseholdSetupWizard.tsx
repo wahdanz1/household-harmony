@@ -466,20 +466,20 @@ export const HouseholdSetupWizard = ({
                                     <div className="px-4 py-3.5 flex items-center gap-3">
                                         <CatIcon icon={CreditCard} hue={50} size={36} />
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[14.5px] font-medium text-ink -tracking-[0.01em]">Credit cards</p>
-                                            <p className="text-[12.5px] text-muted mt-0.5">Track purchases and per-card limits.</p>
+                                            <p className="text-[14.5px] font-medium text-ink -tracking-[0.01em] leading-tight">Credit cards</p>
+                                            <p className="text-[12.5px] text-muted leading-tight mt-1">Track purchases and per-card limits.</p>
                                         </div>
                                         <Switch
                                             checked={featureState.credit_cards}
                                             onCheckedChange={(v) => setFeatureState((s) => ({ ...s, credit_cards: v }))}
                                         />
                                     </div>
-                                    <div className="h-px bg-line-2 mx-4" />
+                                    <div className="h-px bg-line-2" />
                                     <div className="px-4 py-3.5 flex items-center gap-3">
                                         <CatIcon icon={Users} hue={320} size={36} />
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-[14.5px] font-medium text-ink -tracking-[0.01em]">Shared with co-parent</p>
-                                            <p className="text-[12.5px] text-muted mt-0.5">Split selected expenses with another member.</p>
+                                            <p className="text-[14.5px] font-medium text-ink -tracking-[0.01em] leading-tight">Shared with co-parent</p>
+                                            <p className="text-[12.5px] text-muted leading-tight mt-1">Split selected expenses with another member.</p>
                                         </div>
                                         <Switch
                                             checked={featureState.shared_expenses}
