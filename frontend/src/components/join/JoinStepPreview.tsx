@@ -32,7 +32,7 @@ export const JoinStepPreview = ({ householdName, members, onBack, onContinue }: 
                 <h4 className="text-sm mb-3">Current Members ({members.length})</h4>
                 <div className="space-y-2">
                     {members.map((member) => (
-                        <div key={member.id} className="flex items-center gap-3 p-2 rounded-lg border">
+                        <div key={member.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border">
                             <Avatar className="h-8 w-8">
                                 <AvatarImage src={member.profiles?.avatar_url ?? undefined} />
                                 <AvatarFallback>
