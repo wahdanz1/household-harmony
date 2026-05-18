@@ -14,18 +14,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField, FormRow } from "@/components/shared/FormField";
 import { useEntityForm } from "@/hooks/useEntityForm";
-
-const subscriptionCategories = [
-    { value: "streaming", label: "Streaming" },
-    { value: "software", label: "Software & Apps" },
-    { value: "music", label: "Music" },
-    { value: "gaming", label: "Gaming" },
-    { value: "gym", label: "Gym & Fitness" },
-    { value: "news", label: "News & Media" },
-    { value: "storage", label: "Cloud Storage" },
-    { value: "education", label: "Education & Learning" },
-    { value: "other", label: "Other" },
-];
+import { subscriptionCategories } from "@/constants/subscriptionCategories";
 
 interface InitialValues {
     id?: string;

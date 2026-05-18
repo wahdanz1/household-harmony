@@ -15,6 +15,7 @@ import {
     TrendingUp, Home, Repeat, Shield, ToggleRight, CreditCard, Users,
 } from "lucide-react";
 import { StepIndicator, type StepIndicatorStep } from "@/components/ui/step-indicator";
+import { insuranceTypes } from "@/constants/insuranceTypes";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -349,6 +350,12 @@ export const HouseholdSetupWizard = ({
 function itemLabel(stepKey: Exclude<StepKey, "features">, item: any): string {
     if (stepKey === "income") return item.provider || item.name || "Untitled";
     if (stepKey === "subscription") return item.service || item.name || "Untitled";
+    if (stepKey === "insurance") {
+        if (item.name) return item.name;
+        const typeLabel = insuranceTypes.find((t) => t.value === item.category)?.label;
+        if (item.provider && typeLabel) return `${item.provider} — ${typeLabel}`;
+        return item.provider || typeLabel || "Untitled";
+    }
     return item.name || "Untitled";
 }
 
@@ -422,7 +429,6 @@ const AddItemDialog = ({
             mode="add"
             householdId={householdId}
             financialMonthStart={financialMonthStart}
-            categoryAllowlist={["rent", "internet", "phone_plan", "electricity", "healthcare", "other"]}
             showCreditToggle={false}
             onSuccess={onAdded}
         />
