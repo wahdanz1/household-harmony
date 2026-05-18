@@ -460,12 +460,6 @@ export const HouseholdSetupWizard = ({
                     )}
                 </div>
 
-                <StepIndicator
-                    steps={STEPS.map((s): StepIndicatorStep => ({ label: s.title }))}
-                    current={stepIdx}
-                    className="pt-2"
-                />
-
                 <DialogFooter className="flex-row justify-between sm:justify-between">
                     <Button
                         variant="ghost"
