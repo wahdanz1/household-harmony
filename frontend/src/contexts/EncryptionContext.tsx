@@ -40,6 +40,11 @@ interface EncryptionContextValue {
     decryptFromPendingExit: (ciphertext: string) => Promise<string | null>;
     /** Drop the pending-exit DEK from memory (call after the exit dialog completes). */
     clearPendingExitDEK: () => void;
+
+    /** True while the first-run recovery-code modal is on screen. Other welcome flows
+     *  (HouseholdSetupWizard) gate themselves on this so they don't render on top. */
+    recoveryCodeDialogOpen: boolean;
+    setRecoveryCodeDialogOpen: (open: boolean) => void;
 }
 
 export interface PreparedRecoverySlot {
@@ -92,6 +97,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     const dekUserIdRef = useRef<string | null>(null);
     const pendingExitDekRef = useRef<CryptoKey | null>(null);
     const [pendingExitHouseholdId, setPendingExitHouseholdId] = useState<string | null>(null);
+    const [recoveryCodeDialogOpen, setRecoveryCodeDialogOpen] = useState(false);
     const [isUnlocked, setIsUnlocked] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -573,6 +579,8 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         pendingExitHouseholdId,
         decryptFromPendingExit,
         clearPendingExitDEK,
+        recoveryCodeDialogOpen,
+        setRecoveryCodeDialogOpen,
     };
 
     useEffect(() => {

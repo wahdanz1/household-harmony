@@ -11,9 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-    ArrowLeft, ArrowRight, Check, Plus, Sparkles,
+    ArrowLeft, ArrowRight, Check, Plus,
     TrendingUp, Home, Repeat, Shield, ToggleRight, CreditCard, Users,
 } from "lucide-react";
+import { StepIndicator, type StepIndicatorStep } from "@/components/ui/step-indicator";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -87,25 +88,25 @@ const STEPS: { key: StepKey; title: string; description: string; icon: any }[] =
     {
         key: "income",
         title: "Income sources",
-        description: "Salaries, CSN, government benefits — anything that comes in each month.",
+        description: "Salaries, benefits, and any other regular income coming in each month.",
         icon: TrendingUp,
     },
     {
         key: "expense",
         title: "Fixed expenses",
-        description: "Rent, electricity, internet, phone plans — recurring bills you pay yourself.",
+        description: "Recurring bills you pay yourself — rent, utilities, phone plans, anything monthly.",
         icon: Home,
     },
     {
         key: "subscription",
         title: "Subscriptions",
-        description: "Netflix, Spotify, software, gym — things billed monthly, quarterly, or yearly.",
+        description: "Streaming, software, gym, memberships — anything billed on a regular cycle.",
         icon: Repeat,
     },
     {
         key: "insurance",
         title: "Insurances",
-        description: "Home, car, health — usually billed yearly, auto-spread across the year.",
+        description: "Home, car, health, pet — usually billed yearly, auto-spread across the year.",
         icon: Shield,
     },
 ];
@@ -229,11 +230,12 @@ export const HouseholdSetupWizard = ({
                 onPointerDownOutside={(e) => e.preventDefault()}
                 onEscapeKeyDown={(e) => e.preventDefault()}
             >
+                <StepIndicator
+                    steps={STEPS.map((s): StepIndicatorStep => ({ label: s.title }))}
+                    current={stepIdx}
+                    className="pt-1 pb-2"
+                />
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-xs text-muted tracking-wide uppercase">
-                        <Sparkles className="h-3.5 w-3.5 text-warn" />
-                        Setup · Step {stepIdx + 1} of {STEPS.length}
-                    </div>
                     <DialogTitle className="flex items-center gap-2 mt-1">
                         <step.icon className="h-5 w-5 text-accent" />
                         {step.title}
