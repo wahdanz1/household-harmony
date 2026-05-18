@@ -4,8 +4,6 @@ import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
-    DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -17,6 +15,7 @@ import {
 import { isCategoryBudgeted } from "@/constants/expenseCategories";
 import { StepIndicator, type StepIndicatorStep } from "@/components/ui/step-indicator";
 import { CatIcon } from "@/components/ui/cat-icon";
+import { ServiceIcon } from "@/components/ui/service-icon";
 import { RowItem } from "@/components/ui/row-item";
 import { Money } from "@/components/ui/money";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -193,7 +192,10 @@ export const HouseholdSetupWizard = ({
         if (!open) return;
         const tick = () => resetInactivityTimer();
         tick();
-        const id = window.setInterval(tick, 60_000);
+        // Tick every 30s — well under the 30-min inactivity window so the
+        // vault never locks while the wizard's open, even if the user is
+        // typing inside a child form dialog (which doesn't itself ping).
+        const id = window.setInterval(tick, 30_000);
         return () => window.clearInterval(id);
     }, [open, resetInactivityTimer]);
     const [items, setItems] = useState<Record<Exclude<StepKey, "features">, any[]>>({
@@ -359,15 +361,16 @@ export const HouseholdSetupWizard = ({
         return editingItem;
     }, [editingItem]);
 
-    /** Blur the currently-focused element before opening a child dialog —
-     *  prevents the "aria-hidden on focused ancestor" warning that Radix
-     *  triggers when the wizard's DialogContent gets aria-hidden while its
-     *  descendant (e.g. the "Add another" button) is still focused. */
+    /** Blur the currently-focused element before opening a child dialog and
+     *  defer the actual open to the next tick. The defer is what lets the
+     *  blur settle in the DOM before Radix portals the child + applies
+     *  aria-hidden to the wizard — without it, the wizard's content can
+     *  still have a focused descendant at the moment the attribute lands. */
     const blurAndOpen = (fn: () => void) => {
         if (document.activeElement instanceof HTMLElement) {
             document.activeElement.blur();
         }
-        fn();
+        setTimeout(fn, 0);
     };
 
     const isWelcomeStep = step.key === "features";
@@ -411,7 +414,16 @@ export const HouseholdSetupWizard = ({
                 last={last}
                 onClick={() => blurAndOpen(() => setEditingItem({ stepKey: sk, data: it }))}
             >
-                <CatIcon icon={icon} hue={hue} size={36} />
+                {sk === "subscription" ? (
+                    <ServiceIcon
+                        serviceName={it.service || it.name}
+                        fallbackIcon={icon}
+                        fallbackHue={hue}
+                        size={36}
+                    />
+                ) : (
+                    <CatIcon icon={icon} hue={hue} size={36} />
+                )}
                 <span className="flex-1 font-medium text-[14.5px] text-ink -tracking-[0.01em] truncate">
                     {itemLabel(sk, it)}
                 </span>
@@ -430,6 +442,12 @@ export const HouseholdSetupWizard = ({
                 onPointerDownOutside={(e) => e.preventDefault()}
                 onEscapeKeyDown={(e) => e.preventDefault()}
             >
+                {/* a11y: Radix requires DialogTitle + Description as descendants of
+                    DialogContent. We render them visually-hidden — the visible h2 + p
+                    inside the content area carry the actual UI. */}
+                <DialogTitle className="sr-only">{step.title}</DialogTitle>
+                <DialogDescription className="sr-only">{step.description}</DialogDescription>
+
                 {/* Header strip: eyebrow on the left, X stays top-right (provided by DialogContent) */}
                 <div className="px-5 sm:px-[18px] pt-4 sm:pt-3.5">
                     <span className="text-[10.5px] font-semibold tracking-[0.08em] uppercase text-muted">
@@ -633,8 +651,9 @@ export const HouseholdSetupWizard = ({
                     members={members}
                     financialMonthStart={financialMonthStart}
                     onAdded={async () => {
+                        // Refetch only — don't close. The form dialog manages its own
+                        // close based on the "Create another" checkbox.
                         await fetchAll();
-                        setAddOpen(false);
                     }}
                 />
             )}
