@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { StepIndicator, type StepIndicatorStep } from "@/components/ui/step-indicator";
 import { CatIcon } from "@/components/ui/cat-icon";
+import { RowItem } from "@/components/ui/row-item";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { insuranceTypes } from "@/constants/insuranceTypes";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
@@ -334,14 +335,13 @@ export const HouseholdSetupWizard = ({
     const stepItems = sectionKey ? items[sectionKey] : [];
     const hasAny = stepItems.length > 0;
 
-    const renderRow = (sk: SectionKey, it: any) => {
+    const renderRow = (sk: SectionKey, it: any, last: boolean) => {
         const { icon, hue } = iconForItem(sk, it);
         return (
-            <button
+            <RowItem
                 key={it.id}
-                type="button"
+                last={last}
                 onClick={() => setEditingItem({ stepKey: sk, data: it })}
-                className="w-full flex items-center gap-3 p-3 rounded-lg border border-line hover:bg-surface-2 transition-colors text-left"
             >
                 <CatIcon icon={icon} hue={hue} size={32} />
                 <span className="flex-1 font-medium text-sm sm:text-base truncate">
@@ -350,7 +350,7 @@ export const HouseholdSetupWizard = ({
                 <span className="text-sm text-muted tabular-nums shrink-0">
                     {summariseAmount(sk, it)}
                 </span>
-            </button>
+            </RowItem>
         );
     };
 
@@ -421,9 +421,9 @@ export const HouseholdSetupWizard = ({
                                                 Nothing added.
                                             </Card>
                                         ) : (
-                                            <div className="space-y-1.5">
-                                                {list.map((it: any) => renderRow(k, it))}
-                                            </div>
+                                            <Card variant="flush">
+                                                {list.map((it: any, idx: number) => renderRow(k, it, idx === list.length - 1))}
+                                            </Card>
                                         )}
                                     </div>
                                 );
@@ -434,9 +434,9 @@ export const HouseholdSetupWizard = ({
                             Nothing added yet. You can add what you have or skip this step.
                         </Card>
                     ) : (
-                        <div className="space-y-1.5">
-                            {stepItems.map((it: any) => renderRow(sectionKey!, it))}
-                        </div>
+                        <Card variant="flush">
+                            {stepItems.map((it: any, idx: number) => renderRow(sectionKey!, it, idx === stepItems.length - 1))}
+                        </Card>
                     )}
 
                     {sectionKey && (
