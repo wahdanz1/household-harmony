@@ -17,6 +17,7 @@ import {
 import { StepIndicator, type StepIndicatorStep } from "@/components/ui/step-indicator";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { RowItem } from "@/components/ui/row-item";
+import { Money } from "@/components/ui/money";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { insuranceTypes } from "@/constants/insuranceTypes";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
@@ -337,6 +338,7 @@ export const HouseholdSetupWizard = ({
 
     const renderRow = (sk: SectionKey, it: any, last: boolean) => {
         const { icon, hue } = iconForItem(sk, it);
+        const summary = summariseAmount(sk, it);
         return (
             <RowItem
                 key={it.id}
@@ -347,8 +349,9 @@ export const HouseholdSetupWizard = ({
                 <span className="flex-1 font-medium text-sm sm:text-base truncate">
                     {itemLabel(sk, it)}
                 </span>
-                <span className="text-sm text-muted tabular-nums shrink-0">
-                    {summariseAmount(sk, it)}
+                <span className="flex items-baseline gap-1 shrink-0">
+                    <Money v={summary.amount} currency="SEK" size="base" weight={500} />
+                    {summary.suffix && <span className="text-xs text-muted">{summary.suffix}</span>}
                 </span>
             </RowItem>
         );
@@ -361,13 +364,8 @@ export const HouseholdSetupWizard = ({
                 onPointerDownOutside={(e) => e.preventDefault()}
                 onEscapeKeyDown={(e) => e.preventDefault()}
             >
-                <StepIndicator
-                    steps={STEPS.map((s): StepIndicatorStep => ({ label: s.title }))}
-                    current={stepIdx}
-                    className="pt-1 pb-2"
-                />
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 mt-1">
+                    <DialogTitle className="flex items-center gap-2">
                         <step.icon className="h-5 w-5 text-accent" />
                         {step.title}
                     </DialogTitle>
@@ -450,6 +448,12 @@ export const HouseholdSetupWizard = ({
                         </Button>
                     )}
                 </div>
+
+                <StepIndicator
+                    steps={STEPS.map((s): StepIndicatorStep => ({ label: s.title }))}
+                    current={stepIdx}
+                    className="pt-2"
+                />
 
                 <DialogFooter className="flex-row justify-between sm:justify-between">
                     <Button
@@ -585,16 +589,16 @@ function itemLabel(stepKey: Exclude<StepKey, "features">, item: any): string {
     return item.name || "Untitled";
 }
 
-function summariseAmount(stepKey: Exclude<StepKey, "features">, item: any): string {
+function summariseAmount(stepKey: Exclude<StepKey, "features">, item: any): { amount: number; suffix?: string } {
     const v = Number(item.budget ?? 0);
-    if (Number.isNaN(v)) return "";
+    const safe = Number.isNaN(v) ? 0 : v;
     if (stepKey === "subscription" && item.billing_cycle && item.billing_cycle !== "monthly") {
-        return `${Math.round(v)} kr / ${item.billing_cycle}`;
+        return { amount: safe, suffix: `/ ${item.billing_cycle}` };
     }
     if (stepKey === "insurance" && item.billing_cycle && item.billing_cycle !== "monthly") {
-        return `${Math.round(v)} kr / ${item.billing_cycle.replace("_", " ")}`;
+        return { amount: safe, suffix: `/ ${item.billing_cycle.replace("_", " ")}` };
     }
-    return `${Math.round(v)} kr`;
+    return { amount: safe };
 }
 
 // ---------------------------------------------------------------------------

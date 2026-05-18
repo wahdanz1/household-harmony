@@ -10,10 +10,13 @@ interface StepIndicatorProps {
     steps: StepIndicatorStep[];
     /** 0-indexed current step. Steps before this render as 'done', after as 'next'. */
     current: number;
+    /** Render the "Step N of M ·· X%" line below the nodes. Default off — the
+     *  step labels and visual progress already communicate this. */
+    showProgress?: boolean;
     className?: string;
 }
 
-export const StepIndicator = ({ steps, current, className }: StepIndicatorProps) => {
+export const StepIndicator = ({ steps, current, showProgress = false, className }: StepIndicatorProps) => {
     const total = steps.length;
     const safeCurrent = Math.max(0, Math.min(total - 1, current));
     const percent = Math.round((safeCurrent / total) * 100);
@@ -73,12 +76,14 @@ export const StepIndicator = ({ steps, current, className }: StepIndicatorProps)
                     );
                 })}
             </div>
-            <div className="mt-3 flex items-center justify-between text-xs">
-                <span className="text-muted tracking-wide uppercase">
-                    Step {safeCurrent + 1} of {total}
-                </span>
-                <span className="font-medium text-accent tabular-nums">{percent}%</span>
-            </div>
+            {showProgress && (
+                <div className="mt-3 flex items-center justify-between text-xs">
+                    <span className="text-muted tracking-wide uppercase">
+                        Step {safeCurrent + 1} of {total}
+                    </span>
+                    <span className="font-medium text-accent tabular-nums">{percent}%</span>
+                </div>
+            )}
         </div>
     );
 };
