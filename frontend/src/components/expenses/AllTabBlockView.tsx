@@ -293,7 +293,7 @@ export const ExpenseBlock = ({
 
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; budget?: number; isDue?: boolean; subject?: { name: string; type: string }; inactive?: boolean }[];
+    subscriptions: { id: string; name: string; budget: number; billing_cycle: string; category?: string; isDue?: boolean; subject?: { name: string; type: string }; inactive?: boolean }[];
     insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; subject?: { name: string; type: string }; inactive?: boolean }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
@@ -382,7 +382,7 @@ export const AllTabBlockView = ({
 
     // Calculate subscription metrics (actual yearly cost)
     const yearlySubscriptions = subscriptions.reduce((sum, s) => {
-        const amount = parseFloat(s.amount.toString());
+        const amount = parseFloat(s.budget.toString());
         // Each billing cycle contributes differently to yearly total
         if (s.billing_cycle === 'yearly') return sum + amount; // Pay once per year
         if (s.billing_cycle === 'quarterly') return sum + amount * 4; // Pay 4 times per year
