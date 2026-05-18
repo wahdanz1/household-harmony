@@ -327,6 +327,7 @@ const Auth = () => {
                 <Label htmlFor="password">Password</Label>
                 <button
                   type="button"
+                  tabIndex={-1}
                   onClick={() => setShowRecoverDialog(true)}
                   className="text-xs font-medium text-accent-dk hover:underline focus:outline-none focus-visible:underline"
                 >
