@@ -447,7 +447,7 @@ const Expenses = () => {
     </div>
   );
 
-  const hasAnyCategory = expenseCategories.length > 0;
+  const hasAnyCategory = expenseCategories.length > 0 || subscriptions.length > 0 || insurances.length > 0;
   const showCoparentTab = !!household?.enable_shared_expenses || coParents.length > 0;
   const showTabsList = showCoparentTab;
 
