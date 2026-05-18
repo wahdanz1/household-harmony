@@ -1,13 +1,10 @@
-import { DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Check, Users, ArrowRight, ArrowLeft } from "lucide-react";
+import { ArrowRight, ArrowLeft } from "lucide-react";
+import { HouseholdPreviewCard, type PreviewMember } from "@/components/shared/HouseholdPreviewCard";
 
-export interface PreviewMember {
-    id: string;
-    role: string;
-    profiles?: { full_name?: string | null; avatar_url?: string | null };
-}
+// Re-export so existing imports of PreviewMember from this module keep working.
+export type { PreviewMember };
 
 interface JoinStepPreviewProps {
     householdName: string;
@@ -18,39 +15,11 @@ interface JoinStepPreviewProps {
 
 export const JoinStepPreview = ({ householdName, members, onBack, onContinue }: JoinStepPreviewProps) => (
     <>
-        <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                {householdName}
-            </DialogTitle>
-            <DialogDescription>
-                You're about to join this household
-            </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-            <div>
-                <h4 className="text-sm mb-3">Current Members ({members.length})</h4>
-                <div className="space-y-2">
-                    {members.map((member) => (
-                        <div key={member.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border">
-                            <Avatar className="h-8 w-8">
-                                <AvatarImage src={member.profiles?.avatar_url ?? undefined} />
-                                <AvatarFallback>
-                                    {member.profiles?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "?"}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                                <p className="font-medium">{member.profiles?.full_name || "Unknown"}</p>
-                                <p className="text-xs text-muted capitalize">{member.role}</p>
-                            </div>
-                            {member.role === "owner" && (
-                                <Check className="h-4 w-4 text-accent" />
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
+        <HouseholdPreviewCard
+            householdName={householdName}
+            members={members}
+            description="You're about to join this household"
+        />
         <DialogFooter>
             <Button variant="outline" onClick={onBack}>
                 <ArrowLeft className="mr-2 h-4 w-4" />

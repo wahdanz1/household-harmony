@@ -3,14 +3,14 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
 import { unlockVault } from "@/services/encryption";
-import { Check, Users, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { HouseholdPreviewCard } from "@/components/shared/HouseholdPreviewCard";
 
 interface JoinExistingUserDialogProps {
     open: boolean;
@@ -264,35 +264,11 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
 
                 {step === 2 && household && (
                     <>
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                                <Users className="h-5 w-5" />
-                                {household.name}
-                            </DialogTitle>
-                            <DialogDescription>Review the household before switching.</DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div>
-                                <h4 className="text-sm mb-3">Current Members ({members.length})</h4>
-                                <div className="space-y-2">
-                                    {members.map((member) => (
-                                        <div key={member.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border">
-                                            <Avatar className="h-8 w-8">
-                                                <AvatarImage src={member.profiles?.avatar_url ?? undefined} />
-                                                <AvatarFallback>
-                                                    {member.profiles?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "?"}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="flex-1">
-                                                <p className="font-medium">{member.profiles?.full_name || "Unknown"}</p>
-                                                <p className="text-xs text-muted capitalize">{member.role}</p>
-                                            </div>
-                                            {member.role === "owner" && <Check className="h-4 w-4 text-accent" />}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
+                        <HouseholdPreviewCard
+                            householdName={household.name}
+                            members={members}
+                            description="Review the household before switching."
+                        />
                         <DialogFooter>
                             <Button variant="outline" onClick={() => setStep(1)} disabled={loading}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
