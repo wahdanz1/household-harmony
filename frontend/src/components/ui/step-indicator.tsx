@@ -52,7 +52,7 @@ export const StepIndicator = ({ steps, current, showProgress = false, onJump, cl
                                     disabled={!clickable}
                                     aria-current={isCurrent ? "step" : undefined}
                                     className={cn(
-                                        "flex items-center justify-center h-[26px] w-[26px] rounded-full shrink-0 font-mono tabular-nums text-[12px] font-semibold leading-none transition-all duration-150",
+                                        "flex items-center justify-center h-[26px] w-[26px] rounded-full shrink-0 text-[12px] font-semibold leading-none transition-all duration-150",
                                         isDone && "bg-accent text-accent-ink border border-line",
                                         isCurrent && "bg-surface text-accent-dk border-2 border-accent",
                                         isNext && !isOptional && "bg-surface text-muted border border-line",
@@ -60,11 +60,7 @@ export const StepIndicator = ({ steps, current, showProgress = false, onJump, cl
                                         clickable ? "cursor-pointer" : "cursor-default",
                                     )}
                                 >
-                                    {isDone ? (
-                                        <Check className="h-3.5 w-3.5" strokeWidth={2.6} />
-                                    ) : (
-                                        <span className="block translate-y-[0.5px]">{i + 1}</span>
-                                    )}
+                                    {isDone ? <Check className="h-3.5 w-3.5" strokeWidth={2.6} /> : i + 1}
                                 </button>
                                 <div
                                     className={cn(
