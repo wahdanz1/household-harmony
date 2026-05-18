@@ -32,7 +32,20 @@ interface MonthlyReviewWizardProps {
     onComplete: () => void;
 }
 
-interface IncomeItem {
+interface AuditFields {
+    /** Decrypted previous budget snapshot, if mid-month change recorded. */
+    previousBudgetSnapshot?: number;
+    /** ISO timestamp when source.budget was last edited mid-month. */
+    budgetChangedAt?: string;
+    /** ISO timestamp when actual_amount was filled outside Review. */
+    actualRecordedAt?: string;
+    /** Decrypted actual amount, when present. */
+    actualAmount?: number;
+    /** ISO timestamp when source was inactivated mid-month. */
+    inactivatedAt?: string;
+}
+
+interface IncomeItem extends AuditFields {
     id: string;
     name: string;
     amount: number;
@@ -42,7 +55,7 @@ interface IncomeItem {
     isMine: boolean;
 }
 
-interface ExpenseItem {
+interface ExpenseItem extends AuditFields {
     id: string;
     name: string;
     amount: number;
@@ -92,6 +105,81 @@ export const MonthlyReviewWizard = ({
         });
     };
 
+    const handleRevertBudget = async (item: IncomeItem | ExpenseItem, kind: "income" | "expense") => {
+        if (item.previousBudgetSnapshot == null) return;
+        const isIncome = kind === "income";
+        const encrypted = (isIncome
+            ? await encryptIncomeSource({ budget: item.previousBudgetSnapshot })
+            : await encryptExpenseSource({ budget: item.previousBudgetSnapshot })) as { encrypted_budget: string | null };
+        const sourceId = isIncome ? (item as IncomeItem).source_id : (item as ExpenseItem).expense_id;
+        // Update source — the trigger fires and rolls the snapshot back too.
+        if (isIncome) {
+            await supabase.from("income_sources")
+                .update({ encrypted_budget: encrypted.encrypted_budget })
+                .eq("id", sourceId);
+            await supabase.from("monthly_incomes")
+                .update({
+                    encrypted_previous_budget_snapshot: null,
+                    budget_changed_at: null,
+                })
+                .eq("id", item.id);
+        } else {
+            await supabase.from("expenses")
+                .update({ encrypted_budget: encrypted.encrypted_budget })
+                .eq("id", sourceId);
+            await supabase.from("monthly_expenses")
+                .update({
+                    encrypted_previous_budget_snapshot: null,
+                    budget_changed_at: null,
+                })
+                .eq("id", item.id);
+        }
+        fetchData();
+    };
+
+    const handleClearRecorded = async (item: IncomeItem | ExpenseItem, kind: "income" | "expense") => {
+        if (kind === "income") {
+            await supabase.from("monthly_incomes")
+                .update({ encrypted_actual_amount: null, actual_recorded_at: null })
+                .eq("id", item.id);
+        } else {
+            await supabase.from("monthly_expenses")
+                .update({ encrypted_actual_amount: null, actual_recorded_at: null })
+                .eq("id", item.id);
+        }
+        fetchData();
+    };
+
+    const renderAuditBadges = (item: IncomeItem | ExpenseItem, kind: "income" | "expense", currencyCode: string) => (
+        <div className="flex flex-wrap gap-1 justify-end">
+            {item.previousBudgetSnapshot != null && item.budgetChangedAt && (
+                <button
+                    type="button"
+                    onClick={() => handleRevertBudget(item, kind)}
+                    className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-warn/10 text-warn hover:bg-warn/20"
+                    title="Tap to revert"
+                >
+                    Changed {format(new Date(item.budgetChangedAt), "d MMM")} · was {Math.round(item.previousBudgetSnapshot).toLocaleString("sv-SE")} {currencyCode}
+                </button>
+            )}
+            {item.actualRecordedAt && item.actualAmount != null && (
+                <button
+                    type="button"
+                    onClick={() => handleClearRecorded(item, kind)}
+                    className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-accent/10 text-accent hover:bg-accent/20"
+                    title="Tap to clear"
+                >
+                    Recorded {format(new Date(item.actualRecordedAt), "d MMM")} · {Math.round(item.actualAmount).toLocaleString("sv-SE")} {currencyCode}
+                </button>
+            )}
+            {item.inactivatedAt && (
+                <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-surface-2 text-muted">
+                    Inactivated {format(new Date(item.inactivatedAt), "d MMM")}
+                </span>
+            )}
+        </div>
+    );
+
     const financialMonthStart = household?.financial_month_start || 25;
     const currentMonth = getCurrentFinancialMonth(financialMonthStart);
     // Memoize the Date range — without this, monthStart/monthEnd are new
@@ -112,9 +200,9 @@ export const MonthlyReviewWizard = ({
     );
     const currency = household?.currency || "SEK";
 
-    const { decryptRecords: decryptIncomeSources } = useEncryptedFields(incomeSourceFields);
+    const { decryptRecords: decryptIncomeSources, encryptRecord: encryptIncomeSource } = useEncryptedFields(incomeSourceFields);
     const { decryptRecords: decryptMonthlyIncomes, encryptRecord: encryptMonthlyIncome } = useEncryptedFields(monthlyIncomeFields);
-    const { decryptRecords: decryptExpenses } = useEncryptedFields(expenseFields);
+    const { decryptRecords: decryptExpenses, encryptRecord: encryptExpenseSource } = useEncryptedFields(expenseFields);
     const { decryptRecords: decryptMonthlyExpenses, encryptRecord: encryptMonthlyExpense } = useEncryptedFields(monthlyExpenseFields);
 
     // Latest decrypt fns in a ref so polling closure doesn't go stale
@@ -173,6 +261,16 @@ export const MonthlyReviewWizard = ({
             return parseFloat((staticDefault || "0").toString());
         };
 
+        const auditOf = (monthly: any): AuditFields => ({
+            previousBudgetSnapshot: monthly?.previous_budget_snapshot != null
+                ? Number(monthly.previous_budget_snapshot) : undefined,
+            budgetChangedAt: monthly?.budget_changed_at ?? undefined,
+            actualRecordedAt: monthly?.actual_recorded_at ?? undefined,
+            actualAmount: monthly?.actual_amount != null
+                ? Number(monthly.actual_amount) : undefined,
+            inactivatedAt: monthly?.inactivated_at ?? undefined,
+        });
+
         const incomeItems: IncomeItem[] = decryptedSources.map((source: any) => {
             const monthlyRecord = decryptedMonthlyIncomes.find((m: any) => m.income_source_id === source.id);
             const amount = resolveAmount(monthlyRecord, source.budget);
@@ -184,6 +282,7 @@ export const MonthlyReviewWizard = ({
                 source_id: source.id,
                 owner_id: source.owner_id,
                 isMine: source.owner_id === user.id,
+                ...auditOf(monthlyRecord),
             };
         });
 
@@ -197,6 +296,7 @@ export const MonthlyReviewWizard = ({
                 budget: category.budget ?? 0,
                 category: category.category,
                 expense_id: category.id,
+                ...auditOf(monthlyRecord),
             };
         });
 
@@ -481,7 +581,7 @@ export const MonthlyReviewWizard = ({
                                             </button>
                                         )}
                                     </div>
-                                    <div className="flex-shrink-0">
+                                    <div className="flex-shrink-0 flex flex-col items-end gap-1">
                                         <MoneyInput
                                             value={parseFloat(amounts[`income-${item.source_id}`] || "0")}
                                             currency={currency}
@@ -494,6 +594,7 @@ export const MonthlyReviewWizard = ({
                                             onChange={(v) => handleAmountChange(`income-${item.source_id}`, v.toString())}
                                             widthClassName="w-24"
                                         />
+                                        {renderAuditBadges(item, "income", currency)}
                                     </div>
                                 </div>
                             );
@@ -513,18 +614,21 @@ export const MonthlyReviewWizard = ({
                                         <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={28} />
                                         <span className="text-sm font-medium">{item.name}</span>
                                     </div>
-                                    <MoneyInput
-                                        value={parseFloat(amounts[`expense-${item.expense_id}`] || "0")}
-                                        currency={currency}
-                                        disabled={isFinalized}
-                                        status={
-                                            Math.abs(parseFloat(amounts[`expense-${item.expense_id}`] || "0") - item.budget) < 0.01
-                                                ? "saved"
-                                                : "modified"
-                                        }
-                                        onChange={(v) => handleAmountChange(`expense-${item.expense_id}`, v.toString())}
-                                        widthClassName="w-24"
-                                    />
+                                    <div className="flex flex-col items-end gap-1">
+                                        <MoneyInput
+                                            value={parseFloat(amounts[`expense-${item.expense_id}`] || "0")}
+                                            currency={currency}
+                                            disabled={isFinalized}
+                                            status={
+                                                Math.abs(parseFloat(amounts[`expense-${item.expense_id}`] || "0") - item.budget) < 0.01
+                                                    ? "saved"
+                                                    : "modified"
+                                            }
+                                            onChange={(v) => handleAmountChange(`expense-${item.expense_id}`, v.toString())}
+                                            widthClassName="w-24"
+                                        />
+                                        {renderAuditBadges(item, "expense", currency)}
+                                    </div>
                                 </div>
                             );
                         })}

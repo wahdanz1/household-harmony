@@ -21,7 +21,9 @@ import { computeFromNet, TAX_TYPE_LABELS, type TaxType } from "@/utils/taxMath";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField, FormRow } from "@/components/shared/FormField";
+import { MarkPaidSection } from "@/components/shared/MarkPaidSection";
 import { useEntityForm } from "@/hooks/useEntityForm";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 
 import { Briefcase, TrendingUp, HandCoins, PiggyBank, MoreHorizontal } from "lucide-react";
 
@@ -243,7 +245,12 @@ export const IncomeFormDialog = ({
                     )}
 
                     <FormRow>
-                        <FormField label="Monthly amount, net (kr)">
+                        <FormField
+                            label="Monthly amount, net (kr)"
+                            hint={mode === "edit" && String(form.budget ?? "") !== String(pristine.budget ?? "")
+                                ? `Applies to ${format(getFinancialMonthRange(getCurrentFinancialMonth(financialMonthStart), financialMonthStart).end, "MMMM yyyy")} and onwards.`
+                                : undefined}
+                        >
                             <Input
                                 type="number"
                                 inputMode="numeric"
@@ -345,13 +352,37 @@ export const IncomeFormDialog = ({
                         </>
                     )}
 
-                    <div className="flex items-center space-x-2 pt-2">
-                        <Switch
-                            checked={form.is_active ?? true}
-                            onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
-                        />
-                        <Label>Active</Label>
+                    <div className="space-y-1 pt-2">
+                        <div className="flex items-center space-x-2">
+                            <Switch
+                                checked={form.is_active ?? true}
+                                onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
+                            />
+                            <Label>Active</Label>
+                        </div>
+                        {mode === "edit" && form.is_active === false && pristine.is_active !== false && (() => {
+                            const label = format(
+                                getFinancialMonthRange(getCurrentFinancialMonth(financialMonthStart), financialMonthStart).end,
+                                "MMMM yyyy"
+                            );
+                            return (
+                                <p className="text-xs text-muted">
+                                    Disabled from {label} onwards. {label} will be reconciled in your next Monthly Review.
+                                </p>
+                            );
+                        })()}
                     </div>
+
+                    {mode === "edit" && editingId && (
+                        <MarkPaidSection
+                            sourceId={editingId}
+                            householdId={householdId}
+                            table="monthly_incomes"
+                            fkColumn="income_source_id"
+                            currency="SEK"
+                            financialMonthStart={financialMonthStart}
+                        />
+                    )}
                 </div>
 
                 <FormDialogFooter

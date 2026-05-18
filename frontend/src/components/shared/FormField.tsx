@@ -9,10 +9,12 @@ interface FormFieldProps {
     htmlFor?: string;
     className?: string;
     children: ReactNode;
+    /** Optional muted hint rendered below the field. */
+    hint?: ReactNode;
 }
 
 export const FormField = ({
-    label, optional = false, optionalNote, htmlFor, className, children,
+    label, optional = false, optionalNote, htmlFor, className, children, hint,
 }: FormFieldProps) => (
     <div className={cn("space-y-1.5", className)}>
         <Label htmlFor={htmlFor}>
@@ -26,6 +28,7 @@ export const FormField = ({
             )}
         </Label>
         {children}
+        {hint && <p className="text-xs text-muted">{hint}</p>}
     </div>
 );
 

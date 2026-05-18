@@ -24,6 +24,7 @@ import { SubjectPicker } from "@/components/shared/SubjectPicker";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField } from "@/components/shared/FormField";
+import { MarkPaidSection } from "@/components/shared/MarkPaidSection";
 import { useEntityForm } from "@/hooks/useEntityForm";
 
 interface InitialValues {
@@ -224,7 +225,12 @@ export const ExpenseFormDialog = ({
                         onChange={(id) => setForm({ ...form, subject_id: id })}
                     />
 
-                    <FormField label="Monthly amount (kr)">
+                    <FormField
+                        label="Monthly amount (kr)"
+                        hint={mode === "edit" && String(form.budget ?? "") !== String(pristine.budget ?? "")
+                            ? `Applies to ${format(getFinancialMonthRange(getCurrentFinancialMonth(financialMonthStart), financialMonthStart).end, "MMMM yyyy")} and onwards.`
+                            : undefined}
+                    >
                         <Input
                             type="number"
                             inputMode="numeric"
@@ -233,6 +239,17 @@ export const ExpenseFormDialog = ({
                             placeholder="0"
                         />
                     </FormField>
+
+                    {mode === "edit" && editingId && (
+                        <MarkPaidSection
+                            sourceId={editingId}
+                            householdId={householdId}
+                            table="monthly_expenses"
+                            fkColumn="expense_id"
+                            currency="SEK"
+                            financialMonthStart={financialMonthStart}
+                        />
+                    )}
 
                     {showCreditToggle && (
                         <div className="flex items-center justify-between gap-3 pt-2 border-t border-line-2">
