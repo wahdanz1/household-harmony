@@ -11,9 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-    ArrowLeft, ArrowRight, Check, Plus, ClipboardCheck, Sparkles,
-    TrendingUp, Home, Repeat, Shield, ToggleRight, CreditCard, Users,
+    ArrowLeft, ArrowRight, Check, Plus, Sparkles,
+    CreditCard, Users,
 } from "lucide-react";
+import { isCategoryBudgeted } from "@/constants/expenseCategories";
 import { StepIndicator, type StepIndicatorStep } from "@/components/ui/step-indicator";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { RowItem } from "@/components/ui/row-item";
@@ -87,48 +88,61 @@ const FEATURES: FeatureToggle[] = [
     },
 ];
 
-const STEPS: { key: StepKey; title: string; shortLabel: string; description: string; icon: any }[] = [
+interface StepConfig {
+    key: StepKey;
+    title: string;
+    shortLabel: string;
+    description: string;
+    /** Empty-state nudge copy on this step (sections only). */
+    empty?: string;
+    /** Footer label for the "Add ..." button (sections only). */
+    addLabel?: string;
+}
+
+const STEPS: StepConfig[] = [
     {
         key: "features",
-        title: "Features",
-        shortLabel: "Features",
-        description: "Pick what you want to track. You can always change this later in Settings.",
-        icon: ToggleRight,
+        title: "Set up your first month",
+        shortLabel: "Welcome",
+        description: "Takes about 4 minutes. You can change everything later.",
     },
     {
         key: "income",
         title: "Income sources",
         shortLabel: "Income",
-        description: "Salaries, benefits, and any other regular income coming in each month.",
-        icon: TrendingUp,
+        description: "Salaries, freelance, rental income, benefits.",
+        empty: "No income sources yet — start with your main salary.",
+        addLabel: "Add income",
     },
     {
         key: "expense",
         title: "Fixed expenses",
         shortLabel: "Expenses",
-        description: "Recurring bills you pay yourself — rent, utilities, phone plans, anything monthly.",
-        icon: Home,
+        description: "Rent, utilities, broadband, groceries, fuel. Add one at a time.",
+        empty: "No expenses yet — start with rent or your biggest monthly bill.",
+        addLabel: "Add expense",
     },
     {
         key: "subscription",
         title: "Subscriptions",
         shortLabel: "Subs",
-        description: "Streaming, software, gym, memberships — anything billed on a regular cycle.",
-        icon: Repeat,
+        description: "Streaming, software, gym, news.",
+        empty: "No subscriptions yet — Spotify, Netflix, your favourite app…",
+        addLabel: "Add subscription",
     },
     {
         key: "insurance",
         title: "Insurances",
         shortLabel: "Insurance",
-        description: "Home, car, health, pet — usually billed yearly, auto-spread across the year.",
-        icon: Shield,
+        description: "Home, car, health, life. Add per provider.",
+        empty: "No insurances yet — start with home insurance.",
+        addLabel: "Add insurance",
     },
     {
         key: "review",
-        title: "Review",
-        shortLabel: "Review",
-        description: "Quick check of what you've added. Tap any row to edit. Click Finish when you're ready.",
-        icon: ClipboardCheck,
+        title: "All set",
+        shortLabel: "Done",
+        description: "Your first month is projected below. You can adjust anytime.",
     },
 ];
 
@@ -302,6 +316,15 @@ export const HouseholdSetupWizard = ({
         }
     };
 
+    /** Welcome-step "Skip — I'll add manually" — marks setup done so the
+     *  wizard doesn't auto-reopen. User can still add data via the
+     *  Income/Expenses pages directly. */
+    const handleSkip = () => {
+        localStorage.setItem(`hh_setup_done_${householdId}`, "1");
+        initialIdsRef.current = null;
+        onOpenChange(false);
+    };
+
     const handleDialogOpenChange = (next: boolean) => {
         if (next) {
             onOpenChange(true);
@@ -347,28 +370,54 @@ export const HouseholdSetupWizard = ({
         fn();
     };
 
-    const isFeatureStep = step.key === "features";
+    const isWelcomeStep = step.key === "features";
     const isReviewStep = step.key === "review";
-    const sectionKey = (!isFeatureStep && !isReviewStep) ? (step.key as SectionKey) : null;
+    const sectionKey = (!isWelcomeStep && !isReviewStep) ? (step.key as SectionKey) : null;
     const stepItems = sectionKey ? items[sectionKey] : [];
     const hasAny = stepItems.length > 0;
+
+    // Header eyebrow: "SETUP · MAY 2026"
+    const todayMonth = getCurrentFinancialMonth(financialMonthStart);
+    const { end: currentMonthEnd } = getFinancialMonthRange(todayMonth, financialMonthStart);
+    const monthLabel = format(currentMonthEnd, "MMMM yyyy");
+    const monthLabelShort = format(currentMonthEnd, "MMMM");
+
+    // Review math — totals + amortized subs/insurance + balance + isBudgeted flag.
+    const amortizeForCycle = (budget: number, cycle?: string): number => {
+        if (!cycle || cycle === "monthly") return budget;
+        if (cycle === "yearly") return budget / 12;
+        if (cycle === "semi_annually") return budget / 6;
+        if (cycle === "quarterly") return budget / 3;
+        return budget;
+    };
+    const reviewMath = useMemo(() => {
+        const inc = items.income.reduce((s, x: any) => s + (Number(x.budget) || 0), 0);
+        const exp = items.expense.reduce((s, x: any) => s + (Number(x.budget) || 0), 0);
+        const sub = items.subscription.reduce((s, x: any) => s + amortizeForCycle(Number(x.budget) || 0, x.billing_cycle), 0);
+        const ins = items.insurance.reduce((s, x: any) => s + amortizeForCycle(Number(x.budget) || 0, x.billing_cycle), 0);
+        const out = exp + sub + ins;
+        const balance = inc - out;
+        const hasAnyBudget = items.expense.some((x: any) => isCategoryBudgeted(x.category));
+        return { inc, exp, sub, ins, out, balance, hasAnyBudget };
+    }, [items]);
 
     const renderRow = (sk: SectionKey, it: any, last: boolean) => {
         const { icon, hue } = iconForItem(sk, it);
         const summary = summariseAmount(sk, it);
+        const isBudget = sk === "expense" && isCategoryBudgeted(it.category);
         return (
             <RowItem
                 key={it.id}
                 last={last}
                 onClick={() => blurAndOpen(() => setEditingItem({ stepKey: sk, data: it }))}
             >
-                <CatIcon icon={icon} hue={hue} size={32} />
-                <span className="flex-1 font-medium text-sm sm:text-base truncate">
+                <CatIcon icon={icon} hue={hue} size={36} />
+                <span className="flex-1 font-medium text-[14.5px] text-ink -tracking-[0.01em] truncate">
                     {itemLabel(sk, it)}
                 </span>
-                <span className="flex items-baseline gap-1 shrink-0">
-                    <Money v={summary.amount} currency="SEK" size="base" weight={500} />
-                    {summary.suffix && <span className="text-xs text-muted">{summary.suffix}</span>}
+                <span className="flex items-baseline gap-0.5 shrink-0">
+                    <Money v={summary.amount} currency="SEK" size="base" weight={isBudget ? 500 : 600} estimate={isBudget} />
+                    {summary.suffix && <span className="text-xs text-muted ml-0.5">{summary.suffix}</span>}
                 </span>
             </RowItem>
         );
@@ -377,127 +426,201 @@ export const HouseholdSetupWizard = ({
     return (
         <Dialog open={open} onOpenChange={handleDialogOpenChange}>
             <DialogContent
-                className="max-w-2xl max-h-[90vh] overflow-y-auto"
+                className="!p-0 !gap-0 sm:!max-w-[840px] sm:!w-[calc(100%-2.5rem)] sm:!max-h-[calc(100%-2.5rem)] flex flex-col"
                 onPointerDownOutside={(e) => e.preventDefault()}
                 onEscapeKeyDown={(e) => e.preventDefault()}
             >
-                <StepIndicator
-                    steps={STEPS.map((s): StepIndicatorStep => ({ label: s.shortLabel }))}
-                    current={stepIdx}
-                    className="pt-1 pb-2"
-                />
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 mt-1">
-                        <step.icon className="h-5 w-5 text-accent" />
-                        {step.title}
-                    </DialogTitle>
-                    <DialogDescription>{step.description}</DialogDescription>
-                </DialogHeader>
+                {/* Header strip: eyebrow on the left, X stays top-right (provided by DialogContent) */}
+                <div className="px-5 sm:px-[18px] pt-4 sm:pt-3.5">
+                    <span className="text-[10.5px] font-semibold tracking-[0.08em] uppercase text-muted">
+                        Setup · {monthLabel}
+                    </span>
+                </div>
 
-                <div className="space-y-3 py-2">
-                    {isFeatureStep ? (
-                        <ul className="space-y-2">
-                            {FEATURES.map((f) => {
-                                const Icon = f.icon;
-                                return (
-                                    <li
-                                        key={f.key}
-                                        className="flex items-start gap-3 p-3 rounded-lg border border-line"
-                                    >
-                                        <Icon className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+                {/* StepIndicator */}
+                <div className="px-6 pt-1.5 pb-5">
+                    <StepIndicator
+                        steps={STEPS.map((s): StepIndicatorStep => ({ label: s.shortLabel }))}
+                        current={stepIdx}
+                        onJump={(i) => i < stepIdx && setStepIdx(i)}
+                    />
+                </div>
+
+                {/* Scrollable content */}
+                <div className="flex-1 overflow-y-auto pb-2.5">
+                    {/* Title block — text only, no icon */}
+                    <div className="px-6 pb-4">
+                        <h2 className="text-[24px] font-bold -tracking-[0.02em] text-ink leading-tight">
+                            {step.title}
+                        </h2>
+                        <p className="mt-1.5 text-sm text-ink-2 leading-[1.55] max-w-[580px]">
+                            {step.description}
+                        </p>
+                    </div>
+
+                    {/* Step content */}
+                    <div className="px-6">
+                        {isWelcomeStep ? (
+                            <div className="space-y-3.5">
+                                <div className="rounded-[14px] border border-line bg-surface overflow-hidden">
+                                    <div className="px-4 py-3.5 flex items-center gap-3">
+                                        <CatIcon icon={CreditCard} hue={50} size={36} />
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-medium">{f.title}</p>
-                                            <p className="text-sm text-muted">{f.description}</p>
+                                            <p className="text-[14.5px] font-medium text-ink -tracking-[0.01em]">Credit cards</p>
+                                            <p className="text-[12.5px] text-muted mt-0.5">Track purchases and per-card limits.</p>
                                         </div>
                                         <Switch
-                                            checked={featureState[f.key]}
-                                            onCheckedChange={(v) => setFeatureState((s) => ({ ...s, [f.key]: v }))}
+                                            checked={featureState.credit_cards}
+                                            onCheckedChange={(v) => setFeatureState((s) => ({ ...s, credit_cards: v }))}
                                         />
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    ) : isReviewStep ? (
-                        <div className="space-y-5">
-                            {(["income", "expense", "subscription", "insurance"] as SectionKey[]).map((k) => {
-                                const list = items[k];
-                                const idxOfStep = STEPS.findIndex((s) => s.key === k);
-                                return (
-                                    <div key={k} className="space-y-2">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="text-sm font-medium text-ink">
-                                                {SECTION_TITLE[k]} <span className="text-muted tabular-nums">{list.length}</span>
-                                            </h3>
+                                    </div>
+                                    <div className="h-px bg-line-2 mx-4" />
+                                    <div className="px-4 py-3.5 flex items-center gap-3">
+                                        <CatIcon icon={Users} hue={320} size={36} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-[14.5px] font-medium text-ink -tracking-[0.01em]">Shared with co-parent</p>
+                                            <p className="text-[12.5px] text-muted mt-0.5">Split selected expenses with another member.</p>
+                                        </div>
+                                        <Switch
+                                            checked={featureState.shared_expenses}
+                                            onCheckedChange={(v) => setFeatureState((s) => ({ ...s, shared_expenses: v }))}
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-xs text-muted leading-[1.5] px-1">
+                                    You can turn these on later in{" "}
+                                    <strong className="font-semibold text-ink-2">Settings → Household → Extra features</strong>.
+                                </p>
+                            </div>
+                        ) : isReviewStep ? (
+                            <div className="space-y-2">
+                                {/* Hero math card */}
+                                <div className="rounded-[14px] border border-line bg-surface overflow-hidden mb-3.5">
+                                    <div className="px-5 pt-[18px] pb-4 border-b border-line-2">
+                                        <div className="text-xs font-medium tracking-[0.04em] text-muted">
+                                            Left to save in {monthLabelShort}
+                                        </div>
+                                        <div className="mt-1 flex items-baseline gap-1.5">
+                                            {reviewMath.hasAnyBudget && (
+                                                <span className="text-[28px] font-medium text-accent-dk leading-none -translate-y-px">~</span>
+                                            )}
+                                            <span className={`font-mono tabular-nums text-[40px] font-semibold -tracking-[0.03em] leading-none ${reviewMath.balance >= 0 ? "text-accent" : "text-danger"}`}>
+                                                {reviewMath.balance >= 0 ? "+" : "−"}{Math.abs(Math.round(reviewMath.balance)).toLocaleString("sv-SE")}
+                                            </span>
+                                            <span className="text-lg font-medium text-muted ml-1">kr</span>
+                                        </div>
+                                        <div className="mt-2 text-[12.5px] text-muted">
+                                            <span className="font-mono tabular-nums">{Math.round(reviewMath.inc).toLocaleString("sv-SE")}</span> kr in ·{" "}
+                                            <span className="font-mono tabular-nums">{Math.round(reviewMath.out).toLocaleString("sv-SE")}</span> kr out
+                                        </div>
+                                    </div>
+                                    <div className="px-5 py-3 bg-accent-tint text-[12.5px] font-medium text-accent-dk">
+                                        Ready to start {monthLabelShort} — tap <strong className="font-bold">Finish</strong> to close setup.
+                                    </div>
+                                </div>
+
+                                {/* Per-section summary rows */}
+                                {(["income", "expense", "subscription", "insurance"] as SectionKey[]).map((k) => {
+                                    const list = items[k];
+                                    const idxOfStep = STEPS.findIndex((s) => s.key === k);
+                                    const total = k === "income" ? reviewMath.inc
+                                        : k === "expense" ? reviewMath.exp
+                                            : k === "subscription" ? reviewMath.sub
+                                                : reviewMath.ins;
+                                    return (
+                                        <div key={k} className="rounded-[14px] border border-line bg-surface pl-[18px] pr-3 py-3 flex items-center gap-3">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm font-semibold text-ink -tracking-[0.01em]">{SECTION_TITLE[k]}</div>
+                                                <div className="text-[11.5px] text-muted mt-0.5">
+                                                    <span className="font-mono tabular-nums">{list.length}</span>{" "}
+                                                    {list.length === 1 ? "entry" : "entries"}
+                                                </div>
+                                            </div>
+                                            <span className="font-mono tabular-nums text-[15px] font-semibold text-ink shrink-0">
+                                                {Math.round(total).toLocaleString("sv-SE")}
+                                                <span className="font-sans text-xs font-normal text-muted ml-1">kr/mo</span>
+                                            </span>
                                             <button
                                                 type="button"
                                                 onClick={() => setStepIdx(idxOfStep)}
-                                                className="text-xs text-accent-dk hover:underline"
+                                                className="h-[30px] px-2.5 rounded-lg border border-line bg-surface hover:bg-surface-2 text-xs font-semibold text-ink-2 transition-colors shrink-0"
                                             >
-                                                {list.length === 0 ? "Add now" : "Add more"}
+                                                Add more
                                             </button>
                                         </div>
-                                        {list.length === 0 ? (
-                                            <Card className="p-3 text-center text-xs text-muted border-dashed">
-                                                Nothing added.
-                                            </Card>
-                                        ) : (
-                                            <Card variant="flush">
-                                                {list.map((it: any, idx: number) => renderRow(k, it, idx === list.length - 1))}
-                                            </Card>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ) : stepItems.length === 0 ? (
-                        <Card className="p-6 text-center text-sm text-muted border-dashed">
-                            Nothing added yet. You can add what you have or skip this step.
-                        </Card>
-                    ) : (
-                        <Card variant="flush">
-                            {stepItems.map((it: any, idx: number) => renderRow(sectionKey!, it, idx === stepItems.length - 1))}
-                        </Card>
-                    )}
-
-                    {sectionKey && (
-                        <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => blurAndOpen(() => setAddOpen(true))}
-                        >
-                            <Plus className="h-4 w-4 mr-2" />
-                            {hasAny ? `Add another ${step.title.slice(0, -1).toLowerCase()}` : `Add ${step.title.slice(0, -1).toLowerCase()}`}
-                        </Button>
-                    )}
+                                    );
+                                })}
+                            </div>
+                        ) : stepItems.length === 0 ? (
+                            <div className="rounded-[14px] border border-dashed border-line bg-surface p-7 text-center">
+                                <p className="text-[13.5px] text-muted leading-[1.55] max-w-[360px] mx-auto mb-3.5">
+                                    {step.empty}
+                                </p>
+                                <Button variant="accentSoft" size="md" onClick={() => blurAndOpen(() => setAddOpen(true))}>
+                                    <Plus className="h-4 w-4" />
+                                    {step.addLabel}
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                <Card variant="flush">
+                                    {stepItems.map((it: any, idx: number) => renderRow(sectionKey!, it, idx === stepItems.length - 1))}
+                                </Card>
+                                <Button variant="secondary" className="w-full" onClick={() => blurAndOpen(() => setAddOpen(true))}>
+                                    <Plus className="h-4 w-4" />
+                                    {step.addLabel}
+                                </Button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                <DialogFooter className="flex-row justify-between sm:justify-between">
-                    <Button
-                        variant="ghost"
-                        onClick={() => setStepIdx((i) => Math.max(0, i - 1))}
-                        disabled={stepIdx === 0}
-                    >
-                        <ArrowLeft className="h-4 w-4 mr-2" />
-                        Back
-                    </Button>
-                    {isReviewStep ? (
-                        <Button onClick={handleFinish} disabled={finishing}>
-                            <Check className="h-4 w-4 mr-2" />
-                            {finishing ? "Finishing…" : "Finish setup"}
-                        </Button>
+                {/* Footer */}
+                <div className="border-t border-line-2 px-5 py-3.5 sm:px-5 sm:py-[14px] flex items-center gap-2.5">
+                    {isWelcomeStep ? (
+                        <>
+                            <Button variant="ghost" onClick={handleSkip}>
+                                <span className="hidden sm:inline">Skip — I'll add manually</span>
+                                <span className="sm:hidden">Skip</span>
+                            </Button>
+                            <div className="flex-1" />
+                            <Button
+                                disabled={savingFeatures}
+                                onClick={async () => {
+                                    await persistFeatures();
+                                    setStepIdx((i) => i + 1);
+                                }}
+                            >
+                                Continue
+                                <ArrowRight className="h-4 w-4 ml-1" />
+                            </Button>
+                        </>
+                    ) : isReviewStep ? (
+                        <>
+                            <Button variant="ghost" onClick={() => setStepIdx((i) => Math.max(0, i - 1))}>
+                                <ArrowLeft className="h-4 w-4 mr-1" />
+                                Back
+                            </Button>
+                            <div className="flex-1" />
+                            <Button onClick={handleFinish} disabled={finishing}>
+                                <Check className="h-4 w-4 mr-1" />
+                                {finishing ? "Finishing…" : "Finish"}
+                            </Button>
+                        </>
                     ) : (
-                        <Button
-                            disabled={isFeatureStep && savingFeatures}
-                            onClick={async () => {
-                                if (isFeatureStep) await persistFeatures();
-                                setStepIdx((i) => i + 1);
-                            }}
-                        >
-                            {isFeatureStep ? "Continue" : (hasAny ? "Continue" : "Skip")}
-                            <ArrowRight className="h-4 w-4 ml-2" />
-                        </Button>
+                        <>
+                            <Button variant="ghost" onClick={() => setStepIdx((i) => Math.max(0, i - 1))}>
+                                <ArrowLeft className="h-4 w-4 mr-1" />
+                                Back
+                            </Button>
+                            <div className="flex-1" />
+                            <Button onClick={() => setStepIdx((i) => i + 1)}>
+                                Continue
+                                <ArrowRight className="h-4 w-4 ml-1" />
+                            </Button>
+                        </>
                     )}
-                </DialogFooter>
+                </div>
             </DialogContent>
 
             {sectionKey && (
@@ -584,10 +707,23 @@ export const HouseholdSetupWizard = ({
             <ConfirmDialog
                 open={confirmDiscardOpen}
                 onOpenChange={setConfirmDiscardOpen}
-                title="Discard your setup progress?"
-                description={`You've added ${totalAddedThisSession} item${totalAddedThisSession === 1 ? "" : "s"} during this setup. Closing now will remove them. You can re-open setup from the Overview later to start fresh.`}
+                title="Close setup?"
+                description="What you've added won't be saved. You can start over anytime from Settings."
+                confirmLabel="Close"
+                busyLabel="Closing…"
+                cancelLabel="Cancel"
+                variant="destructive"
                 busy={discarding}
                 onConfirm={handleDiscard}
+                stakes={{
+                    eyebrow: "Being discarded",
+                    items: [
+                        { label: "Income sources", count: addedIdsFor("income").length },
+                        { label: "Fixed expenses", count: addedIdsFor("expense").length },
+                        { label: "Subscriptions", count: addedIdsFor("subscription").length },
+                        { label: "Insurances", count: addedIdsFor("insurance").length },
+                    ],
+                }}
             />
         </Dialog>
     );

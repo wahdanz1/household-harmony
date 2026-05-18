@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Setup Wizard — Household Harmony</title>
+<link rel="stylesheet" href="../../colors_and_type.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #14110D; height: 100%; font-family: "DM Sans", system-ui, sans-serif; }
+  *, *::before, *::after { box-sizing: border-box; }
+  button { font-family: inherit; }
+  @keyframes hh-fade { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes hh-rise { from { transform: translateY(100%) } to { transform: translateY(0) } }
+  @keyframes hh-pop  { from { transform: scale(0.96); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-thumb { background: rgba(125,125,125,0.25); border-radius: 999px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  .hh-theme { width: 100%; height: 100%; background: var(--bg); }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="browser-window.jsx"></script>
+<script type="text/babel" src="primitives.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="wizard.jsx"></script>
+
+<script type="text/babel">
+const { useState } = React;
+
+// EDITMODE-marked tweak defaults — persist via host on change.
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "dialogWidth": 840,
+  "welcomeTone": "pragmatic",
+  "skipWeight": "ghost",
+  "emptyMode": "nudge"
+}/*EDITMODE-END*/;
+
+function Themed({ theme = 'light', children }) {
+  return <div data-theme={theme} className="hh-theme">{children}</div>;
+}
+
+// ── Seed states ─────────────────────────────────────────────────────────
+const SEED_FULL = {
+  features: { creditCards: true, sharedExpenses: false },
+  income: [
+    { id: 'i1', name: 'Lön — Klarna',      amount: 48500, cat: 'work' },
+    { id: 'i2', name: 'Frilans — design',  amount: 9200,  cat: 'work' },
+    { id: 'i3', name: 'Hyresintäkt',       amount: 6500,  cat: 'housing' },
+  ],
+  expenses: [
+    { id: 'e1', name: 'Hyra — Vasastan',     amount: 14500, cat: 'housing',   isBudgeted: false },
+    { id: 'e2', name: 'Vattenfall el',       amount: 1240,  cat: 'energy',    isBudgeted: false },
+    { id: 'e3', name: 'Telia mobil — Anna',  amount: 379,   cat: 'phone',     isBudgeted: false },
+    { id: 'e4', name: 'Mat & hushåll',       amount: 6000,  cat: 'food',      isBudgeted: true  },
+    { id: 'e5', name: 'Drivmedel',           amount: 1200,  cat: 'transport', isBudgeted: true  },
+    { id: 'e6', name: 'Restaurang & café',   amount: 1500,  cat: 'food',      isBudgeted: true  },
+  ],
+  subs: [
+    { id: 's1', name: 'Spotify Family',  amount: 199, freq: 'monthly', cat: 'media' },
+    { id: 's2', name: 'Netflix Premium', amount: 179, freq: 'monthly', cat: 'media' },
+    { id: 's3', name: 'iCloud+ 2TB',     amount: 99,  freq: 'monthly', cat: 'phone' },
+  ],
+  insurance: [
+    { id: 'in1', name: 'Folksam hemförsäkring', amount: 389, freq: 'monthly', cat: 'insurance' },
+    { id: 'in2', name: 'Trygg-Hansa bil',       amount: 642, freq: 'monthly', cat: 'insurance' },
+  ],
+};
+
+const SEED_EMPTY = {
+  features: { creditCards: false, sharedExpenses: false },
+  income: [], expenses: [], subs: [], insurance: [],
+};
+
+// ── Decisions artboard ──────────────────────────────────────────────────
+function DecisionsBoard({ tweaks }) {
+  return (
+    <div style={{
+      width: '100%', height: '100%', background: T.bg, color: T.ink,
+      fontFamily: sansStack, overflow: 'auto',
+    }}>
+      <div style={{ padding: '44px 56px 64px', maxWidth: 760 }}>
+        <div style={{
+          fontFamily: sansStack, fontSize: 11, fontWeight: 700, color: T.muted,
+          letterSpacing: '0.08em', textTransform: 'uppercase',
+        }}>Open questions · resolved</div>
+        <h1 style={{
+          margin: '6px 0 8px', fontFamily: sansStack, fontSize: 32, fontWeight: 700,
+          color: T.ink, letterSpacing: '-0.02em',
+        }}>7 decisions</h1>
+        <p style={{
+          margin: 0, fontFamily: sansStack, fontSize: 14, color: T.ink2,
+          lineHeight: 1.55, maxWidth: 600,
+        }}>
+          Each is a commitment. The two visual ones — dialog width and skip-button weight —
+          are also exposed in the Tweaks panel so you can A/B them across every artboard.
+        </p>
+
+        <div style={{ marginTop: 28, display: 'grid', gap: 12 }}>
+          <Decision
+            n={1}
+            q="Dialog width — modal-feel (~672) or wider?"
+            a="840px desktop."
+            r={'672 reads as a settings dialog. This is your first 5 minutes — give it room. 840 lets the 6-node StepIndicator breathe with its labels and keeps content in a ~720 reading column with 60 gutters. Full-bleed would overstate setup as a destination. Tweakable to 672 / 1024 above.'}
+            live={tweaks.dialogWidth + ' px'}
+          />
+          <Decision
+            n={2}
+            q="Category icon appears twice — in the StepIndicator node and next to the title. Redundant?"
+            a="Yes. Indicator stays uniform; the title loses its icon."
+            r={'The StepIndicator\u2019s job is showing position in a uniform sequence — dots with numbers. The categorical signal is carried by the items in the list (every row has a CatIcon already). Putting an icon next to the title duplicates the signal and confuses the indicator\u2019s job. Drop it.'}
+          />
+          <Decision
+            n={3}
+            q="Mobile — full-screen sheet or bottom sheet?"
+            a="Full-screen."
+            r={'A 6-step setup is a flow, not a glance. Bottom sheets imply quick-and-dismissable. Full-screen with pinned StepIndicator + close (top) and pinned button row (bottom), scrollable middle. The bottom-sheet pattern stays available for "Add expense" inside the wizard, where a quick form makes sense.'}
+          />
+          <Decision
+            n={4}
+            q="Empty state — generic dashed card or step-specific nudge?"
+            a="Nudge. Soft."
+            r={'Dashed card frame stays generic (it is the empty container shape used everywhere). Copy inside is step-specific: "Inga inkomstkällor ännu — börja med din huvudsakliga lön." beats "Inget tillagt ännu." because it tells the user the first thing. Doesn\u2019t push hard; just orients. Tweakable above.'}
+            live={tweaks.emptyMode}
+          />
+          <Decision
+            n={5}
+            q={'How to make Review feel like a satisfying "you did it" moment?'}
+            a="Resolve the math. No confetti."
+            r={'The brand voice is calm. Satisfaction comes from the number being concrete and forward-looking, not from being told it was earned. Review shows a Dashboard-style hero ("Kvar att spara i maj · +13 583 kr"), four section summaries with totals + "Lägg till fler" jumps, and one accent-tint strip: "Klart att börja maj — tryck Klar för att stänga uppsättningen." Forward-pointing, not celebratory.'}
+          />
+          <Decision
+            n={6}
+            q="Welcome tone — pragmatic or warm?"
+            a="Pragmatic + brief."
+            r={'"Sätt upp din första månad. Tar ungefär 4 minuter." The brand voice is IKEA-instructions calm. "Välkommen hem" violates that — domestic warmth comes from the product itself (household member names, the dashboard greeting), not from setup copy. Tweakable above so you can see both.'}
+            live={tweaks.welcomeTone}
+          />
+          <Decision
+            n={7}
+            q="Skip button — equal to Continue or quieter?"
+            a="Ghost. Equal semantically, visually quieter."
+            r={'A secondary button (line border, ink) reads as "decline default" — visually heavier than Skip needs to be. Ghost (no border, ink color, hover surface-2) reads as a real choice without competing with the primary green. Best of both. Tweakable above so you can see Secondary alongside.'}
+            live={tweaks.skipWeight}
+          />
+        </div>
+
+        {/* X-button + Skip behaviour clarification, not part of the 7 but worth surfacing */}
+        <div style={{
+          marginTop: 32, padding: '16px 18px',
+          background: T.surface, border: `1px solid ${T.line}`, borderRadius: 14,
+        }}>
+          <div style={{
+            fontFamily: sansStack, fontSize: 11, fontWeight: 600, color: T.muted,
+            letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8,
+          }}>Two exits, three behaviours</div>
+          <ul style={{ margin: 0, padding: '0 0 0 18px', fontFamily: sansStack, fontSize: 13, color: T.ink2, lineHeight: 1.7 }}>
+            <li><strong style={{ color: T.ink, fontWeight: 600 }}>Skip (Step 1 only):</strong> closes the wizard, marks setup done so it doesn't re-open. No confirm — nothing to discard yet.</li>
+            <li><strong style={{ color: T.ink, fontWeight: 600 }}>X with no items added:</strong> closes silently, can re-trigger setup from Settings. No confirm.</li>
+            <li><strong style={{ color: T.ink, fontWeight: 600 }}>X with items added:</strong> opens the Confirm-with-stakes pattern. Stakes panel shows <span style={{ fontFamily: monoStack }}>label : count</span> pairs of what's about to be discarded.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Decision({ n, q, a, r, live }) {
+  return (
+    <div style={{
+      background: T.surface, border: `1px solid ${T.line}`, borderRadius: 14,
+      padding: '16px 18px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+        <span style={{
+          fontFamily: monoStack, fontVariantNumeric: 'tabular-nums',
+          fontSize: 11, fontWeight: 700, color: T.accentDk,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+          width: 22, flexShrink: 0,
+        }}>Q{n}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontFamily: sansStack, fontSize: 14, color: T.ink2, lineHeight: 1.4,
+          }}>{q}</div>
+          <div style={{
+            marginTop: 6, fontFamily: sansStack, fontSize: 15.5, fontWeight: 600,
+            color: T.ink, letterSpacing: '-0.01em',
+          }}>{a}</div>
+          <p style={{
+            margin: '8px 0 0', fontFamily: sansStack, fontSize: 13,
+            color: T.ink2, lineHeight: 1.6,
+          }}>{r}</p>
+        </div>
+        {live !== undefined && (
+          <span style={{
+            fontFamily: monoStack, fontVariantNumeric: 'tabular-nums',
+            fontSize: 11, fontWeight: 600, color: T.accentDk,
+            background: T.accentTint, padding: '2px 8px', borderRadius: 6,
+            whiteSpace: 'nowrap', flexShrink: 0,
+          }}>{live}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── App ─────────────────────────────────────────────────────────────────
+function App() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  const DesktopFrame = ({ step = 0, state = SEED_FULL }) => (
+    <Themed theme="light">
+      <ChromeWindow url="harmony.app/setup" width={1280} height={820} tabs={[{title:'Household Harmony'}]}>
+        <SetupWizard
+          initialStep={step}
+          initialState={state}
+          isDesktop={true}
+          height={820 - 84}
+          dialogWidth={tweaks.dialogWidth}
+          welcomeTone={tweaks.welcomeTone}
+          skipWeight={tweaks.skipWeight}
+          emptyMode={tweaks.emptyMode}
+        />
+      </ChromeWindow>
+    </Themed>
+  );
+
+  const MobileFrame = ({ step = 0, state = SEED_FULL }) => (
+    <Themed theme="light">
+      <IOSDevice width={390} height={844} dark={false}>
+        <div style={{ position: 'absolute', inset: 0, paddingTop: 47 }}>
+          <SetupWizard
+            initialStep={step}
+            initialState={state}
+            isDesktop={false}
+            height={844 - 47}
+            welcomeTone={tweaks.welcomeTone}
+            skipWeight={tweaks.skipWeight}
+            emptyMode={tweaks.emptyMode}
+          />
+        </div>
+      </IOSDevice>
+    </Themed>
+  );
+
+  return (
+    <>
+      <DesignCanvas
+        title="Setup wizard"
+        subtitle="6-step household setup · shell only · composes existing primitives & the Confirm-with-stakes pattern"
+        defaultZoom={0.55}
+      >
+        <DCSection
+          id="desktop" title="Desktop · modal"
+          subtitle="Centered dialog, configurable width (default 840). StepIndicator pinned top, footer pinned bottom, content scrollable. Try the discard flow by tapping × after adding items."
+        >
+          <DCArtboard id="d-welcome"   label="1 · Welcome"           width={1280} height={820}><DesktopFrame step={0}/></DCArtboard>
+          <DCArtboard id="d-inc-empty" label="2 · Empty state"        width={1280} height={820}><DesktopFrame step={1} state={SEED_EMPTY}/></DCArtboard>
+          <DCArtboard id="d-inc-full"  label="2 · With items"         width={1280} height={820}><DesktopFrame step={1}/></DCArtboard>
+          <DCArtboard id="d-exp"       label="3 · Expenses (~ budget)" width={1280} height={820}><DesktopFrame step={2}/></DCArtboard>
+          <DCArtboard id="d-review"    label="6 · Review (math resolved)" width={1280} height={820}><DesktopFrame step={5}/></DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="mobile" title="Mobile · full-screen sheet"
+          subtitle="Same shell, no modal chrome — flow, not glance. Step labels still fit a 390px row."
+        >
+          <DCArtboard id="m-welcome" label="1 · Welcome"        width={390} height={844}><MobileFrame step={0}/></DCArtboard>
+          <DCArtboard id="m-inc"     label="2 · Income · items" width={390} height={844}><MobileFrame step={1}/></DCArtboard>
+          <DCArtboard id="m-exp"     label="3 · Expenses"       width={390} height={844}><MobileFrame step={2}/></DCArtboard>
+          <DCArtboard id="m-review"  label="6 · Review"         width={390} height={844}><MobileFrame step={5}/></DCArtboard>
+        </DCSection>
+
+        <DCSection
+          id="decisions" title="Decisions"
+          subtitle="Answers to all 7 open questions, with reasoning. Live tweak values shown in the green pill on the right."
+        >
+          <DCArtboard id="dec" label="Open questions · resolved" width={840} height={1280}>
+            <Themed theme="light"><DecisionsBoard tweaks={tweaks}/></Themed>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Wizard tweaks">
+        <TweakSection label="Dialog (desktop)"/>
+        <TweakSelect
+          label="Width"
+          value={String(tweaks.dialogWidth)}
+          onChange={v => setTweak('dialogWidth', Number(v))}
+          options={[
+            { value: '672',  label: '672 — typical modal' },
+            { value: '840',  label: '840 — recommended' },
+            { value: '1024', label: '1024 — page-like' },
+          ]}
+        />
+        <TweakSection label="Copy & weight"/>
+        <TweakRadio
+          label="Welcome tone"
+          value={tweaks.welcomeTone}
+          options={['pragmatic', 'warm']}
+          onChange={v => setTweak('welcomeTone', v)}
+        />
+        <TweakRadio
+          label="Skip button"
+          value={tweaks.skipWeight}
+          options={['ghost', 'secondary']}
+          onChange={v => setTweak('skipWeight', v)}
+        />
+        <TweakRadio
+          label="Empty state"
+          value={tweaks.emptyMode}
+          options={['nudge', 'generic']}
+          onChange={v => setTweak('emptyMode', v)}
+        />
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
