@@ -23,7 +23,6 @@ import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField, FormRow } from "@/components/shared/FormField";
 import { MarkPaidSection } from "@/components/shared/MarkPaidSection";
 import { useEntityForm } from "@/hooks/useEntityForm";
-import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 
 import { Briefcase, TrendingUp, HandCoins, PiggyBank, MoreHorizontal } from "lucide-react";
 

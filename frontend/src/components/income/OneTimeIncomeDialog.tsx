@@ -64,7 +64,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
             month_end: format(end, "yyyy-MM-dd"),
             one_time_name: formData.name.trim() || categoryLabel,
             one_time_category: formData.category,
-            amount: parseFloat(formData.amount),
+            budget_snapshot: parseFloat(formData.amount),
             notes: formData.description.trim() || null,
             created_by: user.id,
         };

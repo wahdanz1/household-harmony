@@ -77,7 +77,7 @@ interface OverviewData {
 const Overview = () => {
   const { user } = useAuth();
   const { household, coParents, members, financialMonthStart, loading: householdLoading } = useHousehold();
-  const { isUnlocked, encrypt, decrypt, pendingExitHouseholdId } = useEncryption();
+  const { isUnlocked, encrypt, decrypt, pendingExitHouseholdId, recoveryCodeDialogOpen } = useEncryption();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -144,7 +144,7 @@ const Overview = () => {
         results = await Promise.all([
           supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
           supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-          supabase.from("subscriptions").select("encrypted_amount, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id).eq("is_active", true),
+          supabase.from("subscriptions").select("encrypted_budget, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id).eq("is_active", true),
           supabase.from("insurances").select("encrypted_budget, billing_cycle, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true),
           supabase.from("shared_expenses").select("id, encrypted_amount, encrypted_description, paid_by, is_encrypted, created_at").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr).order("created_at", { ascending: false }),
         ]);
@@ -209,7 +209,7 @@ const Overview = () => {
       let subscriptionsMonthly = 0;
       let subscriptionsYearly = 0;
       decryptedSubs.forEach((sub: any) => {
-        const amount = parseFloat(sub.amount || "0");
+        const amount = parseFloat(sub.budget || "0");
         if (sub.billing_cycle === "yearly") {
           subscriptionsMonthly += amount / 12;
           subscriptionsYearly += amount;
@@ -277,7 +277,7 @@ const Overview = () => {
             id: m.id,
             kind: "one_time_income" as const,
             name: m.one_time_name,
-            amount: parseFloat(m.amount) || 0,
+            amount: parseFloat(m.actual_amount ?? m.budget_snapshot) || 0,
             when: new Date(m.created_at),
           })),
         ...decryptedExpenses
@@ -286,7 +286,7 @@ const Overview = () => {
             id: m.id,
             kind: "one_time_expense" as const,
             name: m.one_time_name,
-            amount: -(parseFloat(m.amount) || 0),
+            amount: -(parseFloat(m.actual_amount ?? m.budget_snapshot) || 0),
             when: new Date(m.created_at),
           })),
       ]
@@ -331,7 +331,9 @@ const Overview = () => {
       const setupDone = localStorage.getItem(`hh_setup_done_${household.id}`) === "1";
       const explicitOpen = searchParams.get("setup") === "1";
       // The exit dialog owns the welcome experience while a pending exit is unresolved.
-      if (pendingExitHouseholdId) {
+      // Recovery code modal must come BEFORE setup wizard — risk of losing access if
+      // user adds data without saving their recovery code first.
+      if (pendingExitHouseholdId || recoveryCodeDialogOpen) {
         setSetupOpen(false);
       } else if (explicitOpen || (!hasSeed && !setupDone)) {
         setSetupOpen(true);
@@ -345,7 +347,7 @@ const Overview = () => {
     };
     checkSeedData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [household?.id, isUnlocked, todayMonth, pendingExitHouseholdId]);
+  }, [household?.id, isUnlocked, todayMonth, pendingExitHouseholdId, recoveryCodeDialogOpen]);
 
   // ─── Loading + locked states ─────────────────────────────────
   if (householdLoading || loading) {

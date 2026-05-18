@@ -1,5 +1,4 @@
-Initialising login role...
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -12,6 +11,31 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -502,9 +526,9 @@ export type Database = {
           co_parent_id: string | null
           created_at: string
           created_by: string
+          encrypted_budget: string | null
           encrypted_name: string | null
           encrypted_provider: string | null
-          encrypted_budget: string | null
           household_id: string
           id: string
           is_active: boolean
@@ -523,9 +547,9 @@ export type Database = {
           co_parent_id?: string | null
           created_at?: string
           created_by: string
+          encrypted_budget?: string | null
           encrypted_name?: string | null
           encrypted_provider?: string | null
-          encrypted_budget?: string | null
           household_id: string
           id?: string
           is_active?: boolean
@@ -544,9 +568,9 @@ export type Database = {
           co_parent_id?: string | null
           created_at?: string
           created_by?: string
+          encrypted_budget?: string | null
           encrypted_name?: string | null
           encrypted_provider?: string | null
-          encrypted_budget?: string | null
           household_id?: string
           id?: string
           is_active?: boolean
@@ -634,15 +658,19 @@ export type Database = {
       }
       monthly_expenses: {
         Row: {
+          actual_recorded_at: string | null
+          budget_changed_at: string | null
           created_at: string
           created_by: string
           electricity_grid: number | null
           electricity_market: number | null
           encrypted_actual_amount: string | null
           encrypted_budget_snapshot: string | null
+          encrypted_previous_budget_snapshot: string | null
           expense_id: string | null
           household_id: string
           id: string
+          inactivated_at: string | null
           is_encrypted: boolean | null
           month: string
           month_end: string | null
@@ -653,15 +681,19 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          actual_recorded_at?: string | null
+          budget_changed_at?: string | null
           created_at?: string
           created_by: string
           electricity_grid?: number | null
           electricity_market?: number | null
           encrypted_actual_amount?: string | null
           encrypted_budget_snapshot?: string | null
+          encrypted_previous_budget_snapshot?: string | null
           expense_id?: string | null
           household_id: string
           id?: string
+          inactivated_at?: string | null
           is_encrypted?: boolean | null
           month: string
           month_end?: string | null
@@ -672,15 +704,19 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          actual_recorded_at?: string | null
+          budget_changed_at?: string | null
           created_at?: string
           created_by?: string
           electricity_grid?: number | null
           electricity_market?: number | null
           encrypted_actual_amount?: string | null
           encrypted_budget_snapshot?: string | null
+          encrypted_previous_budget_snapshot?: string | null
           expense_id?: string | null
           household_id?: string
           id?: string
+          inactivated_at?: string | null
           is_encrypted?: boolean | null
           month?: string
           month_end?: string | null
@@ -709,13 +745,17 @@ export type Database = {
       }
       monthly_incomes: {
         Row: {
+          actual_recorded_at: string | null
+          budget_changed_at: string | null
           co_parent_id: string | null
           created_at: string
           created_by: string
           encrypted_actual_amount: string | null
           encrypted_budget_snapshot: string | null
+          encrypted_previous_budget_snapshot: string | null
           household_id: string
           id: string
+          inactivated_at: string | null
           income_source_id: string | null
           is_encrypted: boolean | null
           is_shared: boolean
@@ -729,13 +769,17 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          actual_recorded_at?: string | null
+          budget_changed_at?: string | null
           co_parent_id?: string | null
           created_at?: string
           created_by: string
           encrypted_actual_amount?: string | null
           encrypted_budget_snapshot?: string | null
+          encrypted_previous_budget_snapshot?: string | null
           household_id: string
           id?: string
+          inactivated_at?: string | null
           income_source_id?: string | null
           is_encrypted?: boolean | null
           is_shared?: boolean
@@ -749,13 +793,17 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          actual_recorded_at?: string | null
+          budget_changed_at?: string | null
           co_parent_id?: string | null
           created_at?: string
           created_by?: string
           encrypted_actual_amount?: string | null
           encrypted_budget_snapshot?: string | null
+          encrypted_previous_budget_snapshot?: string | null
           household_id?: string
           id?: string
+          inactivated_at?: string | null
           income_source_id?: string | null
           is_encrypted?: boolean | null
           is_shared?: boolean
@@ -986,7 +1034,7 @@ export type Database = {
           category: Database["public"]["Enums"]["subscription_category_enum"]
           created_at: string
           created_by: string
-          encrypted_amount: string | null
+          encrypted_budget: string | null
           encrypted_name: string | null
           encrypted_service: string | null
           household_id: string
@@ -1004,7 +1052,7 @@ export type Database = {
           category: Database["public"]["Enums"]["subscription_category_enum"]
           created_at?: string
           created_by: string
-          encrypted_amount?: string | null
+          encrypted_budget?: string | null
           encrypted_name?: string | null
           encrypted_service?: string | null
           household_id: string
@@ -1022,7 +1070,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["subscription_category_enum"]
           created_at?: string
           created_by?: string
-          encrypted_amount?: string | null
+          encrypted_budget?: string | null
           encrypted_name?: string | null
           encrypted_service?: string | null
           household_id?: string
@@ -1468,6 +1516,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       billing_cycle_enum: ["monthly", "quarterly", "semi_annually", "yearly"],
@@ -1547,5 +1598,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.98.2 (currently installed v2.84.2)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

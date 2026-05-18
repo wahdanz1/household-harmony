@@ -340,7 +340,7 @@ export const AllTabBlockView = ({
             'monthly': '/month',
         };
         const displayLabel = cycleLabels[sub.billing_cycle] || '/month';
-        const actualAmount = sub.budget ?? sub.amount; // Use budget if available
+        const actualAmount = sub.budget;
 
         // Get category info for icon
         const catInfo = subscriptionCategories.find(c => c.value === sub.category);
@@ -348,7 +348,7 @@ export const AllTabBlockView = ({
         return {
             id: sub.id,
             name: sub.name,
-            amount: sub.billing_cycle === 'yearly' ? parseFloat(sub.amount.toString()) / 12 : parseFloat(sub.amount.toString()),
+            amount: sub.billing_cycle === 'yearly' ? parseFloat(sub.budget.toString()) / 12 : parseFloat(sub.budget.toString()),
             category: sub.category,
             displayAmount: actualAmount,
             displayLabel,

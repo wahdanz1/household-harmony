@@ -75,7 +75,7 @@ export const TemporaryExpenseFormDialog = ({
                 month_end: format(end, "yyyy-MM-dd"),
                 one_time_name: formData.description.trim(),
                 one_time_category: formData.category,
-                amount: parseFloat(formData.amount),
+                budget_snapshot: parseFloat(formData.amount),
                 notes: formData.notes || null,
                 created_by: user.id,
             };

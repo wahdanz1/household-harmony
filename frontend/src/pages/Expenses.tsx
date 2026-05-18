@@ -326,7 +326,7 @@ const Expenses = () => {
   const subscriptionsTotal = subscriptions
     .filter(sub => sub.is_active)
     .reduce((sum, sub) => {
-      const amount = parseFloat(sub.amount);
+      const amount = parseFloat(sub.budget);
       if (sub.billing_cycle === "yearly") return sum + amount / 12;
       if (sub.billing_cycle === "semi_annually") return sum + amount / 6;
       if (sub.billing_cycle === "quarterly") return sum + amount / 3;
@@ -605,7 +605,7 @@ const Expenses = () => {
                 ...sub,
                 name: sub.name || sub.service,
                 category: sub.category,
-                budget: sub.amount,
+                budget: sub.budget,
                 isDue,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
                 inactive: sub.is_active === false,
