@@ -87,40 +87,46 @@ const FEATURES: FeatureToggle[] = [
     },
 ];
 
-const STEPS: { key: StepKey; title: string; description: string; icon: any }[] = [
+const STEPS: { key: StepKey; title: string; shortLabel: string; description: string; icon: any }[] = [
     {
         key: "features",
         title: "Features",
+        shortLabel: "Features",
         description: "Pick what you want to track. You can always change this later in Settings.",
         icon: ToggleRight,
     },
     {
         key: "income",
         title: "Income sources",
+        shortLabel: "Income",
         description: "Salaries, benefits, and any other regular income coming in each month.",
         icon: TrendingUp,
     },
     {
         key: "expense",
         title: "Fixed expenses",
+        shortLabel: "Expenses",
         description: "Recurring bills you pay yourself — rent, utilities, phone plans, anything monthly.",
         icon: Home,
     },
     {
         key: "subscription",
         title: "Subscriptions",
+        shortLabel: "Subs",
         description: "Streaming, software, gym, memberships — anything billed on a regular cycle.",
         icon: Repeat,
     },
     {
         key: "insurance",
         title: "Insurances",
+        shortLabel: "Insurance",
         description: "Home, car, health, pet — usually billed yearly, auto-spread across the year.",
         icon: Shield,
     },
     {
         key: "review",
         title: "Review",
+        shortLabel: "Review",
         description: "Quick check of what you've added. Tap any row to edit. Click Finish when you're ready.",
         icon: ClipboardCheck,
     },
@@ -364,8 +370,13 @@ export const HouseholdSetupWizard = ({
                 onPointerDownOutside={(e) => e.preventDefault()}
                 onEscapeKeyDown={(e) => e.preventDefault()}
             >
+                <StepIndicator
+                    steps={STEPS.map((s): StepIndicatorStep => ({ label: s.shortLabel }))}
+                    current={stepIdx}
+                    className="pt-1 pb-2"
+                />
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
+                    <DialogTitle className="flex items-center gap-2 mt-1">
                         <step.icon className="h-5 w-5 text-accent" />
                         {step.title}
                     </DialogTitle>
