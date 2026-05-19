@@ -205,10 +205,6 @@ const Overview = () => {
       const uniqueIncomes = deduplicateItems(decryptedIncomes, "income_source_id");
       const uniqueExpenses = deduplicateItems(decryptedExpenses, "expense_id");
 
-      // Per-source amount precedence — mirrors Income.tsx / Expenses.tsx so the
-      // three pages agree even when a monthly_* row is missing (e.g. a source
-      // brought in from another household before its current-month carry-forward
-      // has been written): actual > snapshot > live source budget.
       const monthlyByIncomeSource = new Map<string, any>(
         uniqueIncomes
           .filter((m: any) => m.income_source_id)
@@ -233,7 +229,6 @@ const Overview = () => {
         return sum + resolveSourceAmount(source, monthlyByExpenseSource.get(source.id));
       }, 0);
 
-      // One-time entries (no source FK) still live only in the monthly_* tables.
       const oneTimeIncome = uniqueIncomes
         .filter((m: any) => !m.income_source_id)
         .reduce((sum: number, m: any) => sum + (parseFloat(m.actual_amount ?? m.budget_snapshot) || 0), 0);

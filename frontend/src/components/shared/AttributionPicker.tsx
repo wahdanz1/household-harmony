@@ -14,12 +14,6 @@ import { useHouseholdSubjects, type SubjectType, type SubjectOption } from "@/ho
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 
-/**
- * What an attribution row references. Exactly one of (member, subject) is set,
- * or null for "nobody / shared". The DB enforces this via a CHECK constraint on
- * each table (expenses_one_attribution, etc.) so member_id / subject_id are
- * never both populated.
- */
 export type AttributionValue =
     | { kind: "member"; id: string }
     | { kind: "subject"; id: string }
@@ -71,8 +65,6 @@ export const AttributionPicker = ({
     const subjects = useHouseholdSubjects(householdId, refreshKey);
     const [addOpen, setAddOpen] = useState(false);
 
-    // Active members only — pending-exit ones are mid-leave and shouldn't be
-    // assignable. Current user comes first; everyone else alphabetical.
     const activeMembers = members
         .filter(m => !(m as any).pending_exit_at)
         .slice()

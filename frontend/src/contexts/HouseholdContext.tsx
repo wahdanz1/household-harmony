@@ -45,10 +45,8 @@ interface HouseholdContextType {
     loading: boolean;
     financialMonthStart: number;
     refresh: () => Promise<void>;
-    /** Bumps on every successful refresh. Page-level fetch effects include
-     *  this in their deps so they re-run after flows that mutate the active
-     *  household's data (bring-items, planning, etc.) without us having to
-     *  thread bespoke signals through every page. */
+    /** Bumped on every successful refresh; include in fetch-effect deps to
+     *  re-run after mutations elsewhere in the app. */
     dataVersion: number;
 }
 
@@ -133,18 +131,10 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
     }, [userId]);
 
     useEffect(() => {
-        // Reset loading so consumers re-show skeletons across the userId boundary.
-        // isUnlocked is in the dep list so HouseholdContext discovers a household
-        // bootstrapped by unlockWithPassword (stranded user → new personal household).
         setLoading(true);
         fetchHouseholdData();
     }, [fetchHouseholdData, isUnlocked]);
 
-    // Live notification: if someone else (typically an owner) soft-removes the
-    // current user, reload so they land in the exit-dialog flow. Self-initiated
-    // exits (the user accepting an invite to another household, or leaving
-    // their own household) skip the destructive toast — those flows manage the
-    // transition in-place without a reload.
     useEffect(() => {
         if (!userId) return;
         const channel = supabase

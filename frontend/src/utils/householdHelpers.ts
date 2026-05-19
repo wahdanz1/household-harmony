@@ -49,10 +49,6 @@ export async function getActiveHousehold(userId: string): Promise<ActiveHousehol
         return { membership: null, household: null, allMemberships: [] };
     }
 
-    // Pending-exit memberships are never "active" — the user is mid-leave on
-    // that one. If every membership is pending the user is stranded; return
-    // null and let unlockWithPassword bootstrap a fresh personal household.
-    // (HouseholdContext refetches on isUnlocked so it discovers the bootstrap.)
     const active = memberships.filter(m => !m.pending_exit_at);
     const activeMembership = active.find(m => m.role === "member") || active.find(m => m.role === "owner");
 
