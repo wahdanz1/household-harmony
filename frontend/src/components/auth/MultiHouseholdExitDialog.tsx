@@ -129,7 +129,7 @@ function billingSuffix(cycle: string | null): string {
 
 export const MultiHouseholdExitDialog = () => {
     const { user } = useAuth();
-    const { household: activeHousehold, members: activeMembers, refresh: refreshHousehold } = useHousehold();
+    const { household: activeHousehold, members: activeMembers, userRole: activeRole, refresh: refreshHousehold } = useHousehold();
     const {
         pendingExitHouseholdId,
         decryptFromPendingExit,
@@ -433,7 +433,9 @@ export const MultiHouseholdExitDialog = () => {
             >
                 <DialogHeader>
                     <DialogTitle>
-                        Welcome to {activeHousehold?.name ?? "your new household"}
+                        {activeRole === "member"
+                            ? `Welcome to ${activeHousehold?.name ?? "your new household"}`
+                            : "Pick what to bring along"}
                     </DialogTitle>
                     <DialogDescription>
                         Items tagged as yours come along by default. Tick anything else you want to bring.
@@ -449,22 +451,7 @@ export const MultiHouseholdExitDialog = () => {
                         Nothing personal to bring along. You're all set in {activeHousehold?.name ?? "your new household"}.
                     </p>
                 ) : (
-                    <div className="space-y-3 py-2">
-                        <div className="flex justify-end">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (selectedIds.size === items.length) {
-                                        setSelectedIds(new Set());
-                                    } else {
-                                        setSelectedIds(new Set(items.map(i => i.id)));
-                                    }
-                                }}
-                                className="text-xs text-accent hover:underline"
-                            >
-                                {selectedIds.size === items.length ? "Clear all" : "Select all"}
-                            </button>
-                        </div>
+                    <div className="space-y-5 py-2">
                         {SECTIONS.map(section => {
                             const sectionItems = itemsBySection.get(section.key) ?? [];
                             if (sectionItems.length === 0) return null;
@@ -525,7 +512,22 @@ export const MultiHouseholdExitDialog = () => {
                     </div>
                 )}
 
-                <DialogFooter>
+                <DialogFooter className="sm:justify-between">
+                    {items.length > 0 ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (selectedIds.size === items.length) {
+                                    setSelectedIds(new Set());
+                                } else {
+                                    setSelectedIds(new Set(items.map(i => i.id)));
+                                }
+                            }}
+                            className="text-xs text-accent hover:underline self-center"
+                        >
+                            {selectedIds.size === items.length ? "Clear all" : "Select all"}
+                        </button>
+                    ) : <span />}
                     <Button onClick={handleConfirm} disabled={submitting || loading}>
                         {submitting ? (
                             <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Bringing…</>
