@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { KeyRound, RefreshCw, ShieldCheck, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption, PreparedRecoverySlot } from "@/contexts/EncryptionContext";
 import { RecoveryCodeSetupModal } from "@/components/auth/RecoveryCodeSetupModal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { SettingsCard } from "./SettingsCard";
 import { toast } from "sonner";
 
 export const RecoveryCodeCard = () => {
@@ -64,17 +64,11 @@ export const RecoveryCodeCard = () => {
 
     return (
         <>
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <KeyRound className="h-5 w-5 text-accent" />
-                        Recovery code
-                    </CardTitle>
-                    <CardDescription>
+            <SettingsCard eyebrow="Recovery code">
+                <div className="space-y-3">
+                    <p className="text-sm text-muted -mt-1">
                         A 12-word phrase that lets you recover your encrypted data if you forget your password.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
+                    </p>
                     {exists === null ? (
                         <p className="text-sm text-muted">Loading…</p>
                     ) : exists ? (
@@ -99,7 +93,7 @@ export const RecoveryCodeCard = () => {
                         </>
                     ) : (
                         <>
-                            <div className="flex items-start gap-2 p-3 rounded-[10px] bg-warn/10 text-warn-dk text-xs">
+                            <div className="flex items-start gap-2 p-3 rounded-lg bg-warn/10 text-warn-dk text-xs">
                                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                                 <span>No recovery code set yet. Without one, a forgotten password means losing access to your encrypted data.</span>
                             </div>
@@ -109,8 +103,8 @@ export const RecoveryCodeCard = () => {
                             </Button>
                         </>
                     )}
-                </CardContent>
-            </Card>
+                </div>
+            </SettingsCard>
 
             <RecoveryCodeSetupModal
                 open={!!slot}
