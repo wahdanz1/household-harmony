@@ -431,26 +431,45 @@ const Expenses = () => {
           </div>
 
           <AllTabBlockView
-            expenses={expenseCategories.map(cat => {
-              const monthly = monthlyExpenses.find((m: any) => m.expense_id === cat.id);
-              const rawActual = monthly?.actual_amount;
-              const actualAmount = rawActual !== undefined && rawActual !== null
-                ? Number(rawActual)
-                : undefined;
-              const subj = subjects.find(s => s.id === cat.subject_id);
-              const mem = members.find(m => m.id === cat.member_id);
-              return {
-                id: cat.id,
-                name: cat.name,
-                amount: parseFloat(cat.budget || '0'),
-                budget: parseFloat(cat.budget || '0'),
-                actualAmount,
-                category: cat.category,
-                subject: subj ? { name: subj.name, type: subj.type } : undefined,
-                member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
-                isCredit: !!cat.is_credit,
-              };
-            }).sort((a, b) => (b.budget ?? 0) - (a.budget ?? 0))}
+            expenses={[
+              ...expenseCategories.map(cat => {
+                const monthly = monthlyExpenses.find((m: any) => m.expense_id === cat.id);
+                const rawActual = monthly?.actual_amount;
+                const actualAmount = rawActual !== undefined && rawActual !== null
+                  ? Number(rawActual)
+                  : undefined;
+                const subj = subjects.find(s => s.id === cat.subject_id);
+                const mem = members.find(m => m.id === cat.member_id);
+                return {
+                  id: cat.id,
+                  name: cat.name,
+                  amount: parseFloat(cat.budget || '0'),
+                  budget: parseFloat(cat.budget || '0'),
+                  actualAmount,
+                  category: cat.category,
+                  subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                  member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
+                  isCredit: !!cat.is_credit,
+                };
+              }),
+              // One-time entries (e.g. from credit-import for un-budgeted
+              // categories). Source-less rows live only in the month they were
+              // charged; rendered read-only here so the user sees the history.
+              ...monthlyExpenses
+                .filter((m: any) => m.expense_id == null && m.one_time_name)
+                .map((m: any) => {
+                  const actualAmount = m.actual_amount != null ? Number(m.actual_amount) : undefined;
+                  return {
+                    id: `onetime-${m.id}`,
+                    name: m.one_time_name as string,
+                    amount: actualAmount ?? 0,
+                    budget: undefined,
+                    actualAmount,
+                    category: m.one_time_category as string | undefined,
+                    readOnly: true,
+                  };
+                }),
+            ].sort((a, b) => (b.actualAmount ?? b.budget ?? 0) - (a.actualAmount ?? a.budget ?? 0))}
             subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.amount)) - parseFloat(String(a.amount))).map(sub => {
               // Calculate if this subscription is due in current financial month
               let isDue = false;

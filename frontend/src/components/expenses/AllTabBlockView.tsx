@@ -33,6 +33,9 @@ interface ExpenseItem {
     member?: { name: string };
     inactive?: boolean;
     isCredit?: boolean;
+    /** Suppress click + hover affordance. Used for historical one-time entries
+     *  that have no edit surface yet. */
+    readOnly?: boolean;
 }
 
 const SUBJECT_ICON: Record<string, any> = {
@@ -206,7 +209,7 @@ export const ExpenseBlock = ({
                             <RowItem
                                 key={item.id}
                                 last={isLast}
-                                onClick={() => onItemClick?.(item.id)}
+                                onClick={item.readOnly ? undefined : () => onItemClick?.(item.id)}
                                 className={`group ${item.inactive ? "opacity-50" : ""}`}
                             >
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -240,6 +243,13 @@ export const ExpenseBlock = ({
                                             widthClassName="w-20 sm:w-24"
                                             onChange={(v) => onAmountChange(item.id, v.toString())}
                                         />
+                                    ) : item.actualAmount !== undefined ? (
+                                        <Money
+                                            v={item.actualAmount}
+                                            currency={currency}
+                                            size="base"
+                                            weight={500}
+                                        />
                                     ) : item.displayAmount !== undefined ? (
                                         <span className="flex items-baseline gap-1">
                                             <Money
@@ -262,21 +272,6 @@ export const ExpenseBlock = ({
                                             estimate={categoryType === 'expense' && isCategoryBudgeted(item.category)}
                                         />
                                     )}
-                                    {item.actualAmount !== undefined && Math.round(item.actualAmount) !== Math.round(item.amount) && (() => {
-                                        const variance = item.actualAmount - item.amount;
-                                        const over = variance > 0;
-                                        return (
-                                            <span
-                                                className={`text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded ${over
-                                                    ? "bg-danger/10 text-danger"
-                                                    : "bg-accent/10 text-accent"
-                                                    }`}
-                                                title={`Actual: ${Math.round(item.actualAmount)} ${currency}`}
-                                            >
-                                                {over ? "+" : "−"}{Math.abs(Math.round(variance))} {currency}
-                                            </span>
-                                        );
-                                    })()}
                                     <Pencil className="h-3.5 w-3.5 text-muted hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                                 </div>
                             </RowItem>
