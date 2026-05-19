@@ -208,6 +208,8 @@ export type Database = {
       }
       expenses: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           category: Database["public"]["Enums"]["expense_category_enum"]
           created_at: string
           created_by: string | null
@@ -220,12 +222,15 @@ export type Database = {
           is_active: boolean
           is_credit: boolean | null
           is_encrypted: boolean | null
+          member_id: string | null
           metadata: Json | null
           sort_order: number
           subject_id: string | null
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           category: Database["public"]["Enums"]["expense_category_enum"]
           created_at?: string
           created_by?: string | null
@@ -238,12 +243,15 @@ export type Database = {
           is_active?: boolean
           is_credit?: boolean | null
           is_encrypted?: boolean | null
+          member_id?: string | null
           metadata?: Json | null
           sort_order?: number
           subject_id?: string | null
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           category?: Database["public"]["Enums"]["expense_category_enum"]
           created_at?: string
           created_by?: string | null
@@ -256,6 +264,7 @@ export type Database = {
           is_active?: boolean
           is_credit?: boolean | null
           is_encrypted?: boolean | null
+          member_id?: string | null
           metadata?: Json | null
           sort_order?: number
           subject_id?: string | null
@@ -281,6 +290,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
             referencedColumns: ["id"]
           },
           {
@@ -358,6 +374,7 @@ export type Database = {
           id: string
           joined_at: string
           pending_exit_at: string | null
+          pending_exit_initiated_by: string | null
           role: Database["public"]["Enums"]["household_role"]
           user_id: string
         }
@@ -366,6 +383,7 @@ export type Database = {
           id?: string
           joined_at?: string
           pending_exit_at?: string | null
+          pending_exit_initiated_by?: string | null
           role: Database["public"]["Enums"]["household_role"]
           user_id: string
         }
@@ -374,6 +392,7 @@ export type Database = {
           id?: string
           joined_at?: string
           pending_exit_at?: string | null
+          pending_exit_initiated_by?: string | null
           role?: Database["public"]["Enums"]["household_role"]
           user_id?: string
         }
@@ -440,6 +459,8 @@ export type Database = {
       }
       income_sources: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           category: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id: string | null
           created_at: string
@@ -458,6 +479,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           category: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id?: string | null
           created_at?: string
@@ -476,6 +499,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           category?: Database["public"]["Enums"]["income_category_enum"]
           co_parent_id?: string | null
           created_at?: string
@@ -519,6 +544,8 @@ export type Database = {
       }
       insurances: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           billing_cycle: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day: number | null
           billing_month: number | null
@@ -534,12 +561,15 @@ export type Database = {
           is_active: boolean
           is_encrypted: boolean | null
           is_shared: boolean
+          member_id: string | null
           notes: string | null
           share_percentage: number
           subject_id: string | null
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day?: number | null
           billing_month?: number | null
@@ -555,12 +585,15 @@ export type Database = {
           is_active?: boolean
           is_encrypted?: boolean | null
           is_shared?: boolean
+          member_id?: string | null
           notes?: string | null
           share_percentage?: number
           subject_id?: string | null
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day?: number | null
           billing_month?: number | null
@@ -576,6 +609,7 @@ export type Database = {
           is_active?: boolean
           is_encrypted?: boolean | null
           is_shared?: boolean
+          member_id?: string | null
           notes?: string | null
           share_percentage?: number
           subject_id?: string | null
@@ -601,6 +635,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "insurances_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
             referencedColumns: ["id"]
           },
           {
@@ -1028,6 +1069,8 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          archived_at: string | null
+          archived_by: string | null
           billing_cycle: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day: number | null
           billing_month: number | null
@@ -1041,11 +1084,14 @@ export type Database = {
           id: string
           is_active: boolean
           is_encrypted: boolean | null
+          member_id: string | null
           notes: string | null
           subject_id: string | null
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_by?: string | null
           billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day?: number | null
           billing_month?: number | null
@@ -1059,11 +1105,14 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_encrypted?: boolean | null
+          member_id?: string | null
           notes?: string | null
           subject_id?: string | null
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
+          archived_by?: string | null
           billing_cycle?: Database["public"]["Enums"]["billing_cycle_enum"]
           billing_day?: number | null
           billing_month?: number | null
@@ -1077,6 +1126,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_encrypted?: boolean | null
+          member_id?: string | null
           notes?: string | null
           subject_id?: string | null
           updated_at?: string
@@ -1094,6 +1144,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
             referencedColumns: ["id"]
           },
           {
