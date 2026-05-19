@@ -338,6 +338,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 return false;
             }
 
+            let unlocked = false;
             if (!vault?.encrypted_dek) {
                 // Only auto-init when nobody in the household has a wrap yet —
                 // otherwise we'd fork the DEK and orphan existing data.
@@ -345,25 +346,28 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                     household_id_in: householdId,
                 });
                 if (hasKeys === false) {
-                    return await initializeEncryption(password, userId, householdId);
+                    unlocked = await initializeEncryption(password, userId, householdId);
                 }
-                return false;
+            } else {
+                const dek = await unlockVault(
+                    password,
+                    vault.encrypted_dek,
+                    vault.dek_salt,
+                    vault.dek_iv,
+                );
+                dekRef.current = dek;
+                dekUserIdRef.current = userId;
+                setIsUnlocked(true);
+                resetInactivityTimer();
+                unlocked = true;
             }
 
-            const dek = await unlockVault(
-                password,
-                vault.encrypted_dek,
-                vault.dek_salt,
-                vault.dek_iv,
-            );
+            if (!unlocked) return false;
 
-            dekRef.current = dek;
-            dekUserIdRef.current = userId;
-            setIsUnlocked(true);
-            resetInactivityTimer();
-
-            // Also unlock any pending-exit household so the exit dialog can
-            // decrypt the old household's items for duplication.
+            // Pending-exit detection runs regardless of which unlock path fired
+            // — a stranded user who just bootstrapped their fresh household
+            // still needs the bring-items dialog to surface for the household
+            // they were kicked from.
             const { data: pendingMembership } = await (supabase as any)
                 .from('household_members')
                 .select('household_id')

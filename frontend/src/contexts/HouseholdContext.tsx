@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { useEncryption } from "./EncryptionContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
-import { toast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // Types
 export interface Household {
@@ -61,6 +62,7 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
     const [userRole, setUserRole] = useState<string>("");
     const [loading, setLoading] = useState(true);
     const [dataVersion, setDataVersion] = useState(0);
+    const [removalNotice, setRemovalNotice] = useState(false);
 
     const userId = user?.id;
     // Concurrent fetches (e.g. an effect-triggered refetch racing the wizard's
@@ -153,12 +155,7 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
                     if (oldPending || !newPending) return;
                     const initiator = (payload.new as any)?.pending_exit_initiated_by ?? null;
                     if (initiator === userId) return;
-                    toast({
-                        title: "You've been removed",
-                        description: "Reloading so you can pick which items to bring with you…",
-                        variant: "destructive",
-                    });
-                    setTimeout(() => window.location.reload(), 3000);
+                    setRemovalNotice(true);
                 },
             )
             .subscribe();
@@ -182,6 +179,26 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
             }}
         >
             {children}
+            <Dialog open={removalNotice} onOpenChange={() => { /* sticky — must acknowledge */ }}>
+                <DialogContent
+                    className="max-w-sm"
+                    hideClose
+                    onPointerDownOutside={(e) => e.preventDefault()}
+                    onEscapeKeyDown={(e) => e.preventDefault()}
+                >
+                    <DialogHeader>
+                        <DialogTitle>You've been removed from a household</DialogTitle>
+                        <DialogDescription>
+                            When you continue, you'll be set up in a fresh household and given the chance to bring along anything you attributed to yourself before leaving.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button onClick={() => window.location.reload()}>
+                            Continue
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </HouseholdContext.Provider>
     );
 };
