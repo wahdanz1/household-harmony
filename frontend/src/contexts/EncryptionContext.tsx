@@ -193,14 +193,27 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             if (!autoLockDisabledRef.current) {
                 lockVault();
                 toast({
-                    title: 'Vault Locked',
-                    description: 'Your vault has been locked due to inactivity. Please unlock to continue.',
-                    variant: 'destructive',
+                    title: 'Vault locked',
+                    description: 'Locked due to inactivity. Unlock to continue.',
+                    duration: 8000,
                 });
             }
         }, INACTIVITY_TIMEOUT);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isUnlocked]);
+
+    useEffect(() => {
+        if (!isUnlocked) return;
+        const handler = () => resetInactivityTimer();
+        // mousemove omitted on purpose — fires too often, would make the
+        // inactivity lock unreachable.
+        const events = ['mousedown', 'keydown', 'touchstart', 'scroll'] as const;
+        for (const e of events) window.addEventListener(e, handler, { passive: true });
+        return () => {
+            for (const e of events) window.removeEventListener(e, handler);
+        };
+    }, [isUnlocked, resetInactivityTimer]);
+
 
     const lockVault = useCallback(() => {
         dekRef.current = null;
