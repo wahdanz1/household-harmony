@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryptedFields, subscriptionFields } from "@/hooks/useEncryptedFields";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
-import { SubjectPicker } from "@/components/shared/SubjectPicker";
+import { AttributionPicker, type AttributionValue } from "@/components/shared/AttributionPicker";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField, FormRow } from "@/components/shared/FormField";
@@ -27,7 +27,7 @@ interface InitialValues {
     is_active?: boolean;
     billing_day?: number;
     billing_month?: number;
-    subject_id?: string | null;
+    attribution?: AttributionValue;
 }
 
 interface SubscriptionFormProps {
@@ -51,7 +51,7 @@ const blank = (): InitialValues => ({
     category: "other",
     notes: "",
     is_active: true,
-    subject_id: null,
+    attribution: null,
 });
 
 export const SubscriptionForm = ({
@@ -93,7 +93,8 @@ export const SubscriptionForm = ({
                 created_by: user.id,
                 billing_day: formData.billing_cycle !== "monthly" ? formData.billing_day ?? null : null,
                 billing_month: formData.billing_cycle !== "monthly" ? formData.billing_month ?? null : null,
-                subject_id: formData.subject_id ?? null,
+                subject_id: formData.attribution?.kind === "subject" ? formData.attribution.id : null,
+                member_id: formData.attribution?.kind === "member" ? formData.attribution.id : null,
             };
             const data = await encryptRecord(baseData);
             if (editingId) {
@@ -223,10 +224,10 @@ export const SubscriptionForm = ({
                 </FormRow>
             )}
 
-            <SubjectPicker
+            <AttributionPicker
                 householdId={householdId}
-                value={formData.subject_id}
-                onChange={(id) => setFormData({ ...formData, subject_id: id })}
+                value={formData.attribution ?? null}
+                onChange={(attribution) => setFormData({ ...formData, attribution })}
             />
 
             <FormField label="Name" optional optionalNote="optional, overrides display">

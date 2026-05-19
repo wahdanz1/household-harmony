@@ -292,6 +292,13 @@ export const MultiHouseholdExitDialog = () => {
                     if (section.coParentCol) {
                         newRow[section.coParentCol] = null;
                     }
+                    // member_id references the OLD household's household_members
+                    // row; that row stops being the right target the moment we
+                    // land in a new household. The leaving user can re-attribute
+                    // in the new household if they want to.
+                    if ("member_id" in newRow) {
+                        newRow.member_id = null;
+                    }
 
                     const { data: insertedSource, error: insertError } = await (supabase as any)
                         .from(section.key)

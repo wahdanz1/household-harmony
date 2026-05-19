@@ -697,7 +697,11 @@ export const HouseholdSetupWizard = ({
                         name: editDialogProps.data.name,
                         budget: editDialogProps.data.budget,
                         is_credit: editDialogProps.data.is_credit,
-                        subject_id: editDialogProps.data.subject_id,
+                        attribution: editDialogProps.data.member_id
+                            ? { kind: "member", id: editDialogProps.data.member_id }
+                            : editDialogProps.data.subject_id
+                            ? { kind: "subject", id: editDialogProps.data.subject_id }
+                            : null,
                     }}
                     onSuccess={async () => { await fetchAll(); setEditingItem(null); }}
                 />

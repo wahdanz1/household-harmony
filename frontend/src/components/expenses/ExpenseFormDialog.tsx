@@ -20,7 +20,7 @@ import { EXPENSE_CATEGORIES } from "@/constants/expenseCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
-import { SubjectPicker } from "@/components/shared/SubjectPicker";
+import { AttributionPicker, type AttributionValue } from "@/components/shared/AttributionPicker";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField } from "@/components/shared/FormField";
@@ -33,7 +33,7 @@ interface InitialValues {
     name?: string;
     budget?: number | string;
     is_credit?: boolean;
-    subject_id?: string | null;
+    attribution?: AttributionValue;
 }
 
 interface ExpenseFormDialogProps {
@@ -55,7 +55,7 @@ const blankForm: InitialValues = {
     name: "",
     budget: "0",
     is_credit: false,
-    subject_id: null,
+    attribution: null,
 };
 
 export const ExpenseFormDialog = ({
@@ -113,7 +113,8 @@ export const ExpenseFormDialog = ({
                 name: form.name?.trim() ?? "",
                 budget: numericAmount,
                 is_credit: !!form.is_credit,
-                subject_id: form.subject_id ?? null,
+                subject_id: form.attribution?.kind === "subject" ? form.attribution.id : null,
+                member_id: form.attribution?.kind === "member" ? form.attribution.id : null,
                 created_by: user.id,
                 is_active: true,
             };
@@ -219,10 +220,10 @@ export const ExpenseFormDialog = ({
                         />
                     </FormField>
 
-                    <SubjectPicker
+                    <AttributionPicker
                         householdId={householdId}
-                        value={form.subject_id}
-                        onChange={(id) => setForm({ ...form, subject_id: id })}
+                        value={form.attribution ?? null}
+                        onChange={(attribution) => setForm({ ...form, attribution })}
                     />
 
                     <FormField

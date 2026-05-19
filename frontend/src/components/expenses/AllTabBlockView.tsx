@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, Car, Baby, PawPrint, Box, Plus, CreditCard } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, Car, Baby, PawPrint, Box, Plus, CreditCard, User } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
@@ -30,6 +30,7 @@ interface ExpenseItem {
     isDue?: boolean; // Is this subscription due in the current financial month?
     hasSpecialFields?: boolean; // Electricity/Rent - needs dialog to edit
     subject?: { name: string; type: string };
+    member?: { name: string };
     inactive?: boolean;
     isCredit?: boolean;
 }
@@ -50,6 +51,13 @@ const SubjectChip = ({ subject }: { subject: { name: string; type: string } }) =
         </span>
     );
 }
+
+const MemberChip = ({ member }: { member: { name: string } }) => (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted">
+        <User className="h-3 w-3" />
+        {member.name}
+    </span>
+);
 
 const CreditChip = () => (
     <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted">
@@ -218,6 +226,7 @@ export const ExpenseBlock = ({
                                             : 'text-muted'
                                             }`}>{item.name}</span>
                                         {item.subject && <SubjectChip subject={item.subject} />}
+                                        {item.member && <MemberChip member={item.member} />}
                                         {item.isCredit && <CreditChip />}
                                     </div>
                                 </div>
@@ -293,8 +302,8 @@ export const ExpenseBlock = ({
 
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; budget: number; billing_cycle: string; category?: string; isDue?: boolean; subject?: { name: string; type: string }; inactive?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; subject?: { name: string; type: string }; inactive?: boolean }[];
+    subscriptions: { id: string; name: string; budget: number; billing_cycle: string; category?: string; isDue?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
+    insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
@@ -355,6 +364,7 @@ export const AllTabBlockView = ({
             billingCycle: sub.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
             isDue: sub.isDue,
             subject: sub.subject,
+            member: sub.member,
             inactive: sub.inactive,
         };
     });
@@ -376,6 +386,7 @@ export const AllTabBlockView = ({
             displayAmount: ins.budget,
             displayLabel,
             subject: ins.subject,
+            member: ins.member,
             inactive: ins.inactive,
         };
     });

@@ -565,14 +565,16 @@ const Expenses = () => {
                 ? Number(rawActual)
                 : undefined;
               const subj = subjects.find(s => s.id === cat.subject_id);
+              const mem = members.find(m => m.id === cat.member_id);
               return {
                 id: cat.id,
                 name: cat.name,
-                amount: parseFloat(amounts[cat.id] || cat.budget || '0'),
+                amount: parseFloat(cat.budget || '0'),
                 budget: parseFloat(cat.budget || '0'),
                 actualAmount,
                 category: cat.category,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
                 isCredit: !!cat.is_credit,
               };
             }).sort((a, b) => (b.budget ?? 0) - (a.budget ?? 0))}
@@ -601,6 +603,7 @@ const Expenses = () => {
                 isDue = true; // Monthly is always "due"
               }
               const subj = subjects.find(s => s.id === sub.subject_id);
+              const mem = members.find(m => m.id === sub.member_id);
               return {
                 ...sub,
                 name: sub.name || sub.service,
@@ -608,6 +611,7 @@ const Expenses = () => {
                 budget: sub.budget,
                 isDue,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
                 inactive: sub.is_active === false,
               };
             })}
@@ -623,6 +627,7 @@ const Expenses = () => {
               }
 
               const subj = subjects.find(s => s.id === ins.subject_id);
+              const mem = members.find(m => m.id === ins.member_id);
               const rawName = typeof ins.name === "string" ? ins.name.trim() : "";
               const customName = rawName === "NaN" ? "" : rawName;
               const typeLabel = insuranceTypes.find(t => t.value === ins.category)?.label ?? "Insurance";
@@ -635,6 +640,7 @@ const Expenses = () => {
                 billing_cycle: ins.billing_cycle,
                 category: ins.category,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
                 inactive: ins.is_active === false,
               };
             })}
@@ -734,7 +740,11 @@ const Expenses = () => {
             name: editingCategory.name,
             budget: editingCategory.budget,
             is_credit: editingCategory.is_credit,
-            subject_id: editingCategory.subject_id,
+            attribution: editingCategory.member_id
+              ? { kind: "member", id: editingCategory.member_id }
+              : editingCategory.subject_id
+              ? { kind: "subject", id: editingCategory.subject_id }
+              : null,
           } : undefined}
           onSuccess={fetchData}
         />
@@ -766,7 +776,11 @@ const Expenses = () => {
             is_active: editingSubscription.is_active,
             billing_day: editingSubscription.billing_day,
             billing_month: editingSubscription.billing_month,
-            subject_id: editingSubscription.subject_id,
+            attribution: editingSubscription.member_id
+              ? { kind: "member", id: editingSubscription.member_id }
+              : editingSubscription.subject_id
+              ? { kind: "subject", id: editingSubscription.subject_id }
+              : null,
           } : undefined}
           onOpenChange={(open) => !open && setEditingSubscription(null)}
           onSuccess={fetchData}
@@ -802,7 +816,11 @@ const Expenses = () => {
             is_shared: editingInsurance.is_shared,
             co_parent_id: editingInsurance.co_parent_id,
             share_percentage: editingInsurance.share_percentage,
-            subject_id: editingInsurance.subject_id,
+            attribution: editingInsurance.member_id
+              ? { kind: "member", id: editingInsurance.member_id }
+              : editingInsurance.subject_id
+              ? { kind: "subject", id: editingInsurance.subject_id }
+              : null,
           } : undefined}
           onOpenChange={(open) => !open && setEditingInsurance(null)}
           onSuccess={fetchData}
