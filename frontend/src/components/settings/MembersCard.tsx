@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Crown, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { SettingsCard } from "./SettingsCard";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 interface MembersCardProps {
     members: any[];
@@ -14,15 +16,20 @@ interface MembersCardProps {
 export const MembersCard = ({ members, userRole, onUpdate }: MembersCardProps) => {
     const { user } = useAuth();
     const isOwner = userRole === "owner";
+    const [pendingRemoval, setPendingRemoval] = useState<{ id: string; name: string } | null>(null);
+    const [removing, setRemoving] = useState(false);
 
-    const handleRemove = async (memberId: string, name: string) => {
-        if (!confirm(`Remove ${name} from this household?`)) return;
-        const { error } = await (supabase as any).rpc("request_member_exit", { member_id_in: memberId });
+    const confirmRemoval = async () => {
+        if (!pendingRemoval) return;
+        setRemoving(true);
+        const { error } = await (supabase as any).rpc("request_member_exit", { member_id_in: pendingRemoval.id });
+        setRemoving(false);
         if (error) {
             toast.error("Failed to remove member");
             return;
         }
-        toast.success(`${name} will see a one-time dialog to take items with them.`);
+        toast.success(`${pendingRemoval.name} will see a one-time dialog to take items with them.`);
+        setPendingRemoval(null);
         onUpdate();
     };
 
@@ -64,7 +71,7 @@ export const MembersCard = ({ members, userRole, onUpdate }: MembersCardProps) =
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => handleRemove(m.id, m.profiles?.full_name || "this member")}
+                                    onClick={() => setPendingRemoval({ id: m.id, name: m.profiles?.full_name || "this member" })}
                                     aria-label="Remove member"
                                     className="h-8 w-8 shrink-0 text-muted hover:text-danger"
                                 >
@@ -75,6 +82,16 @@ export const MembersCard = ({ members, userRole, onUpdate }: MembersCardProps) =
                     );
                 })}
             </div>
+            <ConfirmDialog
+                open={!!pendingRemoval}
+                onOpenChange={(open) => { if (!open && !removing) setPendingRemoval(null); }}
+                title={pendingRemoval ? `Remove ${pendingRemoval.name}?` : ""}
+                description="They'll see a one-time dialog to bring items along before leaving."
+                confirmLabel="Remove"
+                busyLabel="Removing…"
+                onConfirm={confirmRemoval}
+                busy={removing}
+            />
         </SettingsCard>
     );
 };
