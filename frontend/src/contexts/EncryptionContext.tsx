@@ -40,6 +40,10 @@ interface EncryptionContextValue {
     decryptFromPendingExit: (ciphertext: string) => Promise<string | null>;
     /** Drop the pending-exit DEK from memory (call after the exit dialog completes). */
     clearPendingExitDEK: () => void;
+    /** Stash an already-unlocked household's DEK as the pending-exit DEK.
+     *  Used by the join-an-existing-household flow so the old household's DEK
+     *  survives the in-place switch without a page reload. */
+    markPendingExit: (householdId: string, dek: CryptoKey) => void;
 
     /** True while the first-run recovery-code modal is on screen. Other welcome flows
      *  (HouseholdSetupWizard) gate themselves on this so they don't render on top. */
@@ -222,6 +226,11 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     const clearPendingExitDEK = useCallback(() => {
         pendingExitDekRef.current = null;
         setPendingExitHouseholdId(null);
+    }, []);
+
+    const markPendingExit = useCallback((householdId: string, dek: CryptoKey) => {
+        pendingExitDekRef.current = dek;
+        setPendingExitHouseholdId(householdId);
     }, []);
 
     const encrypt = useCallback(async (plaintext: string): Promise<string | null> => {
@@ -579,6 +588,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         pendingExitHouseholdId,
         decryptFromPendingExit,
         clearPendingExitDEK,
+        markPendingExit,
         recoveryCodeDialogOpen,
         setRecoveryCodeDialogOpen,
     };

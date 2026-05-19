@@ -49,14 +49,14 @@ export async function getActiveHousehold(userId: string): Promise<ActiveHousehol
         return { membership: null, household: null, allMemberships: [] };
     }
 
-    // Soft-removed memberships drop to the back — the user has already been
-    // shown the exit dialog (or will be); they shouldn't land in that household.
+    // Pending-exit memberships are never "active" — the user is mid-leave on
+    // that one. If every membership is pending the user is stranded; return
+    // null and let unlockWithPassword bootstrap a fresh personal household.
+    // (HouseholdContext refetches on isUnlocked so it discovers the bootstrap.)
     const active = memberships.filter(m => !m.pending_exit_at);
-    const pool = active.length > 0 ? active : memberships;
-    const activeMembership = pool.find(m => m.role === "member") || pool.find(m => m.role === "owner");
+    const activeMembership = active.find(m => m.role === "member") || active.find(m => m.role === "owner");
 
     if (!activeMembership) {
-        console.error("[getActiveHousehold] No valid membership found");
         return { membership: null, household: null, allMemberships: memberships as HouseholdMembership[] };
     }
 

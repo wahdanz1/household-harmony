@@ -35,8 +35,8 @@ interface PreviewMember {
 
 export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserDialogProps) => {
     const { user } = useAuth();
-    const { setupVaultFromInvite } = useEncryption();
-    const { household: currentHousehold } = useHousehold();
+    const { setupVaultFromInvite, markPendingExit } = useEncryption();
+    const { household: currentHousehold, refresh: refreshHousehold } = useHousehold();
     const { toast } = useToast();
 
     const [step, setStep] = useState(1);
@@ -148,8 +148,9 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
             setLoading(false);
             return;
         }
+        let currentDek: CryptoKey;
         try {
-            await unlockVault(password, currentVault.encrypted_dek, currentVault.dek_salt, currentVault.dek_iv);
+            currentDek = await unlockVault(password, currentVault.encrypted_dek, currentVault.dek_salt, currentVault.dek_iv);
         } catch {
             toast({ title: "Wrong password", description: "That password doesn't match your account.", variant: "destructive" });
             setLoading(false);
@@ -194,7 +195,9 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
             return;
         }
 
-        // Soft-leave current household so the bring-items dialog runs on reload.
+        // Soft-leave current household so the bring-items dialog mounts. Stays a
+        // valid membership (vault key + row preserved) until confirm_member_exit
+        // finalises it from inside that dialog.
         const { data: currentMembership } = await supabase
             .from("household_members")
             .select("id")
@@ -216,11 +219,20 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
             }
         }
 
+        // Hand the just-unlocked old-household DEK over to the encryption
+        // context so MultiHouseholdExitDialog can decrypt the items to bring
+        // along — without forcing a page reload that would re-lock the new
+        // vault and prompt for the password a second time.
+        markPendingExit(currentHousehold.id, currentDek);
+        await refreshHousehold();
+
         toast({
-            title: "Switching households…",
-            description: `Joining ${household.name}. Reloading.`,
+            title: "Switched households",
+            description: `You're in ${household.name}. Pick what to bring with you on the next screen.`,
         });
-        setTimeout(() => window.location.reload(), 1000);
+        onOpenChange(false);
+        resetDialog();
+        setLoading(false);
     };
 
     return (
