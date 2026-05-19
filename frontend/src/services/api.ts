@@ -1,6 +1,6 @@
 // Base API Client for Backend Communication
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 interface RequestOptions {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
