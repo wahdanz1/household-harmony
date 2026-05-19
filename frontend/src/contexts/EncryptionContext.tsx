@@ -107,6 +107,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
     const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [secondsUntilLock, setSecondsUntilLock] = useState(Math.ceil(LOCK_WARNING_TIME / 1000));
     const [showLockWarning, setShowLockWarning] = useState(false);
     const autoLockDisabledRef = useRef(false);
 
@@ -182,11 +183,6 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
         warningTimerRef.current = setTimeout(() => {
             setShowLockWarning(true);
-            toast({
-                title: 'Vault Auto-Lock Warning',
-                description: 'You have been inactive. The vault will lock in 1 minute. Interact with the app to stay active.',
-                duration: 55000,
-            });
         }, INACTIVITY_TIMEOUT - LOCK_WARNING_TIME);
 
         inactivityTimerRef.current = setTimeout(() => {
@@ -213,6 +209,19 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             for (const e of events) window.removeEventListener(e, handler);
         };
     }, [isUnlocked, resetInactivityTimer]);
+
+    useEffect(() => {
+        const reset = Math.ceil(LOCK_WARNING_TIME / 1000);
+        if (!showLockWarning) {
+            setSecondsUntilLock(reset);
+            return;
+        }
+        setSecondsUntilLock(reset);
+        const id = setInterval(() => {
+            setSecondsUntilLock(s => Math.max(0, s - 1));
+        }, 1000);
+        return () => clearInterval(id);
+    }, [showLockWarning]);
 
 
     const lockVault = useCallback(() => {
@@ -636,7 +645,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                             Session Timeout Warning
                         </h4>
                         <p className="text-muted mb-4">
-                            Your vault will lock in 60 seconds due to inactivity.
+                            Your vault will lock in {secondsUntilLock} second{secondsUntilLock === 1 ? "" : "s"} due to inactivity.
                         </p>
                         <button
                             onClick={resetInactivityTimer}
