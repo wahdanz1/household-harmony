@@ -68,6 +68,7 @@ export const CoParentSettlementCard = ({ householdId, currency }: CoParentSettle
         .eq("is_shared", true)
         .in("co_parent_id", coParentIds)
         .eq("is_active", true)
+        .is("archived_at", null)
         .eq("billing_month", currentMonthNumber),
       supabase
         .from("shared_expenses")

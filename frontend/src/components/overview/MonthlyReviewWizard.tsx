@@ -218,10 +218,10 @@ export const MonthlyReviewWizard = ({
         let results;
         try {
             results = await Promise.all([
-                supabase.from("income_sources").select("*").eq("household_id", household.id).eq("is_active", true),
+                supabase.from("income_sources").select("*").eq("household_id", household.id).eq("is_active", true).is("archived_at", null),
                 supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
                 // is_credit expenses are reviewed via the Credit tab's PDF flow, not here.
-                supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).not("is_credit", "is", true).order("sort_order"),
+                supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).is("archived_at", null).not("is_credit", "is", true).order("sort_order"),
                 supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
                 supabase.from("monthly_review_status").select("user_id, scope, accepted_at").eq("household_id", household.id).eq("month", currentMonth),
             ]);

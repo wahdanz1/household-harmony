@@ -94,7 +94,6 @@ interface FetchedItem {
     amount: number | null;
     billingCycle: string | null;
     category: string | null;
-    authoredByMe: boolean;
     subjectId: string | null;
     section: SectionKey;
 }
@@ -161,10 +160,15 @@ export const MultiHouseholdExitDialog = () => {
 
             const fetched: FetchedItem[] = [];
             for (const section of SECTIONS) {
+                // Only items the leaving user authored are eligible to be
+                // taken — moving a co-member's row would let a leaver strip
+                // the household of work that isn't theirs.
                 const { data, error } = await (supabase as any)
                     .from(section.key)
                     .select("*")
-                    .eq("household_id", pendingExitHouseholdId);
+                    .eq("household_id", pendingExitHouseholdId)
+                    .eq(section.authorCol, user.id)
+                    .is("archived_at", null);
                 if (error || !data) continue;
 
                 for (const row of data) {
@@ -189,7 +193,6 @@ export const MultiHouseholdExitDialog = () => {
                         amount: Number.isFinite(amountNum) ? amountNum : null,
                         billingCycle: row.billing_cycle ?? null,
                         category,
-                        authoredByMe: row[section.authorCol] === user.id,
                         subjectId: section.subjectCol ? row[section.subjectCol] ?? null : null,
                         section: section.key,
                     });
@@ -198,7 +201,7 @@ export const MultiHouseholdExitDialog = () => {
 
             if (cancelled) return;
             setItems(fetched);
-            setSelectedIds(new Set(fetched.filter(i => i.authoredByMe).map(i => i.id)));
+            setSelectedIds(new Set(fetched.map(i => i.id)));
             setLoading(false);
         })();
 
@@ -278,11 +281,26 @@ export const MultiHouseholdExitDialog = () => {
                     let amountPlain: string | null = null;
                     for (const col of section.encryptedCols) {
                         const cipher = item.raw[col];
-                        if (!cipher) { newRow[col] = null; continue; }
+                        if (!cipher) {
+                            if (col === section.amountCol) {
+                                throw new Error(`Couldn't take "${item.label}" — amount missing on the source row.`);
+                            }
+                            newRow[col] = null;
+                            continue;
+                        }
                         const plain = await decryptFromPendingExit(cipher);
-                        if (plain == null) { newRow[col] = null; continue; }
+                        if (plain == null) {
+                            if (col === section.amountCol) {
+                                throw new Error(`Couldn't take "${item.label}" — failed to decrypt its amount.`);
+                            }
+                            newRow[col] = null;
+                            continue;
+                        }
                         if (col === section.amountCol) amountPlain = plain;
                         newRow[col] = await encrypt(plain);
+                    }
+                    if (amountPlain == null) {
+                        throw new Error(`Couldn't take "${item.label}" — amount column not captured.`);
                     }
 
                     if (section.subjectCol) {
@@ -306,13 +324,15 @@ export const MultiHouseholdExitDialog = () => {
                         .select("id")
                         .single();
                     if (insertError || !insertedSource) {
-                        throw new Error(`Failed to bring ${section.title}: ${insertError?.message ?? "no row returned"}`);
+                        throw new Error(`Failed to take ${section.title}: ${insertError?.message ?? "no row returned"}`);
                     }
 
-                    if (section.key === "income_sources" && amountPlain) {
+                    if (section.key === "income_sources" || section.key === "expenses") {
                         const encryptedBudget = await encrypt(amountPlain);
-                        await (supabase as any).from("monthly_incomes").insert({
-                            income_source_id: insertedSource.id,
+                        const fkCol = section.key === "income_sources" ? "income_source_id" : "expense_id";
+                        const monthlyTable = section.key === "income_sources" ? "monthly_incomes" : "monthly_expenses";
+                        const { error: monthlyError } = await (supabase as any).from(monthlyTable).insert({
+                            [fkCol]: insertedSource.id,
                             household_id: activeHousehold.id,
                             month,
                             month_start: monthStartStr,
@@ -320,17 +340,21 @@ export const MultiHouseholdExitDialog = () => {
                             encrypted_budget_snapshot: encryptedBudget,
                             created_by: user.id,
                         });
-                    } else if (section.key === "expenses" && amountPlain) {
-                        const encryptedBudget = await encrypt(amountPlain);
-                        await (supabase as any).from("monthly_expenses").insert({
-                            expense_id: insertedSource.id,
-                            household_id: activeHousehold.id,
-                            month,
-                            month_start: monthStartStr,
-                            month_end: monthEndStr,
-                            encrypted_budget_snapshot: encryptedBudget,
-                            created_by: user.id,
-                        });
+                        if (monthlyError) {
+                            throw new Error(`Took "${item.label}" but failed to seed this month's row: ${monthlyError.message}`);
+                        }
+                    }
+
+                    // Archive the source row in the old household. The row
+                    // stays for FK integrity (historical monthly_* rows still
+                    // join), but live-list queries filter on archived_at IS
+                    // NULL so it disappears from the remaining members' UI.
+                    const { error: archiveError } = await (supabase as any)
+                        .from(section.key)
+                        .update({ archived_at: new Date().toISOString(), archived_by: user.id })
+                        .eq("id", item.id);
+                    if (archiveError) {
+                        throw new Error(`Took "${item.label}" into your new household but failed to archive it in the old one: ${archiveError.message}`);
                     }
                 }
             }
@@ -345,13 +369,8 @@ export const MultiHouseholdExitDialog = () => {
                 title: "All done",
                 description: selectedIds.size === 0
                     ? "You're set up in your household."
-                    : `Brought ${selectedIds.size} item${selectedIds.size === 1 ? "" : "s"} into your household.`,
+                    : `Took ${selectedIds.size} item${selectedIds.size === 1 ? "" : "s"} with you.`,
             });
-
-            // Reload so every page-level fetch (Overview, Income, Expenses) re-runs
-            // against the freshly seeded household state without depending on each
-            // page being visited to refresh itself.
-            setTimeout(() => window.location.reload(), 800);
         } catch (err: any) {
             console.error("Exit dialog failed:", err);
             toast({
@@ -374,11 +393,12 @@ export const MultiHouseholdExitDialog = () => {
             >
                 <DialogHeader>
                     <DialogTitle>
-                        Bring items from {householdName ?? "your previous household"}
+                        Take items with you
                     </DialogTitle>
                     <DialogDescription>
-                        You've been removed from (or left) this household. Pick what to duplicate
-                        into your household. Items you originally added are pre-checked.
+                        Pick which of the items you added to {householdName ?? "your previous household"} you
+                        want to keep tracking. Selected items move with you; unselected items stay behind
+                        for the remaining members.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -388,7 +408,7 @@ export const MultiHouseholdExitDialog = () => {
                     </div>
                 ) : items.length === 0 ? (
                     <p className="text-sm text-muted py-6 text-center">
-                        Nothing to bring across. Click finish to continue.
+                        You didn't add anything in {householdName ?? "the old household"}. Nothing to take with you.
                     </p>
                 ) : (
                     <div className="space-y-5 py-2">
@@ -429,12 +449,7 @@ export const MultiHouseholdExitDialog = () => {
                                                         <CatIcon icon={icon} hue={hue} size={32} />
                                                     )}
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-medium text-sm sm:text-base truncate">{item.label}</span>
-                                                            {item.authoredByMe && (
-                                                                <span className="text-[10px] uppercase tracking-wide text-muted">by you</span>
-                                                            )}
-                                                        </div>
+                                                        <span className="font-medium text-sm sm:text-base truncate">{item.label}</span>
                                                     </div>
                                                     {item.amount != null && (
                                                         <span className="flex items-baseline gap-1 shrink-0">
@@ -457,11 +472,11 @@ export const MultiHouseholdExitDialog = () => {
                 <DialogFooter>
                     <Button onClick={handleConfirm} disabled={submitting || loading}>
                         {submitting ? (
-                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Bringing…</>
+                            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Taking…</>
                         ) : items.length === 0 ? (
                             <>Finish <ArrowRight className="h-4 w-4 ml-2" /></>
                         ) : (
-                            <>Bring {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} <ArrowRight className="h-4 w-4 ml-2" /></>
+                            <>Take {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} with me <ArrowRight className="h-4 w-4 ml-2" /></>
                         )}
                     </Button>
                 </DialogFooter>

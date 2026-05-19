@@ -41,6 +41,7 @@ export const DemoEncryptionCard = ({ householdId }: { householdId: string }) => 
                 .from("income_sources")
                 .select("encrypted_budget")
                 .eq("household_id", householdId)
+                .is("archived_at", null)
                 .limit(1)
                 .single();
 

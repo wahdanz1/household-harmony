@@ -226,10 +226,10 @@ export const HouseholdSetupWizard = ({
     const fetchAll = async () => {
         if (!isUnlocked) return;
         const [incomesR, expensesR, subsR, insurancesR] = await Promise.all([
-            supabase.from("income_sources").select("*").eq("household_id", householdId).eq("is_active", true),
-            supabase.from("expenses").select("*").eq("household_id", householdId).eq("is_active", true),
-            supabase.from("subscriptions").select("*").eq("household_id", householdId).eq("is_active", true),
-            supabase.from("insurances").select("*").eq("household_id", householdId).eq("is_active", true),
+            supabase.from("income_sources").select("*").eq("household_id", householdId).eq("is_active", true).is("archived_at", null),
+            supabase.from("expenses").select("*").eq("household_id", householdId).eq("is_active", true).is("archived_at", null),
+            supabase.from("subscriptions").select("*").eq("household_id", householdId).eq("is_active", true).is("archived_at", null),
+            supabase.from("insurances").select("*").eq("household_id", householdId).eq("is_active", true).is("archived_at", null),
         ]);
 
         const [incomes, expenses, subs, insurances] = await Promise.all([
