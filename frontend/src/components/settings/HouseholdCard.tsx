@@ -113,7 +113,7 @@ export const HouseholdCard = ({ household, members, userRole, onUpdate }: Househ
                     {!isOwner && (
                         <SettingsListItem
                             title="Leave household"
-                            value="You'll be set up in a fresh household. Items you added can come with you; the rest stay behind."
+                            value="You'll be set up in a fresh household. Items you attributed to yourself can come along; everything else stays."
                             onClick={() => setLeaveOpen(true)}
                         />
                     )}
@@ -141,7 +141,7 @@ export const HouseholdCard = ({ household, members, userRole, onUpdate }: Househ
                     <DialogHeader>
                         <DialogTitle>Leave {household.name}?</DialogTitle>
                         <DialogDescription>
-                            You'll be set up in a fresh household. On the next screen you can pick which of the items you added to take with you — the rest stay with {household.name}'s remaining members.
+                            You'll be set up in a fresh household. On the next screen you can pick which of your personal items to bring along — anything you didn't attribute to yourself stays in {household.name}.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
