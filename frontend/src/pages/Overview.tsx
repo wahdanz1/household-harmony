@@ -15,7 +15,8 @@ import { Money, fmtKr } from "@/components/ui/money";
 import { MonthChip } from "@/components/ui/month-chip";
 import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { MetricTile } from "@/components/ui/metric-tile";
-import { CoParentSettlementCard } from "@/components/overview/CoParentSettlementCard";
+import { CoParentSettlementDialog } from "@/components/overview/CoParentSettlementDialog";
+import { useCoParentSettlements } from "@/hooks/useCoParentSettlements";
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 import { HouseholdSetupWizard } from "@/components/overview/HouseholdSetupWizard";
 import {
@@ -87,6 +88,8 @@ const Overview = () => {
   const [householdHasSeedData, setHouseholdHasSeedData] = useState<boolean | null>(null);
   const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [openSettlementCoParentId, setOpenSettlementCoParentId] = useState<string | null>(null);
+  const { settlements, refetch: refetchSettlements } = useCoParentSettlements({ householdId: household?.id, coParents });
   const [data, setData] = useState<OverviewData>({
     income: 0,
     expenses: 0,
@@ -501,189 +504,214 @@ const Overview = () => {
       <DemoEncryptionCard householdId={householdId} />
 
       {householdHasSeedData !== false && (
-      <div className={`space-y-5 ${needsReview && !isDemoMode() && hasPriorMonthData ? "opacity-50" : ""} transition-opacity`}>
-        {/* HERO — survival on top, after-savings below */}
-        <Card variant="flush">
-          <div className="p-5 border-b border-line-2">
-            <p className="text-xs font-medium text-muted tracking-wide">
-              After mandatory bills
-            </p>
-            <div className="mt-1 flex items-baseline gap-2">
-              <Money
-                v={survival}
-                currency={currency}
-                size="4xl"
-                weight={600}
-                color={survivalPositive ? "accent" : "danger"}
-                className="tracking-tighter"
-              />
-            </div>
-            {data.savingsOutflow > 0 && (
-              <div className="mt-3 flex items-baseline gap-2">
-                <p className="text-xs font-medium text-muted tracking-wide">
-                  After savings
-                </p>
-                <Money
-                  v={afterSavings}
-                  currency={currency}
-                  size="base"
-                  weight={500}
-                  color={afterPositive ? "accent" : "danger"}
-                />
-              </div>
-            )}
-            <div className="mt-3">
-              <div className="h-1.5 bg-line-2 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-[width] duration-500 ${afterPositive ? "bg-accent" : "bg-danger"}`}
-                  style={{ width: `${usedPct}%` }}
-                />
-              </div>
-              <p className="mt-1.5 text-xs text-muted">
-                {usedPct}% of income used
+        <div className={`space-y-5 ${needsReview && !isDemoMode() && hasPriorMonthData ? "opacity-50" : ""} transition-opacity`}>
+          {/* HERO — survival on top, after-savings below */}
+          <Card variant="flush">
+            <div className="p-5 border-b border-line-2">
+              <p className="text-xs font-medium text-muted tracking-wide">
+                After mandatory bills
               </p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <Money
+                  v={survival}
+                  currency={currency}
+                  size="4xl"
+                  weight={600}
+                  color={survivalPositive ? "accent" : "danger"}
+                  className="tracking-tighter"
+                />
+              </div>
+              {data.savingsOutflow > 0 && (
+                <div className="mt-3 flex items-baseline gap-2">
+                  <p className="text-xs font-medium text-muted tracking-wide">
+                    After savings
+                  </p>
+                  <Money
+                    v={afterSavings}
+                    currency={currency}
+                    size="base"
+                    weight={500}
+                    color={afterPositive ? "accent" : "danger"}
+                  />
+                </div>
+              )}
+              <div className="mt-3">
+                <div className="h-1.5 bg-line-2 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-[width] duration-500 ${afterPositive ? "bg-accent" : "bg-danger"}`}
+                    style={{ width: `${usedPct}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-muted">
+                  {usedPct}% of income used
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* Income / Expenses split */}
-          <div className="grid grid-cols-2">
-            <button
-              type="button"
-              onClick={() => navigate("/income")}
-              className="p-4 px-5 text-left border-r border-line-2 hover:bg-surface-2 transition-colors focus:outline-none"
-            >
-              <div className="flex items-center gap-1.5 text-xs text-muted">
-                <HandCoins className="h-3 w-3 text-accent" />
-                <span>Income</span>
-              </div>
-              <div className="mt-1">
-                <Money v={data.income} currency={currency} size="lg" weight={600} />
-              </div>
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/expenses")}
-              className="p-4 px-5 text-left hover:bg-surface-2 transition-colors focus:outline-none"
-            >
-              <div className="flex items-center gap-1.5 text-xs text-muted">
-                <Wallet className="h-3 w-3" />
-                <span>Expenses</span>
-              </div>
-              <div className="mt-1">
-                <Money v={data.expenses} currency={currency} size="lg" weight={600} />
-              </div>
-            </button>
-          </div>
-        </Card>
-
-        {/* RECURRING tiles */}
-        {showRecurringTiles && (
-          <section>
-            <div className="flex items-baseline justify-between mb-3 px-0.5">
-              <h2 className="text-[11.5px] font-semibold text-muted tracking-[0.08em] uppercase">
-                Recurring
-              </h2>
+            {/* Income / Expenses split */}
+            <div className="grid grid-cols-2">
               <button
                 type="button"
-                onClick={() => navigate("/expenses?tab=all")}
-                className="text-[12.5px] font-semibold text-accent-dk hover:underline"
+                onClick={() => navigate("/income")}
+                className="p-4 px-5 text-left border-r border-line-2 hover:bg-surface-2 transition-colors focus:outline-none"
               >
-                See all →
+                <div className="flex items-center gap-1.5 text-xs text-muted">
+                  <HandCoins className="h-3 w-3 text-accent" />
+                  <span>Income</span>
+                </div>
+                <div className="mt-1">
+                  <Money v={data.income} currency={currency} size="lg" weight={600} />
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/expenses")}
+                className="p-4 px-5 text-left hover:bg-surface-2 transition-colors focus:outline-none"
+              >
+                <div className="flex items-center gap-1.5 text-xs text-muted">
+                  <Wallet className="h-3 w-3" />
+                  <span>Expenses</span>
+                </div>
+                <div className="mt-1">
+                  <Money v={data.expenses} currency={currency} size="lg" weight={600} />
+                </div>
               </button>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {data.subscriptionsCount > 0 && (
-                <MetricTile
-                  icon={Repeat}
-                  label="Subscriptions"
-                  primary={data.subscriptionsMonthly}
-                  primaryLabel="per month"
-                  secondary={`${fmtKr(data.subscriptionsYearly, currency)}/yr`}
-                  count={data.subscriptionsCount}
-                  currency={currency}
-                  onClick={() => navigate("/expenses?tab=all")}
-                />
-              )}
-              {data.insuranceCount > 0 && (
-                <MetricTile
-                  icon={Shield}
-                  label="Insurance"
-                  primary={data.insuranceMonthly}
-                  primaryLabel="per month"
-                  secondary={`${fmtKr(data.insuranceYearly, currency)}/yr`}
-                  count={data.insuranceCount}
-                  currency={currency}
-                  onClick={() => navigate("/expenses?tab=all")}
-                />
-              )}
-              {coParents.length > 0 && (
-                <MetricTile
-                  icon={Users}
-                  label={`${coParents[0].name || "Co-parent"} shares`}
-                  primary={0}
-                  primaryLabel="see settlement below"
-                  tone="accent"
-                />
-              )}
-            </div>
-          </section>
-        )}
+          </Card>
 
-        {/* RECENT ACTIVITY */}
-        {data.activity.length > 0 && (
-          <section>
-            <div className="flex items-baseline justify-between mb-3 px-0.5">
-              <h2 className="text-[11.5px] font-semibold text-muted tracking-[0.08em] uppercase">
-                Recent activity
-              </h2>
-            </div>
-            <Card variant="flush">
-              <ul>
-                {data.activity.map((item, idx) => (
-                  <li
-                    key={item.id}
-                    className={`flex items-center gap-3 px-4 py-3 ${idx < data.activity.length - 1 ? "border-b border-line-2" : ""
-                      }`}
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-surface-2 flex items-center justify-center text-ink-2 shrink-0">
-                      {item.kind === "shared" ? (
-                        <Users className="h-4 w-4" />
-                      ) : item.kind === "one_time_expense" ? (
-                        <Zap className="h-4 w-4" />
-                      ) : (
-                        <Sparkles className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-ink truncate">{item.name}</p>
-                      <p className="text-xs text-muted">
-                        {item.kind === "shared" ? "Shared expense"
-                          : item.kind === "one_time_expense" ? "One-off expense"
-                          : "One-off income"}
-                        {" · "}
-                        {formatRelative(item.when)}
-                      </p>
-                    </div>
-                    <Money
-                      v={item.amount}
-                      currency={currency}
-                      size="sm"
-                      weight={600}
-                      color={item.amount >= 0 ? "accent" : "ink"}
+          {/* RECURRING tiles */}
+          {showRecurringTiles && (
+            <section>
+              <div className="flex items-baseline justify-between mb-1.5 px-0.5">
+                <h2 className="text-[11.5px] font-semibold text-muted tracking-[0.08em] uppercase leading-none">
+                  Recurring
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => navigate("/expenses?tab=all")}
+                  className="text-[12.5px] font-semibold text-accent-dk hover:underline leading-none"
+                >
+                  See all →
+                </button>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {data.subscriptionsCount > 0 && (
+                  <MetricTile
+                    icon={Repeat}
+                    label="Subscriptions"
+                    primary={data.subscriptionsMonthly}
+                    primaryLabel="per month"
+                    secondary={`${fmtKr(data.subscriptionsYearly, currency)}/yr`}
+                    count={data.subscriptionsCount}
+                    currency={currency}
+                    onClick={() => navigate("/expenses?tab=all")}
+                  />
+                )}
+                {data.insuranceCount > 0 && (
+                  <MetricTile
+                    icon={Shield}
+                    label="Insurance"
+                    primary={data.insuranceMonthly}
+                    primaryLabel="per month"
+                    secondary={`${fmtKr(data.insuranceYearly, currency)}/yr`}
+                    count={data.insuranceCount}
+                    currency={currency}
+                    onClick={() => navigate("/expenses?tab=all")}
+                  />
+                )}
+                {coParents.map((cp) => {
+                  const settlement = settlements[cp.id];
+                  const balance = settlement?.netAmount ?? 0;
+                  const abs = Math.abs(balance);
+                  const direction = abs === 0
+                    ? "Settled"
+                    : balance > 0
+                      ? `You owe ${cp.name}`
+                      : `${cp.name} owes you`;
+                  return (
+                    <MetricTile
+                      key={cp.id}
+                      icon={Users}
+                      label={`${cp.name || "Co-parent"} shares`}
+                      primary={abs}
+                      primaryLabel={direction}
+                      secondary="See settlement"
+                      tone="accent"
+                      onClick={() => setOpenSettlementCoParentId(cp.id)}
                     />
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          </section>
-        )}
-      </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* RECENT ACTIVITY */}
+          {data.activity.length > 0 && (
+            <section>
+              <div className="flex items-baseline justify-between mb-1.5 px-0.5">
+                <h2 className="text-[11.5px] font-semibold text-muted tracking-[0.08em] uppercase leading-none">
+                  Recent activity
+                </h2>
+              </div>
+              <Card variant="flush">
+                <ul>
+                  {data.activity.map((item, idx) => (
+                    <li
+                      key={item.id}
+                      className={`flex items-center gap-3 px-4 py-3 ${idx < data.activity.length - 1 ? "border-b border-line-2" : ""
+                        }`}
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-surface-2 flex items-center justify-center text-ink-2 shrink-0">
+                        {item.kind === "shared" ? (
+                          <Users className="h-4 w-4" />
+                        ) : item.kind === "one_time_expense" ? (
+                          <Zap className="h-4 w-4" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-ink truncate">{item.name}</p>
+                        <p className="text-xs text-muted">
+                          {item.kind === "shared" ? "Shared expense"
+                            : item.kind === "one_time_expense" ? "One-off expense"
+                              : "One-off income"}
+                          {" · "}
+                          {formatRelative(item.when)}
+                        </p>
+                      </div>
+                      <Money
+                        v={item.amount}
+                        currency={currency}
+                        size="sm"
+                        weight={600}
+                        color={item.amount >= 0 ? "accent" : "ink"}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </section>
+          )}
+        </div>
       )}
 
-      {/* Co-Parent Settlement */}
-      {householdId && coParents.length > 0 && householdHasSeedData !== false && (
-        <CoParentSettlementCard householdId={householdId} currency={currency} />
-      )}
+      {householdId && coParents.map((cp) => {
+        const settlement = settlements[cp.id];
+        if (!settlement) return null;
+        return (
+          <CoParentSettlementDialog
+            key={cp.id}
+            open={openSettlementCoParentId === cp.id}
+            onOpenChange={(open) => setOpenSettlementCoParentId(open ? cp.id : null)}
+            householdId={householdId}
+            coParent={cp}
+            settlement={settlement}
+            currency={currency}
+            onSettled={refetchSettlements}
+          />
+        );
+      })}
 
       {/* Monthly Review Wizard */}
       <MonthlyReviewWizard
