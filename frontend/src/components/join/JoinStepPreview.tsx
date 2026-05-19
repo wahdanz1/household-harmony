@@ -1,4 +1,4 @@
-import { DialogFooter } from "@/components/ui/dialog";
+import { DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 import { HouseholdPreviewCard, type PreviewMember } from "@/components/shared/HouseholdPreviewCard";
@@ -15,12 +15,12 @@ interface JoinStepPreviewProps {
 
 export const JoinStepPreview = ({ householdName, members, onBack, onContinue }: JoinStepPreviewProps) => (
     <>
-        <HouseholdPreviewCard
-            householdName={householdName}
-            members={members}
-            description="You're about to join this household"
-        />
-        <DialogFooter>
+        <DialogHeader>
+            <DialogTitle>{householdName}</DialogTitle>
+            <DialogDescription>You're about to join this household.</DialogDescription>
+        </DialogHeader>
+        <HouseholdPreviewCard members={members} />
+        <DialogFooter className="sm:justify-between">
             <Button variant="outline" onClick={onBack}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back

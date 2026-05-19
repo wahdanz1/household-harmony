@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
     const { setupVaultFromInvite, markPendingExit } = useEncryption();
     const { household: currentHousehold, refresh: refreshHousehold } = useHousehold();
     const { toast } = useToast();
+    const navigate = useNavigate();
 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -195,9 +197,6 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
             return;
         }
 
-        // Soft-leave current household so the bring-items dialog mounts. Stays a
-        // valid membership (vault key + row preserved) until confirm_member_exit
-        // finalises it from inside that dialog.
         const { data: currentMembership } = await supabase
             .from("household_members")
             .select("id")
@@ -219,17 +218,11 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
             }
         }
 
-        // Hand the just-unlocked old-household DEK over to the encryption
-        // context so MultiHouseholdExitDialog can decrypt the items to bring
-        // along — without forcing a page reload that would re-lock the new
-        // vault and prompt for the password a second time.
         markPendingExit(currentHousehold.id, currentDek);
         await refreshHousehold();
+        navigate("/");
 
-        toast({
-            title: "Switched households",
-            description: `You're in ${household.name}. Pick what to bring with you on the next screen.`,
-        });
+        toast({ title: "Household switching succeeded" });
         onOpenChange(false);
         resetDialog();
         setLoading(false);
@@ -245,10 +238,9 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
                 {step === 1 && (
                     <>
                         <DialogHeader>
-                            <DialogTitle>Switch to Another Household</DialogTitle>
+                            <DialogTitle>Switch to another household</DialogTitle>
                             <DialogDescription>
-                                Enter the 8-character invite code to join a household. You'll leave your current one;
-                                items you've added can be brought along on the next page.
+                                You'll leave your current one; items you've added can be brought along when you're in the new household.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
@@ -264,7 +256,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
                                 />
                             </div>
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="sm:justify-between">
                             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                             <Button onClick={handleValidateCode} disabled={loading || inviteCode.length !== 8}>
                                 {loading ? "Validating..." : "Continue"}
@@ -276,12 +268,14 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
 
                 {step === 2 && household && (
                     <>
-                        <HouseholdPreviewCard
-                            householdName={household.name}
-                            members={members}
-                            description="Review the household before switching."
-                        />
-                        <DialogFooter>
+                        <DialogHeader>
+                            <DialogTitle>Switch to another household</DialogTitle>
+                            <DialogDescription>
+                                Here's who's already in {household.name}.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <HouseholdPreviewCard members={members} />
+                        <DialogFooter className="sm:justify-between">
                             <Button variant="outline" onClick={() => setStep(1)} disabled={loading}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back
@@ -299,13 +293,12 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
                         <DialogHeader>
                             <DialogTitle>Confirm with your password</DialogTitle>
                             <DialogDescription>
-                                Your password unlocks the new household's encryption. After switching, the bring-items
-                                dialog will let you pick what to take from {currentHousehold?.name}.
+                                Your password confirms the switch and unlocks {household.name}'s vault.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                                <Label htmlFor="switch-password">Password</Label>
+                                <Label htmlFor="switch-password">Account password</Label>
                                 <Input
                                     id="switch-password"
                                     type="password"
@@ -316,7 +309,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
                                 />
                             </div>
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="sm:justify-between">
                             <Button variant="outline" onClick={() => setStep(2)} disabled={loading}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back
