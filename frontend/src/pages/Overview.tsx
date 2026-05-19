@@ -7,20 +7,20 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import {
   getCurrentFinancialMonth,
   getFinancialMonthRange,
-  getNextFinancialMonth,
   getPreviousFinancialMonth,
 } from "@/utils/dateUtils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Money, fmtKr } from "@/components/ui/money";
 import { MonthChip } from "@/components/ui/month-chip";
+import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { MetricTile } from "@/components/ui/metric-tile";
 import { CoParentSettlementCard } from "@/components/overview/CoParentSettlementCard";
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 import { HouseholdSetupWizard } from "@/components/overview/HouseholdSetupWizard";
 import {
   HandCoins, Wallet, Repeat, Shield, ClipboardCheck,
-  ChevronRight, ChevronLeft, Users, Sparkles, CalendarPlus, Loader2, Zap,
+  ChevronRight, Users, Sparkles, CalendarPlus, Loader2, Zap,
 } from "lucide-react";
 import { planMonth } from "@/services/monthlyPlanning";
 import { toast } from "sonner";
@@ -29,7 +29,9 @@ import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
 import { UserMenu } from "@/components/shared/UserMenu";
 import {
   useEncryptedFields,
+  incomeSourceFields,
   monthlyIncomeFields,
+  expenseFields,
   monthlyExpenseFields,
   subscriptionFields,
   insuranceFields,
@@ -40,7 +42,6 @@ import { useEncryption } from "@/contexts/EncryptionContext";
 import { DemoEncryptionCard } from "@/components/demo/DemoEncryptionCard";
 import { isDemoMode } from "@/utils/demoMode";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
-import { useEarliestDataMonth } from "@/hooks/useEarliestDataMonth";
 
 interface ActivityItem {
   id: string;
@@ -76,7 +77,7 @@ interface OverviewData {
 
 const Overview = () => {
   const { user } = useAuth();
-  const { household, coParents, members, financialMonthStart, loading: householdLoading } = useHousehold();
+  const { household, coParents, members, financialMonthStart, loading: householdLoading, dataVersion } = useHousehold();
   const { isUnlocked, encrypt, decrypt, pendingExitHouseholdId, recoveryCodeDialogOpen } = useEncryption();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -104,11 +105,10 @@ const Overview = () => {
   const [reviewWizardOpen, setReviewWizardOpen] = useState(false);
 
   const { needsReview, markAsReviewed } = useMonthlyReviewStatus(household?.id, financialMonthStart);
-  const earliestDataMonth = useEarliestDataMonth(household?.id);
-  const atEarliestMonth = !!earliestDataMonth && selectedMonth <= earliestDataMonth;
 
-  // Encryption hooks
+  const { decryptRecords: decryptIncomeSources } = useEncryptedFields(incomeSourceFields);
   const { decryptRecords: decryptIncomes } = useEncryptedFields(monthlyIncomeFields);
+  const { decryptRecords: decryptExpenseSources } = useEncryptedFields(expenseFields);
   const { decryptRecords: decryptExpenses } = useEncryptedFields(monthlyExpenseFields);
   const { decryptRecords: decryptSubscriptions } = useEncryptedFields(subscriptionFields);
   const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
@@ -142,10 +142,12 @@ const Overview = () => {
       let results;
       try {
         results = await Promise.all([
+          supabase.from("income_sources").select("id, encrypted_budget, is_encrypted").eq("household_id", household.id).eq("is_active", true).is("archived_at", null),
           supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+          supabase.from("expenses").select("id, encrypted_budget, is_encrypted").eq("household_id", household.id).is("archived_at", null),
           supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-          supabase.from("subscriptions").select("encrypted_budget, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id).eq("is_active", true),
-          supabase.from("insurances").select("encrypted_budget, billing_cycle, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true),
+          supabase.from("subscriptions").select("encrypted_budget, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id).eq("is_active", true).is("archived_at", null),
+          supabase.from("insurances").select("encrypted_budget, billing_cycle, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true).is("archived_at", null),
           supabase.from("shared_expenses").select("id, encrypted_amount, encrypted_description, paid_by, is_encrypted, created_at").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr).order("created_at", { ascending: false }),
         ]);
       } catch (err) {
@@ -163,14 +165,18 @@ const Overview = () => {
       reportSuccess();
 
       const [
+        { data: incomeSources },
         { data: monthlyIncomes },
+        { data: expenseSources },
         { data: monthlyExpenses },
         { data: subscriptions },
         { data: insurances },
         { data: sharedExpenses },
       ] = results;
 
+      const decryptedIncomeSources = await decryptIncomeSources(incomeSources || []);
       const decryptedIncomes = await decryptIncomes(monthlyIncomes || []);
+      const decryptedExpenseSources = await decryptExpenseSources(expenseSources || []);
       const decryptedExpenses = await decryptExpenses(monthlyExpenses || []);
       const decryptedSubs = await decryptSubscriptions(subscriptions || []);
       const decryptedInsurances = await decryptInsurances(insurances || []);
@@ -199,11 +205,44 @@ const Overview = () => {
       const uniqueIncomes = deduplicateItems(decryptedIncomes, "income_source_id");
       const uniqueExpenses = deduplicateItems(decryptedExpenses, "expense_id");
 
-      const pickAmount = (item: any): number =>
-        parseFloat(item.actual_amount ?? item.budget_snapshot) || 0;
+      // Per-source amount precedence — mirrors Income.tsx / Expenses.tsx so the
+      // three pages agree even when a monthly_* row is missing (e.g. a source
+      // brought in from another household before its current-month carry-forward
+      // has been written): actual > snapshot > live source budget.
+      const monthlyByIncomeSource = new Map<string, any>(
+        uniqueIncomes
+          .filter((m: any) => m.income_source_id)
+          .map((m: any) => [m.income_source_id, m]),
+      );
+      const monthlyByExpenseSource = new Map<string, any>(
+        uniqueExpenses
+          .filter((m: any) => m.expense_id)
+          .map((m: any) => [m.expense_id, m]),
+      );
 
-      const totalIncome = uniqueIncomes.reduce((sum: number, item: any) => sum + pickAmount(item), 0);
-      const totalMonthlyExpenses = uniqueExpenses.reduce((sum: number, item: any) => sum + pickAmount(item), 0);
+      const resolveSourceAmount = (source: any, monthly: any | undefined): number => {
+        if (monthly?.actual_amount != null) return Number(monthly.actual_amount) || 0;
+        if (monthly?.budget_snapshot != null) return Number(monthly.budget_snapshot) || 0;
+        return parseFloat((source.budget ?? "0").toString()) || 0;
+      };
+
+      const recurringIncomeTotal = decryptedIncomeSources.reduce((sum: number, source: any) => {
+        return sum + resolveSourceAmount(source, monthlyByIncomeSource.get(source.id));
+      }, 0);
+      const recurringExpensesTotal = decryptedExpenseSources.reduce((sum: number, source: any) => {
+        return sum + resolveSourceAmount(source, monthlyByExpenseSource.get(source.id));
+      }, 0);
+
+      // One-time entries (no source FK) still live only in the monthly_* tables.
+      const oneTimeIncome = uniqueIncomes
+        .filter((m: any) => !m.income_source_id)
+        .reduce((sum: number, m: any) => sum + (parseFloat(m.actual_amount ?? m.budget_snapshot) || 0), 0);
+      const oneTimeExpenses = uniqueExpenses
+        .filter((m: any) => !m.expense_id)
+        .reduce((sum: number, m: any) => sum + (parseFloat(m.actual_amount ?? m.budget_snapshot) || 0), 0);
+
+      const totalIncome = recurringIncomeTotal + oneTimeIncome;
+      const totalMonthlyExpenses = recurringExpensesTotal + oneTimeExpenses;
 
       // Amortized monthly + annualised totals — see docs/design/expenses-model.md.
       let subscriptionsMonthly = 0;
@@ -312,14 +351,14 @@ const Overview = () => {
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [household?.id, isUnlocked, selectedMonth]);
+  }, [household?.id, isUnlocked, selectedMonth, dataVersion]);
 
   useEffect(() => {
     const checkSeedData = async () => {
       if (!household?.id || !isUnlocked) return;
       const [incomeRows, expenseRows, priorExpenseRows, priorIncomeRows] = await Promise.all([
-        supabase.from("income_sources").select("id").eq("household_id", household.id).limit(1),
-        supabase.from("expenses").select("id").eq("household_id", household.id).limit(1),
+        supabase.from("income_sources").select("id").eq("household_id", household.id).is("archived_at", null).limit(1),
+        supabase.from("expenses").select("id").eq("household_id", household.id).is("archived_at", null).limit(1),
         supabase.from("monthly_expenses").select("id").eq("household_id", household.id).lt("month", todayMonth).limit(1),
         supabase.from("monthly_incomes").select("id").eq("household_id", household.id).lt("month", todayMonth).limit(1),
       ]);
@@ -412,10 +451,9 @@ const Overview = () => {
   return (
     <div className="space-y-5">
       <OverviewHeader
-        monthLabel={monthLabel}
-        onPrev={atEarliestMonth ? undefined : () => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
-        onNext={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
-        onJumpToToday={isCurrentMonth ? undefined : () => setSelectedMonth(todayMonth)}
+        selectedMonth={selectedMonth}
+        financialMonthStart={financialMonthStart}
+        onSelectMonth={setSelectedMonth}
       />
 
       {householdHasSeedData === false && !setupOpen && (
@@ -677,40 +715,36 @@ const Overview = () => {
 };
 
 interface OverviewHeaderProps {
-  monthLabel: string;
+  monthLabel?: string;
+  selectedMonth?: string;
+  financialMonthStart?: number;
+  onSelectMonth?: (m: string) => void;
   hideMonthChip?: boolean;
-  onPrev?: () => void;
-  onNext?: () => void;
-  onJumpToToday?: () => void;
 }
 
-const OverviewHeader = ({ monthLabel, hideMonthChip = false, onPrev, onNext, onJumpToToday }: OverviewHeaderProps) => (
+const OverviewHeader = ({
+  monthLabel,
+  selectedMonth,
+  financialMonthStart,
+  onSelectMonth,
+  hideMonthChip = false,
+}: OverviewHeaderProps) => (
   <div className="flex items-center justify-between gap-4 min-h-9">
     <h1>Overview</h1>
     <div className="flex items-center gap-2">
-      <div className={`flex items-center gap-1 ${hideMonthChip ? 'invisible' : ''}`}>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          disabled={hideMonthChip || !onPrev}
-          onClick={onPrev}
-          aria-label="Previous month"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <MonthChip value={monthLabel} onClick={onJumpToToday} />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          disabled={hideMonthChip || !onNext}
-          onClick={onNext}
-          aria-label="Next month"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      {hideMonthChip ? (
+        <div className="invisible">
+          <MonthChip value={monthLabel ?? ""} />
+        </div>
+      ) : (
+        selectedMonth && financialMonthStart !== undefined && onSelectMonth && (
+          <MonthPickerPopover
+            selectedMonth={selectedMonth}
+            financialMonthStart={financialMonthStart}
+            onSelect={onSelectMonth}
+          />
+        )
+      )}
       <div className="md:hidden">
         <UserMenu trigger={<AvatarTrigger />} />
       </div>

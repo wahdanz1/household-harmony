@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { HandCoins, ClipboardCheck, ChevronLeft, ChevronRight, Plus, Calculator } from "lucide-react";
+import { HandCoins, ClipboardCheck, Plus, Calculator } from "lucide-react";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { Money, fmtKr } from "@/components/ui/money";
@@ -18,7 +18,7 @@ import { IncomeSourceItem } from "@/components/income/IncomeSourceItem";
 import { IncomeFormDialog } from "@/components/income/IncomeFormDialog";
 import { OneTimeIncomeDialog } from "@/components/income/OneTimeIncomeDialog";
 
-import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 
@@ -32,13 +32,11 @@ import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields } from "@/h
 
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { useEncryption } from "@/contexts/EncryptionContext";
-import { useEarliestDataMonth } from "@/hooks/useEarliestDataMonth";
 
 const Income = () => {
   const { user } = useAuth();
   const { isUnlocked } = useEncryption();
-  const { household, members, coParents, financialMonthStart, loading: householdLoading } = useHousehold();
-  const earliestDataMonth = useEarliestDataMonth(household?.id);
+  const { household, members, coParents, financialMonthStart, loading: householdLoading, dataVersion } = useHousehold();
   const { toast } = useToast();
   const [incomeSources, setIncomeSources] = useState<any[]>([]);
   const [monthlyIncomes, setMonthlyIncomes] = useState<any[]>([]);
@@ -148,7 +146,7 @@ const Income = () => {
     let sourcesResult, monthlyResult;
     try {
       [sourcesResult, monthlyResult] = await Promise.all([
-        supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", household.id).eq("is_active", true).order("created_at", { ascending: true }),
+        supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", household.id).eq("is_active", true).is("archived_at", null).order("created_at", { ascending: true }),
         supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
       ]);
     } catch (err) {
@@ -204,7 +202,7 @@ const Income = () => {
 
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [household?.id, financialMonthStart, selectedMonth, user?.id, isUnlocked]);
+  }, [household?.id, financialMonthStart, selectedMonth, user?.id, isUnlocked, dataVersion]);
 
   useEffect(() => {
     if (!householdLoading && household?.id) {
@@ -236,46 +234,19 @@ const Income = () => {
   }).length;
 
   // Header — month nav hidden when there's no data to navigate (locked state).
-  const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
-  const monthLabel = format(monthEndDate, "MMM yyyy");
-  const atEarliestMonth = !!earliestDataMonth && selectedMonth <= earliestDataMonth;
   const renderHeader = (showMonthNav: boolean, isLoading = false) => (
     <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Income</h1>
       <div className="flex items-center gap-2">
         {isLoading ? (
-          <div className="flex items-center gap-1">
-            <Skeleton className="h-9 w-9 rounded-[12px]" />
-            <Skeleton className="h-9 w-32 rounded-full" />
-            <Skeleton className="h-9 w-9 rounded-[12px]" />
-          </div>
+          <Skeleton className="h-9 w-32 rounded-full" />
         ) : (
-          <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              disabled={!showMonthNav || atEarliestMonth}
-              onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
-              aria-label="Previous month"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
+          <div className={showMonthNav ? '' : 'invisible'}>
             <MonthPickerPopover
               selectedMonth={selectedMonth}
               financialMonthStart={financialMonthStart}
               onSelect={setSelectedMonth}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              disabled={!showMonthNav}
-              onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
-              aria-label="Next month"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
           </div>
         )}
         <div className="md:hidden">

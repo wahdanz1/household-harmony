@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Moon, Repeat, Shield, ClipboardCheck, Check, ChevronLeft, ChevronRight, Plus, Zap } from "lucide-react";
+import { CalendarDays, Users, Moon, Repeat, Shield, ClipboardCheck, Check, Plus, Zap } from "lucide-react";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { Money, fmtKr } from "@/components/ui/money";
@@ -20,7 +20,7 @@ import { TemporaryExpenseFormDialog } from "@/components/expenses/TemporaryExpen
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import { getCurrentFinancialMonth, getFinancialMonthRange, getPreviousFinancialMonth, getNextFinancialMonth } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
@@ -34,36 +34,26 @@ import { UserMenu } from "@/components/shared/UserMenu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MobileBottomBar, mobileBottomBarSpacer } from "@/components/shared/MobileBottomBar";
 import { useHouseholdSubjects } from "@/hooks/useHouseholdSubjects";
-import { useEarliestDataMonth } from "@/hooks/useEarliestDataMonth";
 
 const Expenses = () => {
   const { user } = useAuth();
-  const { household, members, coParents } = useHousehold();
+  const { household, members, coParents, dataVersion } = useHousehold();
   const { isUnlocked } = useEncryption();
   const [subjectsRefreshKey, setSubjectsRefreshKey] = useState(0);
   const subjects = useHouseholdSubjects(household?.id, subjectsRefreshKey);
-  const earliestDataMonth = useEarliestDataMonth(household?.id);
   const [expenseCategories, setExpenseCategories] = useState<any[]>([]);
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [insurances, setInsurances] = useState<any[]>([]);
-  const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  // Credit card expenses now handled via expenses table with is_credit=true
   const [activeTab, setActiveTab] = useState("all");
   const [addingExpense, setAddingExpense] = useState(false);
   const [addTemporaryDialogOpen, setAddTemporaryDialogOpen] = useState(false);
   const [addSubscriptionOpen, setAddSubscriptionOpen] = useState(false);
   const [addInsuranceOpen, setAddInsuranceOpen] = useState(false);
 
-  // Edit dialog state for subscriptions and insurance
   const [editingSubscription, setEditingSubscription] = useState<any | null>(null);
   const [editingInsurance, setEditingInsurance] = useState<any | null>(null);
-
-  // Autosave state
-  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const amountsRef = useRef<Record<string, string>>({}); // Track latest amounts for autosave
 
   const financialMonthStart = household?.financial_month_start || 25;
 
@@ -133,10 +123,10 @@ const Expenses = () => {
     let results;
     try {
       results = await Promise.all([
-        supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).order("sort_order"),
+        supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).is("archived_at", null).order("sort_order"),
         supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-        supabase.from("subscriptions").select("*").eq("household_id", household.id),
-        supabase.from("insurances").select("*").eq("household_id", household.id),
+        supabase.from("subscriptions").select("*").eq("household_id", household.id).is("archived_at", null),
+        supabase.from("insurances").select("*").eq("household_id", household.id).is("archived_at", null),
       ]);
     } catch (err) {
       reportFailure(err);
@@ -205,27 +195,9 @@ const Expenses = () => {
       }
     }
 
-    // Note: Don't set 'saved' status on initial load - only after actual user edits
-
-    const initialAmounts: Record<string, string> = {};
-    decryptedCategories.forEach((category: any) => {
-      const existing = decryptedMonthly.find((m: any) => m.expense_id === category.id);
-      if (existing) {
-        const value = existing.actual_amount ?? existing.budget_snapshot ?? existing.amount ?? 0;
-        initialAmounts[category.id] = value.toString();
-      } else {
-        const missing = missingRecords.find((r: any) => r.expense_id === category.id);
-        initialAmounts[category.id] = missing
-          ? missing.budget_snapshot.toString()
-          : (category.budget || "0").toString();
-      }
-    });
-
-    setAmounts(initialAmounts);
-    amountsRef.current = initialAmounts; // Sync ref with initial amounts
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, household?.id, household?.financial_month_start, selectedMonth, isUnlocked]);
+  }, [user?.id, household?.id, household?.financial_month_start, selectedMonth, isUnlocked, dataVersion]);
 
   useEffect(() => {
     if (household?.id) {
@@ -239,81 +211,6 @@ const Expenses = () => {
     setEditingCategory(cat);
     setEditDialogOpen(true);
   };
-
-  const handleSave = useCallback(async () => {
-    if (!household || !user) return;
-    setAutoSaveStatus('saving');
-
-    // Use amountsRef to get the latest amounts value
-    const currentAmounts = amountsRef.current;
-
-    // Compute dates fresh at save time
-    const fms = household?.financial_month_start || 25;
-    const saveMonth = selectedMonth;
-    const { start: saveStart, end: saveEnd } = getFinancialMonthRange(saveMonth, fms);
-
-    // Build entries and encrypt them
-    const entries = await Promise.all(expenseCategories.map(async (category) => {
-      const baseEntry = {
-        expense_id: category.id,
-        household_id: household.id,
-        month: saveMonth,
-        month_start: format(saveStart, "yyyy-MM-dd"),
-        month_end: format(saveEnd, "yyyy-MM-dd"),
-        budget_snapshot: parseFloat(currentAmounts[category.id] || "0"),
-        created_by: user.id,
-      };
-      // Encrypt the entry (encrypts amount field)
-      return await encryptExpense(baseEntry);
-    }));
-
-    const { error } = await supabase
-      .from("monthly_expenses")
-      .upsert(entries as any, { onConflict: "expense_id,month" });
-
-    if (error) {
-      setAutoSaveStatus('error');
-    } else {
-      setAutoSaveStatus('saved');
-      // Update monthlyExpenses state without refetching (which would overwrite amounts)
-      setMonthlyExpenses(entries.map((entry, i) => ({
-        ...entry,
-        id: monthlyExpenses.find(m => m.expense_id === entry.expense_id)?.id || `temp-${i}`,
-        updated_at: new Date().toISOString(),
-      })));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [household, user, expenseCategories, monthlyExpenses, encryptExpense]);
-
-  // Handle amount change with debounced autosave
-  const handleAmountChange = useCallback((categoryId: string, value: string) => {
-    if (isReadOnly) return;
-    setAmounts(prev => {
-      const newAmounts = { ...prev, [categoryId]: value };
-      amountsRef.current = newAmounts; // Keep ref in sync for autosave
-      return newAmounts;
-    });
-    setAutoSaveStatus('idle');
-
-    // Clear previous timer
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-    }
-
-    // Set new debounce timer (500ms)
-    autoSaveTimerRef.current = setTimeout(() => {
-      handleSave();
-    }, 500);
-  }, [handleSave, isReadOnly]);
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-      }
-    };
-  }, []);
 
   // Amortized monthly contribution per subscription:
   //   monthly       → full amount
@@ -394,50 +291,26 @@ const Expenses = () => {
       return sum + monthlyAmount;
     }, 0);
 
-  // Credit card expenses now included in regular expenses via is_credit flag
-  const totalExpenses = Object.values(amounts).reduce((sum, val) => sum + parseFloat(val || "0"), 0) + subscriptionsTotal + insuranceTotal;
+  const expensesBudgetTotal = expenseCategories.reduce(
+    (sum, cat) => sum + parseFloat(cat.budget || "0"),
+    0
+  );
+  const totalExpenses = expensesBudgetTotal + subscriptionsTotal + insuranceTotal;
 
   // Header — month nav hidden when there's no data to navigate (locked state).
-  const monthEndDate = getFinancialMonthRange(selectedMonth, financialMonthStart).end;
-  const monthLabel = format(monthEndDate, "MMM yyyy");
-  const atEarliestMonth = !!earliestDataMonth && selectedMonth <= earliestDataMonth;
   const renderHeader = (showMonthNav: boolean, isLoading = false) => (
     <div className="flex items-center justify-between gap-4 min-h-9">
       <h1>Expenses</h1>
       <div className="flex items-center gap-2">
         {isLoading ? (
-          <div className="flex items-center gap-1">
-            <Skeleton className="h-9 w-9 rounded-[12px]" />
-            <Skeleton className="h-9 w-32 rounded-full" />
-            <Skeleton className="h-9 w-9 rounded-[12px]" />
-          </div>
+          <Skeleton className="h-9 w-32 rounded-full" />
         ) : (
-          <div className={`flex items-center gap-1 ${showMonthNav ? '' : 'invisible'}`}>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              disabled={!showMonthNav || atEarliestMonth}
-              onClick={() => setSelectedMonth(getPreviousFinancialMonth(selectedMonth, financialMonthStart))}
-              aria-label="Previous month"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
+          <div className={showMonthNav ? '' : 'invisible'}>
             <MonthPickerPopover
               selectedMonth={selectedMonth}
               financialMonthStart={financialMonthStart}
               onSelect={setSelectedMonth}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              disabled={!showMonthNav}
-              onClick={() => setSelectedMonth(getNextFinancialMonth(selectedMonth, financialMonthStart))}
-              aria-label="Next month"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
           </div>
         )}
         <div className="md:hidden">
@@ -662,7 +535,6 @@ const Expenses = () => {
               const insurance = insurances.find(i => i.id === id);
               if (insurance) setEditingInsurance(insurance);
             }}
-            onAmountChange={isReadOnly ? undefined : handleAmountChange}
           />
 
 
