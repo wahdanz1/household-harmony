@@ -9,7 +9,7 @@ import { Check, Loader2, X } from "lucide-react";
 import { formatCurrency } from "@/utils/formatting";
 import { creditCategories } from "@/constants/creditCategories";
 import { supabase } from "@/integrations/supabase/client";
-import { useEncryptedFields, expenseFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
+import { useEncryptedFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
 
 export interface ParsedTransaction {
     date: string;
@@ -44,7 +44,6 @@ export const ParsedTransactionsReview = ({
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set(initialTransactions.map((_, i) => i)));
     const [saving, setSaving] = useState(false);
     const [selectedCardId, setSelectedCardId] = useState(creditCards[0]?.id || "");
-    const { encryptRecord: encryptExpense } = useEncryptedFields(expenseFields);
     const { encryptRecord: encryptMonthlyExpense } = useEncryptedFields(monthlyExpenseFields);
 
     const handleToggleSelect = (index: number) => {
@@ -109,50 +108,68 @@ export const ParsedTransactionsReview = ({
                     .eq("is_credit", true)
                     .maybeSingle();
 
-                let expenseId: string;
+                let upsertErr: { message?: string } | null = null;
 
                 if (existingExpense?.id) {
-                    expenseId = existingExpense.id;
-                } else {
-                    const expenseName = `Credit: ${category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, ' ')}`;
-                    const newExpenseData = {
+                    // Budgeted credit-paid source — write the month's actual.
+                    const monthlyData = {
                         household_id: householdId,
-                        category,
-                        name: expenseName,
-                        budget: 0,
+                        expense_id: existingExpense.id,
+                        month: monthStr,
+                        month_start: monthStartIso,
+                        month_end: monthEndIso,
+                        actual_amount: roundedAmount,
                         created_by: user.id,
-                        is_active: true,
-                        is_credit: true,
-                        sort_order: 999,
                     };
+                    const encryptedMonthly = await encryptMonthlyExpense(monthlyData);
+                    const { error } = await supabase
+                        .from("monthly_expenses")
+                        .upsert(encryptedMonthly, { onConflict: "expense_id,month" });
+                    upsertErr = error;
+                } else {
+                    // No budgeted source for this category — record as a one-time
+                    // entry on this month only. No source pollution; the row is
+                    // visible in the month it was charged and nowhere else.
+                    // Smart Defaults can later recommend promoting frequent
+                    // categories to budgeted items (#68).
+                    const categoryLabel = creditCategories.find(c => c.value === category)?.label
+                        || category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, " ");
 
-                    const encryptedExpense = await encryptExpense(newExpenseData);
-                    const { data: created, error: createError } = await supabase
-                        .from("expenses")
-                        .insert({ ...encryptedExpense, category })
+                    const { data: existingOneTime } = await supabase
+                        .from("monthly_expenses")
                         .select("id")
-                        .single();
+                        .eq("household_id", householdId)
+                        .eq("month", monthStr)
+                        .eq("one_time_category", category)
+                        .is("expense_id", null)
+                        .maybeSingle();
 
-                    if (createError || !created) {
-                        console.error("Failed to create expense:", createError);
-                        continue;
+                    const oneTimeData = {
+                        household_id: householdId,
+                        expense_id: null,
+                        month: monthStr,
+                        month_start: monthStartIso,
+                        month_end: monthEndIso,
+                        one_time_name: categoryLabel,
+                        one_time_category: category,
+                        actual_amount: roundedAmount,
+                        created_by: user.id,
+                    };
+                    const encryptedOneTime = await encryptMonthlyExpense(oneTimeData);
+
+                    if (existingOneTime?.id) {
+                        const { error } = await supabase
+                            .from("monthly_expenses")
+                            .update(encryptedOneTime)
+                            .eq("id", existingOneTime.id);
+                        upsertErr = error;
+                    } else {
+                        const { error } = await supabase
+                            .from("monthly_expenses")
+                            .insert(encryptedOneTime);
+                        upsertErr = error;
                     }
-                    expenseId = created.id;
                 }
-
-                const monthlyData = {
-                    household_id: householdId,
-                    expense_id: expenseId,
-                    month: monthStr,
-                    month_start: monthStartIso,
-                    month_end: monthEndIso,
-                    actual_amount: roundedAmount,
-                    created_by: user.id,
-                };
-                const encryptedMonthly = await encryptMonthlyExpense(monthlyData);
-                const { error: upsertErr } = await supabase
-                    .from("monthly_expenses")
-                    .upsert(encryptedMonthly, { onConflict: "expense_id,month" });
 
                 if (upsertErr) {
                     console.error("Failed to upsert monthly_expenses:", upsertErr);
