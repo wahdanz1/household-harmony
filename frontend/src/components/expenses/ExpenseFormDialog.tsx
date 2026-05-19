@@ -20,19 +20,20 @@ import { EXPENSE_CATEGORIES } from "@/constants/expenseCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
-import { SubjectPicker } from "@/components/shared/SubjectPicker";
+import { AttributionPicker, type AttributionValue } from "@/components/shared/AttributionPicker";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField } from "@/components/shared/FormField";
+import { MarkPaidSection } from "@/components/shared/MarkPaidSection";
 import { useEntityForm } from "@/hooks/useEntityForm";
 
 interface InitialValues {
     id?: string;
     category?: string;
     name?: string;
-    default_amount?: number | string;
+    budget?: number | string;
     is_credit?: boolean;
-    subject_id?: string | null;
+    attribution?: AttributionValue;
 }
 
 interface ExpenseFormDialogProps {
@@ -52,9 +53,9 @@ interface ExpenseFormDialogProps {
 const blankForm: InitialValues = {
     category: "rent",
     name: "",
-    default_amount: "0",
+    budget: "0",
     is_credit: false,
-    subject_id: null,
+    attribution: null,
 };
 
 export const ExpenseFormDialog = ({
@@ -86,7 +87,7 @@ export const ExpenseFormDialog = ({
     const moreCategories = allCategories.filter(c => !usedCategorySet.has(c.id) && c.id !== form.category);
     const selectedCategory = allCategories.find(c => c.id === form.category);
     const SelectedIcon = selectedCategory?.icon;
-    const canSave = !!form.category && !!form.name?.trim() && parseFloat(String(form.default_amount ?? 0)) >= 0;
+    const canSave = !!form.category && !!form.name?.trim() && parseFloat(String(form.budget ?? 0)) >= 0;
 
     const renderCategoryItem = (c: typeof allCategories[number]) => {
         const Icon = c.icon;
@@ -105,14 +106,15 @@ export const ExpenseFormDialog = ({
         isEdit: mode === "edit",
         save: async () => {
             if (!user) throw new Error("Not authenticated");
-            const numericAmount = parseFloat(String(form.default_amount ?? 0));
+            const numericAmount = parseFloat(String(form.budget ?? 0));
             const baseData: any = {
                 household_id: householdId,
                 category: form.category,
                 name: form.name?.trim() ?? "",
-                default_amount: numericAmount,
+                budget: numericAmount,
                 is_credit: !!form.is_credit,
-                subject_id: form.subject_id ?? null,
+                subject_id: form.attribution?.kind === "subject" ? form.attribution.id : null,
+                member_id: form.attribution?.kind === "member" ? form.attribution.id : null,
                 created_by: user.id,
                 is_active: true,
             };
@@ -142,7 +144,7 @@ export const ExpenseFormDialog = ({
                     month,
                     month_start: format(start, "yyyy-MM-dd"),
                     month_end: format(end, "yyyy-MM-dd"),
-                    budget_amount: numericAmount,
+                    budget_snapshot: numericAmount,
                     created_by: user.id,
                 });
                 await supabase
@@ -218,21 +220,37 @@ export const ExpenseFormDialog = ({
                         />
                     </FormField>
 
-                    <SubjectPicker
+                    <AttributionPicker
                         householdId={householdId}
-                        value={form.subject_id}
-                        onChange={(id) => setForm({ ...form, subject_id: id })}
+                        value={form.attribution ?? null}
+                        onChange={(attribution) => setForm({ ...form, attribution })}
                     />
 
-                    <FormField label="Monthly amount (kr)">
+                    <FormField
+                        label="Monthly amount (kr)"
+                        hint={mode === "edit" && String(form.budget ?? "") !== String(pristine.budget ?? "")
+                            ? `Applies to ${format(getFinancialMonthRange(getCurrentFinancialMonth(financialMonthStart), financialMonthStart).end, "MMMM yyyy")} and onwards.`
+                            : undefined}
+                    >
                         <Input
                             type="number"
                             inputMode="numeric"
-                            value={String(form.default_amount ?? "")}
-                            onChange={(e) => setForm({ ...form, default_amount: e.target.value })}
+                            value={String(form.budget ?? "")}
+                            onChange={(e) => setForm({ ...form, budget: e.target.value })}
                             placeholder="0"
                         />
                     </FormField>
+
+                    {mode === "edit" && editingId && (
+                        <MarkPaidSection
+                            sourceId={editingId}
+                            householdId={householdId}
+                            table="monthly_expenses"
+                            fkColumn="expense_id"
+                            currency="SEK"
+                            financialMonthStart={financialMonthStart}
+                        />
+                    )}
 
                     {showCreditToggle && (
                         <div className="flex items-center justify-between gap-3 pt-2 border-t border-line-2">

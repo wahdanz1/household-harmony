@@ -7,7 +7,10 @@ import { toast } from "sonner";
 
 export const RecoveryCodeGate = () => {
     const { user } = useAuth();
-    const { isUnlocked, hasRecoveryCode, prepareRecoveryCode, persistRecoveryCode } = useEncryption();
+    const {
+        isUnlocked, hasRecoveryCode, prepareRecoveryCode, persistRecoveryCode,
+        setRecoveryCodeDialogOpen,
+    } = useEncryption();
     const [slot, setSlot] = useState<PreparedRecoverySlot | null>(null);
     const [persisting, setPersisting] = useState(false);
     const [checkedThisSession, setCheckedThisSession] = useState(false);
@@ -33,6 +36,13 @@ export const RecoveryCodeGate = () => {
         })();
         return () => { cancelled = true; };
     }, [user?.id, isUnlocked, checkedThisSession, hasRecoveryCode, prepareRecoveryCode]);
+
+    // Mirror the modal-open state into context so other welcome flows
+    // (HouseholdSetupWizard) can defer until this is dismissed.
+    useEffect(() => {
+        setRecoveryCodeDialogOpen(!!slot);
+        return () => setRecoveryCodeDialogOpen(false);
+    }, [slot, setRecoveryCodeDialogOpen]);
 
     const handleConfirm = async () => {
         if (!user?.id || !slot) return;

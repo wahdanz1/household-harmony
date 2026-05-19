@@ -17,7 +17,6 @@ import { ProfileCard } from "@/components/settings/ProfileCard";
 import { PersonalInfoCard } from "@/components/settings/PersonalInfoCard";
 import { LoginCard } from "@/components/settings/LoginCard";
 import { SettingsCard, SettingsRow, SettingsBadge } from "@/components/settings/SettingsCard";
-// import { DataMigrationCard } from "@/components/settings/DataMigrationCard"; // Legacy - kept for future use
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings as SettingsIcon, User, Home as HomeIcon, Shield } from "lucide-react";
 import { useEncryption } from "@/contexts/EncryptionContext";
@@ -52,6 +51,7 @@ const Settings = () => {
 
   useEffect(() => {
     fetchInvites();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isUnlocked, household?.id]);
 
   const fetchData = async () => {
@@ -210,7 +210,7 @@ const Settings = () => {
         </TabsContent>
       </Tabs>
 
-      <p className="font-mono text-[11px] text-muted pt-2">
+      <p className="font-mono text-[11px] text-muted pt-0 !mt-1">
         v{APP_VERSION} · build {BUILD_SHA}
       </p>
     </div>

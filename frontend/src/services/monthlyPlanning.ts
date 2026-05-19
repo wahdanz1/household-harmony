@@ -25,7 +25,7 @@ interface PlanMonthResult {
 /**
  * Pulls each row's actual amount (fallback budget, fallback legacy amount),
  * decrypts it, re-encrypts with a fresh IV, inserts as the target month's
- * `budget_amount`. Idempotent: rows already present in the target month are
+ * `budget_snapshot`. Idempotent: rows already present in the target month are
  * left alone.
  */
 export async function planMonth(opts: PlanMonthOpts): Promise<PlanMonthResult> {
@@ -117,7 +117,7 @@ async function rolloverTable(opts: RolloverOpts): Promise<number> {
             month_start: targetMonthIso,
             month_end: targetMonthIso,
             [parentIdColumn]: parentId,
-            encrypted_budget_amount: reEncrypted,
+            encrypted_budget_snapshot: reEncrypted,
             created_by: userId,
             is_encrypted: true,
         });
@@ -134,7 +134,7 @@ async function rolloverTable(opts: RolloverOpts): Promise<number> {
 async function readBestAmount(row: any, decrypt: DecryptFn): Promise<number | null> {
     const candidates = [
         row.encrypted_actual_amount,
-        row.encrypted_budget_amount,
+        row.encrypted_budget_snapshot,
     ];
 
     for (const ciphertext of candidates) {

@@ -1,8 +1,11 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
+import { useEncryption } from "./EncryptionContext";
 import { getActiveHousehold } from "@/utils/householdHelpers";
-import { toast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 // Types
 export interface Household {
@@ -43,17 +46,23 @@ interface HouseholdContextType {
     loading: boolean;
     financialMonthStart: number;
     refresh: () => Promise<void>;
+    /** Bumped on every successful refresh; include in fetch-effect deps to
+     *  re-run after mutations elsewhere in the app. */
+    dataVersion: number;
 }
 
 const HouseholdContext = createContext<HouseholdContextType | undefined>(undefined);
 
 export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useAuth();
+    const { isUnlocked } = useEncryption();
     const [household, setHousehold] = useState<Household | null>(null);
     const [members, setMembers] = useState<HouseholdMember[]>([]);
     const [coParents, setCoParents] = useState<CoParent[]>([]);
     const [userRole, setUserRole] = useState<string>("");
     const [loading, setLoading] = useState(true);
+    const [dataVersion, setDataVersion] = useState(0);
+    const [removalNotice, setRemovalNotice] = useState(false);
 
     const userId = user?.id;
     // Concurrent fetches (e.g. an effect-triggered refetch racing the wizard's
@@ -116,19 +125,18 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
             console.error("Error fetching household data:", error);
         } finally {
-            if (isLatest()) setLoading(false);
+            if (isLatest()) {
+                setLoading(false);
+                setDataVersion(v => v + 1);
+            }
         }
     }, [userId]);
 
     useEffect(() => {
-        // Reset loading so consumers re-show skeletons across the userId boundary.
         setLoading(true);
         fetchHouseholdData();
-    }, [fetchHouseholdData]);
+    }, [fetchHouseholdData, isUnlocked]);
 
-    // Live notification: if an owner soft-removes the current user, reload
-    // so they land in the exit-dialog flow instead of continuing to write to
-    // a household they no longer belong to.
     useEffect(() => {
         if (!userId) return;
         const channel = supabase
@@ -144,14 +152,10 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
                 (payload) => {
                     const oldPending = (payload.old as any)?.pending_exit_at ?? null;
                     const newPending = (payload.new as any)?.pending_exit_at ?? null;
-                    if (!oldPending && newPending) {
-                        toast({
-                            title: "You've been removed",
-                            description: "Reloading so you can pick which items to bring with you…",
-                            variant: "destructive",
-                        });
-                        setTimeout(() => window.location.reload(), 3000);
-                    }
+                    if (oldPending || !newPending) return;
+                    const initiator = (payload.new as any)?.pending_exit_initiated_by ?? null;
+                    if (initiator === userId) return;
+                    setRemovalNotice(true);
                 },
             )
             .subscribe();
@@ -171,9 +175,30 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
                 loading,
                 financialMonthStart,
                 refresh: fetchHouseholdData,
+                dataVersion,
             }}
         >
             {children}
+            <Dialog open={removalNotice} onOpenChange={() => { /* sticky — must acknowledge */ }}>
+                <DialogContent
+                    className="max-w-sm"
+                    hideClose
+                    onPointerDownOutside={(e) => e.preventDefault()}
+                    onEscapeKeyDown={(e) => e.preventDefault()}
+                >
+                    <DialogHeader>
+                        <DialogTitle>You've been removed from a household</DialogTitle>
+                        <DialogDescription>
+                            When you continue, you'll be set up in a fresh household and given the chance to bring along anything you attributed to yourself before leaving.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button onClick={() => window.location.reload()}>
+                            Continue
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </HouseholdContext.Provider>
     );
 };

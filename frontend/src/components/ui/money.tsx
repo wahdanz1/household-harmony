@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { cn } from "@/lib/utils";
 
 const fmtKr = (n: number, currency = "SEK") => {

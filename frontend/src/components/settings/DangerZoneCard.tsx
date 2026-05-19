@@ -26,6 +26,7 @@ const WIPED_TABLES = [
     "monthly_expenses",
     "monthly_incomes",
     "monthly_review_status",
+    "monthly_review_finalized",
     "merchant_categories",
     "shared_expenses",
     "co_parent_settlements",

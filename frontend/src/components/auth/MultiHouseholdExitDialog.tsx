@@ -9,7 +9,7 @@ import { RowItem } from "@/components/ui/row-item";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
-import { Loader2, ArrowRight, TrendingUp, Home, Repeat, Shield, Sparkles } from "lucide-react";
+import { Loader2, ArrowRight, HandCoins, Home, Repeat, Shield, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
@@ -41,22 +41,22 @@ const SECTIONS: SectionConfig[] = [
     {
         key: "income_sources",
         title: "Income sources",
-        sectionIcon: TrendingUp,
-        encryptedCols: ["encrypted_name", "encrypted_provider", "encrypted_default_amount"],
+        sectionIcon: HandCoins,
+        encryptedCols: ["encrypted_name", "encrypted_provider", "encrypted_budget"],
         primaryLabelCol: "encrypted_provider",
         fallbackLabelCol: "encrypted_name",
-        amountCol: "encrypted_default_amount",
+        amountCol: "encrypted_budget",
         authorCol: "owner_id",
         subjectCol: null,
         coParentCol: "co_parent_id",
     },
     {
         key: "expenses",
-        title: "Fixed expenses",
+        title: "Fixed / budgeted expenses",
         sectionIcon: Home,
-        encryptedCols: ["encrypted_name", "encrypted_default_amount"],
+        encryptedCols: ["encrypted_name", "encrypted_budget"],
         primaryLabelCol: "encrypted_name",
-        amountCol: "encrypted_default_amount",
+        amountCol: "encrypted_budget",
         authorCol: "created_by",
         subjectCol: "subject_id",
         coParentCol: null,
@@ -65,10 +65,10 @@ const SECTIONS: SectionConfig[] = [
         key: "subscriptions",
         title: "Subscriptions",
         sectionIcon: Repeat,
-        encryptedCols: ["encrypted_name", "encrypted_service", "encrypted_amount"],
-        primaryLabelCol: "encrypted_service",
-        fallbackLabelCol: "encrypted_name",
-        amountCol: "encrypted_amount",
+        encryptedCols: ["encrypted_name", "encrypted_service", "encrypted_budget"],
+        primaryLabelCol: "encrypted_name",
+        fallbackLabelCol: "encrypted_service",
+        amountCol: "encrypted_budget",
         authorCol: "created_by",
         subjectCol: "subject_id",
         coParentCol: null,
@@ -77,15 +77,17 @@ const SECTIONS: SectionConfig[] = [
         key: "insurances",
         title: "Insurances",
         sectionIcon: Shield,
-        encryptedCols: ["encrypted_name", "encrypted_total_amount", "encrypted_provider"],
+        encryptedCols: ["encrypted_name", "encrypted_budget", "encrypted_provider"],
         primaryLabelCol: "encrypted_name",
         fallbackLabelCol: "encrypted_provider",
-        amountCol: "encrypted_total_amount",
+        amountCol: "encrypted_budget",
         authorCol: "created_by",
         subjectCol: "subject_id",
         coParentCol: "co_parent_id",
     },
 ];
+
+type ItemKind = "attributed" | "added";
 
 interface FetchedItem {
     id: string;
@@ -94,9 +96,9 @@ interface FetchedItem {
     amount: number | null;
     billingCycle: string | null;
     category: string | null;
-    authoredByMe: boolean;
     subjectId: string | null;
     section: SectionKey;
+    kind: ItemKind;
 }
 
 function categoryFor(section: SectionKey, category: string | null) {
@@ -127,7 +129,7 @@ function billingSuffix(cycle: string | null): string {
 
 export const MultiHouseholdExitDialog = () => {
     const { user } = useAuth();
-    const { household: activeHousehold, refresh: refreshHousehold } = useHousehold();
+    const { household: activeHousehold, members: activeMembers, userRole: activeRole, refresh: refreshHousehold } = useHousehold();
     const {
         pendingExitHouseholdId,
         decryptFromPendingExit,
@@ -159,50 +161,97 @@ export const MultiHouseholdExitDialog = () => {
             if (cancelled) return;
             setHouseholdName(hh?.name ?? null);
 
+            const { data: oldMembership } = await supabase
+                .from("household_members")
+                .select("id")
+                .eq("user_id", user.id)
+                .eq("household_id", pendingExitHouseholdId)
+                .maybeSingle();
+            const oldMembershipId = oldMembership?.id ?? null;
+
             const fetched: FetchedItem[] = [];
+            const seenIds = new Set<string>();
             for (const section of SECTIONS) {
-                const { data, error } = await (supabase as any)
-                    .from(section.key)
-                    .select("*")
-                    .eq("household_id", pendingExitHouseholdId);
-                if (error || !data) continue;
-
-                for (const row of data) {
-                    const primaryCipher = row[section.primaryLabelCol];
-                    const fallbackCipher = section.fallbackLabelCol ? row[section.fallbackLabelCol] : null;
-                    const primary = primaryCipher ? await decryptFromPendingExit(primaryCipher) : null;
-                    const fallback = fallbackCipher ? await decryptFromPendingExit(fallbackCipher) : null;
-                    const category = row.category ?? null;
-                    const label = (primary && primary.trim())
-                        || (fallback && fallback.trim())
-                        || (section.key === "insurances" ? insuranceTypes.find(t => t.value === category)?.label : null)
-                        || "Untitled";
-
-                    const amountCipher = row[section.amountCol];
-                    const amountPlain = amountCipher ? await decryptFromPendingExit(amountCipher) : null;
-                    const amountNum = amountPlain ? parseFloat(amountPlain) : NaN;
-
-                    fetched.push({
-                        id: row.id,
-                        raw: row,
-                        label,
-                        amount: Number.isFinite(amountNum) ? amountNum : null,
-                        billingCycle: row.billing_cycle ?? null,
-                        category,
-                        authoredByMe: row[section.authorCol] === user.id,
-                        subjectId: section.subjectCol ? row[section.subjectCol] ?? null : null,
-                        section: section.key,
+                const queries: { kind: ItemKind; build: () => any }[] = [];
+                if (section.key === "income_sources") {
+                    queries.push({
+                        kind: "attributed",
+                        build: () => (supabase as any)
+                            .from(section.key)
+                            .select("*")
+                            .eq("household_id", pendingExitHouseholdId)
+                            .is("archived_at", null)
+                            .eq("owner_id", user.id),
                     });
+                } else {
+                    if (oldMembershipId) {
+                        queries.push({
+                            kind: "attributed",
+                            build: () => (supabase as any)
+                                .from(section.key)
+                                .select("*")
+                                .eq("household_id", pendingExitHouseholdId)
+                                .is("archived_at", null)
+                                .eq("member_id", oldMembershipId),
+                        });
+                    }
+                    queries.push({
+                        kind: "added",
+                        build: () => (supabase as any)
+                            .from(section.key)
+                            .select("*")
+                            .eq("household_id", pendingExitHouseholdId)
+                            .is("archived_at", null)
+                            .eq(section.authorCol, user.id)
+                            .is("member_id", null),
+                    });
+                }
+
+                for (const { kind, build } of queries) {
+                    const { data, error } = await build();
+                    if (error || !data) continue;
+
+                    for (const row of data) {
+                        if (seenIds.has(row.id)) continue;
+                        seenIds.add(row.id);
+
+                        const primaryCipher = row[section.primaryLabelCol];
+                        const fallbackCipher = section.fallbackLabelCol ? row[section.fallbackLabelCol] : null;
+                        const primary = primaryCipher ? await decryptFromPendingExit(primaryCipher) : null;
+                        const fallback = fallbackCipher ? await decryptFromPendingExit(fallbackCipher) : null;
+                        const category = row.category ?? null;
+                        const label = (primary && primary.trim())
+                            || (fallback && fallback.trim())
+                            || (section.key === "insurances" ? insuranceTypes.find(t => t.value === category)?.label : null)
+                            || "Untitled";
+
+                        const amountCipher = row[section.amountCol];
+                        const amountPlain = amountCipher ? await decryptFromPendingExit(amountCipher) : null;
+                        const amountNum = amountPlain ? parseFloat(amountPlain) : NaN;
+
+                        fetched.push({
+                            id: row.id,
+                            raw: row,
+                            label,
+                            amount: Number.isFinite(amountNum) ? amountNum : null,
+                            billingCycle: row.billing_cycle ?? null,
+                            category,
+                            subjectId: section.subjectCol ? row[section.subjectCol] ?? null : null,
+                            section: section.key,
+                            kind,
+                        });
+                    }
                 }
             }
 
             if (cancelled) return;
             setItems(fetched);
-            setSelectedIds(new Set(fetched.filter(i => i.authoredByMe).map(i => i.id)));
+            setSelectedIds(new Set(fetched.filter(i => i.kind === "attributed").map(i => i.id)));
             setLoading(false);
         })();
 
         return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, pendingExitHouseholdId, user?.id, decryptFromPendingExit]);
 
     const toggleItem = (id: string) => {
@@ -277,11 +326,26 @@ export const MultiHouseholdExitDialog = () => {
                     let amountPlain: string | null = null;
                     for (const col of section.encryptedCols) {
                         const cipher = item.raw[col];
-                        if (!cipher) { newRow[col] = null; continue; }
+                        if (!cipher) {
+                            if (col === section.amountCol) {
+                                throw new Error(`Couldn't bring "${item.label}" — amount missing on the source row.`);
+                            }
+                            newRow[col] = null;
+                            continue;
+                        }
                         const plain = await decryptFromPendingExit(cipher);
-                        if (plain == null) { newRow[col] = null; continue; }
+                        if (plain == null) {
+                            if (col === section.amountCol) {
+                                throw new Error(`Couldn't bring "${item.label}" — failed to decrypt its amount.`);
+                            }
+                            newRow[col] = null;
+                            continue;
+                        }
                         if (col === section.amountCol) amountPlain = plain;
                         newRow[col] = await encrypt(plain);
+                    }
+                    if (amountPlain == null) {
+                        throw new Error(`Couldn't bring "${item.label}" — amount column not captured.`);
                     }
 
                     if (section.subjectCol) {
@@ -290,6 +354,10 @@ export const MultiHouseholdExitDialog = () => {
                     }
                     if (section.coParentCol) {
                         newRow[section.coParentCol] = null;
+                    }
+                    if ("member_id" in newRow) {
+                        const newMembershipId = activeMembers.find(m => m.user_id === user.id)?.id ?? null;
+                        newRow.member_id = newMembershipId;
                     }
 
                     const { data: insertedSource, error: insertError } = await (supabase as any)
@@ -301,28 +369,32 @@ export const MultiHouseholdExitDialog = () => {
                         throw new Error(`Failed to bring ${section.title}: ${insertError?.message ?? "no row returned"}`);
                     }
 
-                    if (section.key === "income_sources" && amountPlain) {
+                    if (section.key === "income_sources" || section.key === "expenses") {
                         const encryptedBudget = await encrypt(amountPlain);
-                        await (supabase as any).from("monthly_incomes").insert({
-                            income_source_id: insertedSource.id,
+                        const fkCol = section.key === "income_sources" ? "income_source_id" : "expense_id";
+                        const monthlyTable = section.key === "income_sources" ? "monthly_incomes" : "monthly_expenses";
+                        const { error: monthlyError } = await (supabase as any).from(monthlyTable).insert({
+                            [fkCol]: insertedSource.id,
                             household_id: activeHousehold.id,
                             month,
                             month_start: monthStartStr,
                             month_end: monthEndStr,
-                            encrypted_budget_amount: encryptedBudget,
+                            encrypted_budget_snapshot: encryptedBudget,
                             created_by: user.id,
                         });
-                    } else if (section.key === "expenses" && amountPlain) {
-                        const encryptedBudget = await encrypt(amountPlain);
-                        await (supabase as any).from("monthly_expenses").insert({
-                            expense_id: insertedSource.id,
-                            household_id: activeHousehold.id,
-                            month,
-                            month_start: monthStartStr,
-                            month_end: monthEndStr,
-                            encrypted_budget_amount: encryptedBudget,
-                            created_by: user.id,
-                        });
+                        if (monthlyError) {
+                            throw new Error(`Brought "${item.label}" but failed to seed this month's row: ${monthlyError.message}`);
+                        }
+                    }
+
+                    if (item.kind === "attributed") {
+                        const { error: archiveError } = await (supabase as any)
+                            .from(section.key)
+                            .update({ archived_at: new Date().toISOString(), archived_by: user.id })
+                            .eq("id", item.id);
+                        if (archiveError) {
+                            throw new Error(`Brought "${item.label}" into your new household but failed to archive it in the old one: ${archiveError.message}`);
+                        }
                     }
                 }
             }
@@ -337,13 +409,8 @@ export const MultiHouseholdExitDialog = () => {
                 title: "All done",
                 description: selectedIds.size === 0
                     ? "You're set up in your household."
-                    : `Brought ${selectedIds.size} item${selectedIds.size === 1 ? "" : "s"} into your household.`,
+                    : `Brought ${selectedIds.size} item${selectedIds.size === 1 ? "" : "s"} along.`,
             });
-
-            // Reload so every page-level fetch (Overview, Income, Expenses) re-runs
-            // against the freshly seeded household state without depending on each
-            // page being visited to refresh itself.
-            setTimeout(() => window.location.reload(), 800);
         } catch (err: any) {
             console.error("Exit dialog failed:", err);
             toast({
@@ -366,11 +433,12 @@ export const MultiHouseholdExitDialog = () => {
             >
                 <DialogHeader>
                     <DialogTitle>
-                        Bring items from {householdName ?? "your previous household"}
+                        {activeRole === "member"
+                            ? `Welcome to ${activeHousehold?.name ?? "your new household"}`
+                            : "Pick what to bring along"}
                     </DialogTitle>
                     <DialogDescription>
-                        You've been removed from (or left) this household. Pick what to duplicate
-                        into your household. Items you originally added are pre-checked.
+                        Items tagged as yours come along by default. Tick anything else you want to bring.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -380,7 +448,7 @@ export const MultiHouseholdExitDialog = () => {
                     </div>
                 ) : items.length === 0 ? (
                     <p className="text-sm text-muted py-6 text-center">
-                        Nothing to bring across. Click finish to continue.
+                        Nothing personal to bring along. You're all set in {activeHousehold?.name ?? "your new household"}.
                     </p>
                 ) : (
                     <div className="space-y-5 py-2">
@@ -388,6 +456,10 @@ export const MultiHouseholdExitDialog = () => {
                             const sectionItems = itemsBySection.get(section.key) ?? [];
                             if (sectionItems.length === 0) return null;
                             const SectionIcon = section.sectionIcon;
+                            const orderedItems = [
+                                ...sectionItems.filter(i => i.kind === "attributed"),
+                                ...sectionItems.filter(i => i.kind === "added"),
+                            ];
                             return (
                                 <div key={section.key} className="space-y-2">
                                     <h4 className="text-sm font-medium flex items-center gap-2">
@@ -395,14 +467,13 @@ export const MultiHouseholdExitDialog = () => {
                                         {section.title}
                                     </h4>
                                     <Card variant="flush">
-                                        {sectionItems.map((item, idx) => {
+                                        {orderedItems.map((item, idx) => {
                                             const { icon, hue } = categoryFor(section.key, item.category);
-                                            const isLast = idx === sectionItems.length - 1;
                                             const checked = selectedIds.has(item.id);
                                             return (
                                                 <RowItem
                                                     key={item.id}
-                                                    last={isLast}
+                                                    last={idx === orderedItems.length - 1}
                                                     onClick={() => toggleItem(item.id)}
                                                 >
                                                     <Checkbox
@@ -421,12 +492,7 @@ export const MultiHouseholdExitDialog = () => {
                                                         <CatIcon icon={icon} hue={hue} size={32} />
                                                     )}
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-medium text-sm sm:text-base truncate">{item.label}</span>
-                                                            {item.authoredByMe && (
-                                                                <span className="text-[10px] uppercase tracking-wide text-muted">by you</span>
-                                                            )}
-                                                        </div>
+                                                        <span className="font-medium text-sm sm:text-base truncate">{item.label}</span>
                                                     </div>
                                                     {item.amount != null && (
                                                         <span className="flex items-baseline gap-1 shrink-0">
@@ -446,14 +512,29 @@ export const MultiHouseholdExitDialog = () => {
                     </div>
                 )}
 
-                <DialogFooter>
+                <DialogFooter className="sm:justify-between">
+                    {items.length > 0 ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (selectedIds.size === items.length) {
+                                    setSelectedIds(new Set());
+                                } else {
+                                    setSelectedIds(new Set(items.map(i => i.id)));
+                                }
+                            }}
+                            className="text-xs text-accent hover:underline self-center"
+                        >
+                            {selectedIds.size === items.length ? "Clear all" : "Select all"}
+                        </button>
+                    ) : <span />}
                     <Button onClick={handleConfirm} disabled={submitting || loading}>
                         {submitting ? (
                             <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Bringing…</>
                         ) : items.length === 0 ? (
                             <>Finish <ArrowRight className="h-4 w-4 ml-2" /></>
                         ) : (
-                            <>Bring {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} <ArrowRight className="h-4 w-4 ml-2" /></>
+                            <>Bring {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"} along <ArrowRight className="h-4 w-4 ml-2" /></>
                         )}
                     </Button>
                 </DialogFooter>

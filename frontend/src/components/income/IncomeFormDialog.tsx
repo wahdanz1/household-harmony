@@ -21,6 +21,7 @@ import { computeFromNet, TAX_TYPE_LABELS, type TaxType } from "@/utils/taxMath";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField, FormRow } from "@/components/shared/FormField";
+import { MarkPaidSection } from "@/components/shared/MarkPaidSection";
 import { useEntityForm } from "@/hooks/useEntityForm";
 
 import { Briefcase, TrendingUp, HandCoins, PiggyBank, MoreHorizontal } from "lucide-react";
@@ -41,7 +42,7 @@ interface InitialValues {
     name?: string;
     provider?: string;
     owner_id?: string;
-    default_amount?: number | string;
+    budget?: number | string;
     is_shared?: boolean;
     co_parent_id?: string | null;
     share_percentage?: number | string | null;
@@ -66,7 +67,7 @@ const blankForm = (defaultOwnerId: string): InitialValues => ({
     category: "salary",
     name: "",
     provider: "",
-    default_amount: "0",
+    budget: "0",
     owner_id: defaultOwnerId,
     is_shared: false,
     co_parent_id: "",
@@ -100,19 +101,19 @@ export const IncomeFormDialog = ({
     }, [open, initialValues, defaultOwnerId]);
 
     const editingId = mode === "edit" ? initialValues?.id : undefined;
-    const canSave = !!form.provider?.trim() && parseFloat(String(form.default_amount ?? 0)) >= 0 && !!form.owner_id;
+    const canSave = !!form.provider?.trim() && parseFloat(String(form.budget ?? 0)) >= 0 && !!form.owner_id;
 
     const entityForm = useEntityForm({
         entityName: "Income source",
         isEdit: mode === "edit",
         save: async () => {
-            const numericAmount = parseFloat(String(form.default_amount ?? 0));
+            const numericAmount = parseFloat(String(form.budget ?? 0));
             const baseData = {
                 household_id: householdId,
                 category: form.category,
                 provider: form.provider?.trim() ?? "",
                 name: form.name?.trim() || null,
-                default_amount: numericAmount,
+                budget: numericAmount,
                 owner_id: form.owner_id ?? "",
                 is_shared: !!form.is_shared,
                 co_parent_id: form.is_shared ? (form.co_parent_id || null) : null,
@@ -149,7 +150,7 @@ export const IncomeFormDialog = ({
                     month,
                     month_start: format(start, "yyyy-MM-dd"),
                     month_end: format(end, "yyyy-MM-dd"),
-                    budget_amount: numericAmount,
+                    budget_snapshot: numericAmount,
                     created_by: form.owner_id ?? "",
                 });
                 await supabase
@@ -243,12 +244,17 @@ export const IncomeFormDialog = ({
                     )}
 
                     <FormRow>
-                        <FormField label="Monthly amount, net (kr)">
+                        <FormField
+                            label="Monthly amount, net (kr)"
+                            hint={mode === "edit" && String(form.budget ?? "") !== String(pristine.budget ?? "")
+                                ? `Applies to ${format(getFinancialMonthRange(getCurrentFinancialMonth(financialMonthStart), financialMonthStart).end, "MMMM yyyy")} and onwards.`
+                                : undefined}
+                        >
                             <Input
                                 type="number"
                                 inputMode="numeric"
-                                value={String(form.default_amount ?? "")}
-                                onChange={(e) => setForm({ ...form, default_amount: e.target.value })}
+                                value={String(form.budget ?? "")}
+                                onChange={(e) => setForm({ ...form, budget: e.target.value })}
                                 placeholder="0"
                             />
                         </FormField>
@@ -281,7 +287,7 @@ export const IncomeFormDialog = ({
                     )}
 
                     {(() => {
-                        const net = parseFloat(String(form.default_amount ?? 0)) || 0;
+                        const net = parseFloat(String(form.budget ?? 0)) || 0;
                         if (net <= 0 || form.tax_type === "no_tax" || !form.tax_type) return null;
                         const customRate = form.custom_tax_rate
                             ? parseFloat(String(form.custom_tax_rate)) || 0
@@ -345,13 +351,37 @@ export const IncomeFormDialog = ({
                         </>
                     )}
 
-                    <div className="flex items-center space-x-2 pt-2">
-                        <Switch
-                            checked={form.is_active ?? true}
-                            onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
-                        />
-                        <Label>Active</Label>
+                    <div className="space-y-1 pt-2">
+                        <div className="flex items-center space-x-2">
+                            <Switch
+                                checked={form.is_active ?? true}
+                                onCheckedChange={(checked) => setForm({ ...form, is_active: checked })}
+                            />
+                            <Label>Active</Label>
+                        </div>
+                        {mode === "edit" && form.is_active === false && pristine.is_active !== false && (() => {
+                            const label = format(
+                                getFinancialMonthRange(getCurrentFinancialMonth(financialMonthStart), financialMonthStart).end,
+                                "MMMM yyyy"
+                            );
+                            return (
+                                <p className="text-xs text-muted">
+                                    Disabled from {label} onwards. {label} will be reconciled in your next Monthly Review.
+                                </p>
+                            );
+                        })()}
                     </div>
+
+                    {mode === "edit" && editingId && (
+                        <MarkPaidSection
+                            sourceId={editingId}
+                            householdId={householdId}
+                            table="monthly_incomes"
+                            fkColumn="income_source_id"
+                            currency="SEK"
+                            financialMonthStart={financialMonthStart}
+                        />
+                    )}
                 </div>
 
                 <FormDialogFooter

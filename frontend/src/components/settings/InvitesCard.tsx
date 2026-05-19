@@ -11,7 +11,7 @@ import { useEncryption } from "@/contexts/EncryptionContext";
 import { useToast } from "@/hooks/use-toast";
 import { isDemoMode } from "@/utils/demoMode";
 import { PLACEHOLDERS } from "@/constants/ui";
-import { SettingsCard, SettingsBadge } from "./SettingsCard";
+import { SettingsCard } from "./SettingsCard";
 
 interface Invite {
     id: string;
@@ -118,9 +118,13 @@ export const InvitesCard = ({ householdId, invites, isOwner, onUpdate }: Invites
     };
 
     const demoMode = isDemoMode();
+    // Hide expired-unaccepted (already dead) and accepted (already used) rows.
+    // The owner only ever sees still-actionable invites.
     const pendingInvites = invites.filter(i => {
+        if (i.status === "accepted") return false;
         const isExpired = new Date(i.expires_at) < new Date();
-        return !(isExpired && i.status === "pending");
+        if (isExpired && i.status === "pending") return false;
+        return true;
     });
 
     return (
@@ -133,41 +137,40 @@ export const InvitesCard = ({ householdId, invites, isOwner, onUpdate }: Invites
                         Invite member
                     </Button>
                 }
-                contentClassName={invites.length === 0 ? "p-5" : "p-0"}
+                contentClassName={pendingInvites.length === 0 ? "p-5" : "p-0"}
             >
-                {invites.length === 0 ? (
+                {pendingInvites.length === 0 ? (
                     <div className="text-center">
                         <p className="font-semibold text-ink">No pending invites</p>
-                        <p className="text-sm text-muted mt-1">Send one to a co-parent or partner.</p>
+                        <p className="text-sm text-muted mt-1">Generate one and share it with a user you want to invite to your household.</p>
                         {demoMode && (
                             <p className="text-xs text-muted mt-2">Inviting is disabled in the demo.</p>
                         )}
                     </div>
                 ) : (
                     <div className="divide-y divide-line-2">
-                        {invites.map((invite) => {
-                            const isExpired = new Date(invite.expires_at) < new Date();
-                            const status = isExpired && invite.status === "pending" ? "expired" : invite.status;
-                            return (
-                                <div key={invite.id} className="flex items-center gap-3 px-5 py-3">
-                                    <code className="font-mono font-semibold text-ink shrink-0">{invite.invite_code}</code>
-                                    <SettingsBadge tone={status === "pending" ? "accent" : "neutral"}>{status}</SettingsBadge>
-                                    <div className="flex-1 min-w-0 text-sm text-muted truncate">
-                                        {invite.invited_email && <span>{invite.invited_email}</span>}
-                                        {invite.invited_email && <span className="mx-2">·</span>}
-                                        <span className="text-xs">expires {format(new Date(invite.expires_at), "PPP")}</span>
-                                    </div>
-                                    <div className="flex gap-1 shrink-0">
-                                        <Button variant="ghost" size="icon" onClick={() => copyInviteCode(invite.invite_code)} aria-label="Copy code" className="h-8 w-8">
-                                            {copiedCode === invite.invite_code ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                        </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteInvite(invite.id)} aria-label="Delete invite" className="h-8 w-8 text-muted hover:text-danger">
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
+                        {pendingInvites.map((invite) => (
+                            <div key={invite.id} className="flex items-center gap-3 px-5 py-3">
+                                <div className="flex-1 min-w-0 text-sm truncate">
+                                    {invite.invited_email && (
+                                        <>
+                                            <span className="text-ink">{invite.invited_email}</span>
+                                            <span className="mx-2 text-muted">·</span>
+                                        </>
+                                    )}
+                                    <span className="text-xs text-muted">expires {format(new Date(invite.expires_at), "PPP")}</span>
                                 </div>
-                            );
-                        })}
+                                <code className="font-mono font-semibold text-ink shrink-0">{invite.invite_code}</code>
+                                <div className="flex gap-1 shrink-0">
+                                    <Button variant="ghost" size="icon" onClick={() => copyInviteCode(invite.invite_code)} aria-label="Copy code" className="h-8 w-8">
+                                        {copiedCode === invite.invite_code ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteInvite(invite.id)} aria-label="Delete invite" className="h-8 w-8 text-muted hover:text-danger">
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
             </SettingsCard>

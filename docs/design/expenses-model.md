@@ -22,11 +22,11 @@ The "softly fluctuating" middle state (electricity, phone, broadband) **does not
 |---|---|
 | **Expenses page** | Inventory ("what we pay"). Pure catalog. Not a planning surface. Not a current-month view. |
 | **Subscriptions / Insurances sections** | Same logical role as Expenses but with cadence (often non-monthly) and provider context. |
-| **Forecast** (future page) | Planning surface. "In January we get hit with 5 000 kr in insurances." Where time-frame math lives. |
+| **Plan** (future page) | Planning surface. "In January we get hit with 5 000 kr in insurances." Where time-frame math lives. The user is *planning*; the forecast is a byproduct of the plan, not the goal. |
 | **Overview** | Current-month check-in. Where actuals appear ("are we on track?"). |
 | **Monthly Review Wizard** | Past-month close-out. Where actuals get filled (manually now, semi-auto via CSV/bank API later). |
 
-**Rule:** the Expenses page never shows actuals or progress. Actuals live only on Overview / Review / Forecast. This is what keeps HH from drifting into transaction-tracker territory.
+**Rule:** the Expenses page never shows actuals or progress. Actuals live only on Overview / Review / Plan. This is what keeps HH from drifting into transaction-tracker territory.
 
 ---
 
@@ -82,7 +82,7 @@ Three tables, kept separate:
 
 Current app already does this nicely on Insurances: `222 SEK/month · 2664 SEK/year · 111 SEK avg`. Extend to all three section headers (Expenses, Subs, Insurances): per-month · per-year · one contextual third frame. Tighten "avg" to be unambiguous (e.g. `snitt 111 kr/post`).
 
-This pairs naturally with the eventual Forecast page (which is fundamentally about expressing money in different time frames).
+This pairs naturally with the eventual Plan page (which is fundamentally about expressing money in different time frames).
 
 ---
 
@@ -99,5 +99,5 @@ This pairs naturally with the eventual Forecast page (which is fundamentally abo
 - **Three-rhythm taxonomy** (Fast / Variabel / Budget). The middle "Variabel" state is unnecessary; electricity is fixed in the user's head.
 - **Per-expense `is_budgeted` flag at creation.** Adds friction at add-time for the 95% case where category default is right.
 - **Smart-default-confidence-driven estimate cue.** Fragile for first months and for stable budgets.
-- **Showing actuals on the Expenses page.** Risks transaction-tracker drift. Confined to Overview / Review / Forecast.
+- **Showing actuals on the Expenses page.** Risks transaction-tracker drift. Confined to Overview / Review / Plan.
 - **Billing-day on monthly Expenses rows.** Noise. Users know when rent is due.

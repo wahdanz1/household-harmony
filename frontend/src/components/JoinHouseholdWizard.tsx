@@ -69,7 +69,6 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
         const userMatch = user?.id === userId;
         const householdMatch = activeHousehold?.id === householdId;
 
-        // eslint-disable-next-line no-console
         console.debug("[JoinWizard] settling check", {
             userMatch, expectedUser: userId, actualUser: user?.id,
             householdMatch, expectedHousehold: householdId, actualHousehold: activeHousehold?.id,
@@ -84,6 +83,7 @@ export const JoinHouseholdWizard = ({ open, onOpenChange }: JoinHouseholdWizardP
         });
         resetWizard();
         onOpenChange(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [phase, user?.id, activeHousehold?.id, isUnlocked]);
 
     const handleValidateCode = async () => {

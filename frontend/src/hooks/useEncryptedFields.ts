@@ -26,7 +26,7 @@ interface EncryptionFieldConfig {
  * Usage:
  * const { encryptRecord, decryptRecord, decryptRecords } = useEncryptedFields([
  *   { original: 'name', encrypted: 'encrypted_name' },
- *   { original: 'default_amount', encrypted: 'encrypted_default_amount' },
+ *   { original: 'budget', encrypted: 'encrypted_budget' },
  * ]);
  */
 export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
@@ -134,35 +134,35 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
 export const incomeSourceFields: EncryptionFieldConfig[] = [
     { original: 'name', encrypted: 'encrypted_name' },
     { original: 'provider', encrypted: 'encrypted_provider' },
-    { original: 'default_amount', encrypted: 'encrypted_default_amount' },
+    { original: 'budget', encrypted: 'encrypted_budget' },
 ];
 
 export const monthlyIncomeFields: EncryptionFieldConfig[] = [
-    { original: 'amount', encrypted: 'encrypted_amount' },
-    { original: 'budget_amount', encrypted: 'encrypted_budget_amount' },
+    { original: 'budget_snapshot', encrypted: 'encrypted_budget_snapshot' },
+    { original: 'previous_budget_snapshot', encrypted: 'encrypted_previous_budget_snapshot' },
     { original: 'actual_amount', encrypted: 'encrypted_actual_amount' },
 ];
 
 export const expenseFields: EncryptionFieldConfig[] = [
     { original: 'name', encrypted: 'encrypted_name' },
-    { original: 'default_amount', encrypted: 'encrypted_default_amount' },
+    { original: 'budget', encrypted: 'encrypted_budget' },
 ];
 
 export const monthlyExpenseFields: EncryptionFieldConfig[] = [
-    { original: 'amount', encrypted: 'encrypted_amount' },
-    { original: 'budget_amount', encrypted: 'encrypted_budget_amount' },
+    { original: 'budget_snapshot', encrypted: 'encrypted_budget_snapshot' },
+    { original: 'previous_budget_snapshot', encrypted: 'encrypted_previous_budget_snapshot' },
     { original: 'actual_amount', encrypted: 'encrypted_actual_amount' },
 ];
 
 export const subscriptionFields: EncryptionFieldConfig[] = [
     { original: 'name', encrypted: 'encrypted_name' },
     { original: 'service', encrypted: 'encrypted_service' },
-    { original: 'amount', encrypted: 'encrypted_amount' },
+    { original: 'budget', encrypted: 'encrypted_budget' },
 ];
 
 export const insuranceFields: EncryptionFieldConfig[] = [
     { original: 'name', encrypted: 'encrypted_name' },
-    { original: 'total_amount', encrypted: 'encrypted_total_amount' },
+    { original: 'budget', encrypted: 'encrypted_budget' },
     { original: 'provider', encrypted: 'encrypted_provider' },
 ];
 

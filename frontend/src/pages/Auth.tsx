@@ -64,7 +64,7 @@ const Auth = () => {
     }, 500);
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       const response = await fetch(`${backendUrl}/api/demo/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -327,6 +327,7 @@ const Auth = () => {
                 <Label htmlFor="password">Password</Label>
                 <button
                   type="button"
+                  tabIndex={-1}
                   onClick={() => setShowRecoverDialog(true)}
                   className="text-xs font-medium text-accent-dk hover:underline focus:outline-none focus-visible:underline"
                 >

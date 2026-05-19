@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { InsuranceForm } from "./forms/InsuranceForm";
+import type { AttributionValue } from "@/components/shared/AttributionPicker";
 
 interface InsuranceFormDialogProps {
     open: boolean;
@@ -11,7 +12,7 @@ interface InsuranceFormDialogProps {
         name?: string;
         provider?: string | null;
         category?: string;
-        total_amount?: number | string;
+        budget?: number | string;
         billing_cycle?: string;
         billing_month?: number | string | null;
         billing_day?: number | string | null;
@@ -20,7 +21,7 @@ interface InsuranceFormDialogProps {
         is_shared?: boolean;
         co_parent_id?: string | null;
         share_percentage?: number | string;
-        subject_id?: string | null;
+        attribution?: AttributionValue;
     };
     onSuccess?: () => void;
 }

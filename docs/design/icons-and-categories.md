@@ -16,15 +16,15 @@ All icons are from [lucide-react](https://lucide.dev/). Source of truth:
 | Expenses | `Wallet` | |
 | Settings | `Settings` | Desktop: ghost-icon button in user-card. Mobile: 4th bottom tab. |
 | Logout | `LogOut` | Desktop: user-card. Mobile: lives inside Settings page. |
-| Forecast (planned) | *(none yet — see suggestions below)* | |
+| Plan (planned) | *(none yet — see suggestions below)* | |
 
-### Forecast icon — open question
+### Plan icon — open question
 
 No canonical choice yet. Candidates from lucide:
 
-- `LineChart` — strongest "forecast/projection" association.
 - `CalendarRange` — emphasizes time-frame planning (per-month/per-year view).
 - `Compass` — orientation/planning.
+- `LineChart` — projection feel (forecast as byproduct of the plan).
 - `Telescope` — looking ahead (cute but maybe too literal).
 
 `TrendingUp` is already used for `business_income`, so it's off the table.

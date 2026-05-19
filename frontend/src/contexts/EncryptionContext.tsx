@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import {
     encrypt as encryptValue,
@@ -39,6 +40,15 @@ interface EncryptionContextValue {
     decryptFromPendingExit: (ciphertext: string) => Promise<string | null>;
     /** Drop the pending-exit DEK from memory (call after the exit dialog completes). */
     clearPendingExitDEK: () => void;
+    /** Stash an already-unlocked household's DEK as the pending-exit DEK.
+     *  Used by the join-an-existing-household flow so the old household's DEK
+     *  survives the in-place switch without a page reload. */
+    markPendingExit: (householdId: string, dek: CryptoKey) => void;
+
+    /** True while the first-run recovery-code modal is on screen. Other welcome flows
+     *  (HouseholdSetupWizard) gate themselves on this so they don't render on top. */
+    recoveryCodeDialogOpen: boolean;
+    setRecoveryCodeDialogOpen: (open: boolean) => void;
 }
 
 export interface PreparedRecoverySlot {
@@ -91,11 +101,13 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     const dekUserIdRef = useRef<string | null>(null);
     const pendingExitDekRef = useRef<CryptoKey | null>(null);
     const [pendingExitHouseholdId, setPendingExitHouseholdId] = useState<string | null>(null);
+    const [recoveryCodeDialogOpen, setRecoveryCodeDialogOpen] = useState(false);
     const [isUnlocked, setIsUnlocked] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
     const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [secondsUntilLock, setSecondsUntilLock] = useState(Math.ceil(LOCK_WARNING_TIME / 1000));
     const [showLockWarning, setShowLockWarning] = useState(false);
     const autoLockDisabledRef = useRef(false);
 
@@ -171,24 +183,46 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
         warningTimerRef.current = setTimeout(() => {
             setShowLockWarning(true);
-            toast({
-                title: 'Vault Auto-Lock Warning',
-                description: 'You have been inactive. The vault will lock in 1 minute. Interact with the app to stay active.',
-                duration: 55000,
-            });
         }, INACTIVITY_TIMEOUT - LOCK_WARNING_TIME);
 
         inactivityTimerRef.current = setTimeout(() => {
             if (!autoLockDisabledRef.current) {
                 lockVault();
                 toast({
-                    title: 'Vault Locked',
-                    description: 'Your vault has been locked due to inactivity. Please unlock to continue.',
-                    variant: 'destructive',
+                    title: 'Vault locked',
+                    description: 'Locked due to inactivity. Unlock to continue.',
+                    duration: 8000,
                 });
             }
         }, INACTIVITY_TIMEOUT);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isUnlocked]);
+
+    useEffect(() => {
+        if (!isUnlocked) return;
+        const handler = () => resetInactivityTimer();
+        // mousemove omitted on purpose — fires too often, would make the
+        // inactivity lock unreachable.
+        const events = ['mousedown', 'keydown', 'touchstart', 'scroll'] as const;
+        for (const e of events) window.addEventListener(e, handler, { passive: true });
+        return () => {
+            for (const e of events) window.removeEventListener(e, handler);
+        };
+    }, [isUnlocked, resetInactivityTimer]);
+
+    useEffect(() => {
+        const reset = Math.ceil(LOCK_WARNING_TIME / 1000);
+        if (!showLockWarning) {
+            setSecondsUntilLock(reset);
+            return;
+        }
+        setSecondsUntilLock(reset);
+        const id = setInterval(() => {
+            setSecondsUntilLock(s => Math.max(0, s - 1));
+        }, 1000);
+        return () => clearInterval(id);
+    }, [showLockWarning]);
+
 
     const lockVault = useCallback(() => {
         dekRef.current = null;
@@ -214,6 +248,11 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     const clearPendingExitDEK = useCallback(() => {
         pendingExitDekRef.current = null;
         setPendingExitHouseholdId(null);
+    }, []);
+
+    const markPendingExit = useCallback((householdId: string, dek: CryptoKey) => {
+        pendingExitDekRef.current = dek;
+        setPendingExitHouseholdId(householdId);
     }, []);
 
     const encrypt = useCallback(async (plaintext: string): Promise<string | null> => {
@@ -308,6 +347,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 return false;
             }
 
+            let unlocked = false;
             if (!vault?.encrypted_dek) {
                 // Only auto-init when nobody in the household has a wrap yet —
                 // otherwise we'd fork the DEK and orphan existing data.
@@ -315,25 +355,28 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                     household_id_in: householdId,
                 });
                 if (hasKeys === false) {
-                    return await initializeEncryption(password, userId, householdId);
+                    unlocked = await initializeEncryption(password, userId, householdId);
                 }
-                return false;
+            } else {
+                const dek = await unlockVault(
+                    password,
+                    vault.encrypted_dek,
+                    vault.dek_salt,
+                    vault.dek_iv,
+                );
+                dekRef.current = dek;
+                dekUserIdRef.current = userId;
+                setIsUnlocked(true);
+                resetInactivityTimer();
+                unlocked = true;
             }
 
-            const dek = await unlockVault(
-                password,
-                vault.encrypted_dek,
-                vault.dek_salt,
-                vault.dek_iv,
-            );
+            if (!unlocked) return false;
 
-            dekRef.current = dek;
-            dekUserIdRef.current = userId;
-            setIsUnlocked(true);
-            resetInactivityTimer();
-
-            // Also unlock any pending-exit household so the exit dialog can
-            // decrypt the old household's items for duplication.
+            // Pending-exit detection runs regardless of which unlock path fired
+            // — a stranded user who just bootstrapped their fresh household
+            // still needs the bring-items dialog to surface for the household
+            // they were kicked from.
             const { data: pendingMembership } = await (supabase as any)
                 .from('household_members')
                 .select('household_id')
@@ -571,6 +614,9 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         pendingExitHouseholdId,
         decryptFromPendingExit,
         clearPendingExitDEK,
+        markPendingExit,
+        recoveryCodeDialogOpen,
+        setRecoveryCodeDialogOpen,
     };
 
     useEffect(() => {
@@ -599,7 +645,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                             Session Timeout Warning
                         </h4>
                         <p className="text-muted mb-4">
-                            Your vault will lock in 60 seconds due to inactivity.
+                            Your vault will lock in {secondsUntilLock} second{secondsUntilLock === 1 ? "" : "s"} due to inactivity.
                         </p>
                         <button
                             onClick={resetInactivityTimer}

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, Car, Baby, PawPrint, Box, Plus, CreditCard } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, Car, Baby, PawPrint, Box, Plus, CreditCard, User } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
@@ -18,7 +18,7 @@ interface ExpenseItem {
     name: string;
     /** The editable/budget amount for the month. */
     amount: number;
-    defaultAmount?: number;
+    budget?: number;
     /** Realised amount from a credit-card invoice. When set and ≠ amount, a variance badge is shown. */
     actualAmount?: number;
     category?: string;
@@ -30,6 +30,7 @@ interface ExpenseItem {
     isDue?: boolean; // Is this subscription due in the current financial month?
     hasSpecialFields?: boolean; // Electricity/Rent - needs dialog to edit
     subject?: { name: string; type: string };
+    member?: { name: string };
     inactive?: boolean;
     isCredit?: boolean;
 }
@@ -50,6 +51,13 @@ const SubjectChip = ({ subject }: { subject: { name: string; type: string } }) =
         </span>
     );
 }
+
+const MemberChip = ({ member }: { member: { name: string } }) => (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted">
+        <User className="h-3 w-3" />
+        {member.name}
+    </span>
+);
 
 const CreditChip = () => (
     <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted">
@@ -190,7 +198,7 @@ export const ExpenseBlock = ({
                             : 'text-ink';
 
                         const inputStatus =
-                            item.defaultAmount !== undefined && Math.abs(item.amount - item.defaultAmount) < 0.01
+                            item.budget !== undefined && Math.abs(item.amount - item.budget) < 0.01
                                 ? 'saved'
                                 : 'modified';
 
@@ -218,6 +226,7 @@ export const ExpenseBlock = ({
                                             : 'text-muted'
                                             }`}>{item.name}</span>
                                         {item.subject && <SubjectChip subject={item.subject} />}
+                                        {item.member && <MemberChip member={item.member} />}
                                         {item.isCredit && <CreditChip />}
                                     </div>
                                 </div>
@@ -293,8 +302,8 @@ export const ExpenseBlock = ({
 
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; amount: number; billing_cycle: string; category?: string; total_amount?: number; isDue?: boolean; subject?: { name: string; type: string }; inactive?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; total_amount: number; billing_cycle: string; category?: string; subject?: { name: string; type: string }; inactive?: boolean }[];
+    subscriptions: { id: string; name: string; budget: number; billing_cycle: string; category?: string; isDue?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
+    insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
@@ -340,7 +349,7 @@ export const AllTabBlockView = ({
             'monthly': '/month',
         };
         const displayLabel = cycleLabels[sub.billing_cycle] || '/month';
-        const actualAmount = sub.total_amount ?? sub.amount; // Use total_amount if available
+        const actualAmount = sub.budget;
 
         // Get category info for icon
         const catInfo = subscriptionCategories.find(c => c.value === sub.category);
@@ -348,13 +357,14 @@ export const AllTabBlockView = ({
         return {
             id: sub.id,
             name: sub.name,
-            amount: sub.billing_cycle === 'yearly' ? parseFloat(sub.amount.toString()) / 12 : parseFloat(sub.amount.toString()),
+            amount: sub.billing_cycle === 'yearly' ? parseFloat(sub.budget.toString()) / 12 : parseFloat(sub.budget.toString()),
             category: sub.category,
             displayAmount: actualAmount,
             displayLabel,
             billingCycle: sub.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
             isDue: sub.isDue,
             subject: sub.subject,
+            member: sub.member,
             inactive: sub.inactive,
         };
     });
@@ -373,16 +383,17 @@ export const AllTabBlockView = ({
             name: ins.name,
             amount: ins.monthly_cost ?? 0,
             category: ins.category,
-            displayAmount: ins.total_amount,
+            displayAmount: ins.budget,
             displayLabel,
             subject: ins.subject,
+            member: ins.member,
             inactive: ins.inactive,
         };
     });
 
     // Calculate subscription metrics (actual yearly cost)
     const yearlySubscriptions = subscriptions.reduce((sum, s) => {
-        const amount = parseFloat(s.amount.toString());
+        const amount = parseFloat(s.budget.toString());
         // Each billing cycle contributes differently to yearly total
         if (s.billing_cycle === 'yearly') return sum + amount; // Pay once per year
         if (s.billing_cycle === 'quarterly') return sum + amount * 4; // Pay 4 times per year

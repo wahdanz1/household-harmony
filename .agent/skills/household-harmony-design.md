@@ -1,6 +1,6 @@
 ---
 name: household-harmony-design
-description: Apply the Chlorophyll design system when building or modifying UI in Household Harmony. Fires on any React/Tailwind work — pages, components, dialogs, settings, dashboards.
+description: Apply the Chlorophyll design system when building or modifying UI in Household Harmony. Fires on any React/Tailwind work — pages, components, dialogs, settings, Overview.
 ---
 
 # Household Harmony — Chlorophyll design system
@@ -11,7 +11,7 @@ Privacy-first Swedish household finance + planner. The design system is HH-scope
 
 Always cross-reference the live code over any external mockups. The bundle that produced this system has been retired; **these docs are now the source of truth**:
 
-- **Domain model** — [`docs/design/expenses-model.md`](../../docs/design/expenses-model.md). One concept, two visual states. The `isBudgeted` axis. What "an expense" means in HH and what each surface (Expenses inventory, Subs, Insurances, Overview, Forecast, Review) is for.
+- **Domain model** — [`docs/design/expenses-model.md`](../../docs/design/expenses-model.md). One concept, two visual states. The `isBudgeted` axis. What "an expense" means in HH and what each surface (Expenses inventory, Subs, Insurances, Overview, Plan, Review) is for.
 - **Credit-card flow** — [`docs/design/credit-flow.md`](../../docs/design/credit-flow.md). Why credit exists as a concept, the planning-vs-reconciliation split, where PDF import lives (Monthly Review, not Expenses), what it writes to (`actual_amount` only), the privacy tradeoff.
 - **System tiers** — [`docs/design/design-system-tiers.md`](../../docs/design/design-system-tiers.md). Three tiers (primitives → patterns → pages). The five canonical patterns and which flows compose which.
 - **Icons + categories** — [`docs/design/icons-and-categories.md`](../../docs/design/icons-and-categories.md). Lucide names per nav surface and per category, plus the OKLCH hue palette.
@@ -50,7 +50,7 @@ Cadence (Månatlig/Kvartal/Årlig) belongs on Subs/Insurances surfaces ONLY, nev
 | Insurances | Same as Subs | No |
 | Overview | Current-month summary | Yes |
 | Review (per-month) | Reconcile actuals vs plan | Yes |
-| Forecast *(future)* | Year-ahead planning | No |
+| Plan *(future)* | Year-ahead planning | No |
 
 Never show actuals on Expenses — it turns the app into a transaction tracker, which is explicitly out of scope.
 
@@ -78,7 +78,7 @@ Use `<SettingsList>` + `<SettingsListItem icon title value onClick control badge
 ### 8. Voice
 - Calm, functional, domestic. Closer to IKEA assembly instructions than to a fintech product page.
 - Use `du` (informal "you"). Refer to household members by name (Daniel, Sarah) — never "partner" or "spouse."
-- Greetings exist but are minimal. The dashboard header is just the page title — no "Hej Anna" filler.
+- Greetings exist but are minimal. The Overview header is just the page title — no "Hej Anna" filler.
 - No exclamation marks, no "Let's…", no "Pro tip:", no emoji.
 
 ## Component patterns (composition over invention)

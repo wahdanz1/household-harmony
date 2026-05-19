@@ -1,16 +1,17 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { useToast } from "@/hooks/use-toast";
 import { unlockVault } from "@/services/encryption";
-import { Check, Users, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { HouseholdPreviewCard } from "@/components/shared/HouseholdPreviewCard";
 
 interface JoinExistingUserDialogProps {
     open: boolean;
@@ -35,9 +36,10 @@ interface PreviewMember {
 
 export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserDialogProps) => {
     const { user } = useAuth();
-    const { setupVaultFromInvite } = useEncryption();
-    const { household: currentHousehold } = useHousehold();
+    const { setupVaultFromInvite, markPendingExit } = useEncryption();
+    const { household: currentHousehold, refresh: refreshHousehold } = useHousehold();
     const { toast } = useToast();
+    const navigate = useNavigate();
 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -148,8 +150,9 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
             setLoading(false);
             return;
         }
+        let currentDek: CryptoKey;
         try {
-            await unlockVault(password, currentVault.encrypted_dek, currentVault.dek_salt, currentVault.dek_iv);
+            currentDek = await unlockVault(password, currentVault.encrypted_dek, currentVault.dek_salt, currentVault.dek_iv);
         } catch {
             toast({ title: "Wrong password", description: "That password doesn't match your account.", variant: "destructive" });
             setLoading(false);
@@ -194,7 +197,6 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
             return;
         }
 
-        // Soft-leave current household so the bring-items dialog runs on reload.
         const { data: currentMembership } = await supabase
             .from("household_members")
             .select("id")
@@ -216,11 +218,14 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
             }
         }
 
-        toast({
-            title: "Switching households…",
-            description: `Joining ${household.name}. Reloading.`,
-        });
-        setTimeout(() => window.location.reload(), 1000);
+        markPendingExit(currentHousehold.id, currentDek);
+        await refreshHousehold();
+        navigate("/");
+
+        toast({ title: "Household switching succeeded" });
+        onOpenChange(false);
+        resetDialog();
+        setLoading(false);
     };
 
     return (
@@ -233,10 +238,9 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
                 {step === 1 && (
                     <>
                         <DialogHeader>
-                            <DialogTitle>Switch to Another Household</DialogTitle>
+                            <DialogTitle>Switch to another household</DialogTitle>
                             <DialogDescription>
-                                Enter the 8-character invite code to join a household. You'll leave your current one;
-                                items you've added can be brought along on the next page.
+                                You'll leave your current one; items you've added can be brought along when you're in the new household.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
@@ -252,7 +256,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
                                 />
                             </div>
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="sm:justify-between">
                             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                             <Button onClick={handleValidateCode} disabled={loading || inviteCode.length !== 8}>
                                 {loading ? "Validating..." : "Continue"}
@@ -265,35 +269,13 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
                 {step === 2 && household && (
                     <>
                         <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2">
-                                <Users className="h-5 w-5" />
-                                {household.name}
-                            </DialogTitle>
-                            <DialogDescription>Review the household before switching.</DialogDescription>
+                            <DialogTitle>Switch to another household</DialogTitle>
+                            <DialogDescription>
+                                Here's who's already in {household.name}.
+                            </DialogDescription>
                         </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div>
-                                <h4 className="text-sm mb-3">Current Members ({members.length})</h4>
-                                <div className="space-y-2">
-                                    {members.map((member) => (
-                                        <div key={member.id} className="flex items-center gap-3 p-2 rounded-lg border">
-                                            <Avatar className="h-8 w-8">
-                                                <AvatarImage src={member.profiles?.avatar_url ?? undefined} />
-                                                <AvatarFallback>
-                                                    {member.profiles?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "?"}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="flex-1">
-                                                <p className="font-medium">{member.profiles?.full_name || "Unknown"}</p>
-                                                <p className="text-xs text-muted capitalize">{member.role}</p>
-                                            </div>
-                                            {member.role === "owner" && <Check className="h-4 w-4 text-accent" />}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                        <DialogFooter>
+                        <HouseholdPreviewCard members={members} />
+                        <DialogFooter className="sm:justify-between">
                             <Button variant="outline" onClick={() => setStep(1)} disabled={loading}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back
@@ -311,13 +293,12 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
                         <DialogHeader>
                             <DialogTitle>Confirm with your password</DialogTitle>
                             <DialogDescription>
-                                Your password unlocks the new household's encryption. After switching, the bring-items
-                                dialog will let you pick what to take from {currentHousehold?.name}.
+                                Your password confirms the switch and unlocks {household.name}'s vault.
                             </DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                                <Label htmlFor="switch-password">Password</Label>
+                                <Label htmlFor="switch-password">Account password</Label>
                                 <Input
                                     id="switch-password"
                                     type="password"
@@ -328,7 +309,7 @@ export const JoinExistingUserDialog = ({ open, onOpenChange }: JoinExistingUserD
                                 />
                             </div>
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="sm:justify-between">
                             <Button variant="outline" onClick={() => setStep(2)} disabled={loading}>
                                 <ArrowLeft className="mr-2 h-4 w-4" />
                                 Back

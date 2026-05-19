@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SubscriptionForm } from "./forms/SubscriptionForm";
+import type { AttributionValue } from "@/components/shared/AttributionPicker";
 
 interface SubscriptionFormDialogProps {
     open: boolean;
@@ -17,7 +18,7 @@ interface SubscriptionFormDialogProps {
         is_active?: boolean;
         billing_day?: number;
         billing_month?: number;
-        subject_id?: string | null;
+        attribution?: AttributionValue;
     };
     onSuccess?: () => void;
 }

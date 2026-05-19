@@ -21,7 +21,7 @@ See [`expenses-model.md`](./expenses-model.md) for the canonical Expenses domain
 ### Multi-frame totals on section headers
 **From:** Current Expenses page (Insurances section)
 **Context:** Insurances total currently shows `222 SEK/month · 2664 SEK/year · 111 SEK avg`. Pattern is good but inconsistent across sections.
-**Question:** Extend the same pattern to Expenses and Subscriptions section headers. Tighten "avg" to be unambiguous (e.g. `snitt 111 kr/post`). Pairs naturally with the eventual Forecast page.
+**Question:** Extend the same pattern to Expenses and Subscriptions section headers. Tighten "avg" to be unambiguous (e.g. `snitt 111 kr/post`). Pairs naturally with the eventual Plan page.
 
 ---
 

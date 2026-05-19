@@ -15,7 +15,7 @@ interface IncomeSource {
   id: string;
   category: string;
   name: string;
-  default_amount: number;
+  budget: number;
   is_active: boolean;
   owner_id: string;
   profiles: {
@@ -41,12 +41,12 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
   const [formData, setFormData] = useState<{
     category: "salary" | "business_income" | "government_benefits" | "investment_income" | "gift" | "other";
     name: string;
-    default_amount: string;
+    budget: string;
     owner_id: string;
   }>({
     category: "salary",
     name: "",
-    default_amount: "0",
+    budget: "0",
     owner_id: members[0]?.user_id || "",
   });
   const { toast } = useToast();
@@ -55,7 +55,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
     setFormData({
       category: "salary",
       name: "",
-      default_amount: "0",
+      budget: "0",
       owner_id: members[0]?.user_id || "",
     });
     setEditingId(null);
@@ -66,11 +66,11 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
       household_id: householdId,
       category: formData.category,
       name: formData.name,
-      default_amount: parseFloat(formData.default_amount),
+      budget: parseFloat(formData.budget),
       owner_id: formData.owner_id,
     };
 
-    // Encrypt sensitive fields (name, default_amount)
+    // Encrypt sensitive fields (name, budget)
     const data = await encryptRecord(baseData);
 
     let error;
@@ -106,7 +106,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
     setFormData({
       category: source.category as "salary" | "business_income" | "government_benefits" | "investment_income" | "gift" | "other",
       name: source.name,
-      default_amount: source.default_amount.toString(),
+      budget: source.budget.toString(),
       owner_id: source.owner_id,
     });
     setEditingId(source.id);
@@ -207,8 +207,8 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
                 <Label>Default Amount</Label>
                 <Input
                   type="number"
-                  value={formData.default_amount}
-                  onChange={(e) => setFormData({ ...formData, default_amount: e.target.value })}
+                  value={formData.budget}
+                  onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                   placeholder="0"
                 />
               </div>
@@ -233,7 +233,7 @@ export const IncomeSourcesCard = ({ incomeSources, householdId, members, currenc
                   <Badge variant="outline">{formatCategory(source.category)}</Badge>
                 </div>
                 <p className="text-sm text-muted">
-                  {source.profiles?.full_name || "Unknown"} • {source.default_amount} {currency}
+                  {source.profiles?.full_name || "Unknown"} • {source.budget} {currency}
                 </p>
               </div>
               <div className="flex gap-2">

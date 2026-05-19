@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryptedFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
-import { SubjectPicker } from "@/components/shared/SubjectPicker";
+import { AttributionPicker, type AttributionValue } from "@/components/shared/AttributionPicker";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { FormDialogFooter } from "@/components/shared/FormDialogFooter";
 import { FormField, FormRow } from "@/components/shared/FormField";
@@ -26,7 +26,7 @@ interface InitialValues {
     name?: string;
     provider?: string | null;
     category?: string;
-    total_amount?: number | string;
+    budget?: number | string;
     billing_cycle?: string;
     billing_month?: number | string | null;
     billing_day?: number | string | null;
@@ -35,7 +35,7 @@ interface InitialValues {
     is_shared?: boolean;
     co_parent_id?: string | null;
     share_percentage?: number | string;
-    subject_id?: string | null;
+    attribution?: AttributionValue;
 }
 
 interface InsuranceFormProps {
@@ -53,7 +53,7 @@ const blank = (): InitialValues => ({
     name: "",
     provider: "",
     category: "home",
-    total_amount: "",
+    budget: "",
     billing_cycle: "yearly",
     billing_month: "",
     billing_day: "",
@@ -62,7 +62,7 @@ const blank = (): InitialValues => ({
     is_shared: false,
     co_parent_id: "",
     share_percentage: "50",
-    subject_id: null,
+    attribution: null,
 });
 
 export const InsuranceForm = ({
@@ -92,8 +92,8 @@ export const InsuranceForm = ({
 
     const isEditing = !!editingId;
     const isRecurringNonMonthly = formData.billing_cycle && formData.billing_cycle !== "monthly";
-    const canSave = !!String(formData.total_amount ?? "").trim()
-        && (parseFloat(String(formData.total_amount)) || 0) > 0;
+    const canSave = !!String(formData.budget ?? "").trim()
+        && (parseFloat(String(formData.budget)) || 0) > 0;
 
     const usedCategorySet = useUsedCategoryValues("insurances", householdId);
     const usedTypes = insuranceTypes.filter(t => usedCategorySet.has(t.value) || t.value === formData.category);
@@ -109,7 +109,7 @@ export const InsuranceForm = ({
                 name: formData.name?.trim() ?? "",
                 provider: formData.provider || null,
                 category: formData.category ?? "home",
-                total_amount: parseFloat(String(formData.total_amount ?? 0)),
+                budget: parseFloat(String(formData.budget ?? 0)),
                 billing_cycle: formData.billing_cycle ?? "yearly",
                 billing_month: formData.billing_month && String(formData.billing_month) !== "0" && String(formData.billing_month) !== ""
                     ? parseInt(String(formData.billing_month))
@@ -122,7 +122,8 @@ export const InsuranceForm = ({
                 is_shared: !!formData.is_shared,
                 co_parent_id: formData.is_shared ? (formData.co_parent_id || null) : null,
                 share_percentage: formData.is_shared ? parseFloat(String(formData.share_percentage ?? 50)) : 50,
-                subject_id: formData.subject_id ?? null,
+                subject_id: formData.attribution?.kind === "subject" ? formData.attribution.id : null,
+                member_id: formData.attribution?.kind === "member" ? formData.attribution.id : null,
                 created_by: user.id,
             };
             const data = await encryptRecord(baseData);
@@ -201,8 +202,8 @@ export const InsuranceForm = ({
                 <FormField label="Total amount">
                     <Input
                         type="number"
-                        value={String(formData.total_amount ?? "")}
-                        onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
+                        value={String(formData.budget ?? "")}
+                        onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                         placeholder="0"
                     />
                 </FormField>
@@ -259,10 +260,10 @@ export const InsuranceForm = ({
             )}
 
             <FormRow>
-                <SubjectPicker
+                <AttributionPicker
                     householdId={householdId}
-                    value={formData.subject_id}
-                    onChange={(id) => setFormData({ ...formData, subject_id: id })}
+                    value={formData.attribution ?? null}
+                    onChange={(attribution) => setFormData({ ...formData, attribution })}
                     label="Covers"
                 />
             </FormRow>

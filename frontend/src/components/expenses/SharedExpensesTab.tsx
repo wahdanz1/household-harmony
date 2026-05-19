@@ -63,6 +63,7 @@ export const SharedExpensesTab = ({ householdId, currency, monthStart, monthEnd 
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [householdId]);
 
   const totalSharedExpenses = expenses.reduce((sum, exp) => sum + parseFloat(exp.amount.toString()), 0);
