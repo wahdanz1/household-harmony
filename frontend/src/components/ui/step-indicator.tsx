@@ -14,12 +14,16 @@ interface StepIndicatorProps {
      *  step labels and visual progress already communicate this. */
     showProgress?: boolean;
     /** Allow jumping back to a 'done' step (or staying on 'current'). Future
-     *  steps remain non-clickable. */
+     *  steps remain non-clickable unless `freeNav` is true. */
     onJump?: (idx: number) => void;
+    /** When true, *every* step is clickable regardless of position. Used once
+     *  a flow has reached a state where the user should be able to roam
+     *  freely (e.g., Monthly Review once everything's been accepted). */
+    freeNav?: boolean;
     className?: string;
 }
 
-export const StepIndicator = ({ steps, current, showProgress = false, onJump, className }: StepIndicatorProps) => {
+export const StepIndicator = ({ steps, current, showProgress = false, onJump, freeNav = false, className }: StepIndicatorProps) => {
     const total = steps.length;
     const safeCurrent = Math.max(0, Math.min(total - 1, current));
     const percent = Math.round((safeCurrent / total) * 100);
@@ -32,7 +36,7 @@ export const StepIndicator = ({ steps, current, showProgress = false, onJump, cl
                     const isCurrent = i === safeCurrent;
                     const isNext = i > safeCurrent;
                     const isOptional = !!step.optional;
-                    const clickable = !!onJump && (isDone || isCurrent);
+                    const clickable = !!onJump && (isDone || isCurrent || freeNav);
                     const leftConnectorOn = i <= safeCurrent && i > 0;
                     const rightConnectorOn = i < safeCurrent && i < total - 1;
 

@@ -1,7 +1,5 @@
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -82,7 +80,7 @@ export const ParsedTransactionsReview = ({
             return;
         }
 
-        const monthStr = format(monthStart, "yyyy-MM");
+        const monthStr = format(monthStart, "yyyy-MM-dd");
         const monthStartIso = format(monthStart, "yyyy-MM-dd");
         const monthEndIso = format(monthEnd, "yyyy-MM-dd");
 
@@ -182,7 +180,7 @@ export const ParsedTransactionsReview = ({
         setSaving(false);
 
         if (successCount === categoryGroups.size) {
-            toast.success(`Saved ${successCount} categor${successCount === 1 ? 'y' : 'ies'} for ${monthStr}`);
+            toast.success(`Saved ${successCount} categor${successCount === 1 ? 'y' : 'ies'} for ${format(monthStart, "MMM yyyy")}`);
             onAccept(successCount);
         } else if (successCount > 0) {
             toast.warning(`Partially saved: ${successCount} of ${categoryGroups.size} categories`);
@@ -202,23 +200,19 @@ export const ParsedTransactionsReview = ({
     };
 
     return (
-        <Card variant="muted" className="w-full">
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle>Review Extracted Transactions</CardTitle>
-                        <CardDescription>
-                            {transactions.length} transactions found. Edit categories or merchants as needed.
-                        </CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={onCancel}>
-                            <X className="h-4 w-4 mr-2" /> Cancel
-                        </Button>
-                    </div>
+        <div className="w-full space-y-4">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-ink">Review extracted transactions</h3>
+                    <p className="text-xs text-muted mt-0.5">
+                        {transactions.length} transactions found. Edit categories or merchants as needed.
+                    </p>
                 </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
+                <Button variant="ghost" size="sm" onClick={onCancel} className="shrink-0">
+                    <X className="h-4 w-4 mr-1" /> Discard
+                </Button>
+            </div>
+            <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row gap-4 items-end bg-bg/40 p-4 rounded-lg border border-line">
                     <div className="space-y-2 flex-1">
                         <label className="text-sm font-medium">Select Credit Card</label>
@@ -240,73 +234,50 @@ export const ParsedTransactionsReview = ({
                     </div>
                 </div>
 
-                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                <div className="space-y-2">
                     {transactions.map((t, i) => {
+                        const selected = selectedIds.has(i);
+                        let dateLabel = t.date;
+                        try { dateLabel = format(new Date(t.date), "d MMM"); } catch { /* keep raw */ }
                         return (
                             <div
                                 key={i}
-                                className={`flex flex-col gap-3 p-3 rounded-lg border transition-all ${selectedIds.has(i) ? 'bg-bg/60 border-accent/30' : 'bg-bg/20 border-line opacity-60'
+                                className={`flex flex-col gap-1.5 p-2.5 rounded-lg border transition-all ${selected ? "border-line bg-surface" : "border-line/40 bg-surface/30 opacity-60"
                                     }`}
                             >
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2.5">
                                     <Checkbox
-                                        checked={selectedIds.has(i)}
+                                        checked={selected}
                                         onCheckedChange={() => handleToggleSelect(i)}
                                     />
-                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] uppercase text-muted font-bold">Date</p>
-                                            <Input
-                                                type="date"
-                                                value={t.date}
-                                                onChange={(e) => handleUpdateField(i, 'date', e.target.value)}
-                                                className="h-8 text-sm"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] uppercase text-muted font-bold">Merchant</p>
-                                            <Input
-                                                value={t.merchant}
-                                                onChange={(e) => handleUpdateField(i, 'merchant', e.target.value)}
-                                                className="h-8 text-sm"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] uppercase text-muted font-bold">Amount</p>
-                                            <div className="flex items-center gap-1">
-                                                <Input
-                                                    type="number"
-                                                    value={t.amount}
-                                                    onChange={(e) => handleUpdateField(i, 'amount', parseFloat(e.target.value))}
-                                                    className="h-8 text-sm text-right"
-                                                />
-                                                <span className="text-xs text-muted">{currency}</span>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] uppercase text-muted font-bold">Category</p>
-                                            <Select
-                                                value={t.category}
-                                                onValueChange={(v) => handleUpdateField(i, 'category', v)}
-                                            >
-                                                <SelectTrigger className="h-8 text-sm">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {creditCategories.map(cat => (
-                                                        <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
+                                    <span className="flex-1 min-w-0 text-sm font-medium truncate" title={t.merchant}>
+                                        {t.merchant}
+                                    </span>
+                                    <span className="shrink-0 text-sm font-semibold tabular-nums">
+                                        {Math.round(t.amount).toLocaleString("sv-SE")} {currency}
+                                    </span>
                                 </div>
-                                <div className="flex items-center justify-between pl-8">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="outline" className={`text-[10px] h-4 ${getConfidenceColor(t.confidence)}`}>
-                                            {t.confidence} CONFIDENCE
+                                <div className="flex items-center justify-between gap-2 pl-7">
+                                    <div className="flex items-center gap-1.5 text-[11px] text-muted min-w-0">
+                                        <span>{dateLabel}</span>
+                                        <span className="opacity-50">·</span>
+                                        <Badge variant="outline" className={`text-[9px] h-4 px-1.5 ${getConfidenceColor(t.confidence)}`}>
+                                            {t.confidence}
                                         </Badge>
                                     </div>
+                                    <Select
+                                        value={t.category}
+                                        onValueChange={(v) => handleUpdateField(i, "category", v)}
+                                    >
+                                        <SelectTrigger className="h-7 text-xs w-auto min-w-[120px] max-w-[160px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {creditCategories.map(cat => (
+                                                <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
                         );
@@ -340,7 +311,7 @@ export const ParsedTransactionsReview = ({
                         Deselect All
                     </Button>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 };

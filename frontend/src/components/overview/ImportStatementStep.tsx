@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { format } from "date-fns";
 import { FileUp, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,16 +24,17 @@ interface ParseResult {
     cached: boolean;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 interface ImportStatementStepProps {
     householdId: string;
     currency: string;
     monthStart: Date;
     monthEnd: Date;
+    onImported?: () => void;
 }
 
-export const ImportStatementStep = ({ householdId, currency, monthStart, monthEnd }: ImportStatementStepProps) => {
+export const ImportStatementStep = ({ householdId, currency, monthStart, monthEnd, onImported }: ImportStatementStepProps) => {
     const { user } = useAuth();
     const { household } = useHousehold();
     const { decryptRecords: decryptCreditCards } = useEncryptedFields(creditCardFields);
@@ -155,7 +155,10 @@ export const ImportStatementStep = ({ householdId, currency, monthStart, monthEn
                     currency={currency}
                     monthStart={monthStart}
                     monthEnd={monthEnd}
-                    onAccept={() => setParseResult(null)}
+                    onAccept={() => {
+                        setParseResult(null);
+                        onImported?.();
+                    }}
                     onCancel={() => setParseResult(null)}
                 />
             </div>
@@ -164,16 +167,6 @@ export const ImportStatementStep = ({ householdId, currency, monthStart, monthEn
 
     return (
         <div className="space-y-4">
-            <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm">
-                <p className="font-medium text-ink">
-                    Reconcile {format(monthStart, "MMM yyyy")} actuals
-                </p>
-                <p className="text-muted mt-1">
-                    Upload the credit-card statement for the period roughly covering this financial month.
-                    Categorized totals fill in actuals for the rows you marked as credit-paid. Your plan stays untouched.
-                </p>
-            </div>
-
             {!ackd && (
                 <Alert variant="warning">
                     <ShieldCheck />

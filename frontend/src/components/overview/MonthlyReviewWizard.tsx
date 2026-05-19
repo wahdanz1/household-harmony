@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MoneyInput } from "@/components/ui/money-input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TrendingUp, TrendingDown, Check, ClipboardCheck, Lock, LockOpen, ShieldCheck, RotateCw, Sparkles, FileUp } from "lucide-react";
+import { Check, ClipboardCheck, Lock, LockOpen, ShieldCheck, Sparkles, Hourglass } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
+import { RowItem } from "@/components/ui/row-item";
+import { StepIndicator } from "@/components/ui/step-indicator";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,13 +17,18 @@ import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth,
 import { ImportStatementStep } from "./ImportStatementStep";
 import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields, expenseFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
 import { getCategoryById } from "@/constants/expenseCategories";
-import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
+import { getIncomeCategoryById } from "@/constants/incomeCategories";
+import { reportFailure, reportSuccess, isDown } from "@/utils/outageMonitor";
 
-type ReviewScope = "income" | "expenses" | "finalized";
+type ReviewScope = "income" | "expenses";
 interface ReviewStatusRow {
     user_id: string;
     scope: ReviewScope;
     accepted_at: string;
+}
+interface FinalizedRow {
+    finalized_by: string;
+    finalized_at: string;
 }
 
 interface MonthlyReviewWizardProps {
@@ -50,6 +55,7 @@ interface IncomeItem extends AuditFields {
     name: string;
     amount: number;
     budget: number;
+    category?: string;
     source_id: string;
     owner_id: string;
     isMine: boolean;
@@ -71,23 +77,31 @@ export const MonthlyReviewWizard = ({
 }: MonthlyReviewWizardProps) => {
     const { user } = useAuth();
     const { household, members } = useHousehold();
-    const [activeTab, setActiveTab] = useState<"reconcile" | "income" | "expenses">("reconcile");
+    const creditEnabled = !!household?.enable_credit_cards;
+    type StepName = "credit" | "income" | "expenses" | "review";
+    const stepOrder = useMemo<StepName[]>(
+        () => (creditEnabled
+            ? ["credit", "income", "expenses", "review"]
+            : ["income", "expenses", "review"]),
+        [creditEnabled],
+    );
+    const [currentStep, setCurrentStep] = useState<StepName>(stepOrder[0]);
     const [incomes, setIncomes] = useState<IncomeItem[]>([]);
     const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
     const [amounts, setAmounts] = useState<Record<string, string>>({});
     const [reviewStatus, setReviewStatus] = useState<ReviewStatusRow[]>([]);
-    const [savingScope, setSavingScope] = useState<ReviewScope | null>(null);
-    const [confirmFinalize, setConfirmFinalize] = useState(false);
-    const [refreshing, setRefreshing] = useState(false);
-
-    const manualRefresh = async () => {
-        setRefreshing(true);
-        try {
-            await fetchData();
-        } finally {
-            // Brief delay so the spinner is visible even on fast networks
-            setTimeout(() => setRefreshing(false), 200);
-        }
+    const [finalizedRow, setFinalizedRow] = useState<FinalizedRow | null>(null);
+    const [savingScope, setSavingScope] = useState<ReviewScope | "finalized" | null>(null);
+    // Income rows can flip CatIcon ↔ owner avatar. Hover handles desktop; tap
+    // toggles for touch devices that have no hover.
+    const [flippedRows, setFlippedRows] = useState<Set<string>>(new Set());
+    const toggleFlip = (sourceId: string) => {
+        setFlippedRows(prev => {
+            const next = new Set(prev);
+            if (next.has(sourceId)) next.delete(sourceId);
+            else next.add(sourceId);
+            return next;
+        });
     };
     // Per-item override allowing the current user to edit another household
     // member's income source. Useful when reviewing together from a single
@@ -150,35 +164,41 @@ export const MonthlyReviewWizard = ({
         fetchData();
     };
 
-    const renderAuditBadges = (item: IncomeItem | ExpenseItem, kind: "income" | "expense", currencyCode: string) => (
-        <div className="flex flex-wrap gap-1 justify-end">
-            {item.previousBudgetSnapshot != null && item.budgetChangedAt && (
-                <button
-                    type="button"
-                    onClick={() => handleRevertBudget(item, kind)}
-                    className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-warn/10 text-warn hover:bg-warn/20"
-                    title="Tap to revert"
-                >
-                    Changed {format(new Date(item.budgetChangedAt), "d MMM")} · was {Math.round(item.previousBudgetSnapshot).toLocaleString("sv-SE")} {currencyCode}
-                </button>
-            )}
-            {item.actualRecordedAt && item.actualAmount != null && (
-                <button
-                    type="button"
-                    onClick={() => handleClearRecorded(item, kind)}
-                    className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-accent/10 text-accent hover:bg-accent/20"
-                    title="Tap to clear"
-                >
-                    Recorded {format(new Date(item.actualRecordedAt), "d MMM")} · {Math.round(item.actualAmount).toLocaleString("sv-SE")} {currencyCode}
-                </button>
-            )}
-            {item.inactivatedAt && (
-                <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-surface-2 text-muted">
-                    Inactivated {format(new Date(item.inactivatedAt), "d MMM")}
-                </span>
-            )}
-        </div>
-    );
+    const renderAuditBadges = (item: IncomeItem | ExpenseItem, kind: "income" | "expense", currencyCode: string) => {
+        const hasAny = (item.previousBudgetSnapshot != null && item.budgetChangedAt)
+            || (item.actualRecordedAt && item.actualAmount != null)
+            || item.inactivatedAt;
+        if (!hasAny) return null;
+        return (
+            <div className="flex flex-wrap gap-1 mt-0.5">
+                {item.previousBudgetSnapshot != null && item.budgetChangedAt && (
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleRevertBudget(item, kind); }}
+                        className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-warn/10 text-warn hover:bg-warn/20"
+                        title="Tap to revert"
+                    >
+                        Changed {format(new Date(item.budgetChangedAt), "d MMM")} · was {Math.round(item.previousBudgetSnapshot).toLocaleString("sv-SE")} {currencyCode}
+                    </button>
+                )}
+                {item.actualRecordedAt && item.actualAmount != null && (
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleClearRecorded(item, kind); }}
+                        className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-accent/10 text-accent hover:bg-accent/20"
+                        title="Tap to clear"
+                    >
+                        Recorded {format(new Date(item.actualRecordedAt), "d MMM")} · {Math.round(item.actualAmount).toLocaleString("sv-SE")} {currencyCode}
+                    </button>
+                )}
+                {item.inactivatedAt && (
+                    <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-surface-2 text-muted">
+                        Inactivated {format(new Date(item.inactivatedAt), "d MMM")}
+                    </span>
+                )}
+            </div>
+        );
+    };
 
     const financialMonthStart = household?.financial_month_start || 25;
     const currentMonth = getCurrentFinancialMonth(financialMonthStart);
@@ -224,6 +244,7 @@ export const MonthlyReviewWizard = ({
                 supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).is("archived_at", null).not("is_credit", "is", true).order("sort_order"),
                 supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
                 supabase.from("monthly_review_status").select("user_id, scope, accepted_at").eq("household_id", household.id).eq("month", currentMonth),
+                supabase.from("monthly_review_finalized").select("finalized_by, finalized_at").eq("household_id", household.id).eq("month", currentMonth).maybeSingle(),
             ]);
         } catch (err) {
             reportFailure(err);
@@ -243,6 +264,7 @@ export const MonthlyReviewWizard = ({
             { data: categoriesData },
             { data: monthlyExpensesData },
             { data: statusData },
+            { data: finalizedData },
         ] = results;
 
         const decryptedSources = await decryptIncomeSources(sourcesData || []);
@@ -279,6 +301,7 @@ export const MonthlyReviewWizard = ({
                 name: source.name || source.provider,
                 amount,
                 budget: source.budget ?? 0,
+                category: source.category,
                 source_id: source.id,
                 owner_id: source.owner_id,
                 isMine: source.owner_id === user.id,
@@ -303,6 +326,7 @@ export const MonthlyReviewWizard = ({
         setIncomes(incomeItems);
         setExpenses(expenseItems);
         setReviewStatus((statusData as ReviewStatusRow[]) || []);
+        setFinalizedRow((finalizedData as FinalizedRow | null) ?? null);
 
         setAmounts(prev => {
             const next: Record<string, string> = { ...prev };
@@ -327,10 +351,10 @@ export const MonthlyReviewWizard = ({
     // refetch repopulates them.
     useEffect(() => {
         if (open) {
-            setConfirmFinalize(false);
-            setActiveTab("reconcile");
+            setCurrentStep(stepOrder[0]);
+            setFlippedRows(new Set());
         }
-    }, [open]);
+    }, [open, stepOrder]);
 
     // Refetch data when wizard opens or when its inputs (household/user)
     // legitimately change. fetchData itself is memoized; setAmounts inside
@@ -419,10 +443,9 @@ export const MonthlyReviewWizard = ({
             await writeStatus("income", acceptedUserIds);
 
             toast.success("Income accepted");
-            // Clear unlocked-items state — they've been saved + accepted
             setUnlockedItems(new Set());
             await fetchData();
-            setActiveTab("expenses");
+            setCurrentStep("expenses");
         } catch (error: any) {
             console.error("Error saving income:", error);
             toast.error(error.message || "Failed to save income");
@@ -473,7 +496,13 @@ export const MonthlyReviewWizard = ({
         if (!household || !user) return;
         setSavingScope("finalized");
         try {
-            await writeStatus("finalized");
+            const { error } = await supabase.from("monthly_review_finalized").upsert({
+                household_id: household.id,
+                month: currentMonth,
+                finalized_by: user.id,
+                finalized_at: new Date().toISOString(),
+            }, { onConflict: "household_id,month" });
+            if (error) throw error;
             toast.success("Review finalized");
             onComplete();
             onOpenChange(false);
@@ -487,15 +516,67 @@ export const MonthlyReviewWizard = ({
 
     const incomeAcceptedUserIds = new Set(reviewStatus.filter(r => r.scope === "income").map(r => r.user_id));
     const expensesVerified = reviewStatus.some(r => r.scope === "expenses");
-    const finalizedRow = reviewStatus.find(r => r.scope === "finalized");
     const isFinalized = !!finalizedRow;
     const myIncomeAccepted = incomeAcceptedUserIds.has(user?.id || "");
     const allMembersAcceptedIncome = members.length > 0 && members.every(m => incomeAcceptedUserIds.has(m.user_id));
     const canFinalize = allMembersAcceptedIncome && expensesVerified && !isFinalized;
     const myIncomeCount = incomes.filter(i => i.isMine).length;
     const finalizerName = isFinalized
-        ? members.find(m => m.user_id === finalizedRow!.user_id)?.profiles?.full_name || "A household member"
+        ? members.find(m => m.user_id === finalizedRow!.finalized_by)?.profiles?.full_name || "A household member"
         : null;
+    const myIncomeAcceptedAt = reviewStatus.find(r => r.scope === "income" && r.user_id === user?.id)?.accepted_at;
+    const expensesVerifiedAt = reviewStatus.find(r => r.scope === "expenses")?.accepted_at;
+
+    // Dirty = any editable value differs from what's persisted in item.amount.
+    // Unlocking another member's row also counts as dirty (explicit intent).
+    const incomeDirty = useMemo(() => {
+        if (unlockedItems.size > 0) return true;
+        for (const item of incomes) {
+            if (!item.isMine) continue;
+            const v = parseFloat(amounts[`income-${item.source_id}`] || "0");
+            if (Math.abs(v - item.amount) > 0.01) return true;
+        }
+        return false;
+    }, [incomes, amounts, unlockedItems]);
+
+    const expensesDirty = useMemo(() => {
+        for (const item of expenses) {
+            const v = parseFloat(amounts[`expense-${item.expense_id}`] || "0");
+            if (Math.abs(v - item.amount) > 0.01) return true;
+        }
+        return false;
+    }, [expenses, amounts]);
+
+    const steps = stepOrder.map((s) => ({
+        label: s === "credit" ? "Credit"
+            : s === "income" ? "Income"
+            : s === "expenses" ? "Expenses"
+            : "Review",
+    }));
+    const currentIdx = Math.max(0, stepOrder.indexOf(currentStep));
+    const reviewReachable = canFinalize;
+    const jumpToIdx = (idx: number) => {
+        const target = stepOrder[idx];
+        // Block clicking Review until everything's accepted/verified.
+        if (target === "review" && !reviewReachable) return;
+        setCurrentStep(target);
+    };
+
+    const renderVariance = (current: number, planned: number, kind: "income" | "expense") => {
+        const variance = current - planned;
+        if (Math.abs(variance) < 0.5 || planned === 0) return null;
+        const over = variance > 0;
+        const good = kind === "income" ? over : !over;
+        return (
+            <span
+                className={`text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded ${good ? "bg-accent/10 text-accent" : "bg-danger/10 text-danger"
+                    }`}
+                title={`Planned ${Math.round(planned).toLocaleString("sv-SE")} ${currency}`}
+            >
+                {over ? "+" : "−"}{Math.abs(Math.round(variance)).toLocaleString("sv-SE")} {currency}
+            </span>
+        );
+    };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -515,237 +596,277 @@ export const MonthlyReviewWizard = ({
                         <AlertContent>
                             <AlertTitle>Review finalized</AlertTitle>
                             <AlertDescription>
-                                Finalized by {finalizerName} on {format(new Date(finalizedRow!.accepted_at), "MMM d, HH:mm")}.
+                                Finalized by {finalizerName} on {format(new Date(finalizedRow!.finalized_at), "MMM d, HH:mm")}.
                                 Use the Income or Expenses page to make corrections.
                             </AlertDescription>
                         </AlertContent>
                     </Alert>
                 )}
 
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "reconcile" | "income" | "expenses")} className="flex-1 overflow-hidden flex flex-col">
-                    <TabsList>
-                        <TabsTrigger value="reconcile" className="flex items-center gap-2">
-                            <FileUp className="h-4 w-4" />
-                            Last month
-                        </TabsTrigger>
-                        <TabsTrigger value="income" className="flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4" />
-                            Income
-                            {myIncomeAccepted && <Check className="h-3 w-3 text-accent" />}
-                        </TabsTrigger>
-                        <TabsTrigger value="expenses" className="flex items-center gap-2">
-                            <TrendingDown className="h-4 w-4" />
-                            Expenses
-                            {expensesVerified && <Check className="h-3 w-3 text-accent" />}
-                        </TabsTrigger>
-                    </TabsList>
+                {!isFinalized && (
+                    <StepIndicator
+                        steps={steps}
+                        current={currentIdx}
+                        onJump={jumpToIdx}
+                        freeNav={canFinalize}
+                        className="px-1"
+                    />
+                )}
 
-                    <TabsContent value="reconcile" className="flex-1 overflow-y-auto mt-4">
-                        {household && (
-                            <ImportStatementStep
-                                householdId={household.id}
-                                currency={currency}
-                                monthStart={prevMonthStart}
-                                monthEnd={prevMonthEnd}
-                            />
-                        )}
-                    </TabsContent>
+                <div className="flex-1 overflow-y-auto -mx-2 px-2">
+                    {currentStep === "credit" && household && (
+                        <ImportStatementStep
+                            householdId={household.id}
+                            currency={currency}
+                            monthStart={prevMonthStart}
+                            monthEnd={prevMonthEnd}
+                            onImported={() => setCurrentStep("income")}
+                        />
+                    )}
 
-                    <TabsContent value="income" className="flex-1 overflow-y-auto mt-4 space-y-2">
-                        {incomes.map(item => {
-                            const ownerMember = members.find(m => m.user_id === item.owner_id);
-                            const ownerName = ownerMember?.profiles?.full_name || (item.isMine ? "You" : "Other member");
-                            const ownerInitials = ownerName.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
-                            const isUnlocked = unlockedItems.has(item.source_id);
-                            const editable = !isFinalized && (item.isMine || isUnlocked);
-                            const showsLockButton = !item.isMine && !isFinalized;
-                            return (
-                                <div key={item.source_id} className={`flex items-center gap-3 p-3 rounded-lg border bg-bg/50 ${editable ? 'border-line' : 'border-line/40'} ${!item.isMine && !isUnlocked ? 'opacity-70' : ''}`}>
-                                    <Avatar className="h-8 w-8 flex-shrink-0" title={item.isMine ? "Your income" : ownerName}>
-                                        {ownerMember?.profiles?.avatar_url && (
-                                            <AvatarImage src={ownerMember.profiles.avatar_url} alt={ownerName} />
-                                        )}
-                                        <AvatarFallback className="text-[10px] font-medium">{ownerInitials}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex-1 min-w-0 flex items-center gap-2">
-                                        <span className="text-sm font-medium truncate" title={item.name}>{item.name}</span>
-                                        {showsLockButton && (
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleUnlock(item.source_id)}
-                                                className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors flex-shrink-0 ${isUnlocked ? 'bg-warn/20 text-warn hover:bg-warn/30' : 'bg-surface-2 text-muted hover:bg-surface-2/70'}`}
-                                                title={isUnlocked ? `Lock — ${ownerName}'s value still saves` : `Unlock to enter ${ownerName}'s value`}
-                                                aria-label={isUnlocked ? "Lock item" : "Unlock to edit"}
+                    {currentStep === "income" && (
+                        <div className="rounded-xl border border-line bg-surface overflow-hidden">
+                            {incomes.length === 0 ? (
+                                <p className="text-sm text-muted text-center py-8 px-4">
+                                    No income sources configured for this household.
+                                </p>
+                            ) : (
+                                incomes.map((item, idx) => {
+                                    const ownerMember = members.find(m => m.user_id === item.owner_id);
+                                    const ownerName = ownerMember?.profiles?.full_name || (item.isMine ? "You" : "Other member");
+                                    const ownerInitials = ownerName.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+                                    const isUnlocked = unlockedItems.has(item.source_id);
+                                    const editable = !isFinalized && (item.isMine || isUnlocked);
+                                    const showsLockButton = !item.isMine && !isFinalized;
+                                    const ownerAccepted = incomeAcceptedUserIds.has(item.owner_id);
+                                    const isFlipped = flippedRows.has(item.source_id);
+                                    const incCat = item.category ? getIncomeCategoryById(item.category) : undefined;
+                                    const IncCatIcon = incCat?.icon || Sparkles;
+                                    const currentValue = parseFloat(amounts[`income-${item.source_id}`] || "0");
+                                    return (
+                                        <RowItem
+                                            key={item.source_id}
+                                            last={idx === incomes.length - 1}
+                                            className={`group/row relative ${ownerAccepted ? "before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r before:bg-accent" : ""} ${!item.isMine && !isUnlocked ? "opacity-70" : ""}`}
+                                            onClick={() => toggleFlip(item.source_id)}
+                                        >
+                                            <div
+                                                className="shrink-0 [perspective:600px]"
+                                                title={isFlipped ? "Tap to show category" : `Tap to show ${ownerName}`}
                                             >
-                                                {isUnlocked ? <LockOpen className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="flex-shrink-0 flex flex-col items-end gap-1">
-                                        <MoneyInput
-                                            value={parseFloat(amounts[`income-${item.source_id}`] || "0")}
-                                            currency={currency}
-                                            disabled={!editable}
-                                            status={
-                                                Math.abs(parseFloat(amounts[`income-${item.source_id}`] || "0") - item.budget) < 0.01
-                                                    ? "saved"
-                                                    : "modified"
-                                            }
-                                            onChange={(v) => handleAmountChange(`income-${item.source_id}`, v.toString())}
-                                            widthClassName="w-24"
-                                        />
-                                        {renderAuditBadges(item, "income", currency)}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {incomes.length === 0 && (
-                            <p className="text-sm text-muted text-center py-6">No income sources configured for this household.</p>
-                        )}
-                    </TabsContent>
+                                                <div
+                                                    className={`relative h-9 w-9 transition-transform duration-300 [transform-style:preserve-3d] group-hover/row:[transform:rotateY(180deg)] ${isFlipped ? "[transform:rotateY(180deg)]" : ""}`}
+                                                >
+                                                    <div className="absolute inset-0 [backface-visibility:hidden]">
+                                                        <CatIcon icon={IncCatIcon} hue={incCat?.hue} size={36} />
+                                                    </div>
+                                                    <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]">
+                                                        <Avatar className="h-9 w-9">
+                                                            {ownerMember?.profiles?.avatar_url && (
+                                                                <AvatarImage src={ownerMember.profiles.avatar_url} alt={ownerName} />
+                                                            )}
+                                                            <AvatarFallback className="text-[11px] font-medium">{ownerInitials}</AvatarFallback>
+                                                        </Avatar>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-medium truncate" title={item.name}>{item.name}</span>
+                                                    {showsLockButton && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); toggleUnlock(item.source_id); }}
+                                                            className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors shrink-0 ${isUnlocked ? "bg-warn/20 text-warn hover:bg-warn/30" : "bg-surface-2 text-muted hover:bg-surface-2/70"}`}
+                                                            title={isUnlocked ? `Lock — ${ownerName}'s value still saves` : `Unlock to enter ${ownerName}'s value`}
+                                                            aria-label={isUnlocked ? "Lock item" : "Unlock to edit"}
+                                                        >
+                                                            {isUnlocked ? <LockOpen className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                {renderAuditBadges(item, "income", currency)}
+                                            </div>
+                                            <div className="shrink-0 flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                                <MoneyInput
+                                                    value={currentValue}
+                                                    currency={currency}
+                                                    disabled={!editable}
+                                                    status={Math.abs(currentValue - item.budget) < 0.01 ? "saved" : "modified"}
+                                                    onChange={(v) => handleAmountChange(`income-${item.source_id}`, v.toString())}
+                                                    widthClassName="w-24"
+                                                />
+                                                {renderVariance(currentValue, item.budget, "income")}
+                                            </div>
+                                        </RowItem>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )}
 
-                    <TabsContent value="expenses" className="flex-1 overflow-y-auto mt-4 space-y-2">
-                        {expenses.map(item => {
-                            const cat = item.category ? getCategoryById(item.category) : null;
-                            const Icon = cat?.icon;
-                            return (
-                                <div key={item.expense_id} className="flex items-center justify-between p-3 rounded-lg border border-line bg-surface">
-                                    <div className="flex items-center gap-3">
-                                        <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={28} />
-                                        <span className="text-sm font-medium">{item.name}</span>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <MoneyInput
-                                            value={parseFloat(amounts[`expense-${item.expense_id}`] || "0")}
-                                            currency={currency}
-                                            disabled={isFinalized}
-                                            status={
-                                                Math.abs(parseFloat(amounts[`expense-${item.expense_id}`] || "0") - item.budget) < 0.01
-                                                    ? "saved"
-                                                    : "modified"
-                                            }
-                                            onChange={(v) => handleAmountChange(`expense-${item.expense_id}`, v.toString())}
-                                            widthClassName="w-24"
-                                        />
-                                        {renderAuditBadges(item, "expense", currency)}
-                                    </div>
+                    {currentStep === "expenses" && (
+                        <div className="rounded-xl border border-line bg-surface overflow-hidden">
+                            {expenses.length === 0 ? (
+                                <p className="text-sm text-muted text-center py-8 px-4">
+                                    No expenses configured for this household.
+                                </p>
+                            ) : (
+                                expenses.map((item, idx) => {
+                                    const cat = item.category ? getCategoryById(item.category) : null;
+                                    const Icon = cat?.icon || Sparkles;
+                                    const currentValue = parseFloat(amounts[`expense-${item.expense_id}`] || "0");
+                                    return (
+                                        <RowItem
+                                            key={item.expense_id}
+                                            last={idx === expenses.length - 1}
+                                            className={`relative ${expensesVerified ? "before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r before:bg-accent" : ""}`}
+                                        >
+                                            <CatIcon icon={Icon} hue={cat?.hue} size={36} />
+                                            <div className="flex-1 min-w-0">
+                                                <span className="text-sm font-medium truncate block" title={item.name}>{item.name}</span>
+                                                {renderAuditBadges(item, "expense", currency)}
+                                            </div>
+                                            <div className="shrink-0 flex flex-col items-end gap-1">
+                                                <MoneyInput
+                                                    value={currentValue}
+                                                    currency={currency}
+                                                    disabled={isFinalized}
+                                                    status={Math.abs(currentValue - item.budget) < 0.01 ? "saved" : "modified"}
+                                                    onChange={(v) => handleAmountChange(`expense-${item.expense_id}`, v.toString())}
+                                                    widthClassName="w-24"
+                                                />
+                                                {renderVariance(currentValue, item.budget, "expense")}
+                                            </div>
+                                        </RowItem>
+                                    );
+                                })
+                            )}
+                        </div>
+                    )}
+
+                    {currentStep === "review" && (
+                        <div className="rounded-xl border border-line bg-surface px-5 py-6 space-y-3">
+                            <div className="flex items-start gap-3">
+                                <ShieldCheck className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+                                <div className="space-y-2 text-sm leading-relaxed">
+                                    <p className="text-ink">
+                                        You're about to finalize <strong className="font-semibold">{formatFinancialMonth(currentMonth, financialMonthStart)}</strong>.
+                                    </p>
+                                    <p className="text-muted">
+                                        After finalizing, the Income and Expenses pages will switch to this month as their default view. Any further corrections happen on those pages, not in this wizard.
+                                    </p>
                                 </div>
-                            );
-                        })}
-                    </TabsContent>
-                </Tabs>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 {!isFinalized && (
-                    <div className="pt-4 border-t border-line space-y-3">
-                        <div className="flex items-center gap-3 p-2.5 rounded-lg bg-surface-2/20 border border-line/40 text-xs">
-                            <span className="text-muted font-medium">Income</span>
-                            <div className="flex items-center gap-1.5">
-                                {members.map(m => {
-                                    const accepted = incomeAcceptedUserIds.has(m.user_id);
-                                    const name = m.profiles?.full_name || "Member";
-                                    const initials = name.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
-                                    return (
-                                        <div key={m.user_id} className="relative" title={`${name} — ${accepted ? "accepted" : "pending"}`}>
-                                            <Avatar className="h-7 w-7">
-                                                {m.profiles?.avatar_url && <AvatarImage src={m.profiles.avatar_url} alt={name} />}
-                                                <AvatarFallback className="text-[9px] font-medium">{initials}</AvatarFallback>
-                                            </Avatar>
-                                            <span className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-bg ${accepted ? "bg-accent" : "bg-warn"}`} />
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                            <div className="h-5 w-px bg-line/60 mx-1" />
-                            <span className="text-muted font-medium">Expenses</span>
-                            <span
-                                className={`h-3 w-3 rounded-full ${expensesVerified ? "bg-accent" : "bg-warn"}`}
-                                title={expensesVerified ? "Verified" : "Pending"}
-                            />
-                            <button
-                                type="button"
-                                onClick={manualRefresh}
-                                disabled={refreshing}
-                                className="ml-auto h-7 w-7 rounded-md flex items-center justify-center text-muted hover:bg-surface-2/70 transition-colors flex-shrink-0 disabled:opacity-50"
-                                title="Refresh — pull the latest from the server"
-                                aria-label="Refresh"
-                            >
-                                <RotateCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-                            </button>
-                        </div>
-
-                        {activeTab === "reconcile" ? (
+                    <div className="pt-3 space-y-2">
+                        {currentStep === "credit" && (
                             <Button
-                                onClick={() => setActiveTab("income")}
+                                onClick={() => setCurrentStep("income")}
                                 className="w-full"
                                 size="lg"
                                 variant="outline"
                             >
                                 Continue to income
                             </Button>
-                        ) : activeTab === "income" ? (
-                            <div className="space-y-1">
+                        )}
+
+                        {currentStep === "income" && (
+                            (myIncomeAccepted && !incomeDirty) ? (
+                                <div className="space-y-1">
+                                    <Button
+                                        onClick={() => setCurrentStep("expenses")}
+                                        className="w-full"
+                                        size="lg"
+                                        variant="outline"
+                                    >
+                                        Continue to expenses
+                                    </Button>
+                                    <p className="text-center text-[11px] text-muted flex items-center justify-center gap-1.5">
+                                        <Check className="h-3 w-3 text-accent" />
+                                        Accepted {myIncomeAcceptedAt ? format(new Date(myIncomeAcceptedAt), "MMM d, HH:mm") : "—"}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    <Button
+                                        onClick={acceptIncome}
+                                        disabled={savingScope !== null || (myIncomeCount === 0 && unlockedItems.size === 0)}
+                                        className="w-full"
+                                        size="lg"
+                                    >
+                                        <Check className="h-4 w-4 mr-2" />
+                                        {savingScope === "income"
+                                            ? "Saving..."
+                                            : myIncomeAccepted
+                                                ? unlockedItems.size > 0 ? "Re-accept incomes" : "Re-accept my income"
+                                                : unlockedItems.size > 0 && myIncomeCount === 0
+                                                    ? "Save edits"
+                                                    : unlockedItems.size > 0
+                                                        ? "Accept incomes"
+                                                        : "Accept my income"}
+                                    </Button>
+                                    {unlockedItems.size > 0 && (
+                                        <p className="text-[11px] text-muted text-center">
+                                            You'll also accept on behalf of the unlocked income{unlockedItems.size > 1 ? "s" : ""}.
+                                        </p>
+                                    )}
+                                </div>
+                            )
+                        )}
+
+                        {currentStep === "expenses" && (
+                            (expensesVerified && !expensesDirty) ? (
+                                <div className="space-y-1">
+                                    {canFinalize && (
+                                        <Button
+                                            onClick={() => setCurrentStep("review")}
+                                            className="w-full"
+                                            size="lg"
+                                            variant="outline"
+                                        >
+                                            Continue to review
+                                        </Button>
+                                    )}
+                                    <p className="text-center text-[11px] text-muted flex items-center justify-center gap-1.5">
+                                        <Check className="h-3 w-3 text-accent" />
+                                        Verified {expensesVerifiedAt ? format(new Date(expensesVerifiedAt), "MMM d, HH:mm") : "—"}
+                                    </p>
+                                </div>
+                            ) : (
                                 <Button
-                                    onClick={acceptIncome}
-                                    disabled={savingScope !== null || (myIncomeCount === 0 && unlockedItems.size === 0)}
+                                    onClick={verifyExpenses}
+                                    disabled={savingScope !== null}
                                     className="w-full"
                                     size="lg"
-                                    variant={myIncomeAccepted ? "outline" : "default"}
                                 >
                                     <Check className="h-4 w-4 mr-2" />
-                                    {savingScope === "income"
-                                        ? "Saving..."
-                                        : myIncomeAccepted
-                                            ? unlockedItems.size > 0 ? "Re-accept incomes" : "Re-accept my income"
-                                            : unlockedItems.size > 0 && myIncomeCount === 0
-                                                ? "Save edits"
-                                                : unlockedItems.size > 0
-                                                    ? "Accept incomes"
-                                                    : "Accept my income"}
+                                    {savingScope === "expenses" ? "Saving..." : expensesVerified ? "Re-verify expenses" : "Verify expenses"}
                                 </Button>
-                                {unlockedItems.size > 0 && (
-                                    <p className="text-[11px] text-muted text-center">
-                                        You'll also accept on behalf of the unlocked income{unlockedItems.size > 1 ? "s" : ""}.
-                                    </p>
-                                )}
-                            </div>
-                        ) : (
+                            )
+                        )}
+
+                        {currentStep === "review" && (
                             <Button
-                                onClick={verifyExpenses}
-                                disabled={savingScope !== null}
+                                onClick={finalize}
+                                disabled={!canFinalize || savingScope !== null}
                                 className="w-full"
                                 size="lg"
-                                variant={expensesVerified ? "outline" : "default"}
                             >
-                                <Check className="h-4 w-4 mr-2" />
-                                {savingScope === "expenses" ? "Saving..." : expensesVerified ? "Re-verify expenses" : "Verify expenses"}
+                                <ShieldCheck className="h-4 w-4 mr-2" />
+                                {savingScope === "finalized" ? "Finalizing..." : "Finalize review"}
                             </Button>
                         )}
 
-                        {canFinalize && (
-                            <>
-                                <label className="flex items-start gap-2 p-3 rounded-lg bg-surface-2/30 border border-line/50 cursor-pointer">
-                                    <Checkbox
-                                        checked={confirmFinalize}
-                                        onCheckedChange={(v) => setConfirmFinalize(v === true)}
-                                        className="mt-0.5"
-                                    />
-                                    <span className="text-xs text-muted leading-snug">
-                                        I confirm this month's review is complete. The Income and Expenses
-                                        pages will switch to this month after finalizing. Further changes
-                                        happen on those pages, not here.
-                                    </span>
-                                </label>
-
-                                <Button
-                                    onClick={finalize}
-                                    disabled={!confirmFinalize || savingScope !== null}
-                                    className="w-full"
-                                    size="lg"
-                                >
-                                    <ShieldCheck className="h-4 w-4 mr-2" />
-                                    {savingScope === "finalized" ? "Finalizing..." : "Finalize review"}
-                                </Button>
-                            </>
+                        {myIncomeAccepted && !allMembersAcceptedIncome && (
+                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-2/40 border border-line/50 text-xs text-muted">
+                                <Hourglass className="h-3.5 w-3.5 shrink-0 text-warn" />
+                                <span>Waiting for other users to review.</span>
+                            </div>
                         )}
                     </div>
                 )}
@@ -773,10 +894,9 @@ export function useMonthlyReviewStatus(householdId: string | undefined, financia
         }
 
         const { data } = await supabase
-            .from("monthly_review_status")
-            .select("month, scope")
+            .from("monthly_review_finalized")
+            .select("month")
             .eq("household_id", householdId)
-            .eq("scope", "finalized")
             .order("month", { ascending: false });
 
         const finalized = (data as { month: string }[]) || [];
