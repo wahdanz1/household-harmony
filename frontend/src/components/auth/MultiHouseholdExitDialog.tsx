@@ -356,8 +356,13 @@ export const MultiHouseholdExitDialog = () => {
                         newRow[section.coParentCol] = null;
                     }
                     if ("member_id" in newRow) {
-                        const newMembershipId = activeMembers.find(m => m.user_id === user.id)?.id ?? null;
-                        newRow.member_id = newMembershipId;
+                        // The *_one_attribution check constraint allows member_id
+                        // OR subject_id, never both. Default to the current user's
+                        // new membership only when the row isn't subject-attributed.
+                        const hasSubject = !!(section.subjectCol && newRow[section.subjectCol]);
+                        newRow.member_id = hasSubject
+                            ? null
+                            : activeMembers.find(m => m.user_id === user.id)?.id ?? null;
                     }
 
                     const { data: insertedSource, error: insertError } = await (supabase as any)
