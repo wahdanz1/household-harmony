@@ -20,7 +20,7 @@ import { TemporaryExpenseFormDialog } from "@/components/expenses/TemporaryExpen
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
-import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
+import { getCurrentFinancialMonth, getFinancialMonthRange, getNextFinancialMonth } from "@/utils/dateUtils";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
 import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
@@ -47,6 +47,8 @@ const Expenses = () => {
   const [monthlyExpenses, setMonthlyExpenses] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [insurances, setInsurances] = useState<any[]>([]);
+  const [monthlySubscriptions, setMonthlySubscriptions] = useState<any[]>([]);
+  const [monthlyInsurances, setMonthlyInsurances] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [addingExpense, setAddingExpense] = useState(false);
@@ -123,6 +125,10 @@ const Expenses = () => {
     const { start: fetchStart, end: fetchEnd } = getFinancialMonthRange(fetchMonth, fms);
     const startStr = format(fetchStart, "yyyy-MM-dd");
     const endStr = format(fetchEnd, "yyyy-MM-dd");
+    // Next FM window — fetched so warning logic can flag "due next month" via row existence.
+    const nextMonth = getNextFinancialMonth(fetchMonth, fms);
+    const { end: nextFetchEnd } = getFinancialMonthRange(nextMonth, fms);
+    const nextEndStr = format(nextFetchEnd, "yyyy-MM-dd");
 
     // Past months are historical: include archived/inactive sources so their
     // monthly_* rows still resolve names + amounts.
@@ -151,6 +157,9 @@ const Expenses = () => {
         supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
         subscriptionsQuery,
         insurancesQuery,
+        // Current + next FM rows for warning logic. Past months will return empty (no backfill).
+        supabase.from("monthly_subscriptions").select("subscription_id, month_start").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", nextEndStr),
+        supabase.from("monthly_insurances").select("insurance_id, month_start").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", nextEndStr),
       ]);
     } catch (err) {
       reportFailure(err);
@@ -171,6 +180,8 @@ const Expenses = () => {
       { data: monthlyData },
       { data: subscriptionsData },
       { data: insurancesData },
+      { data: monthlySubsData },
+      { data: monthlyInsData },
     ] = results;
 
     // Decrypt sensitive fields (if encrypted)
@@ -183,6 +194,8 @@ const Expenses = () => {
     setMonthlyExpenses(decryptedMonthly);
     setSubscriptions(decryptedSubs);
     setInsurances(decryptedIns);
+    setMonthlySubscriptions(monthlySubsData || []);
+    setMonthlyInsurances(monthlyInsData || []);
     // Credit card expenses now tracked via expenses.is_credit
 
     // Carry-forward: find most recent record per category (from any month before this one)
@@ -259,51 +272,58 @@ const Expenses = () => {
       return sum + amount;
     }, 0);
 
-  // Calculate next month's start/end for "upcoming" warning
-  const nextMonthStart = new Date(monthEnd);
-  nextMonthStart.setDate(nextMonthStart.getDate() + 1);
-  const nextMonthEnd = new Date(nextMonthStart);
-  nextMonthEnd.setMonth(nextMonthEnd.getMonth() + 1);
-  nextMonthEnd.setDate(nextMonthEnd.getDate() - 1);
+  // Section severity is driven by row existence in monthly_subscriptions /
+  // monthly_insurances rather than date math on billing_month/day. A row in
+  // the current FM means "this source has a billing event this month";
+  // a row in the next FM means "due next month". Monthly cycles get rows
+  // every month, so they never trigger warnings.
+  const fmsStartStr = format(monthStart, "yyyy-MM-dd");
+  const nextFmStartIso = getNextFinancialMonth(currentMonth, financialMonthStart);
 
-  const subscriptionSeverity = subscriptions.filter(sub => sub.is_active).reduce((severity, sub) => {
-    if (severity === 'danger') return 'danger'; // danger is highest priority
+  const subsRowsThisMonth = new Set(
+    monthlySubscriptions.filter(r => r.month_start === fmsStartStr).map(r => r.subscription_id)
+  );
+  const subsRowsNextMonth = new Set(
+    monthlySubscriptions.filter(r => r.month_start === nextFmStartIso).map(r => r.subscription_id)
+  );
+  const insRowsThisMonth = new Set(
+    monthlyInsurances.filter(r => r.month_start === fmsStartStr).map(r => r.insurance_id)
+  );
+  const insRowsNextMonth = new Set(
+    monthlyInsurances.filter(r => r.month_start === nextFmStartIso).map(r => r.insurance_id)
+  );
 
-    if (sub.billing_cycle === 'yearly') {
-      if (!sub.billing_month || !sub.billing_day) return severity;
-      const dateInStartYear = new Date(monthStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
-      const dateInEndYear = new Date(monthEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
+  type Severity = 'default' | 'upcoming' | 'warning' | 'danger';
+  const escalate = (current: Severity, next: Severity): Severity => {
+    const rank: Record<Severity, number> = { default: 0, upcoming: 1, warning: 2, danger: 3 };
+    return rank[next] > rank[current] ? next : current;
+  };
 
-      // Check if due THIS month (danger - red)
-      const isDueThisMonth = (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
-        (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-      if (isDueThisMonth) return 'danger';
+  const subscriptionSeverity: Severity = subscriptions
+    .filter(sub => sub.is_active)
+    .reduce((sev, sub) => {
+      if (sub.billing_cycle === 'monthly') return sev;
+      if (subsRowsThisMonth.has(sub.id)) {
+        return escalate(sev, sub.billing_cycle === 'yearly' ? 'danger' : 'warning');
+      }
+      if (subsRowsNextMonth.has(sub.id)) {
+        return escalate(sev, 'upcoming');
+      }
+      return sev;
+    }, 'default' as Severity);
 
-      // Check if due NEXT month (upcoming - orange)
-      const isDueNextMonth = (dateInStartYear >= nextMonthStart && dateInStartYear <= nextMonthEnd) ||
-        (dateInEndYear >= nextMonthStart && dateInEndYear <= nextMonthEnd);
-      if (isDueNextMonth && severity !== 'warning') return 'upcoming';
-    }
-
-    if (sub.billing_cycle === 'quarterly' && severity !== 'danger' && severity !== 'upcoming') {
-      if (!sub.billing_month || !sub.billing_day) return severity; // No warning without billing info
-      const billingMonths = [
-        sub.billing_month - 1,
-        (sub.billing_month - 1 + 3) % 12,
-        (sub.billing_month - 1 + 6) % 12,
-        (sub.billing_month - 1 + 9) % 12
-      ];
-      const isDue = billingMonths.some(monthIndex => {
-        const dateInStartYear = new Date(monthStart.getFullYear(), monthIndex, sub.billing_day);
-        const dateInEndYear = new Date(monthEnd.getFullYear(), monthIndex, sub.billing_day);
-        return (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
-          (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-      });
-      if (isDue) return 'warning';
-    }
-
-    return severity;
-  }, 'default' as 'default' | 'upcoming' | 'warning' | 'danger');
+  const insuranceSeverity: Severity = insurances
+    .filter((ins: any) => ins.is_active)
+    .reduce((sev, ins: any) => {
+      if (ins.billing_cycle === 'monthly') return sev;
+      if (insRowsThisMonth.has(ins.id)) {
+        return escalate(sev, ins.billing_cycle === 'yearly' ? 'danger' : 'warning');
+      }
+      if (insRowsNextMonth.has(ins.id)) {
+        return escalate(sev, 'upcoming');
+      }
+      return sev;
+    }, 'default' as Severity);
 
   const insuranceTotal = insurances
     .filter((ins) => ins.is_active)
@@ -510,29 +530,7 @@ const Expenses = () => {
                 }),
             ].sort((a, b) => (b.actualAmount ?? b.budget ?? 0) - (a.actualAmount ?? a.budget ?? 0))}
             subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.budget)) - parseFloat(String(a.budget))).map(sub => {
-              // Calculate if this subscription is due in current financial month
-              let isDue = false;
-              if (sub.billing_cycle === 'yearly' && sub.billing_month && sub.billing_day) {
-                const dateInStartYear = new Date(monthStart.getFullYear(), sub.billing_month - 1, sub.billing_day);
-                const dateInEndYear = new Date(monthEnd.getFullYear(), sub.billing_month - 1, sub.billing_day);
-                isDue = (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
-                  (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-              } else if (sub.billing_cycle === 'quarterly' && sub.billing_month && sub.billing_day) {
-                const billingMonths = [
-                  sub.billing_month - 1,
-                  (sub.billing_month - 1 + 3) % 12,
-                  (sub.billing_month - 1 + 6) % 12,
-                  (sub.billing_month - 1 + 9) % 12
-                ];
-                isDue = billingMonths.some(monthIndex => {
-                  const dateInStartYear = new Date(monthStart.getFullYear(), monthIndex, sub.billing_day!);
-                  const dateInEndYear = new Date(monthEnd.getFullYear(), monthIndex, sub.billing_day!);
-                  return (dateInStartYear >= monthStart && dateInStartYear <= monthEnd) ||
-                    (dateInEndYear >= monthStart && dateInEndYear <= monthEnd);
-                });
-              } else if (sub.billing_cycle === 'monthly') {
-                isDue = true; // Monthly is always "due"
-              }
+              const isDue = sub.billing_cycle === 'monthly' || subsRowsThisMonth.has(sub.id);
               const subj = subjects.find(s => s.id === sub.subject_id);
               const mem = members.find(m => m.id === sub.member_id);
               return {
@@ -563,6 +561,7 @@ const Expenses = () => {
               const customName = rawName === "NaN" ? "" : rawName;
               const typeLabel = insuranceTypes.find(t => t.value === ins.category)?.label ?? "Insurance";
               const fallbackName = typeLabel;
+              const isDue = ins.billing_cycle === 'monthly' || insRowsThisMonth.has(ins.id);
               return {
                 id: ins.id,
                 name: customName || fallbackName,
@@ -570,6 +569,7 @@ const Expenses = () => {
                 budget: ins.budget,
                 billing_cycle: ins.billing_cycle,
                 category: ins.category,
+                isDue,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
                 member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
                 inactive: ins.is_active === false,
@@ -578,6 +578,7 @@ const Expenses = () => {
             subscriptionsTotal={subscriptionsTotal}
             insuranceTotal={insuranceTotal}
             subscriptionSeverity={subscriptionSeverity}
+            insuranceSeverity={insuranceSeverity}
             currency={household?.currency || "SEK"}
             pastMonth={isPastMonth}
             onExpenseClick={(id) => {

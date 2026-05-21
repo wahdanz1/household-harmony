@@ -296,11 +296,12 @@ export const ExpenseBlock = ({
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
     subscriptions: { id: string; name: string; budget: number; billing_cycle: string; category?: string; isDue?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
+    insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; isDue?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
     subscriptionSeverity?: 'default' | 'upcoming' | 'warning' | 'danger';
+    insuranceSeverity?: 'default' | 'upcoming' | 'warning' | 'danger';
     onExpenseClick?: (id: string) => void;
     onSubscriptionClick?: (id: string) => void;
     onInsuranceClick?: (id: string) => void;
@@ -320,6 +321,7 @@ export const AllTabBlockView = ({
     insuranceTotal,
     currency,
     subscriptionSeverity = 'default',
+    insuranceSeverity = 'default',
     onExpenseClick,
     onSubscriptionClick,
     onInsuranceClick,
@@ -378,6 +380,8 @@ export const AllTabBlockView = ({
             category: ins.category,
             displayAmount: ins.budget,
             displayLabel,
+            billingCycle: ins.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
+            isDue: ins.isDue,
             subject: ins.subject,
             member: ins.member,
             inactive: ins.inactive,
@@ -457,6 +461,16 @@ export const AllTabBlockView = ({
                 onItemClick={onInsuranceClick}
                 onAdd={pastMonth ? undefined : onAddInsurance}
                 pastMonth={pastMonth}
+                severity={insuranceSeverity}
+                severityMessage={
+                    insuranceSeverity === 'danger'
+                        ? "A yearly insurance is due this month!"
+                        : insuranceSeverity === 'upcoming'
+                            ? "An insurance bill is due next month"
+                            : insuranceSeverity === 'warning'
+                                ? "An insurance bill is due this month"
+                                : undefined
+                }
                 headerMetrics={insuranceTotal > 0 ? (
                     <SectionFrames frames={[
                         { v: insuranceTotal, unit: "kr/mo", primary: true },
