@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, Car, Baby, PawPrint, Box, Plus, CreditCard, User } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, Car, Baby, PawPrint, Box, Plus, CreditCard, User, Zap } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
@@ -33,6 +33,9 @@ interface ExpenseItem {
     member?: { name: string };
     inactive?: boolean;
     isCredit?: boolean;
+    /** One-time entry (no expense source) — e.g. an un-budgeted category
+     *  recorded during credit-import. Drives the `[One-off]` chip. */
+    isOneOff?: boolean;
     /** Suppress click + hover affordance. Used for historical one-time entries
      *  that have no edit surface yet. */
     readOnly?: boolean;
@@ -66,6 +69,13 @@ const CreditChip = () => (
     <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted">
         <CreditCard className="h-3 w-3" />
         Credit
+    </span>
+);
+
+const OneOffChip = () => (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted">
+        <Zap className="h-3 w-3" />
+        One-off
     </span>
 );
 
@@ -231,6 +241,7 @@ export const ExpenseBlock = ({
                                         {item.subject && <SubjectChip subject={item.subject} />}
                                         {item.member && <MemberChip member={item.member} />}
                                         {item.isCredit && <CreditChip />}
+                                        {item.isOneOff && <OneOffChip />}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
