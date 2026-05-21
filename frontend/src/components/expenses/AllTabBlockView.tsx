@@ -145,7 +145,7 @@ export const ExpenseBlock = ({
             : severity === 'upcoming'
                 ? 'border-warn'
                 : 'border-line';
-    const severityWidth = severity !== 'default' ? 'border-2' : 'border';
+    const severityWidth = 'border';
     const severityIconColor = severity === 'danger'
         ? 'text-danger'
         : severity === 'upcoming'
