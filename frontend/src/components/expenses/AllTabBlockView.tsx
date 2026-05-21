@@ -93,6 +93,8 @@ interface ExpenseBlockProps {
     onAdd?: () => void;
     /** Past-month read-only mode: pencil hover becomes info icon. */
     pastMonth?: boolean;
+    /** Initial expanded state; user can still collapse/expand. */
+    defaultExpanded?: boolean;
 }
 
 /**
@@ -111,8 +113,9 @@ export const ExpenseBlock = ({
     onItemClick,
     onAdd,
     pastMonth = false,
+    defaultExpanded = false,
 }: ExpenseBlockProps) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
     const blockRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -311,6 +314,8 @@ interface AllTabBlockViewProps {
     onAddSubscription?: () => void;
     onAddInsurance?: () => void;
     pastMonth?: boolean;
+    /** Which section's accordion to open by default. */
+    defaultExpanded?: 'expenses' | 'subscriptions' | 'insurances';
 }
 
 /**
@@ -331,6 +336,7 @@ export const AllTabBlockView = ({
     onAddSubscription,
     onAddInsurance,
     pastMonth = false,
+    defaultExpanded = 'expenses',
 }: AllTabBlockViewProps) => {
     const expensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
     const expensesBudgetedTotal = expenses
@@ -421,6 +427,7 @@ export const AllTabBlockView = ({
                     items={expenses}
                     onItemClick={onExpenseClick}
                     pastMonth={pastMonth}
+                    defaultExpanded={defaultExpanded === 'expenses'}
                     headerMetrics={
                         <SectionFrames frames={[
                             { v: expensesTotal, unit: "kr/mo", primary: true },
@@ -439,6 +446,7 @@ export const AllTabBlockView = ({
                 onItemClick={onSubscriptionClick}
                 onAdd={pastMonth ? undefined : onAddSubscription}
                 pastMonth={pastMonth}
+                defaultExpanded={defaultExpanded === 'subscriptions'}
                 severity={subscriptionSeverity}
                 severityMessage={
                     subscriptionSeverity === 'danger'
@@ -466,6 +474,7 @@ export const AllTabBlockView = ({
                 onItemClick={onInsuranceClick}
                 onAdd={pastMonth ? undefined : onAddInsurance}
                 pastMonth={pastMonth}
+                defaultExpanded={defaultExpanded === 'insurances'}
                 severity={insuranceSeverity}
                 severityMessage={
                     insuranceSeverity === 'danger'

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,13 @@ const Expenses = () => {
   const [editingSubscription, setEditingSubscription] = useState<any | null>(null);
   const [editingInsurance, setEditingInsurance] = useState<any | null>(null);
   const [detailsItem, setDetailsItem] = useState<PastMonthDetailsItem | null>(null);
+
+  // ?expand=subscriptions|insurances|expenses picks which All-tab accordion
+  // opens on landing. Default is 'expenses'. Navigated from Overview tiles.
+  const [searchParams] = useSearchParams();
+  const expandParam = searchParams.get("expand");
+  const defaultExpanded: 'expenses' | 'subscriptions' | 'insurances' =
+    expandParam === 'subscriptions' || expandParam === 'insurances' ? expandParam : 'expenses';
 
   const financialMonthStart = household?.financial_month_start || 25;
 
@@ -565,6 +572,7 @@ const Expenses = () => {
             insuranceTotal={insuranceTotal}
             subscriptionSeverity={subscriptionSeverity}
             insuranceSeverity={insuranceSeverity}
+            defaultExpanded={defaultExpanded}
             currency={household?.currency || "SEK"}
             pastMonth={isPastMonth}
             onExpenseClick={(id) => {
