@@ -125,7 +125,14 @@ const Overview = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user || !household?.id || householdLoading) return;
+      if (!user || householdLoading) return;
+      // Stranded after leave: HouseholdContext finished with no active
+      // household. Drop loading so the VaultLockedAlert below can surface and
+      // the user can re-unlock (which triggers ensure_user_has_household).
+      if (!household?.id) {
+        setLoading(false);
+        return;
+      }
       if (!isUnlocked) {
         setLoading(false);
         return;
@@ -349,7 +356,7 @@ const Overview = () => {
 
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [household?.id, isUnlocked, selectedMonth, dataVersion]);
+  }, [household?.id, householdLoading, isUnlocked, selectedMonth, dataVersion]);
 
   useEffect(() => {
     const checkSeedData = async () => {

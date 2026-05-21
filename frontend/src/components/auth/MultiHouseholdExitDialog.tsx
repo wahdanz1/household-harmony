@@ -5,11 +5,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { RowItem } from "@/components/ui/row-item";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
-import { Loader2, ArrowRight, HandCoins, Home, Repeat, Shield, Sparkles } from "lucide-react";
+import { Loader2, ArrowRight, HandCoins, Home, Repeat, Shield, Sparkles, Car, Baby, PawPrint, Box } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
@@ -89,6 +92,29 @@ const SECTIONS: SectionConfig[] = [
 
 type ItemKind = "attributed" | "added";
 
+type CollisionResolutionKind = "merge" | "new";
+
+interface SubjectCollision {
+    oldSubjectId: string;
+    oldName: string;
+    type: string;
+    existingId: string;
+    existingName: string;
+}
+
+interface CollisionResolution {
+    kind: CollisionResolutionKind;
+    /** Used only when kind === "new". Empty falls back to "{oldName} (2)". */
+    newName: string;
+}
+
+const SUBJECT_TYPE_ICON: Record<string, any> = {
+    car: Car,
+    kid: Baby,
+    pet: PawPrint,
+    other: Box,
+};
+
 interface FetchedItem {
     id: string;
     raw: Record<string, any>;
@@ -143,6 +169,11 @@ export const MultiHouseholdExitDialog = () => {
     const [items, setItems] = useState<FetchedItem[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [householdName, setHouseholdName] = useState<string | null>(null);
+    const [collisions, setCollisions] = useState<SubjectCollision[]>([]);
+    const [resolutions, setResolutions] = useState<Record<string, CollisionResolution>>({});
+    const [collisionDialogOpen, setCollisionDialogOpen] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [pendingBringSubjects, setPendingBringSubjects] = useState<any[] | null>(null);
 
     const open = !!pendingExitHouseholdId && isUnlocked;
 
@@ -281,26 +312,118 @@ export const MultiHouseholdExitDialog = () => {
                 }
             }
 
-            const subjectIdMap = new Map<string, string>();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let oldSubjects: any[] = [];
             if (subjectIdsToInclude.size > 0) {
-                const { data: oldSubjects } = await supabase
+                const { data } = await supabase
                     .from("subjects")
                     .select("*")
                     .in("id", Array.from(subjectIdsToInclude));
-                for (const sub of oldSubjects ?? []) {
-                    const { data: inserted } = await supabase
-                        .from("subjects")
-                        .insert({
-                            household_id: activeHousehold.id,
-                            type: sub.type as any,
-                            name: sub.name,
-                            user_id: sub.user_id === user.id ? user.id : null,
-                            sort_order: sub.sort_order ?? 0,
-                        })
-                        .select("id")
-                        .single();
-                    if (inserted) subjectIdMap.set(sub.id, inserted.id);
+                oldSubjects = data ?? [];
+            }
+
+            // Collision detection: a subject of the same type + name (case-
+            // insensitive, trimmed) already in the destination means the user
+            // needs to tell us if it's the same thing or just shares a name.
+            const detected: SubjectCollision[] = [];
+            if (oldSubjects.length > 0) {
+                const { data: destSubjects } = await supabase
+                    .from("subjects")
+                    .select("id, name, type")
+                    .eq("household_id", activeHousehold.id);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const dest = (destSubjects ?? []) as any[];
+                for (const old of oldSubjects) {
+                    const oldNorm = (old.name ?? "").trim().toLowerCase();
+                    if (!oldNorm) continue;
+                    const existing = dest.find(s =>
+                        s.type === old.type && (s.name ?? "").trim().toLowerCase() === oldNorm
+                    );
+                    if (existing) {
+                        detected.push({
+                            oldSubjectId: old.id,
+                            oldName: old.name,
+                            type: old.type,
+                            existingId: existing.id,
+                            existingName: existing.name,
+                        });
+                    }
                 }
+            }
+
+            if (detected.length > 0) {
+                const defaults: Record<string, CollisionResolution> = {};
+                for (const c of detected) {
+                    defaults[c.oldSubjectId] = { kind: "merge", newName: `${c.oldName} (2)` };
+                }
+                setCollisions(detected);
+                setResolutions(defaults);
+                setPendingBringSubjects(oldSubjects);
+                setCollisionDialogOpen(true);
+                setSubmitting(false);
+                return;
+            }
+
+            await proceedWithBring(oldSubjects, {}, []);
+        } catch (err: any) {
+            console.error("Exit dialog failed:", err);
+            toast({
+                title: "Couldn't finish",
+                description: err?.message ?? "Try again.",
+                variant: "destructive",
+            });
+            setSubmitting(false);
+        }
+    };
+
+    const handleResolveCollisions = async () => {
+        if (!pendingBringSubjects) return;
+        const oldSubjects = pendingBringSubjects;
+        const detected = collisions;
+        const res = resolutions;
+        setCollisionDialogOpen(false);
+        setPendingBringSubjects(null);
+        setCollisions([]);
+        setResolutions({});
+        await proceedWithBring(oldSubjects, res, detected);
+    };
+
+    const proceedWithBring = async (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        oldSubjects: any[],
+        res: Record<string, CollisionResolution>,
+        detectedCollisions: SubjectCollision[],
+    ) => {
+        if (!user || !activeHousehold?.id || !pendingExitHouseholdId) return;
+        setSubmitting(true);
+
+        try {
+            const subjectIdMap = new Map<string, string>();
+            const collisionLookup = new Map(detectedCollisions.map(c => [c.oldSubjectId, c]));
+            for (const old of oldSubjects) {
+                const r = res[old.id];
+                const collision = collisionLookup.get(old.id);
+                if (collision && r?.kind === "merge") {
+                    subjectIdMap.set(old.id, collision.existingId);
+                    continue;
+                }
+                const insertName = r?.kind === "new" && r.newName.trim()
+                    ? r.newName.trim()
+                    : collision
+                        ? `${old.name} (2)`
+                        : old.name;
+                const { data: inserted } = await supabase
+                    .from("subjects")
+                    .insert({
+                        household_id: activeHousehold.id,
+                        type: old.type as any,
+                        name: insertName,
+                        user_id: old.user_id === user.id ? user.id : null,
+                        sort_order: old.sort_order ?? 0,
+                    })
+                    .select("id")
+                    .single();
+                if (inserted) subjectIdMap.set(old.id, inserted.id);
             }
 
             // Seed monthly_* rows for the current financial month so Overview
@@ -356,8 +479,13 @@ export const MultiHouseholdExitDialog = () => {
                         newRow[section.coParentCol] = null;
                     }
                     if ("member_id" in newRow) {
-                        const newMembershipId = activeMembers.find(m => m.user_id === user.id)?.id ?? null;
-                        newRow.member_id = newMembershipId;
+                        // The *_one_attribution check constraint allows member_id
+                        // OR subject_id, never both. Default to the current user's
+                        // new membership only when the row isn't subject-attributed.
+                        const hasSubject = !!(section.subjectCol && newRow[section.subjectCol]);
+                        newRow.member_id = hasSubject
+                            ? null
+                            : activeMembers.find(m => m.user_id === user.id)?.id ?? null;
                     }
 
                     const { data: insertedSource, error: insertError } = await (supabase as any)
@@ -424,6 +552,7 @@ export const MultiHouseholdExitDialog = () => {
     };
 
     return (
+        <>
         <Dialog open={open} onOpenChange={() => { /* not dismissable */ }}>
             <DialogContent
                 className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
@@ -528,7 +657,7 @@ export const MultiHouseholdExitDialog = () => {
                             {selectedIds.size === items.length ? "Clear all" : "Select all"}
                         </button>
                     ) : <span />}
-                    <Button onClick={handleConfirm} disabled={submitting || loading}>
+                    <Button onClick={handleConfirm} disabled={submitting || loading || collisionDialogOpen}>
                         {submitting ? (
                             <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Bringing…</>
                         ) : items.length === 0 ? (
@@ -540,5 +669,77 @@ export const MultiHouseholdExitDialog = () => {
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <Dialog open={collisionDialogOpen} onOpenChange={() => { /* not dismissable */ }}>
+            <DialogContent
+                className="sm:max-w-md"
+                hideClose
+                onPointerDownOutside={(e) => e.preventDefault()}
+                onEscapeKeyDown={(e) => e.preventDefault()}
+            >
+                <DialogHeader>
+                    <DialogTitle>Resolve duplicate labels</DialogTitle>
+                    <DialogDescription>
+                        Some of the labels you're bringing along already exist here. Tell us which is which.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                    {collisions.map(c => {
+                        const r = resolutions[c.oldSubjectId] ?? { kind: "merge", newName: `${c.oldName} (2)` };
+                        const TypeIcon = SUBJECT_TYPE_ICON[c.type] ?? Box;
+                        return (
+                            <div key={c.oldSubjectId} className="space-y-2 rounded-lg border border-line p-3">
+                                <div className="flex items-center gap-2">
+                                    <TypeIcon className="h-4 w-4 text-muted" />
+                                    <span className="font-medium">{c.oldName}</span>
+                                    <span className="text-xs text-muted">already exists</span>
+                                </div>
+                                <RadioGroup
+                                    value={r.kind}
+                                    onValueChange={(v) => setResolutions(prev => ({
+                                        ...prev,
+                                        [c.oldSubjectId]: {
+                                            kind: v as CollisionResolutionKind,
+                                            newName: prev[c.oldSubjectId]?.newName ?? `${c.oldName} (2)`,
+                                        },
+                                    }))}
+                                    className="space-y-1.5"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <RadioGroupItem value="merge" id={`r-merge-${c.oldSubjectId}`} />
+                                        <Label htmlFor={`r-merge-${c.oldSubjectId}`} className="text-sm font-normal cursor-pointer">
+                                            Same as the existing "{c.existingName}"
+                                        </Label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <RadioGroupItem value="new" id={`r-new-${c.oldSubjectId}`} />
+                                        <Label htmlFor={`r-new-${c.oldSubjectId}`} className="text-sm font-normal cursor-pointer">
+                                            Different — keep mine separately
+                                        </Label>
+                                    </div>
+                                </RadioGroup>
+                                {r.kind === "new" && (
+                                    <Input
+                                        value={r.newName}
+                                        onChange={(e) => setResolutions(prev => ({
+                                            ...prev,
+                                            [c.oldSubjectId]: { kind: "new", newName: e.target.value },
+                                        }))}
+                                        placeholder={`${c.oldName} (2)`}
+                                        className="text-sm"
+                                    />
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+                <DialogFooter>
+                    <Button onClick={handleResolveCollisions} disabled={submitting}>
+                        Continue <ArrowRight className="h-4 w-4 ml-2" />
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 };

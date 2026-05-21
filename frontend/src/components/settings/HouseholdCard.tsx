@@ -85,7 +85,10 @@ export const HouseholdCard = ({ household, members, userRole, onUpdate }: Househ
 
         toast.success("Leaving household — reloading…");
         setLeaveOpen(false);
-        setTimeout(() => window.location.reload(), 1000);
+        // Full navigation (not reload) so the user lands on Overview, not back
+        // on Settings where they triggered the leave. The bring-along dialog
+        // will pop up over Overview after the bootstrap settles.
+        setTimeout(() => { window.location.href = "/"; }, 1000);
     };
 
     return (

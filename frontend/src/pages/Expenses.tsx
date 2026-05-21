@@ -37,7 +37,7 @@ import { useHouseholdSubjects } from "@/hooks/useHouseholdSubjects";
 
 const Expenses = () => {
   const { user } = useAuth();
-  const { household, members, coParents, dataVersion } = useHousehold();
+  const { household, members, coParents, loading: householdLoading, dataVersion } = useHousehold();
   const { isUnlocked } = useEncryption();
   const [subjectsRefreshKey, setSubjectsRefreshKey] = useState(0);
   const subjects = useHouseholdSubjects(household?.id, subjectsRefreshKey);
@@ -200,10 +200,15 @@ const Expenses = () => {
   }, [user?.id, household?.id, household?.financial_month_start, selectedMonth, isUnlocked, dataVersion]);
 
   useEffect(() => {
-    if (household?.id) {
-      fetchData();
+    if (householdLoading) return;
+    if (!household?.id) {
+      // Stranded after leave — surface the empty / locked state below
+      // instead of holding the skeleton open.
+      setLoading(false);
+      return;
     }
-  }, [household?.id, fetchData]);
+    fetchData();
+  }, [householdLoading, household?.id, fetchData]);
 
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -471,7 +476,7 @@ const Expenses = () => {
                   };
                 }),
             ].sort((a, b) => (b.actualAmount ?? b.budget ?? 0) - (a.actualAmount ?? a.budget ?? 0))}
-            subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.amount)) - parseFloat(String(a.amount))).map(sub => {
+            subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.budget)) - parseFloat(String(a.budget))).map(sub => {
               // Calculate if this subscription is due in current financial month
               let isDue = false;
               if (sub.billing_cycle === 'yearly' && sub.billing_month && sub.billing_day) {
@@ -661,7 +666,7 @@ const Expenses = () => {
             id: editingSubscription.id,
             name: editingSubscription.name,
             service: editingSubscription.service,
-            amount: editingSubscription.amount,
+            budget: editingSubscription.budget,
             billing_cycle: editingSubscription.billing_cycle,
             category: editingSubscription.category,
             notes: editingSubscription.notes,
