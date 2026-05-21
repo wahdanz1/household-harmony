@@ -366,7 +366,7 @@ const Overview = () => {
       const computeRecurringSeverity = (sources: any[]): TileSeverity => {
         const { thisFm, nextFm } = classifySourcesByFM(
           sources.filter((s: any) => s.is_active),
-          fetchMonth,
+          selectedMonth,
           fms,
         );
         let sev: TileSeverity = "default";
