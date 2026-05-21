@@ -654,7 +654,6 @@ const Overview = () => {
                     primary={data.subscriptionsMonthly}
                     primaryLabel="per month"
                     secondary={`${fmtKr(data.subscriptionsYearly, currency)}/yr`}
-                    count={data.subscriptionsCount}
                     severity={data.subscriptionsSeverity}
                     currency={currency}
                     onClick={() => navigate("/expenses?tab=all&expand=subscriptions")}
@@ -667,7 +666,6 @@ const Overview = () => {
                     primary={data.insuranceMonthly}
                     primaryLabel="per month"
                     secondary={`${fmtKr(data.insuranceYearly, currency)}/yr`}
-                    count={data.insuranceCount}
                     severity={data.insuranceSeverity}
                     currency={currency}
                     onClick={() => navigate("/expenses?tab=all&expand=insurances")}
