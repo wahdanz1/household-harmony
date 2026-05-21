@@ -37,6 +37,7 @@ interface ManageSubjectsDialogProps {
 
 export const ManageSubjectsDialog = ({ open, onOpenChange, type, label, householdId, onChange }: ManageSubjectsDialogProps) => {
     const [subjects, setSubjects] = useState<Subject[]>([]);
+    const [counts, setCounts] = useState<Record<string, number>>({});
     const [editingId, setEditingId] = useState<string | null>(null);
     const [draftName, setDraftName] = useState("");
     const [adding, setAdding] = useState(false);
@@ -50,7 +51,31 @@ export const ManageSubjectsDialog = ({ open, onOpenChange, type, label, househol
             .eq("type", type)
             .order("sort_order")
             .order("name");
-        setSubjects((data as Subject[]) ?? []);
+        const fetched = (data as Subject[]) ?? [];
+        setSubjects(fetched);
+
+        if (fetched.length === 0) {
+            setCounts({});
+            return;
+        }
+
+        // Count live (non-archived) items attached to each subject. Spans the
+        // three tables that have subject_id: expenses, subscriptions,
+        // insurances. income_sources has no subject_id, so it doesn't count.
+        const subjectIds = fetched.map(s => s.id);
+        const [expRows, subRows, insRows] = await Promise.all([
+            supabase.from("expenses").select("subject_id").eq("household_id", householdId).in("subject_id", subjectIds).is("archived_at", null),
+            supabase.from("subscriptions").select("subject_id").eq("household_id", householdId).in("subject_id", subjectIds).is("archived_at", null),
+            supabase.from("insurances").select("subject_id").eq("household_id", householdId).in("subject_id", subjectIds).is("archived_at", null),
+        ]);
+        const next: Record<string, number> = {};
+        for (const sid of subjectIds) next[sid] = 0;
+        for (const row of [...(expRows.data ?? []), ...(subRows.data ?? []), ...(insRows.data ?? [])]) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const sid = (row as any).subject_id as string | null;
+            if (sid && sid in next) next[sid] += 1;
+        }
+        setCounts(next);
     };
 
     useEffect(() => {
@@ -143,6 +168,9 @@ export const ManageSubjectsDialog = ({ open, onOpenChange, type, label, househol
                             ) : (
                                 <>
                                     <span className="flex-1 text-sm text-ink">{s.name}</span>
+                                    <span className="text-xs text-muted tabular-nums">
+                                        {(counts[s.id] ?? 0)} connection{(counts[s.id] ?? 0) === 1 ? "" : "s"}
+                                    </span>
                                     <Button
                                         size="icon"
                                         variant="ghost"
