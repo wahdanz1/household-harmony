@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Pencil, AlertTriangle, Sparkles, Car, Baby, PawPrint, Box, Plus, CreditCard, User, Zap } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Info, AlertTriangle, Sparkles, Car, Baby, PawPrint, Box, Plus, CreditCard, User, Zap } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
@@ -21,6 +21,11 @@ interface ExpenseItem {
     budget?: number;
     /** Realised amount from a credit-card invoice. When set and ≠ amount, a variance badge is shown. */
     actualAmount?: number;
+    /** Audit metadata from monthly_* used by the past-month Details dialog. */
+    previousBudgetSnapshot?: number;
+    budgetChangedAt?: string;
+    actualRecordedAt?: string;
+    inactivatedAt?: string;
     category?: string;
     // Optional custom display (e.g., "1780 SEK/year" instead of calculated monthly)
     displayAmount?: number;
@@ -93,6 +98,8 @@ interface ExpenseBlockProps {
     onAmountChange?: (id: string, amount: string) => void;
     editable?: boolean;
     onAdd?: () => void;
+    /** Past-month read-only mode: pencil hover becomes info icon. */
+    pastMonth?: boolean;
 }
 
 /**
@@ -112,6 +119,7 @@ export const ExpenseBlock = ({
     onAmountChange,
     editable = false,
     onAdd,
+    pastMonth = false,
 }: ExpenseBlockProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const blockRef = useRef<HTMLDivElement>(null);
@@ -244,7 +252,10 @@ export const ExpenseBlock = ({
                                         {item.isOneOff && <OneOffChip />}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                <div
+                                    className="flex items-center gap-2 shrink-0"
+                                    onClick={editable && onAmountChange ? (e) => e.stopPropagation() : undefined}
+                                >
                                     {editable && onAmountChange ? (
                                         <MoneyInput
                                             value={item.amount}
@@ -283,7 +294,11 @@ export const ExpenseBlock = ({
                                             estimate={categoryType === 'expense' && isCategoryBudgeted(item.category)}
                                         />
                                     )}
-                                    <Pencil className="h-3.5 w-3.5 text-muted hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                    {pastMonth ? (
+                                        <Info className="h-3.5 w-3.5 text-muted hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                    ) : (
+                                        <Pencil className="h-3.5 w-3.5 text-muted hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                                    )}
                                 </div>
                             </RowItem>
                         );
@@ -320,6 +335,7 @@ interface AllTabBlockViewProps {
     onAddSubscription?: () => void;
     onAddInsurance?: () => void;
     onAmountChange?: (id: string, amount: string) => void;
+    pastMonth?: boolean;
 }
 
 /**
@@ -339,6 +355,7 @@ export const AllTabBlockView = ({
     onAddSubscription,
     onAddInsurance,
     onAmountChange,
+    pastMonth = false,
 }: AllTabBlockViewProps) => {
     const expensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
     const expensesBudgetedTotal = expenses
@@ -426,6 +443,7 @@ export const AllTabBlockView = ({
                     onItemClick={onExpenseClick}
                     editable={!!onAmountChange}
                     onAmountChange={onAmountChange}
+                    pastMonth={pastMonth}
                     headerMetrics={
                         <SectionFrames frames={[
                             { v: expensesTotal, unit: "kr/mo", primary: true },
@@ -442,7 +460,8 @@ export const AllTabBlockView = ({
                 items={subscriptionItems}
                 categoryType="subscription"
                 onItemClick={onSubscriptionClick}
-                onAdd={onAddSubscription}
+                onAdd={pastMonth ? undefined : onAddSubscription}
+                pastMonth={pastMonth}
                 severity={subscriptionSeverity}
                 severityMessage={
                     subscriptionSeverity === 'danger'
@@ -468,7 +487,8 @@ export const AllTabBlockView = ({
                 items={insuranceItems}
                 categoryType="insurance"
                 onItemClick={onInsuranceClick}
-                onAdd={onAddInsurance}
+                onAdd={pastMonth ? undefined : onAddInsurance}
+                pastMonth={pastMonth}
                 headerMetrics={insuranceTotal > 0 ? (
                     <SectionFrames frames={[
                         { v: insuranceTotal, unit: "kr/mo", primary: true },

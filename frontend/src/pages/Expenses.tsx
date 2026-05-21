@@ -27,6 +27,8 @@ import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFi
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
+import { PastMonthDetailsDialog, PastMonthDetailsItem } from "@/components/shared/PastMonthDetailsDialog";
+import { getCategoryById } from "@/constants/expenseCategories";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { ExpensesPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
@@ -54,6 +56,7 @@ const Expenses = () => {
 
   const [editingSubscription, setEditingSubscription] = useState<any | null>(null);
   const [editingInsurance, setEditingInsurance] = useState<any | null>(null);
+  const [detailsItem, setDetailsItem] = useState<PastMonthDetailsItem | null>(null);
 
   const financialMonthStart = household?.financial_month_start || 25;
 
@@ -61,6 +64,7 @@ const Expenses = () => {
   const todayMonth = getCurrentFinancialMonth(financialMonthStart);
   const [selectedMonth, setSelectedMonth] = useState(todayMonth);
   const isCurrentMonth = selectedMonth === todayMonth;
+  const isPastMonth = selectedMonth < todayMonth;
 
   // The review gate only applies once a previous financial month exists with
   // data — fresh households on their very first month aren't asked to review
@@ -433,6 +437,7 @@ const Expenses = () => {
             />
           ) : (
           <>
+          {!isPastMonth && (
           <div className="hidden sm:grid grid-cols-2 gap-5">
             <Button
               size="lg"
@@ -454,6 +459,7 @@ const Expenses = () => {
               One-off
             </Button>
           </div>
+          )}
 
           <AllTabBlockView
             expenses={[
@@ -475,6 +481,10 @@ const Expenses = () => {
                   subject: subj ? { name: subj.name, type: subj.type } : undefined,
                   member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
                   isCredit: !!cat.is_credit,
+                  previousBudgetSnapshot: monthly?.previous_budget_snapshot != null ? Number(monthly.previous_budget_snapshot) : undefined,
+                  budgetChangedAt: monthly?.budget_changed_at ?? undefined,
+                  actualRecordedAt: monthly?.actual_recorded_at ?? undefined,
+                  inactivatedAt: monthly?.inactivated_at ?? undefined,
                 };
               }),
               // One-time entries (e.g. from credit-import for un-budgeted
@@ -484,6 +494,9 @@ const Expenses = () => {
                 .filter((m: any) => m.expense_id == null && m.one_time_name)
                 .map((m: any) => {
                   const actualAmount = m.actual_amount != null ? Number(m.actual_amount) : undefined;
+                  // Past months: click opens Details. Current month: no edit
+                  // surface yet, so row stays non-interactive.
+                  const readOnly = !isPastMonth;
                   return {
                     id: `onetime-${m.id}`,
                     name: m.one_time_name as string,
@@ -492,7 +505,7 @@ const Expenses = () => {
                     actualAmount,
                     category: m.one_time_category as string | undefined,
                     isOneOff: true,
-                    readOnly: true,
+                    readOnly,
                   };
                 }),
             ].sort((a, b) => (b.actualAmount ?? b.budget ?? 0) - (a.actualAmount ?? a.budget ?? 0))}
@@ -566,23 +579,106 @@ const Expenses = () => {
             insuranceTotal={insuranceTotal}
             subscriptionSeverity={subscriptionSeverity}
             currency={household?.currency || "SEK"}
+            pastMonth={isPastMonth}
             onExpenseClick={(id) => {
+              if (id.startsWith("onetime-")) {
+                if (!isPastMonth) return;
+                const monthlyId = id.slice("onetime-".length);
+                const monthly = monthlyExpenses.find((m: any) => m.id === monthlyId);
+                if (!monthly) return;
+                const cat = getCategoryById(monthly.one_time_category);
+                setDetailsItem({
+                  name: monthly.one_time_name,
+                  categoryLabel: cat?.label,
+                  icon: cat?.icon,
+                  hue: cat?.hue,
+                  currency: household?.currency || "SEK",
+                  actualAmount: monthly.actual_amount != null ? Number(monthly.actual_amount) : undefined,
+                  isOneOff: true,
+                });
+                return;
+              }
               const expense = expenseCategories.find(cat => cat.id === id);
-              if (expense) handleEditCategory(expense);
+              if (!expense) return;
+              if (isPastMonth) {
+                const monthly = monthlyExpenses.find((m: any) => m.expense_id === expense.id);
+                const cat = getCategoryById(expense.category);
+                const subj = subjects.find(s => s.id === expense.subject_id);
+                const mem = members.find(m => m.id === expense.member_id);
+                setDetailsItem({
+                  name: expense.name,
+                  categoryLabel: cat?.label,
+                  icon: cat?.icon,
+                  hue: cat?.hue,
+                  currency: household?.currency || "SEK",
+                  budget: parseFloat(expense.budget || "0"),
+                  actualAmount: monthly?.actual_amount != null ? Number(monthly.actual_amount) : undefined,
+                  previousBudgetSnapshot: monthly?.previous_budget_snapshot != null ? Number(monthly.previous_budget_snapshot) : undefined,
+                  budgetChangedAt: monthly?.budget_changed_at ?? undefined,
+                  actualRecordedAt: monthly?.actual_recorded_at ?? undefined,
+                  inactivatedAt: monthly?.inactivated_at ?? undefined,
+                  subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                  member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
+                  isCredit: !!expense.is_credit,
+                });
+                return;
+              }
+              handleEditCategory(expense);
             }}
             onAddSubscription={() => !isReadOnly && setAddSubscriptionOpen(true)}
             onAddInsurance={() => !isReadOnly && setAddInsuranceOpen(true)}
             onSubscriptionClick={(id) => {
               const subscription = subscriptions.find(s => s.id === id);
-              if (subscription) setEditingSubscription(subscription);
+              if (!subscription) return;
+              if (isPastMonth) {
+                const cat = subscriptionCategories.find(c => c.value === subscription.category);
+                const subj = subjects.find(s => s.id === subscription.subject_id);
+                const mem = members.find(m => m.id === subscription.member_id);
+                const cycleLabels: Record<string, string> = { yearly: "/year", quarterly: "/quarter", monthly: "/month", semi_annually: "/6 mo" };
+                setDetailsItem({
+                  name: subscription.name || subscription.service,
+                  categoryLabel: cat?.label,
+                  icon: cat?.icon,
+                  hue: cat?.hue,
+                  currency: household?.currency || "SEK",
+                  budget: parseFloat(String(subscription.budget || 0)),
+                  billingLabel: cycleLabels[subscription.billing_cycle] || "/month",
+                  subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                  member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
+                });
+                return;
+              }
+              setEditingSubscription(subscription);
             }}
             onInsuranceClick={(id) => {
               const insurance = insurances.find(i => i.id === id);
-              if (insurance) setEditingInsurance(insurance);
+              if (!insurance) return;
+              if (isPastMonth) {
+                const cat = insuranceTypes.find(t => t.value === insurance.category);
+                const subj = subjects.find(s => s.id === insurance.subject_id);
+                const mem = members.find(m => m.id === insurance.member_id);
+                const cycleLabels: Record<string, string> = { yearly: "/year", quarterly: "/quarter", monthly: "/month", semi_annually: "/6 mo" };
+                const rawName = typeof insurance.name === "string" ? insurance.name.trim() : "";
+                const customName = rawName === "NaN" ? "" : rawName;
+                setDetailsItem({
+                  name: customName || cat?.label || "Insurance",
+                  categoryLabel: cat?.label,
+                  icon: cat?.icon,
+                  hue: cat?.hue,
+                  currency: household?.currency || "SEK",
+                  budget: parseFloat(String(insurance.budget || 0)),
+                  billingLabel: cycleLabels[insurance.billing_cycle] || "/month",
+                  subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                  member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
+                });
+                return;
+              }
+              setEditingInsurance(insurance);
             }}
           />
 
 
+          {!isPastMonth && (
           <MobileBottomBar>
             <Button
               size="lg"
@@ -604,6 +700,7 @@ const Expenses = () => {
               One-off
             </Button>
           </MobileBottomBar>
+          )}
           </>
           )}
         </TabsContent>
@@ -743,6 +840,12 @@ const Expenses = () => {
           onSuccess={fetchData}
         />
       )}
+
+      <PastMonthDetailsDialog
+        open={!!detailsItem}
+        onOpenChange={(o) => !o && setDetailsItem(null)}
+        item={detailsItem}
+      />
     </div>
   );
 };
