@@ -28,6 +28,7 @@ interface ExpenseItem {
     displayLabel?: string;
     billingCycle?: 'monthly' | 'quarterly' | 'yearly';
     isDue?: boolean;
+    isDueNext?: boolean;
     subject?: { name: string; type: string };
     member?: { name: string };
     inactive?: boolean;
@@ -204,7 +205,9 @@ export const ExpenseBlock = ({
                                 ? 'text-ink'
                                 : item.isDue
                                     ? item.billingCycle === 'yearly' ? 'text-danger' : 'text-warn'
-                                    : 'text-muted'
+                                    : item.isDueNext
+                                        ? 'text-warn'
+                                        : 'text-muted'
                             : 'text-ink';
 
                         return (
@@ -226,7 +229,7 @@ export const ExpenseBlock = ({
                                         <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={32} />
                                     )}
                                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                                        <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue
+                                        <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue || item.isDueNext
                                             ? 'text-ink'
                                             : 'text-muted'
                                             }`}>{item.name}</span>
@@ -295,8 +298,8 @@ export const ExpenseBlock = ({
 
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; budget: number; billing_cycle: string; category?: string; isDue?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; isDue?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
+    subscriptions: { id: string; name: string; budget: number; billing_cycle: string; category?: string; isDue?: boolean; isDueNext?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
+    insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; isDue?: boolean; isDueNext?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
@@ -358,6 +361,7 @@ export const AllTabBlockView = ({
             displayLabel,
             billingCycle: sub.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
             isDue: sub.isDue,
+            isDueNext: sub.isDueNext,
             subject: sub.subject,
             member: sub.member,
             inactive: sub.inactive,
@@ -382,6 +386,7 @@ export const AllTabBlockView = ({
             displayLabel,
             billingCycle: ins.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
             isDue: ins.isDue,
+            isDueNext: ins.isDueNext,
             subject: ins.subject,
             member: ins.member,
             inactive: ins.inactive,

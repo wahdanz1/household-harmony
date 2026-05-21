@@ -89,7 +89,7 @@ const Overview = () => {
   const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [openSettlementCoParentId, setOpenSettlementCoParentId] = useState<string | null>(null);
-  const { settlements, refetch: refetchSettlements } = useCoParentSettlements({ householdId: household?.id, coParents });
+  const { settlements, refetch: refetchSettlements } = useCoParentSettlements({ householdId: household?.id, coParents, financialMonthStart });
   const [data, setData] = useState<OverviewData>({
     income: 0,
     expenses: 0,

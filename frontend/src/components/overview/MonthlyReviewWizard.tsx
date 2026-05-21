@@ -20,6 +20,7 @@ import { getCategoryById } from "@/constants/expenseCategories";
 import { getIncomeCategoryById } from "@/constants/incomeCategories";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
+import { billsInFinancialMonth } from "@/utils/billingEvents";
 import { reportFailure, reportSuccess, isDown } from "@/utils/outageMonitor";
 
 type ReviewScope = "income" | "expenses";
@@ -358,40 +359,45 @@ export const MonthlyReviewWizard = ({
             };
         });
 
-        // Build recurring items (subs + insurances). Only rows that EXIST in
-        // monthly_* for the current FM appear — billing-event semantics.
+        // Build recurring items (subs + insurances) under lazy semantics:
+        // iterate active sources, include those whose billing falls in the
+        // current FM (via date-math). monthly_* rows are used for audit
+        // data when present; otherwise the source's current budget is the
+        // snapshot. Rows are upserted on Accept.
         const buildRecurring = (
-            monthlyRows: any[],
             sources: any[],
+            monthlyRows: any[],
             fkField: "subscription_id" | "insurance_id",
             nameOf: (s: any) => string,
         ): RecurringItem[] => {
-            return monthlyRows.map((m: any) => {
-                const source = sources.find((s: any) => s.id === m[fkField]);
-                if (!source) return null;
-                const amount = m.actual_amount ?? m.budget_snapshot ?? source.budget ?? 0;
-                return {
-                    id: m.id,
-                    name: nameOf(source),
-                    amount: parseFloat(amount.toString()),
-                    budget: parseFloat((source.budget ?? 0).toString()),
-                    category: source.category,
-                    source_id: source.id,
-                    billing_cycle: source.billing_cycle,
-                    ...auditOf(m),
-                };
-            }).filter((x: RecurringItem | null): x is RecurringItem => x !== null);
+            return sources
+                .filter((s: any) => s.is_active && !s.archived_at)
+                .filter((s: any) => billsInFinancialMonth(s, currentMonth, financialMonthStart))
+                .map((source: any) => {
+                    const monthly = monthlyRows.find((m: any) => m[fkField] === source.id);
+                    const amount = monthly?.actual_amount ?? monthly?.budget_snapshot ?? source.budget ?? 0;
+                    return {
+                        id: monthly?.id || `new-${source.id}`,
+                        name: nameOf(source),
+                        amount: parseFloat(amount.toString()),
+                        budget: parseFloat((source.budget ?? 0).toString()),
+                        category: source.category,
+                        source_id: source.id,
+                        billing_cycle: source.billing_cycle,
+                        ...auditOf(monthly),
+                    };
+                });
         };
 
         const subItems = buildRecurring(
-            decryptedMonthlySubs,
             decryptedSubsSources,
+            decryptedMonthlySubs,
             "subscription_id",
             (s) => s.name || s.service || "Subscription",
         );
         const insItems = buildRecurring(
-            decryptedMonthlyIns,
             decryptedInsSources,
+            decryptedMonthlyIns,
             "insurance_id",
             (s) => {
                 const rawName = typeof s.name === "string" ? s.name.trim() : "";
