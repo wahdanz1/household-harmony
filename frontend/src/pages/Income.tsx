@@ -205,9 +205,14 @@ const Income = () => {
   }, [household?.id, financialMonthStart, selectedMonth, user?.id, isUnlocked, dataVersion]);
 
   useEffect(() => {
-    if (!householdLoading && household?.id) {
-      fetchData();
+    if (householdLoading) return;
+    if (!household?.id) {
+      // Stranded after leave — release the skeleton so VaultLockedAlert or
+      // the empty state below can surface.
+      setLoading(false);
+      return;
     }
+    fetchData();
   }, [householdLoading, household?.id, fetchData]);
 
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);

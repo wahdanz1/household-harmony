@@ -37,7 +37,7 @@ import { useHouseholdSubjects } from "@/hooks/useHouseholdSubjects";
 
 const Expenses = () => {
   const { user } = useAuth();
-  const { household, members, coParents, dataVersion } = useHousehold();
+  const { household, members, coParents, loading: householdLoading, dataVersion } = useHousehold();
   const { isUnlocked } = useEncryption();
   const [subjectsRefreshKey, setSubjectsRefreshKey] = useState(0);
   const subjects = useHouseholdSubjects(household?.id, subjectsRefreshKey);
@@ -200,10 +200,15 @@ const Expenses = () => {
   }, [user?.id, household?.id, household?.financial_month_start, selectedMonth, isUnlocked, dataVersion]);
 
   useEffect(() => {
-    if (household?.id) {
-      fetchData();
+    if (householdLoading) return;
+    if (!household?.id) {
+      // Stranded after leave — surface the empty / locked state below
+      // instead of holding the skeleton open.
+      setLoading(false);
+      return;
     }
-  }, [household?.id, fetchData]);
+    fetchData();
+  }, [householdLoading, household?.id, fetchData]);
 
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
