@@ -160,10 +160,22 @@ export const subscriptionFields: EncryptionFieldConfig[] = [
     { original: 'budget', encrypted: 'encrypted_budget' },
 ];
 
+export const monthlySubscriptionFields: EncryptionFieldConfig[] = [
+    { original: 'budget_snapshot', encrypted: 'encrypted_budget_snapshot' },
+    { original: 'previous_budget_snapshot', encrypted: 'encrypted_previous_budget_snapshot' },
+    { original: 'actual_amount', encrypted: 'encrypted_actual_amount' },
+];
+
 export const insuranceFields: EncryptionFieldConfig[] = [
     { original: 'name', encrypted: 'encrypted_name' },
     { original: 'budget', encrypted: 'encrypted_budget' },
     { original: 'provider', encrypted: 'encrypted_provider' },
+];
+
+export const monthlyInsuranceFields: EncryptionFieldConfig[] = [
+    { original: 'budget_snapshot', encrypted: 'encrypted_budget_snapshot' },
+    { original: 'previous_budget_snapshot', encrypted: 'encrypted_previous_budget_snapshot' },
+    { original: 'actual_amount', encrypted: 'encrypted_actual_amount' },
 ];
 
 export const creditCardExpenseFields: EncryptionFieldConfig[] = [

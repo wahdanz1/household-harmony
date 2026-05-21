@@ -25,6 +25,8 @@ interface DangerZoneCardProps {
 const WIPED_TABLES = [
     "monthly_expenses",
     "monthly_incomes",
+    "monthly_subscriptions",
+    "monthly_insurances",
     "monthly_review_status",
     "monthly_review_finalized",
     "merchant_categories",

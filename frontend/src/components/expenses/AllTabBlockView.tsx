@@ -3,20 +3,17 @@ import { ChevronDown, ChevronRight, Pencil, Info, AlertTriangle, Sparkles, Car, 
 import { CatIcon } from "@/components/ui/cat-icon";
 import { ServiceIcon } from "@/components/ui/service-icon";
 import { Money } from "@/components/ui/money";
-import { MoneyInput } from "@/components/ui/money-input";
 import { RowItem } from "@/components/ui/row-item";
 import { SectionFrames } from "@/components/ui/section-frames";
 import { useEffect, useRef, useState } from "react";
 import { getCategoryById, isCategoryBudgeted } from "@/constants/expenseCategories";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
-import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ExpenseItem {
     id: string;
     name: string;
-    /** The editable/budget amount for the month. */
     amount: number;
     budget?: number;
     /** Realised amount from a credit-card invoice. When set and ≠ amount, a variance badge is shown. */
@@ -27,13 +24,11 @@ interface ExpenseItem {
     actualRecordedAt?: string;
     inactivatedAt?: string;
     category?: string;
-    // Optional custom display (e.g., "1780 SEK/year" instead of calculated monthly)
     displayAmount?: number;
-    displayLabel?: string; // e.g., "/year", "/quarter", "/6 mo", "/month"
-    // For color-coded subscriptions
+    displayLabel?: string;
     billingCycle?: 'monthly' | 'quarterly' | 'yearly';
-    isDue?: boolean; // Is this subscription due in the current financial month?
-    hasSpecialFields?: boolean; // Electricity/Rent - needs dialog to edit
+    isDue?: boolean;
+    isDueNext?: boolean;
     subject?: { name: string; type: string };
     member?: { name: string };
     inactive?: boolean;
@@ -95,11 +90,11 @@ interface ExpenseBlockProps {
     severityMessage?: string;
     categoryType?: 'expense' | 'subscription' | 'insurance';
     onItemClick?: (id: string) => void;
-    onAmountChange?: (id: string, amount: string) => void;
-    editable?: boolean;
     onAdd?: () => void;
     /** Past-month read-only mode: pencil hover becomes info icon. */
     pastMonth?: boolean;
+    /** Initial expanded state; user can still collapse/expand. */
+    defaultExpanded?: boolean;
 }
 
 /**
@@ -116,12 +111,11 @@ export const ExpenseBlock = ({
     severityMessage,
     categoryType = 'expense',
     onItemClick,
-    onAmountChange,
-    editable = false,
     onAdd,
     pastMonth = false,
+    defaultExpanded = false,
 }: ExpenseBlockProps) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(defaultExpanded);
     const blockRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -154,7 +148,7 @@ export const ExpenseBlock = ({
             : severity === 'upcoming'
                 ? 'border-warn'
                 : 'border-line';
-    const severityWidth = severity !== 'default' ? 'border-2' : 'border';
+    const severityWidth = 'border';
     const severityIconColor = severity === 'danger'
         ? 'text-danger'
         : severity === 'upcoming'
@@ -209,19 +203,15 @@ export const ExpenseBlock = ({
                         const Icon = cat?.icon;
                         const isLast = idx === items.length - 1;
 
-                        // Display color when not editable: muted unless monthly or due
                         const displayColor = item.displayAmount !== undefined
                             ? item.billingCycle === 'monthly' || !item.billingCycle
                                 ? 'text-ink'
                                 : item.isDue
                                     ? item.billingCycle === 'yearly' ? 'text-danger' : 'text-warn'
-                                    : 'text-muted'
+                                    : item.isDueNext
+                                        ? 'text-warn'
+                                        : 'text-muted'
                             : 'text-ink';
-
-                        const inputStatus =
-                            item.budget !== undefined && Math.abs(item.amount - item.budget) < 0.01
-                                ? 'saved'
-                                : 'modified';
 
                         return (
                             <RowItem
@@ -242,7 +232,7 @@ export const ExpenseBlock = ({
                                         <CatIcon icon={Icon || Sparkles} hue={cat?.hue} size={32} />
                                     )}
                                     <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                                        <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue
+                                        <span className={`font-medium text-sm sm:text-base truncate ${item.billingCycle === 'monthly' || !item.billingCycle || item.isDue || item.isDueNext
                                             ? 'text-ink'
                                             : 'text-muted'
                                             }`}>{item.name}</span>
@@ -252,20 +242,8 @@ export const ExpenseBlock = ({
                                         {item.isOneOff && <OneOffChip />}
                                     </div>
                                 </div>
-                                <div
-                                    className="flex items-center gap-2 shrink-0"
-                                    onClick={editable && onAmountChange ? (e) => e.stopPropagation() : undefined}
-                                >
-                                    {editable && onAmountChange ? (
-                                        <MoneyInput
-                                            value={item.amount}
-                                            currency={currency}
-                                            status={inputStatus}
-                                            size="base"
-                                            widthClassName="w-20 sm:w-24"
-                                            onChange={(v) => onAmountChange(item.id, v.toString())}
-                                        />
-                                    ) : item.actualAmount !== undefined ? (
+                                <div className="flex items-center gap-2 shrink-0">
+                                    {item.actualAmount !== undefined ? (
                                         <Money
                                             v={item.actualAmount}
                                             currency={currency}
@@ -323,19 +301,21 @@ export const ExpenseBlock = ({
 
 interface AllTabBlockViewProps {
     expenses: ExpenseItem[];
-    subscriptions: { id: string; name: string; budget: number; billing_cycle: string; category?: string; isDue?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
-    insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
+    subscriptions: { id: string; name: string; budget: number; billing_cycle: string; category?: string; isDue?: boolean; isDueNext?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
+    insurances: { id: string; name: string; monthly_cost: number; budget: number; billing_cycle: string; category?: string; isDue?: boolean; isDueNext?: boolean; subject?: { name: string; type: string }; member?: { name: string }; inactive?: boolean }[];
     subscriptionsTotal: number;
     insuranceTotal: number;
     currency: string;
     subscriptionSeverity?: 'default' | 'upcoming' | 'warning' | 'danger';
+    insuranceSeverity?: 'default' | 'upcoming' | 'warning' | 'danger';
     onExpenseClick?: (id: string) => void;
     onSubscriptionClick?: (id: string) => void;
     onInsuranceClick?: (id: string) => void;
     onAddSubscription?: () => void;
     onAddInsurance?: () => void;
-    onAmountChange?: (id: string, amount: string) => void;
     pastMonth?: boolean;
+    /** Which section's accordion to open by default. */
+    defaultExpanded?: 'expenses' | 'subscriptions' | 'insurances';
 }
 
 /**
@@ -349,13 +329,14 @@ export const AllTabBlockView = ({
     insuranceTotal,
     currency,
     subscriptionSeverity = 'default',
+    insuranceSeverity = 'default',
     onExpenseClick,
     onSubscriptionClick,
     onInsuranceClick,
     onAddSubscription,
     onAddInsurance,
-    onAmountChange,
     pastMonth = false,
+    defaultExpanded = 'expenses',
 }: AllTabBlockViewProps) => {
     const expensesTotal = expenses.reduce((sum, item) => sum + item.amount, 0);
     const expensesBudgetedTotal = expenses
@@ -386,6 +367,7 @@ export const AllTabBlockView = ({
             displayLabel,
             billingCycle: sub.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
             isDue: sub.isDue,
+            isDueNext: sub.isDueNext,
             subject: sub.subject,
             member: sub.member,
             inactive: sub.inactive,
@@ -408,6 +390,9 @@ export const AllTabBlockView = ({
             category: ins.category,
             displayAmount: ins.budget,
             displayLabel,
+            billingCycle: ins.billing_cycle as 'monthly' | 'quarterly' | 'yearly',
+            isDue: ins.isDue,
+            isDueNext: ins.isDueNext,
             subject: ins.subject,
             member: ins.member,
             inactive: ins.inactive,
@@ -441,9 +426,8 @@ export const AllTabBlockView = ({
                     currency={currency}
                     items={expenses}
                     onItemClick={onExpenseClick}
-                    editable={!!onAmountChange}
-                    onAmountChange={onAmountChange}
                     pastMonth={pastMonth}
+                    defaultExpanded={defaultExpanded === 'expenses'}
                     headerMetrics={
                         <SectionFrames frames={[
                             { v: expensesTotal, unit: "kr/mo", primary: true },
@@ -462,6 +446,7 @@ export const AllTabBlockView = ({
                 onItemClick={onSubscriptionClick}
                 onAdd={pastMonth ? undefined : onAddSubscription}
                 pastMonth={pastMonth}
+                defaultExpanded={defaultExpanded === 'subscriptions'}
                 severity={subscriptionSeverity}
                 severityMessage={
                     subscriptionSeverity === 'danger'
@@ -489,6 +474,17 @@ export const AllTabBlockView = ({
                 onItemClick={onInsuranceClick}
                 onAdd={pastMonth ? undefined : onAddInsurance}
                 pastMonth={pastMonth}
+                defaultExpanded={defaultExpanded === 'insurances'}
+                severity={insuranceSeverity}
+                severityMessage={
+                    insuranceSeverity === 'danger'
+                        ? "A yearly insurance is due this month!"
+                        : insuranceSeverity === 'upcoming'
+                            ? "An insurance bill is due next month"
+                            : insuranceSeverity === 'warning'
+                                ? "An insurance bill is due this month"
+                                : undefined
+                }
                 headerMetrics={insuranceTotal > 0 ? (
                     <SectionFrames frames={[
                         { v: insuranceTotal, unit: "kr/mo", primary: true },

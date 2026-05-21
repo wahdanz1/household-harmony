@@ -17,6 +17,7 @@ import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { MetricTile } from "@/components/ui/metric-tile";
 import { CoParentSettlementDialog } from "@/components/overview/CoParentSettlementDialog";
 import { useCoParentSettlements } from "@/hooks/useCoParentSettlements";
+import { classifySourcesByFM } from "@/utils/billingEvents";
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 import { HouseholdSetupWizard } from "@/components/overview/HouseholdSetupWizard";
 import {
@@ -62,6 +63,8 @@ const formatRelative = (d: Date): string => {
   return format(d, "d MMM");
 };
 
+type TileSeverity = "default" | "upcoming" | "warning" | "danger";
+
 interface OverviewData {
   income: number;
   expenses: number;
@@ -70,9 +73,11 @@ interface OverviewData {
   subscriptionsMonthly: number;
   subscriptionsYearly: number;
   subscriptionsCount: number;
+  subscriptionsSeverity: TileSeverity;
   insuranceMonthly: number;
   insuranceYearly: number;
   insuranceCount: number;
+  insuranceSeverity: TileSeverity;
   activity: ActivityItem[];
 }
 
@@ -89,7 +94,7 @@ const Overview = () => {
   const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [openSettlementCoParentId, setOpenSettlementCoParentId] = useState<string | null>(null);
-  const { settlements, refetch: refetchSettlements } = useCoParentSettlements({ householdId: household?.id, coParents });
+  const { settlements, refetch: refetchSettlements } = useCoParentSettlements({ householdId: household?.id, coParents, financialMonthStart });
   const [data, setData] = useState<OverviewData>({
     income: 0,
     expenses: 0,
@@ -98,9 +103,11 @@ const Overview = () => {
     subscriptionsMonthly: 0,
     subscriptionsYearly: 0,
     subscriptionsCount: 0,
+    subscriptionsSeverity: "default",
     insuranceMonthly: 0,
     insuranceYearly: 0,
     insuranceCount: 0,
+    insuranceSeverity: "default",
     activity: [],
   });
   const [currency, setCurrency] = useState("SEK");
@@ -159,10 +166,10 @@ const Overview = () => {
       let expenseQuery = supabase.from("expenses").select("id, encrypted_budget, is_encrypted").eq("household_id", household.id);
       if (!isPastMonth) expenseQuery = expenseQuery.is("archived_at", null);
 
-      let subscriptionQuery = supabase.from("subscriptions").select("encrypted_budget, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id);
+      let subscriptionQuery = supabase.from("subscriptions").select("id, encrypted_budget, billing_cycle, billing_month, billing_day, is_active, is_encrypted").eq("household_id", household.id);
       if (!isPastMonth) subscriptionQuery = subscriptionQuery.eq("is_active", true).is("archived_at", null);
 
-      let insuranceQuery = supabase.from("insurances").select("encrypted_budget, billing_cycle, is_shared, share_percentage, is_encrypted").eq("household_id", household.id);
+      let insuranceQuery = supabase.from("insurances").select("id, encrypted_budget, billing_cycle, billing_month, billing_day, is_active, is_shared, share_percentage, is_encrypted").eq("household_id", household.id);
       if (!isPastMonth) insuranceQuery = insuranceQuery.eq("is_active", true).is("archived_at", null);
 
       let results;
@@ -353,6 +360,26 @@ const Overview = () => {
         .sort((a, b) => b.when.getTime() - a.when.getTime())
         .slice(0, 5);
 
+      // Compute warning severity for the recurring tiles from the source
+      // billing schedules. Mirrors the per-section severity on the Expenses
+      // page so the Overview surfaces the same heads-up signal.
+      const computeRecurringSeverity = (sources: any[]): TileSeverity => {
+        const { thisFm, nextFm } = classifySourcesByFM(
+          sources.filter((s: any) => s.is_active),
+          fetchMonth,
+          fms,
+        );
+        let sev: TileSeverity = "default";
+        const rank: Record<TileSeverity, number> = { default: 0, upcoming: 1, warning: 2, danger: 3 };
+        const escalate = (next: TileSeverity) => { if (rank[next] > rank[sev]) sev = next; };
+        for (const s of sources) {
+          if (!s.is_active || s.billing_cycle === "monthly") continue;
+          if (thisFm.has(s.id)) escalate(s.billing_cycle === "yearly" ? "danger" : "warning");
+          else if (nextFm.has(s.id)) escalate("upcoming");
+        }
+        return sev;
+      };
+
       setData({
         income: totalIncome,
         expenses: totalExpenses,
@@ -361,9 +388,11 @@ const Overview = () => {
         subscriptionsMonthly,
         subscriptionsYearly,
         subscriptionsCount: decryptedSubs.length,
+        subscriptionsSeverity: computeRecurringSeverity(decryptedSubs),
         insuranceMonthly,
         insuranceYearly,
         insuranceCount: decryptedInsurances.length,
+        insuranceSeverity: computeRecurringSeverity(decryptedInsurances),
         activity,
       });
       setCurrency(household.currency || "SEK");
@@ -626,8 +655,9 @@ const Overview = () => {
                     primaryLabel="per month"
                     secondary={`${fmtKr(data.subscriptionsYearly, currency)}/yr`}
                     count={data.subscriptionsCount}
+                    severity={data.subscriptionsSeverity}
                     currency={currency}
-                    onClick={() => navigate("/expenses?tab=all")}
+                    onClick={() => navigate("/expenses?tab=all&expand=subscriptions")}
                   />
                 )}
                 {data.insuranceCount > 0 && (
@@ -638,8 +668,9 @@ const Overview = () => {
                     primaryLabel="per month"
                     secondary={`${fmtKr(data.insuranceYearly, currency)}/yr`}
                     count={data.insuranceCount}
+                    severity={data.insuranceSeverity}
                     currency={currency}
-                    onClick={() => navigate("/expenses?tab=all")}
+                    onClick={() => navigate("/expenses?tab=all&expand=insurances")}
                   />
                 )}
                 {coParents.map((cp) => {

@@ -15,9 +15,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { getCurrentFinancialMonth, getFinancialMonthRange, formatFinancialMonth, getPreviousFinancialMonth } from "@/utils/dateUtils";
 import { ImportStatementStep } from "./ImportStatementStep";
-import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields, expenseFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
+import { useEncryptedFields, incomeSourceFields, monthlyIncomeFields, expenseFields, monthlyExpenseFields, subscriptionFields, monthlySubscriptionFields, insuranceFields, monthlyInsuranceFields } from "@/hooks/useEncryptedFields";
 import { getCategoryById } from "@/constants/expenseCategories";
 import { getIncomeCategoryById } from "@/constants/incomeCategories";
+import { subscriptionCategories } from "@/constants/subscriptionCategories";
+import { insuranceTypes } from "@/constants/insuranceTypes";
+import { billsInFinancialMonth } from "@/utils/billingEvents";
 import { reportFailure, reportSuccess, isDown } from "@/utils/outageMonitor";
 
 type ReviewScope = "income" | "expenses";
@@ -70,6 +73,17 @@ interface ExpenseItem extends AuditFields {
     expense_id: string;
 }
 
+interface RecurringItem extends AuditFields {
+    /** monthly_* row id, or `new-{source.id}` placeholder when no row exists yet. */
+    id: string;
+    name: string;
+    amount: number;
+    budget: number;
+    category?: string;
+    source_id: string;
+    billing_cycle: string;
+}
+
 export const MonthlyReviewWizard = ({
     open,
     onOpenChange,
@@ -88,6 +102,11 @@ export const MonthlyReviewWizard = ({
     const [currentStep, setCurrentStep] = useState<StepName>(stepOrder[0]);
     const [incomes, setIncomes] = useState<IncomeItem[]>([]);
     const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
+    const [subs, setSubs] = useState<RecurringItem[]>([]);
+    const [ins, setIns] = useState<RecurringItem[]>([]);
+    /** Stable monthly rows that will be auto-accepted on Accept Outflow.
+     *  Tracked for the footer counter. */
+    const [autoAcceptedCount, setAutoAcceptedCount] = useState(0);
     const [amounts, setAmounts] = useState<Record<string, string>>({});
     const [reviewStatus, setReviewStatus] = useState<ReviewStatusRow[]>([]);
     const [finalizedRow, setFinalizedRow] = useState<FinalizedRow | null>(null);
@@ -224,10 +243,14 @@ export const MonthlyReviewWizard = ({
     const { decryptRecords: decryptMonthlyIncomes, encryptRecord: encryptMonthlyIncome } = useEncryptedFields(monthlyIncomeFields);
     const { decryptRecords: decryptExpenses, encryptRecord: encryptExpenseSource } = useEncryptedFields(expenseFields);
     const { decryptRecords: decryptMonthlyExpenses, encryptRecord: encryptMonthlyExpense } = useEncryptedFields(monthlyExpenseFields);
+    const { decryptRecords: decryptSubscriptions } = useEncryptedFields(subscriptionFields);
+    const { decryptRecords: decryptMonthlySubscriptions, encryptRecord: encryptMonthlySubscription } = useEncryptedFields(monthlySubscriptionFields);
+    const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
+    const { decryptRecords: decryptMonthlyInsurances, encryptRecord: encryptMonthlyInsurance } = useEncryptedFields(monthlyInsuranceFields);
 
     // Latest decrypt fns in a ref so polling closure doesn't go stale
-    const decryptRefs = useRef({ decryptMonthlyIncomes, decryptMonthlyExpenses });
-    decryptRefs.current = { decryptMonthlyIncomes, decryptMonthlyExpenses };
+    const decryptRefs = useRef({ decryptMonthlyIncomes, decryptMonthlyExpenses, decryptMonthlySubscriptions, decryptMonthlyInsurances });
+    decryptRefs.current = { decryptMonthlyIncomes, decryptMonthlyExpenses, decryptMonthlySubscriptions, decryptMonthlyInsurances };
 
     const fetchData = useCallback(async () => {
         if (!household || !user) return;
@@ -245,6 +268,11 @@ export const MonthlyReviewWizard = ({
                 supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
                 supabase.from("monthly_review_status").select("user_id, scope, accepted_at").eq("household_id", household.id).eq("month", currentMonth),
                 supabase.from("monthly_review_finalized").select("finalized_by, finalized_at").eq("household_id", household.id).eq("month", currentMonth).maybeSingle(),
+                // Include archived/inactive sources so monthly_* rows that pre-date a deactivation still resolve names.
+                supabase.from("subscriptions").select("*").eq("household_id", household.id),
+                supabase.from("monthly_subscriptions").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
+                supabase.from("insurances").select("*").eq("household_id", household.id),
+                supabase.from("monthly_insurances").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
             ]);
         } catch (err) {
             reportFailure(err);
@@ -265,12 +293,20 @@ export const MonthlyReviewWizard = ({
             { data: monthlyExpensesData },
             { data: statusData },
             { data: finalizedData },
+            { data: subsSourceData },
+            { data: monthlySubsData },
+            { data: insSourceData },
+            { data: monthlyInsData },
         ] = results;
 
         const decryptedSources = await decryptIncomeSources(sourcesData || []);
         const decryptedMonthlyIncomes = await decryptRefs.current.decryptMonthlyIncomes(monthlyIncomesData || []);
         const decryptedCategories = await decryptExpenses(categoriesData || []);
         const decryptedMonthlyExpenses = await decryptRefs.current.decryptMonthlyExpenses(monthlyExpensesData || []);
+        const decryptedSubsSources = await decryptSubscriptions(subsSourceData || []);
+        const decryptedMonthlySubs = await decryptRefs.current.decryptMonthlySubscriptions(monthlySubsData || []);
+        const decryptedInsSources = await decryptInsurances(insSourceData || []);
+        const decryptedMonthlyIns = await decryptRefs.current.decryptMonthlyInsurances(monthlyInsData || []);
 
         const resolveAmount = (
             existing: any | undefined,
@@ -323,8 +359,68 @@ export const MonthlyReviewWizard = ({
             };
         });
 
+        // Build recurring items (subs + insurances) under lazy semantics:
+        // iterate active sources, include those whose billing falls in the
+        // current FM (via date-math). monthly_* rows are used for audit
+        // data when present; otherwise the source's current budget is the
+        // snapshot. Rows are upserted on Accept.
+        const buildRecurring = (
+            sources: any[],
+            monthlyRows: any[],
+            fkField: "subscription_id" | "insurance_id",
+            nameOf: (s: any) => string,
+        ): RecurringItem[] => {
+            return sources
+                .filter((s: any) => s.is_active && !s.archived_at)
+                .filter((s: any) => billsInFinancialMonth(s, currentMonth, financialMonthStart))
+                .map((source: any) => {
+                    const monthly = monthlyRows.find((m: any) => m[fkField] === source.id);
+                    const amount = monthly?.actual_amount ?? monthly?.budget_snapshot ?? source.budget ?? 0;
+                    return {
+                        id: monthly?.id || `new-${source.id}`,
+                        name: nameOf(source),
+                        amount: parseFloat(amount.toString()),
+                        budget: parseFloat((source.budget ?? 0).toString()),
+                        category: source.category,
+                        source_id: source.id,
+                        billing_cycle: source.billing_cycle,
+                        ...auditOf(monthly),
+                    };
+                });
+        };
+
+        const subItems = buildRecurring(
+            decryptedSubsSources,
+            decryptedMonthlySubs,
+            "subscription_id",
+            (s) => s.name || s.service || "Subscription",
+        );
+        const insItems = buildRecurring(
+            decryptedInsSources,
+            decryptedMonthlyIns,
+            "insurance_id",
+            (s) => {
+                const rawName = typeof s.name === "string" ? s.name.trim() : "";
+                if (rawName && rawName !== "NaN") return rawName;
+                return insuranceTypes.find(t => t.value === s.category)?.label ?? "Insurance";
+            },
+        );
+
+        // Smart-show: only surface rows that need attention. Stable monthly
+        // rows get auto-accepted on Accept Outflow with actual = budget_snapshot.
+        const isNoteworthy = (r: RecurringItem) =>
+            r.billing_cycle !== 'monthly' ||
+            r.previousBudgetSnapshot != null ||
+            r.inactivatedAt != null;
+        const noteworthySubsCount = subItems.filter(isNoteworthy).length;
+        const noteworthyInsCount = insItems.filter(isNoteworthy).length;
+        const stableCount = (subItems.length - noteworthySubsCount) + (insItems.length - noteworthyInsCount);
+
         setIncomes(incomeItems);
         setExpenses(expenseItems);
+        setSubs(subItems);
+        setIns(insItems);
+        setAutoAcceptedCount(stableCount);
         setReviewStatus((statusData as ReviewStatusRow[]) || []);
         setFinalizedRow((finalizedData as FinalizedRow | null) ?? null);
 
@@ -340,9 +436,17 @@ export const MonthlyReviewWizard = ({
                 const key = `expense-${item.expense_id}`;
                 if (next[key] === undefined) next[key] = item.amount.toString();
             });
+            subItems.filter(isNoteworthy).forEach(item => {
+                const key = `sub-${item.source_id}`;
+                if (next[key] === undefined) next[key] = item.amount.toString();
+            });
+            insItems.filter(isNoteworthy).forEach(item => {
+                const key = `ins-${item.source_id}`;
+                if (next[key] === undefined) next[key] = item.amount.toString();
+            });
             return next;
         });
-    }, [household, user, monthStart, monthEnd, currentMonth, decryptIncomeSources, decryptExpenses]);
+    }, [household, user, monthStart, monthEnd, currentMonth, decryptIncomeSources, decryptExpenses, decryptSubscriptions, decryptInsurances]);
 
     // Reset transient UI state ONLY when the wizard transitions to open.
     // Don't include `user` or `household` here — those refs can change (e.g.
@@ -480,13 +584,59 @@ export const MonthlyReviewWizard = ({
                 if (error) throw error;
             }
 
+            // Noteworthy subs + insurances: write user-entered actuals.
+            // Stable monthly ones: auto-accept with actual = budget_snapshot.
+            const nowIso = new Date().toISOString();
+            for (const item of subs) {
+                const noteworthy = isNoteworthyRecurring(item);
+                const amount = noteworthy
+                    ? parseFloat(amounts[`sub-${item.source_id}`] || "0")
+                    : item.budget;
+                const baseData = {
+                    household_id: household.id,
+                    subscription_id: item.source_id,
+                    month: currentMonth,
+                    month_start: startStr,
+                    month_end: endStr,
+                    actual_amount: amount,
+                    actual_recorded_at: noteworthy ? null : nowIso,
+                    created_by: user.id,
+                };
+                const data = await encryptMonthlySubscription(baseData);
+                const { error } = await supabase.from("monthly_subscriptions").upsert(data, {
+                    onConflict: "subscription_id,month",
+                });
+                if (error) throw error;
+            }
+            for (const item of ins) {
+                const noteworthy = isNoteworthyRecurring(item);
+                const amount = noteworthy
+                    ? parseFloat(amounts[`ins-${item.source_id}`] || "0")
+                    : item.budget;
+                const baseData = {
+                    household_id: household.id,
+                    insurance_id: item.source_id,
+                    month: currentMonth,
+                    month_start: startStr,
+                    month_end: endStr,
+                    actual_amount: amount,
+                    actual_recorded_at: noteworthy ? null : nowIso,
+                    created_by: user.id,
+                };
+                const data = await encryptMonthlyInsurance(baseData);
+                const { error } = await supabase.from("monthly_insurances").upsert(data, {
+                    onConflict: "insurance_id,month",
+                });
+                if (error) throw error;
+            }
+
             await writeStatus("expenses");
 
-            toast.success("Expenses verified");
+            toast.success("Outflow verified");
             await fetchData();
         } catch (error: any) {
-            console.error("Error saving expenses:", error);
-            toast.error(error.message || "Failed to save expenses");
+            console.error("Error saving outflow:", error);
+            toast.error(error.message || "Failed to save outflow");
         } finally {
             setSavingScope(null);
         }
@@ -550,9 +700,16 @@ export const MonthlyReviewWizard = ({
     const steps = stepOrder.map((s) => ({
         label: s === "credit" ? "Credit"
             : s === "income" ? "Income"
-            : s === "expenses" ? "Expenses"
+            : s === "expenses" ? "Outflow"
             : "Review",
     }));
+
+    const isNoteworthyRecurring = (r: RecurringItem) =>
+        r.billing_cycle !== 'monthly' ||
+        r.previousBudgetSnapshot != null ||
+        r.inactivatedAt != null;
+    const noteworthySubs = subs.filter(isNoteworthyRecurring);
+    const noteworthyIns = ins.filter(isNoteworthyRecurring);
     const currentIdx = Math.max(0, stepOrder.indexOf(currentStep));
     const reviewReachable = canFinalize;
     const jumpToIdx = (idx: number) => {
@@ -706,41 +863,137 @@ export const MonthlyReviewWizard = ({
                     )}
 
                     {currentStep === "expenses" && (
-                        <div className="rounded-xl border border-line bg-surface overflow-hidden">
-                            {expenses.length === 0 ? (
-                                <p className="text-sm text-muted text-center py-8 px-4">
-                                    No expenses configured for this household.
+                        <div className="space-y-4">
+                            <div className="rounded-xl border border-line bg-surface overflow-hidden">
+                                {expenses.length === 0 ? (
+                                    <p className="text-sm text-muted text-center py-8 px-4">
+                                        No expenses configured for this household.
+                                    </p>
+                                ) : (
+                                    expenses.map((item, idx) => {
+                                        const cat = item.category ? getCategoryById(item.category) : null;
+                                        const Icon = cat?.icon || Sparkles;
+                                        const currentValue = parseFloat(amounts[`expense-${item.expense_id}`] || "0");
+                                        return (
+                                            <RowItem
+                                                key={item.expense_id}
+                                                last={idx === expenses.length - 1}
+                                                className={`relative ${expensesVerified ? "before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r before:bg-accent" : ""}`}
+                                            >
+                                                <CatIcon icon={Icon} hue={cat?.hue} size={36} />
+                                                <div className="flex-1 min-w-0">
+                                                    <span className="text-sm font-medium truncate block" title={item.name}>{item.name}</span>
+                                                    {renderAuditBadges(item, "expense", currency)}
+                                                </div>
+                                                <div className="shrink-0 flex flex-col items-end gap-1">
+                                                    <MoneyInput
+                                                        value={currentValue}
+                                                        currency={currency}
+                                                        disabled={isFinalized}
+                                                        status={Math.abs(currentValue - item.budget) < 0.01 ? "saved" : "modified"}
+                                                        onChange={(v) => handleAmountChange(`expense-${item.expense_id}`, v.toString())}
+                                                        widthClassName="w-24"
+                                                    />
+                                                    {renderVariance(currentValue, item.budget, "expense")}
+                                                </div>
+                                            </RowItem>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            {noteworthySubs.length > 0 && (
+                                <div>
+                                    <h4 className="text-xs font-medium text-muted px-1 mb-1.5">Subscriptions</h4>
+                                    <div className="rounded-xl border border-line bg-surface overflow-hidden">
+                                        {noteworthySubs.map((item, idx) => {
+                                            const cat = subscriptionCategories.find(c => c.value === item.category);
+                                            const Icon = cat?.icon || Sparkles;
+                                            const currentValue = parseFloat(amounts[`sub-${item.source_id}`] || "0");
+                                            return (
+                                                <RowItem key={item.source_id} last={idx === noteworthySubs.length - 1}>
+                                                    <CatIcon icon={Icon} hue={cat?.hue} size={36} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-sm font-medium truncate block" title={item.name}>{item.name}</span>
+                                                        <div className="flex flex-wrap gap-1 mt-0.5">
+                                                            {item.previousBudgetSnapshot != null && item.budgetChangedAt && (
+                                                                <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-warn/10 text-warn">
+                                                                    Changed {format(new Date(item.budgetChangedAt), "d MMM")} · was {Math.round(item.previousBudgetSnapshot).toLocaleString("sv-SE")} {currency}
+                                                                </span>
+                                                            )}
+                                                            {item.inactivatedAt && (
+                                                                <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-surface-2 text-muted">
+                                                                    Inactivated {format(new Date(item.inactivatedAt), "d MMM")}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="shrink-0 flex flex-col items-end gap-1">
+                                                        <MoneyInput
+                                                            value={currentValue}
+                                                            currency={currency}
+                                                            disabled={isFinalized}
+                                                            status={Math.abs(currentValue - item.budget) < 0.01 ? "saved" : "modified"}
+                                                            onChange={(v) => handleAmountChange(`sub-${item.source_id}`, v.toString())}
+                                                            widthClassName="w-24"
+                                                        />
+                                                        {renderVariance(currentValue, item.budget, "expense")}
+                                                    </div>
+                                                </RowItem>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {noteworthyIns.length > 0 && (
+                                <div>
+                                    <h4 className="text-xs font-medium text-muted px-1 mb-1.5">Insurances</h4>
+                                    <div className="rounded-xl border border-line bg-surface overflow-hidden">
+                                        {noteworthyIns.map((item, idx) => {
+                                            const cat = insuranceTypes.find(c => c.value === item.category);
+                                            const Icon = cat?.icon || ShieldCheck;
+                                            const currentValue = parseFloat(amounts[`ins-${item.source_id}`] || "0");
+                                            return (
+                                                <RowItem key={item.source_id} last={idx === noteworthyIns.length - 1}>
+                                                    <CatIcon icon={Icon} hue={cat?.hue} size={36} />
+                                                    <div className="flex-1 min-w-0">
+                                                        <span className="text-sm font-medium truncate block" title={item.name}>{item.name}</span>
+                                                        <div className="flex flex-wrap gap-1 mt-0.5">
+                                                            {item.previousBudgetSnapshot != null && item.budgetChangedAt && (
+                                                                <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-warn/10 text-warn">
+                                                                    Changed {format(new Date(item.budgetChangedAt), "d MMM")} · was {Math.round(item.previousBudgetSnapshot).toLocaleString("sv-SE")} {currency}
+                                                                </span>
+                                                            )}
+                                                            {item.inactivatedAt && (
+                                                                <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-surface-2 text-muted">
+                                                                    Inactivated {format(new Date(item.inactivatedAt), "d MMM")}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="shrink-0 flex flex-col items-end gap-1">
+                                                        <MoneyInput
+                                                            value={currentValue}
+                                                            currency={currency}
+                                                            disabled={isFinalized}
+                                                            status={Math.abs(currentValue - item.budget) < 0.01 ? "saved" : "modified"}
+                                                            onChange={(v) => handleAmountChange(`ins-${item.source_id}`, v.toString())}
+                                                            widthClassName="w-24"
+                                                        />
+                                                        {renderVariance(currentValue, item.budget, "expense")}
+                                                    </div>
+                                                </RowItem>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {autoAcceptedCount > 0 && (
+                                <p className="text-xs text-muted text-center pt-1">
+                                    {autoAcceptedCount} stable monthly item{autoAcceptedCount === 1 ? "" : "s"} will be auto-accepted at budgeted amount.
                                 </p>
-                            ) : (
-                                expenses.map((item, idx) => {
-                                    const cat = item.category ? getCategoryById(item.category) : null;
-                                    const Icon = cat?.icon || Sparkles;
-                                    const currentValue = parseFloat(amounts[`expense-${item.expense_id}`] || "0");
-                                    return (
-                                        <RowItem
-                                            key={item.expense_id}
-                                            last={idx === expenses.length - 1}
-                                            className={`relative ${expensesVerified ? "before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r before:bg-accent" : ""}`}
-                                        >
-                                            <CatIcon icon={Icon} hue={cat?.hue} size={36} />
-                                            <div className="flex-1 min-w-0">
-                                                <span className="text-sm font-medium truncate block" title={item.name}>{item.name}</span>
-                                                {renderAuditBadges(item, "expense", currency)}
-                                            </div>
-                                            <div className="shrink-0 flex flex-col items-end gap-1">
-                                                <MoneyInput
-                                                    value={currentValue}
-                                                    currency={currency}
-                                                    disabled={isFinalized}
-                                                    status={Math.abs(currentValue - item.budget) < 0.01 ? "saved" : "modified"}
-                                                    onChange={(v) => handleAmountChange(`expense-${item.expense_id}`, v.toString())}
-                                                    widthClassName="w-24"
-                                                />
-                                                {renderVariance(currentValue, item.budget, "expense")}
-                                            </div>
-                                        </RowItem>
-                                    );
-                                })
                             )}
                         </div>
                     )}
@@ -784,7 +1037,7 @@ export const MonthlyReviewWizard = ({
                                         size="lg"
                                         variant="outline"
                                     >
-                                        Continue to expenses
+                                        Continue to outflow
                                     </Button>
                                     <p className="text-center text-[11px] text-muted flex items-center justify-center gap-1.5">
                                         <Check className="h-3 w-3 text-accent" />
@@ -845,7 +1098,7 @@ export const MonthlyReviewWizard = ({
                                     size="lg"
                                 >
                                     <Check className="h-4 w-4 mr-2" />
-                                    {savingScope === "expenses" ? "Saving..." : expensesVerified ? "Re-verify expenses" : "Verify expenses"}
+                                    {savingScope === "expenses" ? "Saving..." : expensesVerified ? "Re-verify outflow" : "Verify outflow"}
                                 </Button>
                             )
                         )}
