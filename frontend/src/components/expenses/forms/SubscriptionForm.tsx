@@ -190,38 +190,49 @@ export const SubscriptionForm = ({
             </FormRow>
 
             {(formData.billing_cycle === "yearly" || formData.billing_cycle === "quarterly") && (
-                <FormRow>
-                    <FormField label="Billing month">
-                        <Select
-                            value={formData.billing_month?.toString()}
-                            onValueChange={(v) => setFormData({ ...formData, billing_month: parseInt(v) })}
-                        >
-                            <SelectTrigger><SelectValue placeholder="Month" /></SelectTrigger>
-                            <SelectContent>
-                                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                                    <SelectItem key={m} value={m.toString()}>
-                                        {format(new Date(2024, m - 1, 1), "MMMM")}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </FormField>
-                    <FormField label="Billing day">
-                        <Input
-                            type="number"
-                            min={1}
-                            max={31}
-                            value={formData.billing_day || ""}
-                            onChange={(e) => {
-                                const val = parseInt(e.target.value);
-                                if (!isNaN(val) && val >= 1 && val <= 31) {
-                                    setFormData({ ...formData, billing_day: val });
-                                }
-                            }}
-                            placeholder="1–31"
-                        />
-                    </FormField>
-                </FormRow>
+                <>
+                    <FormRow>
+                        <FormField label="Billing month" optional>
+                            <Select
+                                value={formData.billing_month?.toString() ?? ""}
+                                onValueChange={(v) => setFormData({ ...formData, billing_month: v === "0" ? undefined : parseInt(v) })}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Select month" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="0">Not set</SelectItem>
+                                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                                        <SelectItem key={m} value={m.toString()}>
+                                            {format(new Date(2024, m - 1, 1), "MMMM")}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </FormField>
+                        <FormField label="Billing day" optional>
+                            <Input
+                                type="number"
+                                min={1}
+                                max={31}
+                                value={formData.billing_day || ""}
+                                onChange={(e) => {
+                                    const raw = e.target.value;
+                                    if (raw === "") {
+                                        setFormData({ ...formData, billing_day: undefined });
+                                        return;
+                                    }
+                                    const val = parseInt(raw);
+                                    if (!isNaN(val) && val >= 1 && val <= 31) {
+                                        setFormData({ ...formData, billing_day: val });
+                                    }
+                                }}
+                                placeholder="Day of month"
+                            />
+                        </FormField>
+                    </FormRow>
+                    <p className="text-xs text-muted -mt-1">
+                        Set a billing date to get a heads-up when it's due.
+                    </p>
+                </>
             )}
 
             <AttributionPicker
