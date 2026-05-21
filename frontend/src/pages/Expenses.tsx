@@ -471,7 +471,7 @@ const Expenses = () => {
                   };
                 }),
             ].sort((a, b) => (b.actualAmount ?? b.budget ?? 0) - (a.actualAmount ?? a.budget ?? 0))}
-            subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.amount)) - parseFloat(String(a.amount))).map(sub => {
+            subscriptions={[...subscriptions].sort((a, b) => parseFloat(String(b.budget)) - parseFloat(String(a.budget))).map(sub => {
               // Calculate if this subscription is due in current financial month
               let isDue = false;
               if (sub.billing_cycle === 'yearly' && sub.billing_month && sub.billing_day) {
@@ -661,7 +661,7 @@ const Expenses = () => {
             id: editingSubscription.id,
             name: editingSubscription.name,
             service: editingSubscription.service,
-            amount: editingSubscription.amount,
+            budget: editingSubscription.budget,
             billing_cycle: editingSubscription.billing_cycle,
             category: editingSubscription.category,
             notes: editingSubscription.notes,

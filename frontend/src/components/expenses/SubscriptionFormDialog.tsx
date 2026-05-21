@@ -11,7 +11,7 @@ interface SubscriptionFormDialogProps {
         id?: string;
         name?: string;
         service?: string;
-        amount?: number | string;
+        budget?: number | string;
         billing_cycle?: string;
         category?: string;
         notes?: string;
