@@ -1,4 +1,4 @@
-import { LucideIcon } from "lucide-react";
+import { LucideIcon, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Money } from "@/components/ui/money";
 
@@ -14,6 +14,8 @@ interface MetricTileProps {
     progress?: number;
     /** "accent" tile gets the soft-accent background treatment */
     tone?: "default" | "accent";
+    /** Optional severity — renders an AlertTriangle next to count. */
+    severity?: "default" | "upcoming" | "warning" | "danger";
     currency?: string;
     onClick?: () => void;
 }
@@ -31,12 +33,18 @@ export const MetricTile = ({
     count,
     progress,
     tone = "default",
+    severity = "default",
     currency = "SEK",
     onClick,
 }: MetricTileProps) => {
     const isAccent = tone === "accent";
     const labelColor = isAccent ? "text-accent-dk" : "text-muted";
     const valueColor = isAccent ? "text-accent-dk" : "text-ink";
+    const severityColor = severity === "danger"
+        ? "text-danger"
+        : severity !== "default"
+            ? "text-warn"
+            : "";
 
     return (
         <div
@@ -59,9 +67,16 @@ export const MetricTile = ({
                 >
                     <Icon className="h-[15px] w-[15px]" strokeWidth={1.8} />
                 </div>
-                {count !== undefined && (
-                    <span className="text-[11.5px] font-semibold text-muted tabular-nums">
-                        {count}
+                {(count !== undefined || severity !== "default") && (
+                    <span className="flex items-center gap-1.5">
+                        {severity !== "default" && (
+                            <AlertTriangle className={cn("h-3.5 w-3.5", severityColor)} />
+                        )}
+                        {count !== undefined && (
+                            <span className="text-[11.5px] font-semibold text-muted tabular-nums">
+                                {count}
+                            </span>
+                        )}
                     </span>
                 )}
             </div>
