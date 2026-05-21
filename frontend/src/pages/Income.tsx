@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import { IncomeSourceItem } from "@/components/income/IncomeSourceItem";
 import { IncomeFormDialog } from "@/components/income/IncomeFormDialog";
 import { OneTimeIncomeDialog } from "@/components/income/OneTimeIncomeDialog";
+import { PastMonthDetailsDialog, PastMonthDetailsItem } from "@/components/shared/PastMonthDetailsDialog";
+import { getIncomeCategoryById } from "@/constants/incomeCategories";
 
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
@@ -89,6 +91,7 @@ const Income = () => {
   const todayMonth = getCurrentFinancialMonth(financialMonthStart);
   const [selectedMonth, setSelectedMonth] = useState(todayMonth);
   const isCurrentMonth = selectedMonth === todayMonth;
+  const isPastMonthView = selectedMonth < todayMonth;
 
   // The review gate only applies once a previous financial month exists with
   // data — fresh households on their very first month aren't asked to review
@@ -229,7 +232,26 @@ const Income = () => {
 
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false);
   const [editingSource, setEditingSource] = useState<any | null>(null);
+  const [detailsItem, setDetailsItem] = useState<PastMonthDetailsItem | null>(null);
   const handleEditSource = (source: any) => {
+    if (isPastMonthView) {
+      const monthly = monthlyIncomes.find((m: any) => m.income_source_id === source.id);
+      const cat = getIncomeCategoryById(source.category);
+      setDetailsItem({
+        name: source.name || source.provider,
+        categoryLabel: cat?.label,
+        icon: cat?.icon,
+        hue: cat?.hue,
+        currency: household?.currency || "SEK",
+        budget: parseFloat(source.budget || "0"),
+        actualAmount: monthly?.actual_amount != null ? Number(monthly.actual_amount) : undefined,
+        previousBudgetSnapshot: monthly?.previous_budget_snapshot != null ? Number(monthly.previous_budget_snapshot) : undefined,
+        budgetChangedAt: monthly?.budget_changed_at ?? undefined,
+        actualRecordedAt: monthly?.actual_recorded_at ?? undefined,
+        inactivatedAt: monthly?.inactivated_at ?? undefined,
+      });
+      return;
+    }
     setEditingSource(source);
     setSourceDialogOpen(true);
   };
@@ -343,7 +365,7 @@ const Income = () => {
         </Alert>
       )}
 
-      {hasAnySource && (
+      {hasAnySource && !isPastMonthView && (
         <div className="hidden sm:grid grid-cols-2 gap-5">
           <Button
             size="lg"
@@ -393,6 +415,7 @@ const Income = () => {
                   currency={household?.currency || "SEK"}
                   onEdit={handleEditSource}
                   readOnly={isReadOnly}
+                  pastMonth={isPastMonthView}
                   last={idx === incomeSources.length - 1}
                 />
               );
@@ -401,7 +424,7 @@ const Income = () => {
         </Card>
       )}
 
-      {hasAnySource && (
+      {hasAnySource && !isPastMonthView && (
         <MobileBottomBar>
           <Button
             size="lg"
@@ -452,6 +475,12 @@ const Income = () => {
           onSuccess={fetchData}
         />
       )}
+
+      <PastMonthDetailsDialog
+        open={!!detailsItem}
+        onOpenChange={(o) => !o && setDetailsItem(null)}
+        item={detailsItem}
+      />
     </div >
   );
 };

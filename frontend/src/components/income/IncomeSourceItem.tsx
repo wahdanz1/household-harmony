@@ -1,4 +1,4 @@
-import { Pencil, Sparkles } from "lucide-react";
+import { Pencil, Info, Sparkles } from "lucide-react";
 import { getIncomeCategoryById } from "@/constants/incomeCategories";
 import { RowItem } from "@/components/ui/row-item";
 import { Money } from "@/components/ui/money";
@@ -13,6 +13,8 @@ interface IncomeSourceItemProps {
     currency: string;
     onEdit: (source: any) => void;
     readOnly?: boolean;
+    /** Past-month read-only mode: pencil hover becomes info icon. Click still fires. */
+    pastMonth?: boolean;
     /** Set true on the last item of the list to drop the bottom divider. */
     last?: boolean;
 }
@@ -24,6 +26,7 @@ export const IncomeSourceItem = ({
     currency,
     onEdit,
     readOnly = false,
+    pastMonth = false,
     last = false,
 }: IncomeSourceItemProps) => {
     const isSkipped = amount === 0;
@@ -75,7 +78,11 @@ export const IncomeSourceItem = ({
                 />
 
                 {!readOnly && (
-                    <Pencil className="h-3.5 w-3.5 text-muted hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                    pastMonth ? (
+                        <Info className="h-3.5 w-3.5 text-muted hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                    ) : (
+                        <Pencil className="h-3.5 w-3.5 text-muted hidden md:block md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                    )
                 )}
             </div>
         </RowItem>
