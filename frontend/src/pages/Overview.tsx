@@ -149,15 +149,31 @@ const Overview = () => {
       const startStr = format(fetchStart, "yyyy-MM-dd");
       const endStr = format(fetchEnd, "yyyy-MM-dd");
 
+      // Past months are historical: include archived/inactive sources so their
+      // monthly_* rows still contribute to totals.
+      const isPastMonth = selectedMonth < todayMonth;
+
+      let incomeQuery = supabase.from("income_sources").select("id, encrypted_budget, is_encrypted").eq("household_id", household.id);
+      if (!isPastMonth) incomeQuery = incomeQuery.eq("is_active", true).is("archived_at", null);
+
+      let expenseQuery = supabase.from("expenses").select("id, encrypted_budget, is_encrypted").eq("household_id", household.id);
+      if (!isPastMonth) expenseQuery = expenseQuery.is("archived_at", null);
+
+      let subscriptionQuery = supabase.from("subscriptions").select("encrypted_budget, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id);
+      if (!isPastMonth) subscriptionQuery = subscriptionQuery.eq("is_active", true).is("archived_at", null);
+
+      let insuranceQuery = supabase.from("insurances").select("encrypted_budget, billing_cycle, is_shared, share_percentage, is_encrypted").eq("household_id", household.id);
+      if (!isPastMonth) insuranceQuery = insuranceQuery.eq("is_active", true).is("archived_at", null);
+
       let results;
       try {
         results = await Promise.all([
-          supabase.from("income_sources").select("id, encrypted_budget, is_encrypted").eq("household_id", household.id).eq("is_active", true).is("archived_at", null),
+          incomeQuery,
           supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-          supabase.from("expenses").select("id, encrypted_budget, is_encrypted").eq("household_id", household.id).is("archived_at", null),
+          expenseQuery,
           supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-          supabase.from("subscriptions").select("encrypted_budget, billing_cycle, billing_month, billing_day, is_encrypted").eq("household_id", household.id).eq("is_active", true).is("archived_at", null),
-          supabase.from("insurances").select("encrypted_budget, billing_cycle, is_shared, share_percentage, is_encrypted").eq("household_id", household.id).eq("is_active", true).is("archived_at", null),
+          subscriptionQuery,
+          insuranceQuery,
           supabase.from("shared_expenses").select("id, encrypted_amount, encrypted_description, paid_by, is_encrypted, created_at").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr).order("created_at", { ascending: false }),
         ]);
       } catch (err) {

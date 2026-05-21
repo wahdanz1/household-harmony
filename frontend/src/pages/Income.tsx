@@ -143,10 +143,22 @@ const Income = () => {
     const startStr = format(fetchStart, "yyyy-MM-dd");
     const endStr = format(fetchEnd, "yyyy-MM-dd");
 
+    // Past months are historical: include archived/inactive sources so their
+    // monthly_* rows still resolve names + amounts.
+    const isPastMonth = fetchMonth < todayMonth;
+
+    let sourcesQuery = supabase.from("income_sources")
+      .select("*, profiles(full_name, avatar_url)")
+      .eq("household_id", household.id);
+    if (!isPastMonth) {
+      sourcesQuery = sourcesQuery.eq("is_active", true).is("archived_at", null);
+    }
+    sourcesQuery = sourcesQuery.order("created_at", { ascending: true });
+
     let sourcesResult, monthlyResult;
     try {
       [sourcesResult, monthlyResult] = await Promise.all([
-        supabase.from("income_sources").select("*, profiles(full_name, avatar_url)").eq("household_id", household.id).eq("is_active", true).is("archived_at", null).order("created_at", { ascending: true }),
+        sourcesQuery,
         supabase.from("monthly_incomes").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
       ]);
     } catch (err) {
