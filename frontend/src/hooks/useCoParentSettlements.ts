@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
-import { useEncryptedFields, monthlyIncomeFields, insuranceFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
+import { useEncryptedFields, monthlyIncomeFields, monthlyInsuranceFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
 
 export interface CoParentSettlement {
     incomeReceived: number;
@@ -23,7 +23,7 @@ export function useCoParentSettlements({ householdId, coParents }: UseCoParentSe
     const [settlements, setSettlements] = useState<Record<string, CoParentSettlement>>({});
 
     const { decryptRecords: decryptIncomes } = useEncryptedFields(monthlyIncomeFields);
-    const { decryptRecords: decryptInsurances } = useEncryptedFields(insuranceFields);
+    const { decryptRecords: decryptInsurances } = useEncryptedFields(monthlyInsuranceFields);
     const { decryptRecords: decryptShared } = useEncryptedFields(sharedExpenseFields);
 
     const refetch = useCallback(async () => {
@@ -34,7 +34,6 @@ export function useCoParentSettlements({ householdId, coParents }: UseCoParentSe
 
         const currentMonth = getCurrentFinancialMonth();
         const { start: monthStart, end: monthEnd } = getFinancialMonthRange(currentMonth);
-        const currentMonthNumber = new Date().getMonth() + 1;
         const monthStartStr = format(monthStart, "yyyy-MM-dd");
         const monthEndStr = format(monthEnd, "yyyy-MM-dd");
         const coParentIds = coParents.map(cp => cp.id);
@@ -49,14 +48,13 @@ export function useCoParentSettlements({ householdId, coParents }: UseCoParentSe
                 .eq("is_shared", true)
                 .in("co_parent_id", coParentIds),
             supabase
-                .from("insurances")
-                .select("encrypted_budget, share_percentage, billing_month, is_encrypted, co_parent_id")
+                .from("monthly_insurances")
+                .select("encrypted_budget_snapshot, encrypted_actual_amount, is_encrypted, insurances!inner(share_percentage, co_parent_id, is_shared)")
                 .eq("household_id", householdId)
-                .eq("is_shared", true)
-                .in("co_parent_id", coParentIds)
-                .eq("is_active", true)
-                .is("archived_at", null)
-                .eq("billing_month", currentMonthNumber),
+                .gte("month_end", monthStartStr)
+                .lte("month_start", monthEndStr)
+                .eq("insurances.is_shared", true)
+                .in("insurances.co_parent_id", coParentIds),
             supabase
                 .from("shared_expenses")
                 .select("encrypted_amount, paid_by, is_encrypted, co_parent_id")
@@ -74,7 +72,7 @@ export function useCoParentSettlements({ householdId, coParents }: UseCoParentSe
 
         for (const coParent of coParents) {
             const sharedIncomes = decryptedIncomes.filter(r => r.co_parent_id === coParent.id);
-            const sharedInsurances = decryptedInsurances.filter(r => r.co_parent_id === coParent.id);
+            const sharedInsurances = decryptedInsurances.filter(r => r.insurances?.co_parent_id === coParent.id);
             const sharedExpenses = decryptedExpenses.filter(r => r.co_parent_id === coParent.id);
 
             const incomeReceived = sharedIncomes.reduce((sum, inc) => sum + parseFloat(((inc.actual_amount ?? inc.budget_snapshot) || 0).toString()), 0);
@@ -86,9 +84,10 @@ export function useCoParentSettlements({ householdId, coParents }: UseCoParentSe
             let insurancePaid = 0;
             let theirShareOfInsurance = 0;
             sharedInsurances.forEach((ins) => {
-                const amount = parseFloat((ins.budget || 0).toString());
+                const amount = parseFloat(((ins.actual_amount ?? ins.budget_snapshot) || 0).toString());
+                const sharePercentage = parseFloat((ins.insurances?.share_percentage || 0).toString());
                 insurancePaid += amount;
-                theirShareOfInsurance += amount * parseFloat((ins.share_percentage || 0).toString()) / 100;
+                theirShareOfInsurance += amount * sharePercentage / 100;
             });
 
             let expensesYouPaid = 0;
