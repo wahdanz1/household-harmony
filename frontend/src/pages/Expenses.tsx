@@ -120,13 +120,33 @@ const Expenses = () => {
     const startStr = format(fetchStart, "yyyy-MM-dd");
     const endStr = format(fetchEnd, "yyyy-MM-dd");
 
+    // Past months are historical: include archived/inactive sources so their
+    // monthly_* rows still resolve names + amounts.
+    const isPastMonth = fetchMonth < todayMonth;
+
+    let expensesQuery = supabase.from("expenses").select("*").eq("household_id", household.id);
+    if (!isPastMonth) {
+      expensesQuery = expensesQuery.eq("is_active", true).is("archived_at", null);
+    }
+    expensesQuery = expensesQuery.order("sort_order");
+
+    let subscriptionsQuery = supabase.from("subscriptions").select("*").eq("household_id", household.id);
+    if (!isPastMonth) {
+      subscriptionsQuery = subscriptionsQuery.is("archived_at", null);
+    }
+
+    let insurancesQuery = supabase.from("insurances").select("*").eq("household_id", household.id);
+    if (!isPastMonth) {
+      insurancesQuery = insurancesQuery.is("archived_at", null);
+    }
+
     let results;
     try {
       results = await Promise.all([
-        supabase.from("expenses").select("*").eq("household_id", household.id).eq("is_active", true).is("archived_at", null).order("sort_order"),
+        expensesQuery,
         supabase.from("monthly_expenses").select("*").eq("household_id", household.id).gte("month_end", startStr).lte("month_start", endStr),
-        supabase.from("subscriptions").select("*").eq("household_id", household.id).is("archived_at", null),
-        supabase.from("insurances").select("*").eq("household_id", household.id).is("archived_at", null),
+        subscriptionsQuery,
+        insurancesQuery,
       ]);
     } catch (err) {
       reportFailure(err);
