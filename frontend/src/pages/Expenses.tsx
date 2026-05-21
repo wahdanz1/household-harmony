@@ -466,6 +466,7 @@ const Expenses = () => {
                     budget: undefined,
                     actualAmount,
                     category: m.one_time_category as string | undefined,
+                    isOneOff: true,
                     readOnly: true,
                   };
                 }),
