@@ -78,10 +78,18 @@ export const AttributionPicker = ({
 
     const sortedSubjects = subjects.slice().sort((a, b) => a.name.localeCompare(b.name));
 
-    const memberLabel = (m: typeof members[number]) =>
-        m.user_id === user?.id
-            ? `${m.profiles?.full_name ?? "You"} (you)`
-            : (m.profiles?.full_name ?? "Unknown");
+    // Last name shrunk to an initial so it fits the half-width "Covers" column on mobile.
+    const shortName = (full: string) => {
+        const parts = full.trim().split(/\s+/);
+        if (parts.length < 2) return parts[0] ?? "";
+        return `${parts[0]} ${parts[parts.length - 1][0]}`;
+    };
+
+    const memberLabel = (m: typeof members[number]) => {
+        const full = m.profiles?.full_name?.trim();
+        if (!full) return m.user_id === user?.id ? "You" : "Unknown";
+        return shortName(full);
+    };
 
     return (
         <div className="space-y-1.5">
