@@ -4,7 +4,7 @@ import DesktopNav from "./DesktopNav";
 import { DemoBanner } from "./shared/DemoBanner";
 import { GuidedTour } from "./shared/GuidedTour";
 import { OutageBanner } from "./shared/OutageBanner";
-import { DevTimeTravel } from "./dev/DevTimeTravel";
+import { DevTools } from "./dev/DevTools";
 import { RecoveryCodeGate } from "./auth/RecoveryCodeGate";
 import { MultiHouseholdExitDialog } from "./auth/MultiHouseholdExitDialog";
 
@@ -41,7 +41,7 @@ const Layout = ({ children }: LayoutProps) => {
       <MobileNav />
       <GuidedTour />
       <OutageBanner />
-      <DevTimeTravel />
+      <DevTools />
       <RecoveryCodeGate />
       <MultiHouseholdExitDialog />
     </div>
