@@ -51,9 +51,9 @@ interface ExpenseFormDialogProps {
 }
 
 const blankForm: InitialValues = {
-    category: "rent",
+    category: "",
     name: "",
-    budget: "0",
+    budget: "",
     is_credit: false,
     attribution: null,
 };

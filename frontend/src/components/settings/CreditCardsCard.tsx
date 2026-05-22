@@ -38,7 +38,7 @@ export const CreditCardsCard = ({ householdId, currency, enabled }: CreditCardsC
     const [cards, setCards] = useState<Card[]>([]);
     const [formOpen, setFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [form, setForm] = useState({ name: "", monthly_limit: "0" });
+    const [form, setForm] = useState({ name: "", monthly_limit: "" });
     const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
     const fetchCards = async () => {
@@ -58,7 +58,7 @@ export const CreditCardsCard = ({ householdId, currency, enabled }: CreditCardsC
 
     const openAdd = () => {
         setEditingId(null);
-        setForm({ name: "", monthly_limit: "0" });
+        setForm({ name: "", monthly_limit: "" });
         setFormOpen(true);
     };
 
@@ -73,7 +73,7 @@ export const CreditCardsCard = ({ householdId, currency, enabled }: CreditCardsC
         const baseData = {
             household_id: householdId,
             name: form.name,
-            monthly_limit: parseFloat(form.monthly_limit),
+            monthly_limit: parseFloat(form.monthly_limit) || 0,
             created_by: user.id,
             is_encrypted: false,
         };

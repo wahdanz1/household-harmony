@@ -38,13 +38,13 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState({
         name: "",
-        category: "gift",
+        category: "",
         amount: "",
         description: "",
     });
 
     const resetForm = () => {
-        setFormData({ name: "", category: "gift", amount: "", description: "" });
+        setFormData({ name: "", category: "", amount: "", description: "" });
     };
 
     const handleSave = async () => {
@@ -108,7 +108,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
                         <Label>Category</Label>
                         <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
                             <SelectTrigger>
-                                <SelectValue />
+                                <SelectValue placeholder="Select a category" />
                             </SelectTrigger>
                             <SelectContent>
                                 {oneTimeCategories.map((cat) => {
@@ -158,7 +158,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
                     <Button variant="outline" onClick={() => setIsOpen(false)} className="flex-1">
                         Cancel
                     </Button>
-                    <Button onClick={handleSave} disabled={saving || !formData.amount} className="flex-1">
+                    <Button onClick={handleSave} disabled={saving || !formData.amount || !formData.category} className="flex-1">
                         {saving ? "Adding..." : "Add Income"}
                     </Button>
                 </div>
