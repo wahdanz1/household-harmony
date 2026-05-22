@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Pencil, Trash2, Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 
 export type SubjectType = "kid" | "car" | "pet" | "other";
 
@@ -42,6 +43,7 @@ export const ManageSubjectsDialog = ({ open, onOpenChange, type, label, househol
     const [draftName, setDraftName] = useState("");
     const [adding, setAdding] = useState(false);
     const [working, setWorking] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<Subject | null>(null);
 
     const fetchSubjects = async () => {
         const { data } = await supabase
@@ -122,13 +124,16 @@ export const ManageSubjectsDialog = ({ open, onOpenChange, type, label, househol
         onChange();
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Delete this subject? Existing costs that reference it will lose the tag.")) return;
-        const { error } = await supabase.from("subjects").delete().eq("id", id);
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        setWorking(true);
+        const { error } = await supabase.from("subjects").delete().eq("id", deleteTarget.id);
+        setWorking(false);
         if (error) {
             toast.error("Failed to delete");
             return;
         }
+        setDeleteTarget(null);
         await fetchSubjects();
         onChange();
     };
@@ -182,7 +187,7 @@ export const ManageSubjectsDialog = ({ open, onOpenChange, type, label, househol
                                     <Button
                                         size="icon"
                                         variant="ghost"
-                                        onClick={() => handleDelete(s.id)}
+                                        onClick={() => setDeleteTarget(s)}
                                         aria-label="Delete"
                                         className="text-danger hover:text-danger"
                                     >
@@ -213,18 +218,24 @@ export const ManageSubjectsDialog = ({ open, onOpenChange, type, label, househol
                     )}
                 </div>
 
-                <DialogFooter className="sm:justify-between">
-                    {!adding && (
+                {!adding && (
+                    <DialogFooter>
                         <Button variant="secondary" onClick={() => { setAdding(true); setDraftName(""); }}>
                             <Plus className="h-4 w-4 mr-2" />
                             Add {label.slice(0, -1).toLowerCase()}
                         </Button>
-                    )}
-                    <Button variant="ghost" onClick={() => onOpenChange(false)}>
-                        Done
-                    </Button>
-                </DialogFooter>
+                    </DialogFooter>
+                )}
             </DialogContent>
+
+            <ConfirmDialog
+                open={!!deleteTarget}
+                onOpenChange={(open) => !open && setDeleteTarget(null)}
+                title={`Delete ${deleteTarget?.name ?? "this"}?`}
+                description="Existing costs that reference it will lose the tag. This can't be undone."
+                busy={working}
+                onConfirm={handleDelete}
+            />
         </Dialog>
     );
 };
