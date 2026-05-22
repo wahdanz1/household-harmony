@@ -1,14 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
-import { HandCoins, ClipboardCheck, Plus, Calculator } from "lucide-react";
-import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { HandCoins, Plus } from "lucide-react";
 import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { Money, fmtKr } from "@/components/ui/money";
 import { Button } from "@/components/ui/button";
-import { TaxPrognosisModal } from "@/components/income/TaxPrognosisModal";
-import { getTaxPrognosis } from "@/services/tax";
-import type { IncomeForTax, TaxPrognosisResult } from "@/types/api";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
@@ -22,7 +17,8 @@ import { getIncomeCategoryById } from "@/constants/incomeCategories";
 
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
-import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
+import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
+import { ReviewBanner } from "@/components/shared/ReviewBanner";
 
 import { IncomePageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
@@ -44,49 +40,6 @@ const Income = () => {
   const [monthlyIncomes, setMonthlyIncomes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Tax prognosis state
-  const [prognosisOpen, setPrognosisOpen] = useState(false);
-  const [prognosisLoading, setPrognosisLoading] = useState(false);
-  const [prognosis, setPrognosis] = useState<TaxPrognosisResult | null>(null);
-
-  const handleViewPrognosis = async () => {
-    setPrognosisOpen(true);
-    setPrognosisLoading(true);
-    setPrognosis(null);
-    try {
-      const incomesForTax: IncomeForTax[] = incomeSources
-        .filter((s: any) => s.is_active !== false && s.tax_type)
-        .map((s: any) => ({
-          gross_monthly: parseFloat(s.budget || "0") || 0,
-          tax_type: s.tax_type,
-          custom_rate: s.custom_tax_rate ?? undefined,
-        }))
-        .filter(i => i.gross_monthly > 0);
-
-      if (incomesForTax.length === 0) {
-        toast({
-          title: "No taxable income",
-          description: "Add an active income source with a tax type to see a prognosis.",
-          variant: "destructive",
-        });
-        setPrognosisOpen(false);
-        return;
-      }
-
-      const result = await getTaxPrognosis(incomesForTax);
-      setPrognosis(result);
-    } catch (err) {
-      toast({
-        title: "Couldn't fetch prognosis",
-        description: err instanceof Error ? err.message : "Try again in a moment.",
-        variant: "destructive",
-      });
-      setPrognosisOpen(false);
-    } finally {
-      setPrognosisLoading(false);
-    }
-  };
-
   // Month navigation state
   const todayMonth = getCurrentFinancialMonth(financialMonthStart);
   const [selectedMonth, setSelectedMonth] = useState(todayMonth);
@@ -96,7 +49,8 @@ const Income = () => {
   // The review gate only applies once a previous financial month exists with
   // data — fresh households on their very first month aren't asked to review
   // anything yet.
-  const { needsReview, latestFinalizedMonth } = useMonthlyReviewStatus(household?.id, financialMonthStart);
+  const { needsReview, latestFinalizedMonth, markAsReviewed } = useMonthlyReviewStatus(household?.id, financialMonthStart);
+  const [reviewWizardOpen, setReviewWizardOpen] = useState(false);
   const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
   useEffect(() => {
     if (!household?.id) return;
@@ -319,6 +273,10 @@ const Income = () => {
     <div className={`space-y-5 ${mobileBottomBarSpacer}`}>
       {renderHeader(hasAnySource)}
 
+      {isReadOnly && hasAnySource && (
+        <ReviewBanner onOpen={() => setReviewWizardOpen(true)} />
+      )}
+
       {hasAnySource && (
         <Card>
           <p className="text-xs font-medium text-muted tracking-wide">
@@ -337,32 +295,7 @@ const Income = () => {
           <p className="mt-1 text-xs text-muted">
             {activeSourceCount} active {activeSourceCount === 1 ? "source" : "sources"} · {fmtKr(totalIncome * 12, currencyCode)} per year
           </p>
-          {activeSourceCount > 0 && (
-            <button
-              type="button"
-              onClick={handleViewPrognosis}
-              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-accent-dk hover:underline focus:outline-none focus-visible:underline"
-            >
-              <Calculator className="h-3.5 w-3.5" />
-              View annual tax prognosis
-            </button>
-          )}
         </Card>
-      )}
-
-      {isReadOnly && hasAnySource && (
-        <Alert variant="warning">
-          <ClipboardCheck />
-          <AlertContent>
-            <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
-            <AlertDescription>
-              Edits are locked until the Monthly Review is complete. Use the wizard on the Overview to review and finalize.
-            </AlertDescription>
-          </AlertContent>
-          <Button asChild size="sm" variant="outline" className="shrink-0">
-            <Link to="/">Open Review</Link>
-          </Button>
-        </Alert>
       )}
 
       {hasAnySource && !isPastMonthView && (
@@ -439,13 +372,6 @@ const Income = () => {
         </MobileBottomBar>
       )}
 
-      <TaxPrognosisModal
-        open={prognosisOpen}
-        onOpenChange={setPrognosisOpen}
-        prognosis={prognosis}
-        loading={prognosisLoading}
-      />
-
       {household && (
         <IncomeFormDialog
           open={sourceDialogOpen}
@@ -480,6 +406,12 @@ const Income = () => {
         open={!!detailsItem}
         onOpenChange={(o) => !o && setDetailsItem(null)}
         item={detailsItem}
+      />
+
+      <MonthlyReviewWizard
+        open={reviewWizardOpen}
+        onOpenChange={setReviewWizardOpen}
+        onComplete={() => { markAsReviewed(); fetchData(); }}
       />
     </div >
   );

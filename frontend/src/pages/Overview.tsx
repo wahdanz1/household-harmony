@@ -18,6 +18,7 @@ import { MetricTile } from "@/components/ui/metric-tile";
 import { CoParentSettlementDialog } from "@/components/overview/CoParentSettlementDialog";
 import { useCoParentSettlements } from "@/hooks/useCoParentSettlements";
 import { classifySourcesByFM } from "@/utils/billingEvents";
+import { ReviewBanner } from "@/components/shared/ReviewBanner";
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
 import { HouseholdSetupWizard } from "@/components/overview/HouseholdSetupWizard";
 import {
@@ -536,27 +537,14 @@ const Overview = () => {
 
       {/* Monthly Review Banner — suppressed while the household has no data yet */}
       {needsReview && !isDemoMode() && householdHasSeedData !== false && hasPriorMonthData && (
-        <Card
-          variant="cta"
-          className="flex items-center justify-between"
-          onClick={() => setReviewWizardOpen(true)}
-        >
-          <div className="flex items-center gap-3">
-            <ClipboardCheck className="h-5 w-5 text-accent-dk" />
-            <div>
-              <p className="font-medium text-sm text-accent-dk">New month! Review your finances</p>
-              <p className="text-xs text-accent-dk/70">Confirm your income and expenses are up to date</p>
-            </div>
-          </div>
-          <ChevronRight className="h-5 w-5 text-accent-dk" />
-        </Card>
+        <ReviewBanner onOpen={() => setReviewWizardOpen(true)} />
       )}
 
       {/* Demo Encryption Showcase */}
       <DemoEncryptionCard householdId={householdId} />
 
       {householdHasSeedData !== false && (
-        <div className={`space-y-5 ${needsReview && !isDemoMode() && hasPriorMonthData ? "opacity-50" : ""} transition-opacity`}>
+        <div className="space-y-5">
           {/* HERO — survival on top, after-savings below */}
           <Card variant="flush">
             <div className="p-5 border-b border-line-2">

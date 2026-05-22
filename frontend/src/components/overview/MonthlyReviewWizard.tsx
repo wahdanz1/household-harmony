@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { MoneyInput } from "@/components/ui/money-input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Check, ClipboardCheck, Lock, LockOpen, ShieldCheck, Sparkles, Hourglass } from "lucide-react";
+import { Check, ClipboardCheck, ShieldCheck, Sparkles, Hourglass } from "lucide-react";
 import { CatIcon } from "@/components/ui/cat-icon";
 import { RowItem } from "@/components/ui/row-item";
 import { StepIndicator } from "@/components/ui/step-indicator";
@@ -53,6 +53,10 @@ interface AuditFields {
     inactivatedAt?: string;
 }
 
+const VerifiedTag = () => (
+    <Check className="h-3.5 w-3.5 text-accent shrink-0" strokeWidth={2.6} aria-label="Verified" />
+);
+
 interface IncomeItem extends AuditFields {
     id: string;
     name: string;
@@ -100,6 +104,10 @@ export const MonthlyReviewWizard = ({
         [creditEnabled],
     );
     const [currentStep, setCurrentStep] = useState<StepName>(stepOrder[0]);
+    // First fetch after open has completed — gates the smart-landing effect.
+    const [loaded, setLoaded] = useState(false);
+    // Ensures we only auto-land on the right step once per open session.
+    const hasLandedRef = useRef(false);
     const [incomes, setIncomes] = useState<IncomeItem[]>([]);
     const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
     const [subs, setSubs] = useState<RecurringItem[]>([]);
@@ -107,6 +115,8 @@ export const MonthlyReviewWizard = ({
     /** Stable monthly rows that will be auto-accepted on Accept Outflow.
      *  Tracked for the footer counter. */
     const [autoAcceptedCount, setAutoAcceptedCount] = useState(0);
+    /** Active non-monthly sources with no billing event this FM (skipped). */
+    const [notDueCount, setNotDueCount] = useState(0);
     const [amounts, setAmounts] = useState<Record<string, string>>({});
     const [reviewStatus, setReviewStatus] = useState<ReviewStatusRow[]>([]);
     const [finalizedRow, setFinalizedRow] = useState<FinalizedRow | null>(null);
@@ -116,21 +126,6 @@ export const MonthlyReviewWizard = ({
     const [flippedRows, setFlippedRows] = useState<Set<string>>(new Set());
     const toggleFlip = (sourceId: string) => {
         setFlippedRows(prev => {
-            const next = new Set(prev);
-            if (next.has(sourceId)) next.delete(sourceId);
-            else next.add(sourceId);
-            return next;
-        });
-    };
-    // Per-item override allowing the current user to edit another household
-    // member's income source. Useful when reviewing together from a single
-    // device — e.g. Daniel updates Sarah's salary while she's looking. The
-    // value gets saved, but Sarah still has to log in and click "Accept my
-    // income" to formally mark her side accepted.
-    const [unlockedItems, setUnlockedItems] = useState<Set<string>>(new Set());
-
-    const toggleUnlock = (sourceId: string) => {
-        setUnlockedItems(prev => {
             const next = new Set(prev);
             if (next.has(sourceId)) next.delete(sourceId);
             else next.add(sourceId);
@@ -416,11 +411,21 @@ export const MonthlyReviewWizard = ({
         const noteworthyInsCount = insItems.filter(isNoteworthy).length;
         const stableCount = (subItems.length - noteworthySubsCount) + (insItems.length - noteworthyInsCount);
 
+        // Non-monthly sources with no billing event this FM are skipped
+        // entirely (not shown, not auto-accepted). Count them so the footer
+        // can account for every active source — nothing vanishes silently.
+        const billedSubIds = new Set(subItems.map(i => i.source_id));
+        const billedInsIds = new Set(insItems.map(i => i.source_id));
+        const notDueCount =
+            decryptedSubsSources.filter((s: any) => s.is_active && !s.archived_at && s.billing_cycle !== 'monthly' && !billedSubIds.has(s.id)).length +
+            decryptedInsSources.filter((s: any) => s.is_active && !s.archived_at && s.billing_cycle !== 'monthly' && !billedInsIds.has(s.id)).length;
+
         setIncomes(incomeItems);
         setExpenses(expenseItems);
         setSubs(subItems);
         setIns(insItems);
         setAutoAcceptedCount(stableCount);
+        setNotDueCount(notDueCount);
         setReviewStatus((statusData as ReviewStatusRow[]) || []);
         setFinalizedRow((finalizedData as FinalizedRow | null) ?? null);
 
@@ -446,19 +451,23 @@ export const MonthlyReviewWizard = ({
             });
             return next;
         });
+        setLoaded(true);
     }, [household, user, monthStart, monthEnd, currentMonth, decryptIncomeSources, decryptExpenses, decryptSubscriptions, decryptInsurances]);
 
     // Reset transient UI state ONLY when the wizard transitions to open.
+    // Step landing is deferred to the smart-landing effect below (which waits
+    // for the first fetch so it can pick the right step based on progress).
     // Don't include `user` or `household` here — those refs can change (e.g.
     // when the tab regains focus and Supabase refreshes the auth session),
     // and resetting amounts would briefly flash all inputs to 0 before the
     // refetch repopulates them.
     useEffect(() => {
         if (open) {
-            setCurrentStep(stepOrder[0]);
+            hasLandedRef.current = false;
+            setLoaded(false);
             setFlippedRows(new Set());
         }
-    }, [open, stepOrder]);
+    }, [open]);
 
     // Refetch data when wizard opens or when its inputs (household/user)
     // legitimately change. fetchData itself is memoized; setAmounts inside
@@ -515,12 +524,10 @@ export const MonthlyReviewWizard = ({
         const endStr = format(monthEnd, "yyyy-MM-dd");
 
         try {
-            // Save my own income items + any items I've unlocked for editing
-            // on someone else's behalf. Their owner still needs to log in and
-            // click Accept to mark their status row though — we can't write
-            // status on behalf of another user (RLS).
-            const itemsToSave = incomes.filter(i => i.isMine || unlockedItems.has(i.source_id));
-            for (const income of itemsToSave) {
+            // One-does-it-all: the reviewer confirms every member's income in
+            // one pass. RLS lets a household member write monthly_incomes +
+            // status rows on anyone's behalf (see migration 20260508130918).
+            for (const income of incomes) {
                 const amount = parseFloat(amounts[`income-${income.source_id}`] || "0");
                 const baseData = {
                     household_id: household.id,
@@ -529,7 +536,7 @@ export const MonthlyReviewWizard = ({
                     month_start: startStr,
                     month_end: endStr,
                     actual_amount: amount,
-                    created_by: income.isMine ? user.id : income.owner_id,
+                    created_by: income.owner_id,
                 };
                 const data = await encryptMonthlyIncome(baseData);
                 const { error } = await supabase.from("monthly_incomes").upsert(data, {
@@ -538,16 +545,13 @@ export const MonthlyReviewWizard = ({
                 if (error) throw error;
             }
 
-            // Mark me as accepted, plus the owners of any items I unlocked
-            // (we're reviewing together — they don't need to log in again).
-            const unlockedOwners = incomes
-                .filter(i => unlockedItems.has(i.source_id) && !i.isMine)
-                .map(i => i.owner_id);
-            const acceptedUserIds = Array.from(new Set([user.id, ...unlockedOwners]));
+            // One pass confirms income for the whole household, so mark every
+            // member accepted (covers members who have no income source of
+            // their own — otherwise finalize would stay blocked on them).
+            const acceptedUserIds = Array.from(new Set([user.id, ...members.map(m => m.user_id)]));
             await writeStatus("income", acceptedUserIds);
 
-            toast.success("Income accepted");
-            setUnlockedItems(new Set());
+            toast.success("Income confirmed");
             await fetchData();
             setCurrentStep("expenses");
         } catch (error: any) {
@@ -670,24 +674,33 @@ export const MonthlyReviewWizard = ({
     const myIncomeAccepted = incomeAcceptedUserIds.has(user?.id || "");
     const allMembersAcceptedIncome = members.length > 0 && members.every(m => incomeAcceptedUserIds.has(m.user_id));
     const canFinalize = allMembersAcceptedIncome && expensesVerified && !isFinalized;
-    const myIncomeCount = incomes.filter(i => i.isMine).length;
+
+    // Smart landing: once the first fetch resolves, drop the user on the step
+    // that matches how far the review already is — no point re-walking Upload
+    // → Income → Outflow when those are already done. Runs once per open.
+    useEffect(() => {
+        if (!open || !loaded || hasLandedRef.current) return;
+        const landing: StepName =
+            isFinalized || (allMembersAcceptedIncome && expensesVerified) ? "review"
+            : allMembersAcceptedIncome ? "expenses"
+            : stepOrder[0];
+        setCurrentStep(landing);
+        hasLandedRef.current = true;
+    }, [open, loaded, isFinalized, allMembersAcceptedIncome, expensesVerified, stepOrder]);
     const finalizerName = isFinalized
         ? members.find(m => m.user_id === finalizedRow!.finalized_by)?.profiles?.full_name || "A household member"
         : null;
     const myIncomeAcceptedAt = reviewStatus.find(r => r.scope === "income" && r.user_id === user?.id)?.accepted_at;
     const expensesVerifiedAt = reviewStatus.find(r => r.scope === "expenses")?.accepted_at;
 
-    // Dirty = any editable value differs from what's persisted in item.amount.
-    // Unlocking another member's row also counts as dirty (explicit intent).
+    // Dirty = any income value differs from what's persisted in item.amount.
     const incomeDirty = useMemo(() => {
-        if (unlockedItems.size > 0) return true;
         for (const item of incomes) {
-            if (!item.isMine) continue;
             const v = parseFloat(amounts[`income-${item.source_id}`] || "0");
             if (Math.abs(v - item.amount) > 0.01) return true;
         }
         return false;
-    }, [incomes, amounts, unlockedItems]);
+    }, [incomes, amounts]);
 
     const expensesDirty = useMemo(() => {
         for (const item of expenses) {
@@ -698,7 +711,7 @@ export const MonthlyReviewWizard = ({
     }, [expenses, amounts]);
 
     const steps = stepOrder.map((s) => ({
-        label: s === "credit" ? "Credit"
+        label: s === "credit" ? "Upload"
             : s === "income" ? "Income"
             : s === "expenses" ? "Outflow"
             : "Review",
@@ -711,12 +724,10 @@ export const MonthlyReviewWizard = ({
     const noteworthySubs = subs.filter(isNoteworthyRecurring);
     const noteworthyIns = ins.filter(isNoteworthyRecurring);
     const currentIdx = Math.max(0, stepOrder.indexOf(currentStep));
-    const reviewReachable = canFinalize;
+    // Free roam — every step is reachable. The only gated action is Finalize
+    // (disabled with a reason on the Review step until income + outflow done).
     const jumpToIdx = (idx: number) => {
-        const target = stepOrder[idx];
-        // Block clicking Review until everything's accepted/verified.
-        if (target === "review" && !reviewReachable) return;
-        setCurrentStep(target);
+        setCurrentStep(stepOrder[idx]);
     };
 
     const renderVariance = (current: number, planned: number, kind: "income" | "expense") => {
@@ -765,7 +776,7 @@ export const MonthlyReviewWizard = ({
                         steps={steps}
                         current={currentIdx}
                         onJump={jumpToIdx}
-                        freeNav={canFinalize}
+                        freeNav={true}
                         className="px-1"
                     />
                 )}
@@ -792,9 +803,7 @@ export const MonthlyReviewWizard = ({
                                     const ownerMember = members.find(m => m.user_id === item.owner_id);
                                     const ownerName = ownerMember?.profiles?.full_name || (item.isMine ? "You" : "Other member");
                                     const ownerInitials = ownerName.split(" ").map(s => s[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
-                                    const isUnlocked = unlockedItems.has(item.source_id);
-                                    const editable = !isFinalized && (item.isMine || isUnlocked);
-                                    const showsLockButton = !item.isMine && !isFinalized;
+                                    const editable = !isFinalized;
                                     const ownerAccepted = incomeAcceptedUserIds.has(item.owner_id);
                                     const isFlipped = flippedRows.has(item.source_id);
                                     const incCat = item.category ? getIncomeCategoryById(item.category) : undefined;
@@ -804,7 +813,7 @@ export const MonthlyReviewWizard = ({
                                         <RowItem
                                             key={item.source_id}
                                             last={idx === incomes.length - 1}
-                                            className={`group/row relative ${ownerAccepted ? "before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r before:bg-accent" : ""} ${!item.isMine && !isUnlocked ? "opacity-70" : ""}`}
+                                            className={`group/row relative ${ownerAccepted ? "before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r before:bg-accent" : ""}`}
                                             onClick={() => toggleFlip(item.source_id)}
                                         >
                                             <div
@@ -830,17 +839,7 @@ export const MonthlyReviewWizard = ({
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-sm font-medium truncate" title={item.name}>{item.name}</span>
-                                                    {showsLockButton && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => { e.stopPropagation(); toggleUnlock(item.source_id); }}
-                                                            className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors shrink-0 ${isUnlocked ? "bg-warn/20 text-warn hover:bg-warn/30" : "bg-surface-2 text-muted hover:bg-surface-2/70"}`}
-                                                            title={isUnlocked ? `Lock — ${ownerName}'s value still saves` : `Unlock to enter ${ownerName}'s value`}
-                                                            aria-label={isUnlocked ? "Lock item" : "Unlock to edit"}
-                                                        >
-                                                            {isUnlocked ? <LockOpen className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
-                                                        </button>
-                                                    )}
+                                                    {ownerAccepted && <VerifiedTag />}
                                                 </div>
                                                 {renderAuditBadges(item, "income", currency)}
                                             </div>
@@ -882,7 +881,10 @@ export const MonthlyReviewWizard = ({
                                             >
                                                 <CatIcon icon={Icon} hue={cat?.hue} size={36} />
                                                 <div className="flex-1 min-w-0">
-                                                    <span className="text-sm font-medium truncate block" title={item.name}>{item.name}</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-medium truncate" title={item.name}>{item.name}</span>
+                                                        {expensesVerified && <VerifiedTag />}
+                                                    </div>
                                                     {renderAuditBadges(item, "expense", currency)}
                                                 </div>
                                                 <div className="shrink-0 flex flex-col items-end gap-1">
@@ -911,10 +913,17 @@ export const MonthlyReviewWizard = ({
                                             const Icon = cat?.icon || Sparkles;
                                             const currentValue = parseFloat(amounts[`sub-${item.source_id}`] || "0");
                                             return (
-                                                <RowItem key={item.source_id} last={idx === noteworthySubs.length - 1}>
+                                                <RowItem
+                                                    key={item.source_id}
+                                                    last={idx === noteworthySubs.length - 1}
+                                                    className={expensesVerified ? "relative before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r before:bg-accent" : ""}
+                                                >
                                                     <CatIcon icon={Icon} hue={cat?.hue} size={36} />
                                                     <div className="flex-1 min-w-0">
-                                                        <span className="text-sm font-medium truncate block" title={item.name}>{item.name}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm font-medium truncate" title={item.name}>{item.name}</span>
+                                                            {expensesVerified && <VerifiedTag />}
+                                                        </div>
                                                         <div className="flex flex-wrap gap-1 mt-0.5">
                                                             {item.previousBudgetSnapshot != null && item.budgetChangedAt && (
                                                                 <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-warn/10 text-warn">
@@ -955,10 +964,17 @@ export const MonthlyReviewWizard = ({
                                             const Icon = cat?.icon || ShieldCheck;
                                             const currentValue = parseFloat(amounts[`ins-${item.source_id}`] || "0");
                                             return (
-                                                <RowItem key={item.source_id} last={idx === noteworthyIns.length - 1}>
+                                                <RowItem
+                                                    key={item.source_id}
+                                                    last={idx === noteworthyIns.length - 1}
+                                                    className={expensesVerified ? "relative before:content-[''] before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r before:bg-accent" : ""}
+                                                >
                                                     <CatIcon icon={Icon} hue={cat?.hue} size={36} />
                                                     <div className="flex-1 min-w-0">
-                                                        <span className="text-sm font-medium truncate block" title={item.name}>{item.name}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm font-medium truncate" title={item.name}>{item.name}</span>
+                                                            {expensesVerified && <VerifiedTag />}
+                                                        </div>
                                                         <div className="flex flex-wrap gap-1 mt-0.5">
                                                             {item.previousBudgetSnapshot != null && item.budgetChangedAt && (
                                                                 <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-warn/10 text-warn">
@@ -990,9 +1006,15 @@ export const MonthlyReviewWizard = ({
                                 </div>
                             )}
 
-                            {autoAcceptedCount > 0 && (
+                            {(autoAcceptedCount > 0 || notDueCount > 0) && (
                                 <p className="text-xs text-muted text-center pt-1">
-                                    {autoAcceptedCount} stable monthly item{autoAcceptedCount === 1 ? "" : "s"} will be auto-accepted at budgeted amount.
+                                    {autoAcceptedCount > 0 && (
+                                        <>{autoAcceptedCount} monthly item{autoAcceptedCount === 1 ? "" : "s"} auto-accepted at budgeted amount</>
+                                    )}
+                                    {autoAcceptedCount > 0 && notDueCount > 0 && " · "}
+                                    {notDueCount > 0 && (
+                                        <>{notDueCount} item{notDueCount === 1 ? "" : "s"} not due this month</>
+                                    )}
                                 </p>
                             )}
                         </div>
@@ -1000,17 +1022,40 @@ export const MonthlyReviewWizard = ({
 
                     {currentStep === "review" && (
                         <div className="rounded-xl border border-line bg-surface px-5 py-6 space-y-3">
-                            <div className="flex items-start gap-3">
-                                <ShieldCheck className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                                <div className="space-y-2 text-sm leading-relaxed">
-                                    <p className="text-ink">
-                                        You're about to finalize <strong className="font-semibold">{formatFinancialMonth(currentMonth, financialMonthStart)}</strong>.
-                                    </p>
-                                    <p className="text-muted">
-                                        After finalizing, the Income and Expenses pages will switch to this month as their default view. Any further corrections happen on those pages, not in this wizard.
-                                    </p>
+                            {canFinalize ? (
+                                <div className="flex items-start gap-3">
+                                    <ShieldCheck className="h-5 w-5 text-accent shrink-0 mt-0.5" />
+                                    <div className="space-y-2 text-sm leading-relaxed">
+                                        <p className="text-ink">
+                                            You're about to finalize <strong className="font-semibold">{formatFinancialMonth(currentMonth, financialMonthStart)}</strong>.
+                                        </p>
+                                        <p className="text-muted">
+                                            After finalizing, the Income and Expenses pages will switch to this month as their default view. Any further corrections happen on those pages, not in this wizard.
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="flex items-start gap-3">
+                                    <Hourglass className="h-5 w-5 text-warn shrink-0 mt-0.5" />
+                                    <div className="space-y-2 text-sm leading-relaxed">
+                                        <p className="text-ink font-medium">Almost there — a couple of things first:</p>
+                                        <ul className="text-muted space-y-1">
+                                            <li className="flex items-center gap-2">
+                                                {allMembersAcceptedIncome
+                                                    ? <Check className="h-3.5 w-3.5 text-accent shrink-0" strokeWidth={2.6} />
+                                                    : <span className="h-3.5 w-3.5 rounded-full border border-line shrink-0" />}
+                                                Confirm income
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                                {expensesVerified
+                                                    ? <Check className="h-3.5 w-3.5 text-accent shrink-0" strokeWidth={2.6} />
+                                                    : <span className="h-3.5 w-3.5 rounded-full border border-line shrink-0" />}
+                                                Verify outflow
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -1029,7 +1074,7 @@ export const MonthlyReviewWizard = ({
                         )}
 
                         {currentStep === "income" && (
-                            (myIncomeAccepted && !incomeDirty) ? (
+                            (allMembersAcceptedIncome && !incomeDirty) ? (
                                 <div className="space-y-1">
                                     <Button
                                         onClick={() => setCurrentStep("expenses")}
@@ -1041,50 +1086,35 @@ export const MonthlyReviewWizard = ({
                                     </Button>
                                     <p className="text-center text-[11px] text-muted flex items-center justify-center gap-1.5">
                                         <Check className="h-3 w-3 text-accent" />
-                                        Accepted {myIncomeAcceptedAt ? format(new Date(myIncomeAcceptedAt), "MMM d, HH:mm") : "—"}
+                                        Confirmed {myIncomeAcceptedAt ? format(new Date(myIncomeAcceptedAt), "MMM d, HH:mm") : "—"}
                                     </p>
                                 </div>
                             ) : (
-                                <div className="space-y-1">
-                                    <Button
-                                        onClick={acceptIncome}
-                                        disabled={savingScope !== null || (myIncomeCount === 0 && unlockedItems.size === 0)}
-                                        className="w-full"
-                                        size="lg"
-                                    >
-                                        <Check className="h-4 w-4 mr-2" />
-                                        {savingScope === "income"
-                                            ? "Saving..."
-                                            : myIncomeAccepted
-                                                ? unlockedItems.size > 0 ? "Re-accept incomes" : "Re-accept my income"
-                                                : unlockedItems.size > 0 && myIncomeCount === 0
-                                                    ? "Save edits"
-                                                    : unlockedItems.size > 0
-                                                        ? "Accept incomes"
-                                                        : "Accept my income"}
-                                    </Button>
-                                    {unlockedItems.size > 0 && (
-                                        <p className="text-[11px] text-muted text-center">
-                                            You'll also accept on behalf of the unlocked income{unlockedItems.size > 1 ? "s" : ""}.
-                                        </p>
-                                    )}
-                                </div>
+                                <Button
+                                    onClick={acceptIncome}
+                                    disabled={savingScope !== null || incomes.length === 0}
+                                    className="w-full"
+                                    size="lg"
+                                >
+                                    <Check className="h-4 w-4 mr-2" />
+                                    {savingScope === "income"
+                                        ? "Saving..."
+                                        : myIncomeAccepted ? "Re-confirm income" : "Confirm income"}
+                                </Button>
                             )
                         )}
 
                         {currentStep === "expenses" && (
                             (expensesVerified && !expensesDirty) ? (
                                 <div className="space-y-1">
-                                    {canFinalize && (
-                                        <Button
-                                            onClick={() => setCurrentStep("review")}
-                                            className="w-full"
-                                            size="lg"
-                                            variant="outline"
-                                        >
-                                            Continue to review
-                                        </Button>
-                                    )}
+                                    <Button
+                                        onClick={() => setCurrentStep("review")}
+                                        className="w-full"
+                                        size="lg"
+                                        variant="outline"
+                                    >
+                                        Continue to review
+                                    </Button>
                                     <p className="text-center text-[11px] text-muted flex items-center justify-center gap-1.5">
                                         <Check className="h-3 w-3 text-accent" />
                                         Verified {expensesVerifiedAt ? format(new Date(expensesVerifiedAt), "MMM d, HH:mm") : "—"}
@@ -1115,12 +1145,6 @@ export const MonthlyReviewWizard = ({
                             </Button>
                         )}
 
-                        {myIncomeAccepted && !allMembersAcceptedIncome && (
-                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-2/40 border border-line/50 text-xs text-muted">
-                                <Hourglass className="h-3.5 w-3.5 shrink-0 text-warn" />
-                                <span>Waiting for other users to review.</span>
-                            </div>
-                        )}
                     </div>
                 )}
             </DialogContent>

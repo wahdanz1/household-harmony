@@ -1,10 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Moon, Repeat, Shield, ClipboardCheck, Check, Plus, Zap } from "lucide-react";
-import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { CalendarDays, Users, Moon, Repeat, Shield, Check, Plus, Zap } from "lucide-react";
 import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { Money, fmtKr } from "@/components/ui/money";
 import { CatIcon } from "@/components/ui/cat-icon";
@@ -23,7 +22,8 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { classifySourcesByFM } from "@/utils/billingEvents";
 import { reportSuccess, reportFailure, isDown } from "@/utils/outageMonitor";
-import { useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
+import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
+import { ReviewBanner } from "@/components/shared/ReviewBanner";
 import { useEncryptedFields, expenseFields, monthlyExpenseFields, subscriptionFields, insuranceFields } from "@/hooks/useEncryptedFields";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
@@ -77,7 +77,8 @@ const Expenses = () => {
   // The review gate only applies once a previous financial month exists with
   // data — fresh households on their very first month aren't asked to review
   // anything yet.
-  const { needsReview, latestFinalizedMonth } = useMonthlyReviewStatus(household?.id, financialMonthStart);
+  const { needsReview, latestFinalizedMonth, markAsReviewed } = useMonthlyReviewStatus(household?.id, financialMonthStart);
+  const [reviewWizardOpen, setReviewWizardOpen] = useState(false);
   const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
   useEffect(() => {
     if (!household?.id) return;
@@ -384,6 +385,10 @@ const Expenses = () => {
     <div className={`space-y-5 ${mobileBottomBarSpacer}`}>
       {renderHeader(hasAnyCategory)}
 
+      {isReadOnly && hasAnyCategory && (
+        <ReviewBanner onOpen={() => setReviewWizardOpen(true)} />
+      )}
+
       {hasAnyCategory && (
         <Card>
           <p className="text-xs font-medium text-muted tracking-wide">
@@ -403,21 +408,6 @@ const Expenses = () => {
             {fmtKr(totalExpenses * 12, household?.currency || "SEK")} per year
           </p>
         </Card>
-      )}
-
-      {isReadOnly && hasAnyCategory && (
-        <Alert variant="warning">
-          <ClipboardCheck />
-          <AlertContent>
-            <AlertTitle>This month's review hasn't been finalized.</AlertTitle>
-            <AlertDescription>
-              Edits are locked until the Monthly Review is complete. Use the wizard on the Overview to review and finalize.
-            </AlertDescription>
-          </AlertContent>
-          <Button asChild size="sm" variant="outline" className="shrink-0">
-            <Link to="/">Open Review</Link>
-          </Button>
-        </Alert>
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -840,6 +830,12 @@ const Expenses = () => {
         open={!!detailsItem}
         onOpenChange={(o) => !o && setDetailsItem(null)}
         item={detailsItem}
+      />
+
+      <MonthlyReviewWizard
+        open={reviewWizardOpen}
+        onOpenChange={setReviewWizardOpen}
+        onComplete={() => { markAsReviewed(); fetchData(); }}
       />
     </div>
   );
