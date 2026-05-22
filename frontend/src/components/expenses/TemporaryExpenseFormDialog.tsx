@@ -38,7 +38,7 @@ interface TemporaryExpenseFormDialogProps {
 const blank = () => ({
     description: "",
     amount: "",
-    category: "other",
+    category: "",
     notes: "",
 });
 
@@ -58,7 +58,7 @@ export const TemporaryExpenseFormDialog = ({
         }
     }, [open]);
 
-    const canSave = !!formData.description.trim() && !!formData.amount.trim();
+    const canSave = !!formData.description.trim() && !!formData.amount.trim() && !!formData.category;
 
     const entityForm = useEntityForm({
         entityName: "One-time expense",
@@ -122,7 +122,7 @@ export const TemporaryExpenseFormDialog = ({
                         </FormField>
                         <FormField label="Category">
                             <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                                 <SelectContent>
                                     {temporaryCategories.map((cat) => {
                                         const Icon = cat.icon;

@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 interface AvatarTriggerProps {
@@ -9,8 +10,15 @@ interface AvatarTriggerProps {
     onClick?: () => void;
 }
 
+const initialsOf = (fullName: string) => {
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "·";
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
+
 /**
- * Round avatar button showing the user's first initial. Anchors the
+ * Round avatar button: profile photo when set, initials otherwise. Anchors the
  * UserMenu in the mobile top bar and elsewhere. Use inside a UserMenu's
  * trigger slot so it composes the dropdown automatically.
  */
@@ -20,7 +28,8 @@ export const AvatarTrigger = forwardRef<HTMLButtonElement, AvatarTriggerProps>(
         const { members } = useHousehold();
         const me = members.find(m => m.user_id === user?.id);
         const fullName = me?.profiles?.full_name?.trim() || "";
-        const initial = fullName ? fullName.charAt(0).toUpperCase() : "·";
+        const avatarUrl = me?.profiles?.avatar_url || null;
+        const initials = initialsOf(fullName);
 
         const dim = size === "sm" ? "h-8 w-8 text-[13px]" : "h-10 w-10 text-[15px]";
 
@@ -31,14 +40,19 @@ export const AvatarTrigger = forwardRef<HTMLButtonElement, AvatarTriggerProps>(
                 onClick={onClick}
                 aria-label="Account menu"
                 className={cn(
-                    "rounded-full bg-accent text-accent-ink flex items-center justify-center font-bold shrink-0",
-                    "hover:bg-accent/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
+                    "rounded-full overflow-hidden shrink-0 hover:opacity-90 transition-opacity",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
                     dim,
                     className,
                 )}
                 {...props}
             >
-                {initial}
+                <Avatar className="h-full w-full">
+                    <AvatarImage src={avatarUrl || undefined} alt={fullName || "User"} />
+                    <AvatarFallback className="bg-accent text-accent-ink font-bold">
+                        {initials}
+                    </AvatarFallback>
+                </Avatar>
             </button>
         );
     },

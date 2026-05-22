@@ -1,4 +1,4 @@
-import { Briefcase, TrendingUp, HandCoins, PiggyBank, Gift, Sparkles, LucideIcon } from "lucide-react";
+import { Briefcase, TrendingUp, HandCoins, PiggyBank, Gift, Landmark, Sparkles, LucideIcon } from "lucide-react";
 
 export interface IncomeCategory {
     id: string;
@@ -13,6 +13,7 @@ export const INCOME_CATEGORIES: IncomeCategory[] = [
     { id: 'government_benefits', label: 'Government Benefits', icon: HandCoins, hue: 100 },
     { id: 'investment_income', label: 'Investments', icon: PiggyBank, hue: 240 },
     { id: 'gift', label: 'Gift', icon: Gift, hue: 20 },
+    { id: 'pension', label: 'Pension', icon: Landmark, hue: 100 },
     { id: 'other', label: 'Other', icon: Sparkles },
 ];
 

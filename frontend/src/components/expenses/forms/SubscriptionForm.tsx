@@ -48,7 +48,7 @@ const blank = (): InitialValues => ({
     service: "",
     budget: "",
     billing_cycle: "monthly",
-    category: "other",
+    category: "",
     notes: "",
     is_active: true,
     attribution: null,
@@ -70,7 +70,7 @@ export const SubscriptionForm = ({
     }, [initialValues, editingId]);
 
     const isEditing = !!editingId;
-    const canSave = !!formData.service?.trim() && !!String(formData.budget ?? "").trim();
+    const canSave = !!formData.service?.trim() && !!formData.category && !!String(formData.budget ?? "").trim();
 
     const usedCategorySet = useUsedCategoryValues("subscriptions", householdId);
     const usedCats = subscriptionCategories.filter(c => usedCategorySet.has(c.value) || c.value === formData.category);
@@ -87,7 +87,7 @@ export const SubscriptionForm = ({
                 name: formData.name?.trim() || null,
                 budget: parseFloat(String(formData.budget ?? 0)),
                 billing_cycle: formData.billing_cycle ?? "monthly",
-                category: formData.category ?? "other",
+                category: formData.category,
                 notes: formData.notes ?? "",
                 is_active: formData.is_active ?? true,
                 created_by: user.id,
@@ -129,7 +129,7 @@ export const SubscriptionForm = ({
                 </FormField>
                 <FormField label="Category">
                     <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                         <SelectContent>
                             {usedCats.length > 0 && (
                                 <SelectGroup>

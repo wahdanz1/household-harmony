@@ -52,7 +52,7 @@ interface InsuranceFormProps {
 const blank = (): InitialValues => ({
     name: "",
     provider: "",
-    category: "home",
+    category: "",
     budget: "",
     billing_cycle: "yearly",
     billing_month: "",
@@ -92,7 +92,8 @@ export const InsuranceForm = ({
 
     const isEditing = !!editingId;
     const isRecurringNonMonthly = formData.billing_cycle && formData.billing_cycle !== "monthly";
-    const canSave = !!String(formData.budget ?? "").trim()
+    const canSave = !!formData.category
+        && !!String(formData.budget ?? "").trim()
         && (parseFloat(String(formData.budget)) || 0) > 0;
 
     const usedCategorySet = useUsedCategoryValues("insurances", householdId);
@@ -108,7 +109,7 @@ export const InsuranceForm = ({
                 household_id: householdId,
                 name: formData.name?.trim() ?? "",
                 provider: formData.provider || null,
-                category: formData.category ?? "home",
+                category: formData.category,
                 budget: parseFloat(String(formData.budget ?? 0)),
                 billing_cycle: formData.billing_cycle ?? "yearly",
                 billing_month: formData.billing_month && String(formData.billing_month) !== "0" && String(formData.billing_month) !== ""
@@ -152,7 +153,7 @@ export const InsuranceForm = ({
             <FormRow>
                 <FormField label="Type">
                     <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="Select a type" /></SelectTrigger>
                         <SelectContent>
                             {usedTypes.length > 0 && (
                                 <SelectGroup>
@@ -259,14 +260,12 @@ export const InsuranceForm = ({
                 </>
             )}
 
-            <FormRow>
-                <AttributionPicker
-                    householdId={householdId}
-                    value={formData.attribution ?? null}
-                    onChange={(attribution) => setFormData({ ...formData, attribution })}
-                    label="Covers"
-                />
-            </FormRow>
+            <AttributionPicker
+                householdId={householdId}
+                value={formData.attribution ?? null}
+                onChange={(attribution) => setFormData({ ...formData, attribution })}
+                label="Covers"
+            />
 
             <FormField label="Name" optional optionalNote="optional, overrides display">
                 <Input

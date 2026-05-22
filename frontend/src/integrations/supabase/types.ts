@@ -1590,6 +1590,8 @@ export type Database = {
         | "car_repairs"
         | "credit_card"
         | "healthcare"
+        | "memberships"
+        | "childcare"
         | "other"
       household_role: "owner" | "member"
       income_category:
@@ -1605,11 +1607,13 @@ export type Database = {
         | "government_benefits"
         | "investment_income"
         | "gift"
+        | "pension"
         | "other"
       insurance_category_enum:
         | "home"
         | "car"
         | "health"
+        | "child"
         | "life"
         | "pet"
         | "travel"
@@ -1787,6 +1791,8 @@ export const Constants = {
         "car_repairs",
         "credit_card",
         "healthcare",
+        "memberships",
+        "childcare",
         "other",
       ],
       household_role: ["owner", "member"],
@@ -1804,12 +1810,14 @@ export const Constants = {
         "government_benefits",
         "investment_income",
         "gift",
+        "pension",
         "other",
       ],
       insurance_category_enum: [
         "home",
         "car",
         "health",
+        "child",
         "life",
         "pet",
         "travel",

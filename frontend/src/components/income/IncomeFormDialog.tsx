@@ -24,13 +24,14 @@ import { FormField, FormRow } from "@/components/shared/FormField";
 import { MarkPaidSection } from "@/components/shared/MarkPaidSection";
 import { useEntityForm } from "@/hooks/useEntityForm";
 
-import { Briefcase, TrendingUp, HandCoins, PiggyBank, MoreHorizontal } from "lucide-react";
+import { Briefcase, TrendingUp, HandCoins, PiggyBank, Landmark, MoreHorizontal } from "lucide-react";
 
 const INCOME_CATEGORIES = [
     { value: "salary", label: "Salary", icon: Briefcase },
     { value: "business_income", label: "Business income", icon: PiggyBank },
     { value: "government_benefits", label: "Government benefits", icon: HandCoins },
     { value: "investment_income", label: "Investment income", icon: TrendingUp },
+    { value: "pension", label: "Pension", icon: Landmark },
     { value: "other", label: "Other", icon: MoreHorizontal },
 ] as const;
 
@@ -64,10 +65,10 @@ interface IncomeFormDialogProps {
 }
 
 const blankForm = (defaultOwnerId: string): InitialValues => ({
-    category: "salary",
+    category: undefined,
     name: "",
     provider: "",
-    budget: "0",
+    budget: "",
     owner_id: defaultOwnerId,
     is_shared: false,
     co_parent_id: "",
@@ -101,7 +102,7 @@ export const IncomeFormDialog = ({
     }, [open, initialValues, defaultOwnerId]);
 
     const editingId = mode === "edit" ? initialValues?.id : undefined;
-    const canSave = !!form.provider?.trim() && parseFloat(String(form.budget ?? 0)) >= 0 && !!form.owner_id;
+    const canSave = !!form.category && !!form.provider?.trim() && parseFloat(String(form.budget ?? 0)) >= 0 && !!form.owner_id;
 
     const entityForm = useEntityForm({
         entityName: "Income source",
@@ -189,10 +190,10 @@ export const IncomeFormDialog = ({
                     <FormRow>
                         <FormField label="Category">
                             <Select
-                                value={form.category}
+                                value={form.category ?? ""}
                                 onValueChange={(v) => setForm({ ...form, category: v as IncomeCategory })}
                             >
-                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                                 <SelectContent>
                                     {INCOME_CATEGORIES.map(c => {
                                         const Icon = c.icon;

@@ -117,8 +117,12 @@ export const ExpenseBlock = ({
 }: ExpenseBlockProps) => {
     const [isExpanded, setIsExpanded] = useState(defaultExpanded);
     const blockRef = useRef<HTMLDivElement>(null);
+    // Skip the mount run so landing on the page with a section already open
+    // doesn't scroll away from the top card — only a user tap should scroll.
+    const didMount = useRef(false);
 
     useEffect(() => {
+        if (!didMount.current) { didMount.current = true; return; }
         if (!isExpanded) return;
         if (typeof window === "undefined") return;
         if (!window.matchMedia("(max-width: 640px)").matches) return;
