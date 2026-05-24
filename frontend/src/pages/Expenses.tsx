@@ -30,6 +30,7 @@ import { insuranceTypes } from "@/constants/insuranceTypes";
 import { VaultLockedAlert } from "@/components/shared/VaultLockedAlert";
 import { PastMonthDetailsDialog, PastMonthDetailsItem } from "@/components/shared/PastMonthDetailsDialog";
 import { getCategoryById } from "@/constants/expenseCategories";
+import { getOneOffCategory } from "@/constants/oneOffExpenseCategories";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { ExpensesPageSkeleton } from "@/components/shared/skeletons/PageSkeletons";
 import { AvatarTrigger } from "@/components/shared/AvatarTrigger";
@@ -37,6 +38,7 @@ import { UserMenu } from "@/components/shared/UserMenu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MobileBottomBar, mobileBottomBarSpacer } from "@/components/shared/MobileBottomBar";
 import { useHouseholdSubjects } from "@/hooks/useHouseholdSubjects";
+import { shortMemberName } from "@/utils/memberName";
 
 const Expenses = () => {
   const { user } = useAuth();
@@ -57,6 +59,7 @@ const Expenses = () => {
 
   const [editingSubscription, setEditingSubscription] = useState<any | null>(null);
   const [editingInsurance, setEditingInsurance] = useState<any | null>(null);
+  const [editingOneOff, setEditingOneOff] = useState<any | null>(null);
   const [detailsItem, setDetailsItem] = useState<PastMonthDetailsItem | null>(null);
 
   // ?expand=subscriptions|insurances|expenses picks which All-tab accordion
@@ -192,7 +195,6 @@ const Expenses = () => {
     setMonthlyExpenses(decryptedMonthly);
     setSubscriptions(decryptedSubs);
     setInsurances(decryptedIns);
-    // Credit card expenses now tracked via expenses.is_credit
 
     // Carry-forward: find most recent record per category (from any month before this one)
     const missingCategories = decryptedCategories.filter((cat: any) =>
@@ -478,7 +480,7 @@ const Expenses = () => {
                   actualAmount,
                   category: cat.category,
                   subject: subj ? { name: subj.name, type: subj.type } : undefined,
-                  member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
+                  member: mem ? { name: shortMemberName(mem.profiles?.full_name ?? "Member") } : undefined,
                   isCredit: !!cat.is_credit,
                   previousBudgetSnapshot: monthly?.previous_budget_snapshot != null ? Number(monthly.previous_budget_snapshot) : undefined,
                   budgetChangedAt: monthly?.budget_changed_at ?? undefined,
@@ -486,23 +488,26 @@ const Expenses = () => {
                   inactivatedAt: monthly?.inactivated_at ?? undefined,
                 };
               }),
-              // One-time entries (e.g. from credit-import for un-budgeted
-              // categories). Source-less rows live only in the month they were
-              // charged; rendered read-only here so the user sees the history.
+              // One-off rows (manual or credit-import) have no expense source
+              // and live only in the month they were charged.
               ...monthlyExpenses
                 .filter((m: any) => m.expense_id == null && m.one_time_name)
                 .map((m: any) => {
                   const actualAmount = m.actual_amount != null ? Number(m.actual_amount) : undefined;
-                  // Past months: click opens Details. Current month: no edit
-                  // surface yet, so row stays non-interactive.
-                  const readOnly = !isPastMonth;
+                  const snapshot = m.budget_snapshot != null ? Number(m.budget_snapshot) : 0;
+                  const subj = subjects.find(s => s.id === m.subject_id);
+                  const mem = members.find(mm => mm.id === m.member_id);
+                  // Past months are read-only history; corrections go through Monthly Review.
+                  const readOnly = isPastMonth;
                   return {
                     id: `onetime-${m.id}`,
                     name: m.one_time_name as string,
-                    amount: actualAmount ?? 0,
+                    amount: actualAmount ?? snapshot,
                     budget: undefined,
                     actualAmount,
                     category: m.one_time_category as string | undefined,
+                    subject: subj ? { name: subj.name, type: subj.type } : undefined,
+                    member: mem ? { name: shortMemberName(mem.profiles?.full_name ?? "Member") } : undefined,
                     isOneOff: true,
                     readOnly,
                   };
@@ -521,7 +526,7 @@ const Expenses = () => {
                 isDue,
                 isDueNext,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
-                member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
+                member: mem ? { name: shortMemberName(mem.profiles?.full_name ?? "Member") } : undefined,
                 inactive: sub.is_active === false,
               };
             })}
@@ -554,7 +559,7 @@ const Expenses = () => {
                 isDue,
                 isDueNext,
                 subject: subj ? { name: subj.name, type: subj.type } : undefined,
-                member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
+                member: mem ? { name: shortMemberName(mem.profiles?.full_name ?? "Member") } : undefined,
                 inactive: ins.is_active === false,
               };
             })}
@@ -567,11 +572,25 @@ const Expenses = () => {
             pastMonth={isPastMonth}
             onExpenseClick={(id) => {
               if (id.startsWith("onetime-")) {
-                if (!isPastMonth) return;
                 const monthlyId = id.slice("onetime-".length);
                 const monthly = monthlyExpenses.find((m: any) => m.id === monthlyId);
                 if (!monthly) return;
-                const cat = getCategoryById(monthly.one_time_category);
+                if (!isPastMonth) {
+                  setEditingOneOff({
+                    id: monthlyId,
+                    description: monthly.one_time_name ?? "",
+                    amount: monthly.budget_snapshot != null ? Number(monthly.budget_snapshot) : "",
+                    category: monthly.one_time_category ?? "",
+                    notes: monthly.notes ?? "",
+                    attribution: monthly.member_id
+                      ? { kind: "member", id: monthly.member_id }
+                      : monthly.subject_id
+                        ? { kind: "subject", id: monthly.subject_id }
+                        : null,
+                  });
+                  return;
+                }
+                const cat = getOneOffCategory(monthly.one_time_category);
                 setDetailsItem({
                   name: monthly.one_time_name,
                   categoryLabel: cat?.label,
@@ -603,7 +622,7 @@ const Expenses = () => {
                   actualRecordedAt: monthly?.actual_recorded_at ?? undefined,
                   inactivatedAt: monthly?.inactivated_at ?? undefined,
                   subject: subj ? { name: subj.name, type: subj.type } : undefined,
-                  member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
+                  member: mem ? { name: shortMemberName(mem.profiles?.full_name ?? "Member") } : undefined,
                   isCredit: !!expense.is_credit,
                 });
                 return;
@@ -629,7 +648,7 @@ const Expenses = () => {
                   budget: parseFloat(String(subscription.budget || 0)),
                   billingLabel: cycleLabels[subscription.billing_cycle] || "/month",
                   subject: subj ? { name: subj.name, type: subj.type } : undefined,
-                  member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
+                  member: mem ? { name: shortMemberName(mem.profiles?.full_name ?? "Member") } : undefined,
                 });
                 return;
               }
@@ -654,7 +673,7 @@ const Expenses = () => {
                   budget: parseFloat(String(insurance.budget || 0)),
                   billingLabel: cycleLabels[insurance.billing_cycle] || "/month",
                   subject: subj ? { name: subj.name, type: subj.type } : undefined,
-                  member: mem ? { name: mem.profiles?.full_name ?? "Member" } : undefined,
+                  member: mem ? { name: shortMemberName(mem.profiles?.full_name ?? "Member") } : undefined,
                 });
                 return;
               }
@@ -708,6 +727,18 @@ const Expenses = () => {
           onOpenChange={setAddTemporaryDialogOpen}
           householdId={household.id}
           financialMonthStart={financialMonthStart}
+          onSuccess={fetchData}
+        />
+      )}
+
+      {household && (
+        <TemporaryExpenseFormDialog
+          open={!!editingOneOff}
+          onOpenChange={(v) => { if (!v) setEditingOneOff(null); }}
+          householdId={household.id}
+          financialMonthStart={financialMonthStart}
+          editingId={editingOneOff?.id}
+          initialValues={editingOneOff ?? undefined}
           onSuccess={fetchData}
         />
       )}
