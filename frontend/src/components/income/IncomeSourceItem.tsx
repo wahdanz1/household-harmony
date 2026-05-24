@@ -1,4 +1,4 @@
-import { Pencil, Info, Sparkles } from "lucide-react";
+import { Pencil, Info, Sparkles, Split } from "lucide-react";
 import { getIncomeCategoryById } from "@/constants/incomeCategories";
 import { RowItem } from "@/components/ui/row-item";
 import { Money } from "@/components/ui/money";
@@ -42,9 +42,17 @@ export const IncomeSourceItem = ({
         >
             <div className="flex items-center gap-3 flex-1 min-w-0">
                 <CatIcon icon={Icon} hue={cat?.hue} size={32} />
-                <p className={`font-medium text-sm sm:text-base truncate ${isSkipped ? "line-through text-muted" : ""}`}>
-                    {(source.name || source.provider)}
-                </p>
+                <div className="flex items-center gap-2 min-w-0">
+                    <p className={`font-medium text-sm sm:text-base truncate ${isSkipped ? "line-through text-muted" : ""}`}>
+                        {(source.name || source.provider)}
+                    </p>
+                    {source.is_shared && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-surface-2 text-muted shrink-0">
+                            <Split className="h-3 w-3" />
+                            Shared
+                        </span>
+                    )}
+                </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
