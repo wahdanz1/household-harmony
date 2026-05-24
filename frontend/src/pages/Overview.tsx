@@ -161,7 +161,7 @@ const Overview = () => {
       // monthly_* rows still contribute to totals.
       const isPastMonth = selectedMonth < todayMonth;
 
-      let incomeQuery = supabase.from("income_sources").select("id, encrypted_budget, is_encrypted").eq("household_id", household.id);
+      let incomeQuery = supabase.from("income_sources").select("id, encrypted_budget, is_encrypted, is_shared, share_percentage").eq("household_id", household.id);
       if (!isPastMonth) incomeQuery = incomeQuery.eq("is_active", true).is("archived_at", null);
 
       let expenseQuery = supabase.from("expenses").select("id, encrypted_budget, is_encrypted").eq("household_id", household.id);
@@ -257,7 +257,9 @@ const Overview = () => {
       };
 
       const recurringIncomeTotal = decryptedIncomeSources.reduce((sum: number, source: any) => {
-        return sum + resolveSourceAmount(source, monthlyByIncomeSource.get(source.id));
+        // Shared income only counts the household's own cut.
+        const shareRatio = source.is_shared ? (source.share_percentage || 50) / 100 : 1;
+        return sum + resolveSourceAmount(source, monthlyByIncomeSource.get(source.id)) * shareRatio;
       }, 0);
       const recurringExpensesTotal = decryptedExpenseSources.reduce((sum: number, source: any) => {
         return sum + resolveSourceAmount(source, monthlyByExpenseSource.get(source.id));

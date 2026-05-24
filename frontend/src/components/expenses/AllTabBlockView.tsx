@@ -7,6 +7,7 @@ import { RowItem } from "@/components/ui/row-item";
 import { SectionFrames } from "@/components/ui/section-frames";
 import { useEffect, useRef, useState } from "react";
 import { getCategoryById, isCategoryBudgeted } from "@/constants/expenseCategories";
+import { getOneOffCategory } from "@/constants/oneOffExpenseCategories";
 import { subscriptionCategories } from "@/constants/subscriptionCategories";
 import { insuranceTypes } from "@/constants/insuranceTypes";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -117,8 +118,7 @@ export const ExpenseBlock = ({
 }: ExpenseBlockProps) => {
     const [isExpanded, setIsExpanded] = useState(defaultExpanded);
     const blockRef = useRef<HTMLDivElement>(null);
-    // Skip the mount run so landing on the page with a section already open
-    // doesn't scroll away from the top card — only a user tap should scroll.
+    // Only a user tap should scroll; skip the mount run when a section starts open.
     const didMount = useRef(false);
 
     useEffect(() => {
@@ -133,7 +133,7 @@ export const ExpenseBlock = ({
     }, [isExpanded]);
 
     // Helper to get category info based on type
-    const getCategoryInfo = (category: string | undefined) => {
+    const getCategoryInfo = (category: string | undefined, isOneOff = false) => {
         if (!category) return null;
         if (categoryType === 'subscription') {
             return subscriptionCategories.find(c => c.value === category);
@@ -141,6 +141,9 @@ export const ExpenseBlock = ({
         if (categoryType === 'insurance') {
             return insuranceTypes.find(c => c.value === category);
         }
+        // One-offs draw from their own vocab (medical, home_repair…) which the
+        // recurring EXPENSE_CATEGORIES doesn't carry.
+        if (isOneOff) return getOneOffCategory(category);
         return getCategoryById(category);
     };
 
@@ -203,7 +206,7 @@ export const ExpenseBlock = ({
                     <div className="overflow-hidden">
                         <div className="border-t border-line-2">
                     {items.map((item, idx) => {
-                        const cat = getCategoryInfo(item.category);
+                        const cat = getCategoryInfo(item.category, item.isOneOff);
                         const Icon = cat?.icon;
                         const isLast = idx === items.length - 1;
 

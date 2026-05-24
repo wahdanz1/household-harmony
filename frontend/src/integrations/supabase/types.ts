@@ -1,4 +1,3 @@
-Initialising login role...
 export type Json =
   | string
   | number
@@ -714,12 +713,14 @@ export type Database = {
           id: string
           inactivated_at: string | null
           is_encrypted: boolean | null
+          member_id: string | null
           month: string
           month_end: string | null
           month_start: string | null
           notes: string | null
           one_time_category: string | null
           one_time_name: string | null
+          subject_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -737,12 +738,14 @@ export type Database = {
           id?: string
           inactivated_at?: string | null
           is_encrypted?: boolean | null
+          member_id?: string | null
           month: string
           month_end?: string | null
           month_start?: string | null
           notes?: string | null
           one_time_category?: string | null
           one_time_name?: string | null
+          subject_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -760,12 +763,14 @@ export type Database = {
           id?: string
           inactivated_at?: string | null
           is_encrypted?: boolean | null
+          member_id?: string | null
           month?: string
           month_end?: string | null
           month_start?: string | null
           notes?: string | null
           one_time_category?: string | null
           one_time_name?: string | null
+          subject_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -781,6 +786,20 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_expenses_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "household_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_expenses_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
         ]
@@ -1544,6 +1563,10 @@ export type Database = {
     Functions: {
       confirm_member_exit: { Args: never; Returns: undefined }
       ensure_user_has_household: { Args: never; Returns: string }
+      financial_month_start_for: {
+        Args: { fms: number; reference_date: string }
+        Returns: string
+      }
       get_user_household_id: { Args: { _user_id: string }; Returns: string }
       handle_owner_leave: {
         Args: { successor_user_id_in: string }
@@ -1857,5 +1880,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.101.0 (currently installed v2.84.2)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

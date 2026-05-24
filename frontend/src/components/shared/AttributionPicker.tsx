@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useHouseholdSubjects, type SubjectType, type SubjectOption } from "@/hooks/useHouseholdSubjects";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
+import { shortMemberName } from "@/utils/memberName";
 
 export type AttributionValue =
     | { kind: "member"; id: string }
@@ -78,17 +79,10 @@ export const AttributionPicker = ({
 
     const sortedSubjects = subjects.slice().sort((a, b) => a.name.localeCompare(b.name));
 
-    // Last name shrunk to an initial so it fits the half-width "Covers" column on mobile.
-    const shortName = (full: string) => {
-        const parts = full.trim().split(/\s+/);
-        if (parts.length < 2) return parts[0] ?? "";
-        return `${parts[0]} ${parts[parts.length - 1][0]}`;
-    };
-
     const memberLabel = (m: typeof members[number]) => {
         const full = m.profiles?.full_name?.trim();
         if (!full) return m.user_id === user?.id ? "You" : "Unknown";
-        return shortName(full);
+        return shortMemberName(full);
     };
 
     return (

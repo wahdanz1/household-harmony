@@ -210,13 +210,22 @@ const Income = () => {
     setSourceDialogOpen(true);
   };
 
+  // Shared income only counts the household's own cut; the rest goes to the co-parent.
+  const shareFactor = (source: any): number =>
+    source.is_shared && source.share_percentage != null
+      ? Number(source.share_percentage) / 100
+      : 1;
+
   // Effective amount per source for display + totals.
   // Precedence: confirmed actual > frozen snapshot > current source.budget.
   const amountFor = (source: any): number => {
     const monthly = monthlyIncomes.find((m: any) => m.income_source_id === source.id);
-    if (monthly?.actual_amount != null) return Number(monthly.actual_amount);
-    if (monthly?.budget_snapshot != null) return Number(monthly.budget_snapshot);
-    return parseFloat((source.budget || "0").toString());
+    const raw = monthly?.actual_amount != null
+      ? Number(monthly.actual_amount)
+      : monthly?.budget_snapshot != null
+        ? Number(monthly.budget_snapshot)
+        : parseFloat((source.budget || "0").toString());
+    return raw * shareFactor(source);
   };
 
   const totalIncome = incomeSources.reduce((sum, s) => sum + amountFor(s), 0);
@@ -336,7 +345,7 @@ const Income = () => {
               const monthly = monthlyIncomes.find((m: any) => m.income_source_id === source.id);
               const rawActual = monthly?.actual_amount;
               const actualAmount = rawActual !== undefined && rawActual !== null
-                ? Number(rawActual)
+                ? Number(rawActual) * shareFactor(source)
                 : undefined;
 
               return (
