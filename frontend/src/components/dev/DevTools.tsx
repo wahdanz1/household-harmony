@@ -9,6 +9,7 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { useEncryption } from "@/contexts/EncryptionContext";
 import { getCurrentFinancialMonth, formatFinancialMonth } from "@/utils/dateUtils";
 import { supabase } from "@/integrations/supabase/client";
+import type { TablesInsert } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
 // Sensitive (encrypted) fields per source table: plaintext key → encrypted column.
@@ -58,6 +59,30 @@ export const DevTools = () => {
         window.location.reload();
     };
 
+    // Time-travel testing can finalize a review for a month that hasn't really
+    // started yet, leaving a monthly_review_finalized row that suppresses the
+    // banner once real time catches up. This wipes review state so it re-shows.
+    const handleResetReview = async () => {
+        if (!household) {
+            toast.error("No household");
+            return;
+        }
+        setBusy(true);
+        try {
+            const { error } = await supabase
+                .from("monthly_review_finalized")
+                .delete()
+                .eq("household_id", household.id);
+            if (error) throw error;
+            toast.success("Review state reset");
+            window.location.reload();
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Failed to reset review state");
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleExport = async () => {
         if (!household || !isUnlocked) {
             toast.error("Unlock the vault first");
@@ -79,19 +104,19 @@ export const DevTools = () => {
             const memberUserById = new Map((members || []).map(m => [m.id, m.user_id]));
 
             // Decrypt sensitive columns → plaintext, keep structural, drop env-specific.
-            const pack = async (rows: any[] | null, table: string) => {
+            const pack = async (rows: Record<string, unknown>[] | null, table: string) => {
                 const sens = SENSITIVE[table];
                 const struct = STRUCTURAL[table];
                 return Promise.all((rows || []).map(async (row) => {
-                    const out: Record<string, any> = { id: row.id };
+                    const out: Record<string, unknown> = { id: row.id };
                     for (const key of struct) out[key] = row[key] ?? null;
                     for (const [plain, enc] of Object.entries(sens)) {
-                        out[plain] = row[enc] ? await decrypt(row[enc]) : null;
+                        out[plain] = row[enc] ? await decrypt(row[enc] as string) : null;
                     }
                     if (table === "income_sources") out.owner_id = row.owner_id;
                     // member_id → resolve to user_id so import can remap into the new household.
                     if ("member_id" in row && row.member_id) {
-                        out._member_user_id = memberUserById.get(row.member_id) ?? null;
+                        out._member_user_id = memberUserById.get(row.member_id as string) ?? null;
                     }
                     return out;
                 }));
@@ -101,13 +126,13 @@ export const DevTools = () => {
                 version: EXPORT_VERSION,
                 exportedAt: new Date().toISOString(),
                 household: { name: household.name, currency: household.currency, financial_month_start: financialMonthStart },
-                subjects: (subjects.data || []).map((s: any) => ({ id: s.id, name: s.name, type: s.type, sort_order: s.sort_order, user_id: s.user_id })),
-                co_parents: (coParents.data || []).map((c: any) => ({ id: c.id, name: c.name, notes: c.notes })),
-                income_sources: await pack(incomes.data, "income_sources"),
-                expenses: await pack(expenses.data, "expenses"),
-                subscriptions: await pack(subs.data, "subscriptions"),
-                insurances: await pack(insurances.data, "insurances"),
-                credit_cards: await pack(cards.data, "credit_cards"),
+                subjects: (subjects.data || []).map((s) => ({ id: s.id, name: s.name, type: s.type, sort_order: s.sort_order, user_id: s.user_id })),
+                co_parents: (coParents.data || []).map((c) => ({ id: c.id, name: c.name, notes: c.notes })),
+                income_sources: await pack(incomes.data as Record<string, unknown>[] | null, "income_sources"),
+                expenses: await pack(expenses.data as Record<string, unknown>[] | null, "expenses"),
+                subscriptions: await pack(subs.data as Record<string, unknown>[] | null, "subscriptions"),
+                insurances: await pack(insurances.data as Record<string, unknown>[] | null, "insurances"),
+                credit_cards: await pack(cards.data as Record<string, unknown>[] | null, "credit_cards"),
             };
 
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -118,9 +143,9 @@ export const DevTools = () => {
             a.click();
             URL.revokeObjectURL(url);
             toast.success("Exported financial data");
-        } catch (err: any) {
+        } catch (err) {
             console.error("Export failed:", err);
-            toast.error(err?.message || "Export failed");
+            toast.error(err instanceof Error ? err.message : "Export failed");
         } finally {
             setBusy(false);
         }
@@ -160,7 +185,7 @@ export const DevTools = () => {
             const cardMap = new Map<string, string>();
             for (const c of data.credit_cards || []) {
                 const row = await encryptRow(c, "credit_cards", { household_id: hid, created_by: uid, is_active: c.is_active ?? true });
-                const { data: inserted, error } = await supabase.from("credit_cards").insert(row).select("id").single();
+                const { data: inserted, error } = await supabase.from("credit_cards").insert(row as TablesInsert<"credit_cards">).select("id").single();
                 if (error) throw error;
                 cardMap.set(c.id, inserted.id);
             }
@@ -168,7 +193,7 @@ export const DevTools = () => {
             // user_id → current household_members.id, for member attribution remap.
             const memberIdByUser = new Map((members || []).map(m => [m.user_id, m.id]));
             const validUserIds = new Set((members || []).map(m => m.user_id));
-            const remapMember = (item: any) => item._member_user_id ? (memberIdByUser.get(item._member_user_id) ?? null) : null;
+            const remapMember = (item: Record<string, unknown>) => item._member_user_id ? (memberIdByUser.get(item._member_user_id as string) ?? null) : null;
 
             // 2. Income sources.
             for (const it of data.income_sources || []) {
@@ -184,7 +209,7 @@ export const DevTools = () => {
                     custom_tax_rate: it.custom_tax_rate ?? null,
                     category: it.category,
                 });
-                const { error } = await supabase.from("income_sources").insert(row);
+                const { error } = await supabase.from("income_sources").insert(row as TablesInsert<"income_sources">);
                 if (error) throw error;
             }
 
@@ -203,7 +228,7 @@ export const DevTools = () => {
                     metadata: it.metadata ?? null,
                     icon: it.icon ?? null,
                 });
-                const { error } = await supabase.from("expenses").insert(row);
+                const { error } = await supabase.from("expenses").insert(row as TablesInsert<"expenses">);
                 if (error) throw error;
             }
 
@@ -220,7 +245,7 @@ export const DevTools = () => {
                     subject_id: it.subject_id ? (subjectMap.get(it.subject_id) ?? null) : null,
                     member_id: remapMember(it),
                 });
-                const { error } = await supabase.from("subscriptions").insert(row);
+                const { error } = await supabase.from("subscriptions").insert(row as TablesInsert<"subscriptions">);
                 if (error) throw error;
             }
 
@@ -240,23 +265,23 @@ export const DevTools = () => {
                     subject_id: it.subject_id ? (subjectMap.get(it.subject_id) ?? null) : null,
                     member_id: remapMember(it),
                 });
-                const { error } = await supabase.from("insurances").insert(row);
+                const { error } = await supabase.from("insurances").insert(row as TablesInsert<"insurances">);
                 if (error) throw error;
             }
 
             toast.success("Imported — reloading…");
             setTimeout(() => window.location.reload(), 800);
-        } catch (err: any) {
+        } catch (err) {
             console.error("Import failed:", err);
-            toast.error(err?.message || "Import failed");
+            toast.error(err instanceof Error ? err.message : "Import failed");
         } finally {
             setBusy(false);
         }
     };
 
     // Encrypt the sensitive fields of an item and merge with the structural base.
-    const encryptRow = async (item: any, table: string, base: Record<string, any>) => {
-        const row: Record<string, any> = { ...base, is_encrypted: true };
+    const encryptRow = async (item: Record<string, unknown>, table: string, base: Record<string, unknown>) => {
+        const row: Record<string, unknown> = { ...base, is_encrypted: true };
         for (const [plain, enc] of Object.entries(SENSITIVE[table])) {
             const value = item[plain];
             row[enc] = (value !== undefined && value !== null && value !== "")
@@ -298,6 +323,15 @@ export const DevTools = () => {
                                 </Button>
                             )}
                         </div>
+                    </div>
+
+                    {/* Review state */}
+                    <div className="space-y-2 border-t border-line pt-3">
+                        <Label className="text-xs text-ink">Review state</Label>
+                        <p className="text-[11px] text-muted">Clears finalized reviews so the banner re-shows. Fixes time-travel pollution.</p>
+                        <Button size="sm" variant="outline" disabled={busy} onClick={handleResetReview} className="w-full h-8">
+                            <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset review state
+                        </Button>
                     </div>
 
                     {/* Data export / import */}

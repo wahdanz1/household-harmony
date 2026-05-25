@@ -27,9 +27,10 @@ const oneTimeCategories = [
 interface OneTimeIncomeDialogProps {
     householdId: string;
     onSuccess: () => void;
+    disabled?: boolean;
 }
 
-export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDialogProps) => {
+export const OneTimeIncomeDialog = ({ householdId, onSuccess, disabled = false }: OneTimeIncomeDialogProps) => {
     const { user } = useAuth();
     const { financialMonthStart } = useHousehold();
     const { toast } = useToast();
@@ -91,7 +92,7 @@ export const OneTimeIncomeDialog = ({ householdId, onSuccess }: OneTimeIncomeDia
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="lg" className="w-full justify-center gap-2">
+                <Button variant="outline" size="lg" disabled={disabled} className="w-full justify-center gap-2">
                     <Gift className="h-4 w-4" />
                     One-off
                 </Button>
