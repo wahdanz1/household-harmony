@@ -40,7 +40,7 @@ export const AvatarTrigger = forwardRef<HTMLButtonElement, AvatarTriggerProps>(
                 onClick={onClick}
                 aria-label="Account menu"
                 className={cn(
-                    "rounded-full overflow-hidden shrink-0 hover:opacity-90 transition-opacity",
+                    "flex items-center justify-center rounded-full overflow-hidden shrink-0 hover:opacity-90 transition-opacity",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
                     dim,
                     className,
