@@ -318,7 +318,7 @@ const Income = () => {
             <Plus className="h-4 w-4" />
             Add source
           </Button>
-          {!isReadOnly && <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />}
+          <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} disabled={isReadOnly} />
         </div>
       )}
 
@@ -377,7 +377,7 @@ const Income = () => {
             <Plus className="h-4 w-4" />
             Add source
           </Button>
-          {!isReadOnly && <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} />}
+          <OneTimeIncomeDialog householdId={household.id} onSuccess={fetchData} disabled={isReadOnly} />
         </MobileBottomBar>
       )}
 
