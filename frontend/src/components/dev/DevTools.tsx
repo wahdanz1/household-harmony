@@ -58,6 +58,30 @@ export const DevTools = () => {
         window.location.reload();
     };
 
+    // Time-travel testing can finalize a review for a month that hasn't really
+    // started yet, leaving a monthly_review_finalized row that suppresses the
+    // banner once real time catches up. This wipes review state so it re-shows.
+    const handleResetReview = async () => {
+        if (!household) {
+            toast.error("No household");
+            return;
+        }
+        setBusy(true);
+        try {
+            const { error } = await supabase
+                .from("monthly_review_finalized")
+                .delete()
+                .eq("household_id", household.id);
+            if (error) throw error;
+            toast.success("Review state reset");
+            window.location.reload();
+        } catch (e: any) {
+            toast.error(e.message || "Failed to reset review state");
+        } finally {
+            setBusy(false);
+        }
+    };
+
     const handleExport = async () => {
         if (!household || !isUnlocked) {
             toast.error("Unlock the vault first");
@@ -298,6 +322,15 @@ export const DevTools = () => {
                                 </Button>
                             )}
                         </div>
+                    </div>
+
+                    {/* Review state */}
+                    <div className="space-y-2 border-t border-line pt-3">
+                        <Label className="text-xs text-ink">Review state</Label>
+                        <p className="text-[11px] text-muted">Clears finalized reviews so the banner re-shows. Fixes time-travel pollution.</p>
+                        <Button size="sm" variant="outline" disabled={busy} onClick={handleResetReview} className="w-full h-8">
+                            <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset review state
+                        </Button>
                     </div>
 
                     {/* Data export / import */}
