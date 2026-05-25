@@ -59,9 +59,10 @@ export const DevTools = () => {
         window.location.reload();
     };
 
-    // Time-travel testing can finalize a review for a month that hasn't really
-    // started yet, leaving a monthly_review_finalized row that suppresses the
-    // banner once real time catches up. This wipes review state so it re-shows.
+    // Reset the current FM's review to a fresh state. Recurring monthly rows
+    // reseed from their source on next page load, so deleting this-FM-onward
+    // drops any stale snapshot/actuals from time-travel testing. Source items,
+    // one-off rows (no source link), and all past months are left untouched.
     const handleResetReview = async () => {
         if (!household) {
             toast.error("No household");
@@ -69,12 +70,19 @@ export const DevTools = () => {
         }
         setBusy(true);
         try {
-            const { error } = await supabase
-                .from("monthly_review_finalized")
-                .delete()
-                .eq("household_id", household.id);
-            if (error) throw error;
-            toast.success("Review state reset");
+            const hid = household.id;
+            const month = getCurrentFinancialMonth(financialMonthStart);
+            const results = await Promise.all([
+                supabase.from("monthly_review_finalized").delete().eq("household_id", hid).gte("month", month),
+                supabase.from("monthly_review_status").delete().eq("household_id", hid).gte("month", month),
+                supabase.from("monthly_incomes").delete().eq("household_id", hid).gte("month", month).not("income_source_id", "is", null),
+                supabase.from("monthly_expenses").delete().eq("household_id", hid).gte("month", month).not("expense_id", "is", null),
+                supabase.from("monthly_subscriptions").delete().eq("household_id", hid).gte("month", month),
+                supabase.from("monthly_insurances").delete().eq("household_id", hid).gte("month", month),
+            ]);
+            const failed = results.find(r => r.error)?.error;
+            if (failed) throw failed;
+            toast.success("Review state reset — reseeds from your items on reload");
             window.location.reload();
         } catch (e) {
             toast.error(e instanceof Error ? e.message : "Failed to reset review state");
@@ -328,7 +336,7 @@ export const DevTools = () => {
                     {/* Review state */}
                     <div className="space-y-2 border-t border-line pt-3">
                         <Label className="text-xs text-ink">Review state</Label>
-                        <p className="text-[11px] text-muted">Clears finalized reviews so the banner re-shows. Fixes time-travel pollution.</p>
+                        <p className="text-[11px] text-muted">Deletes this month's recurring monthly rows (reseed from items) + step/finalize state. Keeps sources, one-offs, past months.</p>
                         <Button size="sm" variant="outline" disabled={busy} onClick={handleResetReview} className="w-full h-8">
                             <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Reset review state
                         </Button>
