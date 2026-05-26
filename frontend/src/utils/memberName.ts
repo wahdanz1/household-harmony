@@ -5,3 +5,11 @@ export const shortMemberName = (full: string): string => {
     if (parts.length < 2) return parts[0] ?? "";
     return `${parts[0]} ${parts[parts.length - 1][0]}`;
 };
+
+/** "Daniel Wahlgren" → "DW". Avatar fallback when there's no photo. */
+export const initialsOf = (full: string): string => {
+    const parts = full.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "·";
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
