@@ -1,4 +1,4 @@
-import { Home, Wifi, Smartphone, Zap, ShoppingCart, UtensilsCrossed, Film, ShoppingBag, Fuel, Wrench, CreditCard, Heart, Sparkles, Plane, Users2, GraduationCap, LucideIcon } from "lucide-react";
+import { Home, Wifi, Smartphone, Zap, ShoppingCart, UtensilsCrossed, Film, ShoppingBag, Fuel, Wrench, CreditCard, Heart, Sparkles, Plane, Users2, GraduationCap, Sofa, Candy, LucideIcon } from "lucide-react";
 
 export interface ExpenseCategory {
     id: string;
@@ -34,6 +34,8 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
     { id: 'healthcare', label: 'Healthcare', icon: Heart, hue: 150 },
     { id: 'memberships', label: 'Memberships & dues', icon: Users2, hue: 100 },
     { id: 'childcare', label: 'Childcare & school', icon: GraduationCap, hue: 20 },
+    { id: 'home_appliances', label: 'Home & appliances', icon: Sofa, hue: 40 },
+    { id: 'treats_comfort', label: 'Treats & comfort', icon: Candy, hue: 340, isBudgeted: true },
     { id: 'other', label: 'Other', icon: Sparkles },
 ];
 
