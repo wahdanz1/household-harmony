@@ -213,11 +213,13 @@ User's previous categorizations (use as guidance for similar merchants):
 {chr(10).join(mappings)}
 """
     
-    # Valid category IDs matching frontend EXPENSE_CATEGORIES
+    # Valid category IDs — keep in sync with frontend EXPENSE_CATEGORIES
+    # (frontend/src/constants/expenseCategories.ts) and expense_category_enum.
     valid_categories = [
         "rent", "internet", "phone_plan", "electricity", "groceries",
         "dining_out", "entertainment", "shopping", "fuel", "travel",
-        "car_repairs", "credit_card", "healthcare", "other"
+        "car_repairs", "credit_card", "healthcare", "memberships",
+        "childcare", "home_appliances", "treats_comfort", "other"
     ]
     
     return f"""You are a financial document parser. Extract credit card transactions from the following text.
@@ -236,6 +238,10 @@ VALID CATEGORIES (use exact values):
 - fuel: gas stations only
 - travel: flights, hotels, train tickets, vacation bookings
 - healthcare: pharmacies (Apotek), doctors, clinics, hospitals
+- home_appliances: furniture, appliances, homeware (IKEA, JYSK, Mio, Elgiganten, Bauhaus)
+- treats_comfort: alcohol (Systembolaget), tobacco/nicotine (snus), kiosk sweets/soda/ice cream (Gottebiten)
+- memberships: gyms, unions (a-kassa, fack), clubs, recurring dues
+- childcare: preschool/daycare, school fees
 - rent, internet, phone_plan, electricity: utility bills only
 - car_repairs: actual repair shops/mechanics only
 - other: use when no category clearly fits
@@ -251,6 +257,7 @@ IMPORTANT:
 - Use the "User's previous categorizations" list as the primary source of truth.
 - Biltema, Clas Ohlson, JULA = "shopping" (unless learnt otherwise).
 - Stadium = "shopping".
+- Systembolaget = "treats_comfort". IKEA, JYSK, Mio = "home_appliances".
 - IGNORE: payment rows, summaries, interest, credit limits, balance lines.
 
 RETURN ONLY VALID JSON:
