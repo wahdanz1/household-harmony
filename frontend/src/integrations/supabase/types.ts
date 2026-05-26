@@ -1615,6 +1615,8 @@ export type Database = {
         | "healthcare"
         | "memberships"
         | "childcare"
+        | "home_appliances"
+        | "treats_comfort"
         | "other"
       household_role: "owner" | "member"
       income_category:
@@ -1816,6 +1818,8 @@ export const Constants = {
         "healthcare",
         "memberships",
         "childcare",
+        "home_appliances",
+        "treats_comfort",
         "other",
       ],
       household_role: ["owner", "member"],
