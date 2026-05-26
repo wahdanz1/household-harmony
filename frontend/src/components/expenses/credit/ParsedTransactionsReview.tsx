@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Check, Loader2, X } from "lucide-react";
 import { formatCurrency } from "@/utils/formatting";
-import { creditCategories } from "@/constants/creditCategories";
+import { EXPENSE_CATEGORIES, getCategoryById } from "@/constants/expenseCategories";
 import { supabase } from "@/integrations/supabase/client";
 import { useEncryptedFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
 
@@ -132,7 +132,7 @@ export const ParsedTransactionsReview = ({
                     // visible in the month it was charged and nowhere else.
                     // Smart Defaults can later recommend promoting frequent
                     // categories to budgeted items (#68).
-                    const categoryLabel = creditCategories.find(c => c.value === category)?.label
+                    const categoryLabel = getCategoryById(category)?.label
                         || category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, " ");
 
                     const { data: existingOneTime } = await supabase
@@ -290,8 +290,8 @@ export const ParsedTransactionsReview = ({
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {creditCategories.map(cat => (
-                                                <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                            {EXPENSE_CATEGORIES.map(cat => (
+                                                <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
