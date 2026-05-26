@@ -3,6 +3,8 @@ import { NavLink } from "./NavLink";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { UserMenu } from "./shared/UserMenu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { initialsOf } from "@/utils/memberName";
 
 const DesktopNav = () => {
   const { user } = useAuth();
@@ -11,7 +13,8 @@ const DesktopNav = () => {
   const me = members.find(m => m.user_id === user?.id);
   const fullName = me?.profiles?.full_name || "";
   const firstName = fullName.trim().split(/\s+/)[0] || "";
-  const initial = firstName.charAt(0).toUpperCase() || "·";
+  const avatarUrl = me?.profiles?.avatar_url || null;
+  const initials = initialsOf(fullName);
 
   const navItems = [
     { icon: Home, label: "Overview", path: "/" },
@@ -62,9 +65,12 @@ const DesktopNav = () => {
                 className="w-full rounded-[12px] bg-surface-2 p-3 flex items-center gap-2.5 hover:bg-accent-tint hover:text-accent-dk transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
                 aria-label="Account menu"
               >
-                <span className="w-8 h-8 rounded-full bg-accent text-accent-ink flex items-center justify-center font-bold text-[13px] shrink-0">
-                  {initial}
-                </span>
+                <Avatar className="w-8 h-8 shrink-0">
+                  <AvatarImage src={avatarUrl || undefined} alt={fullName || "User"} />
+                  <AvatarFallback className="bg-accent text-accent-ink font-bold text-[13px]">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
                 <span className="flex-1 min-w-0 text-left">
                   <span className="block text-[13px] font-semibold text-ink truncate">{firstName}</span>
                 </span>

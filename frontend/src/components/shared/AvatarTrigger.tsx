@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHousehold } from "@/contexts/HouseholdContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { initialsOf } from "@/utils/memberName";
 import { cn } from "@/lib/utils";
 
 interface AvatarTriggerProps {
@@ -9,13 +10,6 @@ interface AvatarTriggerProps {
     className?: string;
     onClick?: () => void;
 }
-
-const initialsOf = (fullName: string) => {
-    const parts = fullName.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return "·";
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-};
 
 /**
  * Round avatar button: profile photo when set, initials otherwise. Anchors the
