@@ -11,6 +11,8 @@ import {
     wrapDEKWithInviteCode,
     unwrapDEKWithInviteCode,
     rewrapDEKWithPassword,
+    unlockVaultWithKEK,
+    wrapDEKWithKEK,
 } from '@/services/encryption';
 import { loadCoParentSpaceKeys, rewrapCoParentSpaceKeys } from '@/services/coparentSpaces';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,6 +49,12 @@ interface EncryptionContextValue {
     wrapDEKForInvite: (inviteCode: string) => Promise<{ encryptedDEK: string; salt: string; iv: string } | null>;
     /** Wrap a co-parenting space's key with an invite code, for handing it to a new member. */
     wrapSpaceDEKForInvite: (spaceId: string, inviteCode: string) => Promise<{ encryptedDEK: string; salt: string; iv: string } | null>;
+    /**
+     * Wrap a freshly generated key so only this user can reopen it, using the
+     * KEK cached at unlock. Null when the vault is locked. Removes the need to
+     * re-ask for a password that has already been proven this session.
+     */
+    wrapKeyForSelf: (key: CryptoKey) => Promise<{ encryptedDEK: string; dekSalt: string; dekIV: string } | null>;
 
     /** The household the user has been soft-removed from. Null when no pending exit. */
     pendingExitHouseholdId: string | null;
@@ -123,6 +131,11 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     // distinguish "stale keys from a different user" (lock) from "keys just set
     // up for the user we're transitioning into" (don't lock).
     const dekUserIdRef = useRef<string | null>(null);
+    // The KEK the vault was opened with, plus the salt it came from. Lets new
+    // keys be wrapped for this user without re-prompting. Cleared with the
+    // keyring — it is exactly as sensitive as the DEK it unwraps.
+    const kekRef = useRef<CryptoKey | null>(null);
+    const kekSaltRef = useRef<string | null>(null);
     const [pendingExitHouseholdId, setPendingExitHouseholdId] = useState<string | null>(null);
     const [recoveryCodeDialogOpen, setRecoveryCodeDialogOpen] = useState(false);
     const [isUnlocked, setIsUnlocked] = useState(false);
@@ -147,6 +160,8 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             const nextId = session?.user?.id ?? null;
             if (dekUserIdRef.current && dekUserIdRef.current !== nextId) {
                 keyringRef.current.clear();
+                kekRef.current = null;
+                kekSaltRef.current = null;
                 dekUserIdRef.current = null;
                 setPendingExitHouseholdId(null);
                 setIsUnlocked(false);
@@ -248,6 +263,8 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
     const lockVault = useCallback(() => {
         keyringRef.current.clear();
+        kekRef.current = null;
+        kekSaltRef.current = null;
         dekUserIdRef.current = null;
         setPendingExitHouseholdId(null);
         setIsUnlocked(false);
@@ -332,7 +349,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     ): Promise<boolean> => {
         setIsLoading(true);
         try {
-            const { encryptedDEK, dekSalt, dekIV, dek } = await createUserEncryptionKeys(password);
+            const { encryptedDEK, dekSalt, dekIV, dek, kek } = await createUserEncryptionKeys(password);
 
             const { error } = await (supabase as any)
                 .from('user_vault_keys')
@@ -350,6 +367,8 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 return false;
             }
 
+            kekRef.current = kek;
+            kekSaltRef.current = dekSalt;
             keyringRef.current.set(HOUSEHOLD_SCOPE, dek);
             dekUserIdRef.current = userId;
             setIsUnlocked(true);
@@ -402,12 +421,14 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                     unlocked = await initializeEncryption(password, userId, householdId);
                 }
             } else {
-                const dek = await unlockVault(
+                const { dek, kek } = await unlockVaultWithKEK(
                     password,
                     vault.encrypted_dek,
                     vault.dek_salt,
                     vault.dek_iv,
                 );
+                kekRef.current = kek;
+                kekSaltRef.current = vault.dek_salt;
                 keyringRef.current.set(HOUSEHOLD_SCOPE, dek);
                 dekUserIdRef.current = userId;
                 setIsUnlocked(true);
@@ -421,7 +442,12 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             // this is the one moment they can be unwrapped without asking for
             // it again. A space that fails to open must not fail the unlock.
             try {
-                const spaceKeys = await loadCoParentSpaceKeys({ userId, password });
+                const spaceKeys = await loadCoParentSpaceKeys({
+                    userId,
+                    password,
+                    kek: kekRef.current ?? undefined,
+                    kekSalt: kekSaltRef.current ?? undefined,
+                });
                 for (const { spaceId, dek } of spaceKeys) {
                     keyringRef.current.set(spaceScope(spaceId), dek);
                 }
@@ -488,7 +514,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 inviteCode,
             );
 
-            const { encryptedDEK, dekSalt, dekIV } = await rewrapDEKWithPassword(dek, password);
+            const { encryptedDEK, dekSalt, dekIV, kek } = await rewrapDEKWithPassword(dek, password);
 
             const { error } = await (supabase as any)
                 .from('user_vault_keys')
@@ -506,6 +532,8 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 return false;
             }
 
+            kekRef.current = kek;
+            kekSaltRef.current = dekSalt;
             keyringRef.current.set(HOUSEHOLD_SCOPE, dek);
             dekUserIdRef.current = userId;
             setIsUnlocked(true);
@@ -514,7 +542,12 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             // Someone switching households keeps their spaces; load them here
             // too, while the password is still in hand.
             try {
-                const spaceKeys = await loadCoParentSpaceKeys({ userId, password });
+                const spaceKeys = await loadCoParentSpaceKeys({
+                    userId,
+                    password,
+                    kek: kekRef.current ?? undefined,
+                    kekSalt: kekSaltRef.current ?? undefined,
+                });
                 for (const { spaceId, dek: spaceDek } of spaceKeys) {
                     keyringRef.current.set(spaceScope(spaceId), spaceDek);
                 }
@@ -563,7 +596,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 vault.dek_iv,
             );
 
-            const { encryptedDEK, dekSalt, dekIV } = await reEncryptDEK(dek, newPassword);
+            const { encryptedDEK, dekSalt, dekIV, kek } = await reEncryptDEK(dek, newPassword);
 
             const { error: updateError } = await (supabase as any)
                 .from('user_vault_keys')
@@ -599,6 +632,8 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 });
             }
 
+            kekRef.current = kek;
+            kekSaltRef.current = dekSalt;
             keyringRef.current.set(HOUSEHOLD_SCOPE, dek);
             dekUserIdRef.current = userId;
             setIsUnlocked(true);
@@ -685,6 +720,21 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         }
     }, []);
 
+    const wrapKeyForSelf = useCallback(async (key: CryptoKey) => {
+        const kek = kekRef.current;
+        const salt = kekSaltRef.current;
+        if (!kek || !salt) {
+            console.warn('Cannot wrap key: vault is locked');
+            return null;
+        }
+        try {
+            return await wrapDEKWithKEK(key, kek, salt);
+        } catch (err) {
+            console.error('Failed to wrap key for self:', err);
+            return null;
+        }
+    }, []);
+
     const hasRecoveryCode = useCallback(async (userId: string): Promise<boolean> => {
         const { data, error } = await (supabase as any)
             .from('user_vault_recovery_slots')
@@ -720,6 +770,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         hasRecoveryCode,
         wrapDEKForInvite,
         wrapSpaceDEKForInvite,
+        wrapKeyForSelf,
         pendingExitHouseholdId,
         decryptFromPendingExit,
         clearPendingExitDEK,
