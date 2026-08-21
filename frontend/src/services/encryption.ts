@@ -210,6 +210,7 @@ export async function createUserEncryptionKeys(password: string): Promise<{
     dekSalt: string;
     dekIV: string;
     dek: CryptoKey; // Keep in memory, don't store!
+    kek: CryptoKey; // Also memory-only — lets later keys be wrapped without the password.
 }> {
     const salt = generateSalt();
     const kek = await deriveKEK(password, salt);
@@ -221,6 +222,7 @@ export async function createUserEncryptionKeys(password: string): Promise<{
         dekSalt: arrayBufferToBase64(salt.buffer),
         dekIV: iv,
         dek, // Return the raw DEK for immediate use in memory
+        kek,
     };
 }
 
@@ -248,6 +250,7 @@ export async function reEncryptDEK(
     encryptedDEK: string;
     dekSalt: string;
     dekIV: string;
+    kek: CryptoKey;
 }> {
     const salt = generateSalt();
     const newKEK = await deriveKEK(newPassword, salt);
@@ -257,6 +260,7 @@ export async function reEncryptDEK(
         encryptedDEK,
         dekSalt: arrayBufferToBase64(salt.buffer),
         dekIV: iv,
+        kek: newKEK,
     };
 }
 
@@ -364,6 +368,39 @@ export async function unwrapDEKWithInviteCode(
     const salt = new Uint8Array(base64ToArrayBuffer(saltB64));
     const kek = await deriveKEK(normalizeInviteCode(inviteCode), salt);
     return decryptDEK(encryptedDEK, iv, kek);
+}
+
+/**
+ * Unlock the vault and hand back the KEK as well as the DEK.
+ *
+ * Holding the KEK lets later operations wrap a new key — a co-parenting space,
+ * say — without asking for the password again. That is no meaningful loss: the
+ * KEK's only power is to unwrap this same DEK, which is already in memory.
+ */
+export async function unlockVaultWithKEK(
+    password: string,
+    encryptedDEK: string,
+    dekSalt: string,
+    dekIV: string,
+): Promise<{ dek: CryptoKey; kek: CryptoKey }> {
+    const salt = new Uint8Array(base64ToArrayBuffer(dekSalt));
+    const kek = await deriveKEK(password, salt);
+    const dek = await decryptDEK(encryptedDEK, dekIV, kek);
+    return { dek, kek };
+}
+
+/**
+ * Wrap a key with an already-derived KEK. The caller supplies the salt that KEK
+ * came from so the wrap can be reopened later — reusing one KEK across several
+ * wrapped keys is fine, since each wrap gets its own IV.
+ */
+export async function wrapDEKWithKEK(
+    dek: CryptoKey,
+    kek: CryptoKey,
+    kekSalt: string,
+): Promise<{ encryptedDEK: string; dekSalt: string; dekIV: string }> {
+    const { encryptedDEK, iv } = await encryptDEK(dek, kek);
+    return { encryptedDEK, dekSalt: kekSalt, dekIV: iv };
 }
 
 export async function rewrapDEKWithPassword(

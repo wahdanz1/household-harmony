@@ -13,7 +13,7 @@ import { isDemoMode } from "@/utils/demoMode";
 import { PLACEHOLDERS } from "@/constants/ui";
 import { SettingsBadge } from "./SettingsCard";
 import { useCoParents, CoParent } from "@/hooks/useCoParents";
-import { createCoParentSpace, createCoParentSpaceInvite } from "@/services/coparentSpaces";
+import { createSpaceForCoParent, createCoParentSpaceInvite } from "@/services/coparentSpaces";
 import { generateSpaceInviteCode, formatSpaceInviteCode } from "@/services/encryption";
 
 interface CoParentsSectionProps {
@@ -30,18 +30,18 @@ interface CoParentsSectionProps {
 export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps) => {
     const { toast } = useToast();
     const { user } = useAuth();
-    const { wrapSpaceDEKForInvite, loadScopeKey, isUnlocked } = useEncryption();
+    const { wrapSpaceDEKForInvite, wrapKeyForSelf, loadScopeKey, isUnlocked } = useEncryption();
     const { coParents, refresh } = useCoParents(householdId, user?.id);
 
     const [showAdd, setShowAdd] = useState(false);
     const [newName, setNewName] = useState("");
     const [inviting, setInviting] = useState<CoParent | null>(null);
     const [inviteEmail, setInviteEmail] = useState("");
-    const [password, setPassword] = useState("");
     const [busy, setBusy] = useState(false);
     const [issuedCode, setIssuedCode] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
     const [revoking, setRevoking] = useState<CoParent | null>(null);
+
 
     const demoMode = isDemoMode();
 
@@ -50,7 +50,6 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
     const resetInvite = () => {
         setInviting(null);
         setInviteEmail("");
-        setPassword("");
         setIssuedCode(null);
         setCopied(false);
     };
@@ -82,33 +81,21 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
             toast({ title: "Vault locked", description: "Unlock your vault before inviting.", variant: "destructive" });
             return;
         }
-        if (!password) {
-            toast({ title: "Password required", description: "Your password wraps the shared key.", variant: "destructive" });
-            return;
-        }
-
         setBusy(true);
         try {
             let spaceId = inviting.spaceId;
 
-            // First invite for this co-parent creates the space. The password is
-            // needed because the vault holds only the DEK, never the password,
-            // so there is nothing else to wrap a brand-new key with.
+            // Inviting before a schedule exists creates the space on the way
+            // through; an existing one is reused.
             if (!spaceId) {
-                const { space, dek } = await createCoParentSpace({
+                const created = await createSpaceForCoParent({
+                    coParentId: inviting.id,
                     name: inviting.name,
                     userId: user.id,
-                    password,
+                    wrapForSelf: wrapKeyForSelf,
                 });
-                loadScopeKey(spaceScope(space.id), dek);
-
-                const { error } = await supabase
-                    .from("co_parents")
-                    .update({ space_id: space.id })
-                    .eq("id", inviting.id);
-                if (error) throw new Error("Failed to link co-parent to the shared space.");
-
-                spaceId = space.id;
+                loadScopeKey(spaceScope(created.spaceId), created.dek);
+                spaceId = created.spaceId;
             }
 
             const code = generateSpaceInviteCode();
@@ -130,6 +117,35 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
         } catch (err) {
             toast({
                 title: "Invite failed",
+                description: err instanceof Error ? err.message : "Something went wrong.",
+                variant: "destructive",
+            });
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const handleStartSchedule = async (coParent: CoParent) => {
+        if (!user) return;
+        if (!isUnlocked) {
+            toast({ title: "Vault locked", description: "Unlock your vault first.", variant: "destructive" });
+            return;
+        }
+
+        setBusy(true);
+        try {
+            const { spaceId, dek } = await createSpaceForCoParent({
+                coParentId: coParent.id,
+                name: coParent.name,
+                userId: user.id,
+                wrapForSelf: wrapKeyForSelf,
+            });
+            loadScopeKey(spaceScope(spaceId), dek);
+            toast({ title: "Schedule created", description: "Plan it on your own, and invite them whenever you want." });
+            refresh();
+        } catch (err) {
+            toast({
+                title: "Could not create schedule",
                 description: err instanceof Error ? err.message : "Something went wrong.",
                 variant: "destructive",
             });
@@ -209,10 +225,23 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
                                             ? "Can see the shared schedule and the costs you publish."
                                             : cp.pendingInvite
                                               ? `Waiting on ${cp.pendingInvite.email}`
-                                              : "Not connected to an account yet."}
+                                              : cp.spaceId
+                                                ? "Schedule started. Not connected to an account."
+                                                : "No schedule yet."}
                                     </p>
                                 </div>
                                 <div className="shrink-0 flex items-center gap-1">
+                                    {!cp.spaceId && (
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            disabled={demoMode}
+                                            onClick={() => handleStartSchedule(cp)}
+                                            className="h-8"
+                                        >
+                                            Start schedule
+                                        </Button>
+                                    )}
                                     <Button
                                         size="sm"
                                         variant="ghost"
@@ -292,31 +321,20 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
                             <DialogHeader>
                                 <DialogTitle>Invite {inviting?.name}</DialogTitle>
                                 <DialogDescription>
-                                    They need an account with this email. Your password is needed to wrap the shared key — it never leaves your device.
+                                    They need an account with this email. They will only ever see the schedule and the costs you publish.
                                 </DialogDescription>
                             </DialogHeader>
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="coparent-email">Their email address</Label>
-                                    <Input
-                                        id="coparent-email"
-                                        type="email"
-                                        placeholder={PLACEHOLDERS.EMAIL}
-                                        value={inviteEmail}
-                                        onChange={(e) => setInviteEmail(e.target.value)}
-                                        autoFocus
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="coparent-password">Your password</Label>
-                                    <Input
-                                        id="coparent-password"
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        onKeyDown={(e) => e.key === "Enter" && !busy && handleInvite()}
-                                    />
-                                </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="coparent-email">Their email address</Label>
+                                <Input
+                                    id="coparent-email"
+                                    type="email"
+                                    placeholder={PLACEHOLDERS.EMAIL}
+                                    value={inviteEmail}
+                                    onChange={(e) => setInviteEmail(e.target.value)}
+                                    onKeyDown={(e) => e.key === "Enter" && !busy && handleInvite()}
+                                    autoFocus
+                                />
                             </div>
                             <DialogFooter>
                                 <Button variant="ghost" onClick={resetInvite} disabled={busy}>Cancel</Button>

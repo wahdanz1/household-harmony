@@ -5,7 +5,9 @@ import { Money } from "@/components/ui/money";
 interface MetricTileProps {
     icon: LucideIcon;
     label: string;
-    primary: number;
+    primary?: number;
+    /** Non-monetary headline, for tiles whose value is not an amount. Wins over `primary`. */
+    primaryText?: string;
     primaryLabel?: string;
     secondary?: string;
     /** Item count shown top-right (e.g. "6 subscriptions") */
@@ -28,6 +30,7 @@ export const MetricTile = ({
     icon: Icon,
     label,
     primary,
+    primaryText,
     primaryLabel,
     secondary,
     count,
@@ -84,7 +87,11 @@ export const MetricTile = ({
             <div>
                 <div className={cn("text-[12.5px] font-medium", labelColor)}>{label}</div>
                 <div className="mt-1">
-                    <Money v={primary} currency={currency} size="base" weight={600} className={valueColor} />
+                    {primaryText !== undefined ? (
+                        <span className={cn("text-base font-semibold", valueColor)}>{primaryText}</span>
+                    ) : (
+                        <Money v={primary ?? 0} currency={currency} size="base" weight={600} className={valueColor} />
+                    )}
                 </div>
                 {primaryLabel && (
                     <div className={cn("mt-0.5 text-[11.5px]", labelColor)}>{primaryLabel}</div>

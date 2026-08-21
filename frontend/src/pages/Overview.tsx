@@ -17,6 +17,8 @@ import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { MetricTile } from "@/components/ui/metric-tile";
 import { CoParentSettlementDialog } from "@/components/overview/CoParentSettlementDialog";
 import { useCoParentSettlements } from "@/hooks/useCoParentSettlements";
+import { useCoParentSpaceContext } from "@/hooks/useCoParentSpaceContext";
+import { useSchedule } from "@/hooks/useSchedule";
 import { classifySourcesByFM } from "@/utils/billingEvents";
 import { ReviewBanner } from "@/components/shared/ReviewBanner";
 import { MonthlyReviewWizard, useMonthlyReviewStatus } from "@/components/overview/MonthlyReviewWizard";
@@ -24,6 +26,7 @@ import { HouseholdSetupWizard } from "@/components/overview/HouseholdSetupWizard
 import {
   HandCoins, Wallet, Repeat, Shield, ClipboardCheck,
   ChevronRight, Users, Sparkles, CalendarPlus, Loader2, Zap,
+  CalendarDays,
 } from "lucide-react";
 import { planMonth } from "@/services/monthlyPlanning";
 import { toast } from "sonner";
@@ -96,6 +99,9 @@ const Overview = () => {
   const [setupOpen, setSetupOpen] = useState(false);
   const [openSettlementCoParentId, setOpenSettlementCoParentId] = useState<string | null>(null);
   const { settlements, refetch: refetchSettlements } = useCoParentSettlements({ householdId: household?.id, coParents, financialMonthStart });
+  const { spaces: coParentSpaces } = useCoParentSpaceContext(user?.id);
+  const primarySpace = coParentSpaces[0];
+  const { currentSide: scheduleSide, nextHandover } = useSchedule(primarySpace?.id);
   const [data, setData] = useState<OverviewData>({
     income: 0,
     expenses: 0,
@@ -659,6 +665,24 @@ const Overview = () => {
                     severity={data.insuranceSeverity}
                     currency={currency}
                     onClick={() => navigate("/expenses?tab=all&expand=insurances")}
+                  />
+                )}
+                {primarySpace && (
+                  <MetricTile
+                    icon={CalendarDays}
+                    label="Kid schedule"
+                    primaryText={
+                      scheduleSide
+                        ? scheduleSide === primarySpace.mySide ? "With you" : "With co-parent"
+                        : "Not started"
+                    }
+                    primaryLabel={
+                      nextHandover
+                        ? `until ${format(nextHandover.at, "EEE d MMM, HH:mm")}`
+                        : "no handover set"
+                    }
+                    secondary="Open schedule"
+                    onClick={() => navigate("/schedule")}
                   />
                 )}
                 {coParents.map((cp) => {

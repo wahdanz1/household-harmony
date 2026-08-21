@@ -15,6 +15,7 @@ const Overview = lazy(() => import("./pages/Overview"));
 const Income = lazy(() => import("./pages/Income"));
 const Expenses = lazy(() => import("./pages/Expenses"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Schedule = lazy(() => import("./pages/Schedule"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -43,6 +44,7 @@ const App = () => (
                   <Route path="/income" element={<ProtectedRoute><Layout><Income /></Layout></ProtectedRoute>} />
                   <Route path="/expenses" element={<ProtectedRoute><Layout><Expenses /></Layout></ProtectedRoute>} />
                   <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
+                  <Route path="/schedule" element={<ProtectedRoute><Layout><Schedule /></Layout></ProtectedRoute>} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>

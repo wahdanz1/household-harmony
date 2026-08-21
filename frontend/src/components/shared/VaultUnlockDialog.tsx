@@ -69,16 +69,24 @@ export const VaultUnlockDialog = ({ open, onOpenChange, onSuccess }: VaultUnlock
                     onSubmit={(e) => { e.preventDefault(); handleUnlock(); }}
                     className="space-y-4 pt-4"
                 >
-                    {/* Hidden username field so password managers know which
-                        account this password belongs to and can autofill. */}
-                    <input
-                        type="email"
-                        name="email"
-                        autoComplete="username"
-                        value={user?.email ?? ""}
-                        readOnly
-                        hidden
-                    />
+                    {/* The username field has to be genuinely rendered, not
+                        `hidden`: extensions skip display:none inputs when
+                        deciding whether this is a login form and which saved
+                        credential matches it. Showing it read-only also makes
+                        clear which account is being unlocked. */}
+                    <div className="space-y-2">
+                        <Label htmlFor="unlock-email">Account</Label>
+                        <Input
+                            id="unlock-email"
+                            type="email"
+                            name="email"
+                            autoComplete="username"
+                            value={user?.email ?? ""}
+                            readOnly
+                            tabIndex={-1}
+                            className="bg-surface-2 text-muted"
+                        />
+                    </div>
 
                     {error && (
                         <Alert variant="destructive">

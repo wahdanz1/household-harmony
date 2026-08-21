@@ -9,9 +9,10 @@
  * a password-derived KEK, handed to a new member through an invite whose code
  * wraps the DEK and never reaches the server.
  *
- * Every entry point takes the password rather than reading it from anywhere:
- * the vault holds only the DEK in memory, so wrapping a new key needs the user
- * to supply it again.
+ * Creating a space takes a wrapping function rather than a password. The vault
+ * caches the key-encryption key at unlock, so a new space key can be wrapped
+ * for its owner without re-prompting for a password they already proved this
+ * session.
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -19,9 +20,15 @@ import {
     generateDEK,
     normalizeSpaceInviteCode,
     unwrapDEKWithInviteCode,
+    decryptDEK,
     rewrapDEKWithPassword,
     unlockVault,
 } from './encryption';
+
+/** Wraps a key so only this user can reopen it. Supplied by the encryption context. */
+export type WrapForSelf = (
+    key: CryptoKey,
+) => Promise<{ encryptedDEK: string; dekSalt: string; dekIV: string } | null>;
 
 const INVITE_TTL_HOURS = 72;
 
@@ -76,12 +83,13 @@ function toRedeemError(message: string): CoParentInviteError {
 export async function createCoParentSpace(params: {
     name: string;
     userId: string;
-    password: string;
+    wrapForSelf: WrapForSelf;
 }): Promise<{ space: CoParentSpace; dek: CryptoKey }> {
-    const { name, userId, password } = params;
+    const { name, userId, wrapForSelf } = params;
 
     const dek = await generateDEK();
-    const wrap = await rewrapDEKWithPassword(dek, password);
+    const wrap = await wrapForSelf(dek);
+    if (!wrap) throw new Error('Vault is locked; cannot create a co-parenting space.');
 
     const { data: space, error: spaceError } = await supabase
         .from('coparent_spaces')
@@ -120,6 +128,36 @@ export async function createCoParentSpace(params: {
     }
 
     return { space: space as CoParentSpace, dek };
+}
+
+/**
+ * Create a space for an existing co-parent label and link the two.
+ *
+ * Deliberately independent of inviting: a schedule is useful on its own, and
+ * the co-parent may never hold an account. Inviting later reuses whatever
+ * space is already here.
+ */
+export async function createSpaceForCoParent(params: {
+    coParentId: string;
+    name: string;
+    userId: string;
+    wrapForSelf: WrapForSelf;
+}): Promise<{ spaceId: string; dek: CryptoKey }> {
+    const { coParentId, name, userId, wrapForSelf } = params;
+
+    const { space, dek } = await createCoParentSpace({ name, userId, wrapForSelf });
+
+    const { error } = await supabase
+        .from('co_parents')
+        .update({ space_id: space.id })
+        .eq('id', coParentId);
+
+    if (error) {
+        await supabase.from('coparent_spaces').delete().eq('id', space.id);
+        throw new Error('Failed to link the co-parent to the shared space.');
+    }
+
+    return { spaceId: space.id, dek };
 }
 
 /**
@@ -200,9 +238,9 @@ export async function lookupCoParentInvite(
 export async function redeemCoParentInvite(params: {
     code: string;
     userId: string;
-    password: string;
+    wrapForSelf: WrapForSelf;
 }): Promise<{ spaceId: string; dek: CryptoKey }> {
-    const { userId, password } = params;
+    const { userId, wrapForSelf } = params;
     const code = normalizeSpaceInviteCode(params.code);
 
     const { data, error } = await supabase.rpc('redeem_coparent_invite', {
@@ -227,7 +265,9 @@ export async function redeemCoParentInvite(params: {
         throw new CoParentInviteError('unwrap_failed');
     }
 
-    const wrap = await rewrapDEKWithPassword(dek, password);
+    const wrap = await wrapForSelf(dek);
+    if (!wrap) throw new CoParentInviteError('unknown', 'Vault is locked.');
+
     const { error: keyError } = await supabase
         .from('coparent_space_vault_keys')
         .upsert({
@@ -253,8 +293,11 @@ export async function redeemCoParentInvite(params: {
 export async function loadCoParentSpaceKeys(params: {
     userId: string;
     password: string;
+    /** KEK just derived for the household vault, with the salt it came from. */
+    kek?: CryptoKey;
+    kekSalt?: string;
 }): Promise<LoadedSpaceKey[]> {
-    const { userId, password } = params;
+    const { userId, password, kek, kekSalt } = params;
 
     const { data, error } = await supabase
         .from('coparent_space_vault_keys')
@@ -266,7 +309,11 @@ export async function loadCoParentSpaceKeys(params: {
     const keys = await Promise.all(
         data.map(async row => {
             try {
-                const dek = await unlockVault(password, row.encrypted_dek, row.dek_salt, row.dek_iv);
+                // Wraps made since the vault cached its KEK share the same salt,
+                // so they open without another 100k-iteration derivation.
+                const dek = kek && kekSalt && row.dek_salt === kekSalt
+                    ? await decryptDEK(row.encrypted_dek, row.dek_iv, kek)
+                    : await unlockVault(password, row.encrypted_dek, row.dek_salt, row.dek_iv);
                 return { spaceId: row.space_id, dek };
             } catch (err) {
                 console.error(`Failed to unwrap key for space ${row.space_id}:`, err);
