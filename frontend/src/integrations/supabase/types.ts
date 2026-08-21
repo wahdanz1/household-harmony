@@ -205,18 +205,21 @@ export type Database = {
       }
       coparent_space_members: {
         Row: {
+          color: string
           joined_at: string
           role: string
           space_id: string
           user_id: string
         }
         Insert: {
+          color?: string
           joined_at?: string
           role?: string
           space_id: string
           user_id: string
         }
         Update: {
+          color?: string
           joined_at?: string
           role?: string
           space_id?: string
@@ -277,6 +280,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          default_handover_time: string
           id: string
           name: string
           updated_at: string
@@ -284,6 +288,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          default_handover_time?: string
           id?: string
           name: string
           updated_at?: string
@@ -291,6 +296,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          default_handover_time?: string
           id?: string
           name?: string
           updated_at?: string
@@ -1329,6 +1335,88 @@ export type Database = {
         }
         Relationships: []
       }
+      schedule_changes: {
+        Row: {
+          action: string
+          actor_user_id: string
+          created_at: string
+          encrypted_summary: string | null
+          id: string
+          is_encrypted: boolean
+          space_id: string
+        }
+        Insert: {
+          action: string
+          actor_user_id: string
+          created_at?: string
+          encrypted_summary?: string | null
+          id?: string
+          is_encrypted?: boolean
+          space_id: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string
+          created_at?: string
+          encrypted_summary?: string | null
+          id?: string
+          is_encrypted?: boolean
+          space_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_changes_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "coparent_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedule_handovers: {
+        Row: {
+          at: string
+          created_at: string
+          created_by: string
+          encrypted_note: string | null
+          id: string
+          is_encrypted: boolean
+          space_id: string
+          to_side: Database["public"]["Enums"]["schedule_side"]
+          updated_at: string
+        }
+        Insert: {
+          at: string
+          created_at?: string
+          created_by: string
+          encrypted_note?: string | null
+          id?: string
+          is_encrypted?: boolean
+          space_id: string
+          to_side: Database["public"]["Enums"]["schedule_side"]
+          updated_at?: string
+        }
+        Update: {
+          at?: string
+          created_at?: string
+          created_by?: string
+          encrypted_note?: string | null
+          id?: string
+          is_encrypted?: boolean
+          space_id?: string
+          to_side?: Database["public"]["Enums"]["schedule_side"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_handovers_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "coparent_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shared_expenses: {
         Row: {
           co_parent_id: string | null
@@ -1829,6 +1917,7 @@ export type Database = {
         | "sale"
         | "inheritance"
         | "other"
+      schedule_side: "owner" | "coparent"
       subscription_category_enum:
         | "streaming"
         | "software"
@@ -2037,6 +2126,7 @@ export const Constants = {
         "inheritance",
         "other",
       ],
+      schedule_side: ["owner", "coparent"],
       subscription_category_enum: [
         "streaming",
         "software",
