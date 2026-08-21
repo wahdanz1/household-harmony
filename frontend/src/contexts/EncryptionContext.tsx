@@ -45,6 +45,8 @@ interface EncryptionContextValue {
     persistRecoveryCode: (userId: string, slot: PreparedRecoverySlot) => Promise<boolean>;
     hasRecoveryCode: (userId: string) => Promise<boolean>;
     wrapDEKForInvite: (inviteCode: string) => Promise<{ encryptedDEK: string; salt: string; iv: string } | null>;
+    /** Wrap a co-parenting space's key with an invite code, for handing it to a new member. */
+    wrapSpaceDEKForInvite: (spaceId: string, inviteCode: string) => Promise<{ encryptedDEK: string; salt: string; iv: string } | null>;
 
     /** The household the user has been soft-removed from. Null when no pending exit. */
     pendingExitHouseholdId: string | null;
@@ -669,6 +671,20 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         }
     }, []);
 
+    const wrapSpaceDEKForInvite = useCallback(async (spaceId: string, inviteCode: string) => {
+        const dek = keyringRef.current.get(spaceScope(spaceId));
+        if (!dek) {
+            console.warn('Cannot wrap space DEK for invite: no key loaded for that space');
+            return null;
+        }
+        try {
+            return await wrapDEKWithInviteCode(dek, inviteCode);
+        } catch (err) {
+            console.error('Failed to wrap space DEK with invite code:', err);
+            return null;
+        }
+    }, []);
+
     const hasRecoveryCode = useCallback(async (userId: string): Promise<boolean> => {
         const { data, error } = await (supabase as any)
             .from('user_vault_recovery_slots')
@@ -703,6 +719,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         persistRecoveryCode,
         hasRecoveryCode,
         wrapDEKForInvite,
+        wrapSpaceDEKForInvite,
         pendingExitHouseholdId,
         decryptFromPendingExit,
         clearPendingExitDEK,

@@ -166,6 +166,8 @@ const Settings = () => {
               <MembersCard
                 members={members}
                 userRole={userRole}
+                householdId={household.id}
+                sharedExpensesEnabled={household.enable_shared_expenses ?? true}
                 onUpdate={fetchData}
               />
             </div>

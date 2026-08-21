@@ -17,9 +17,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import {
     generateDEK,
-    generateSpaceInviteCode,
     normalizeSpaceInviteCode,
-    wrapDEKWithInviteCode,
     unwrapDEKWithInviteCode,
     rewrapDEKWithPassword,
     unlockVault,
@@ -125,21 +123,20 @@ export async function createCoParentSpace(params: {
 }
 
 /**
- * Invite someone to a space. The returned code is the only thing that unwraps
- * the DEK and is never stored in plaintext, so it must be shown to the inviter
- * now — it cannot be recovered later.
+ * Invite someone to a space. Takes the already-wrapped key rather than the DEK
+ * so the raw key never leaves the encryption context. The code is the only
+ * thing that unwraps it and is never stored in plaintext, so it has to be shown
+ * to the inviter now — it cannot be recovered later.
  */
 export async function createCoParentSpaceInvite(params: {
     spaceId: string;
     invitedEmail: string;
     createdBy: string;
-    dek: CryptoKey;
+    code: string;
+    wrapped: { encryptedDEK: string; salt: string; iv: string };
 }): Promise<{ code: string; expiresAt: string }> {
-    const { spaceId, invitedEmail, createdBy, dek } = params;
+    const { spaceId, invitedEmail, createdBy, code, wrapped } = params;
     const email = invitedEmail.trim().toLowerCase();
-
-    const code = generateSpaceInviteCode();
-    const wrapped = await wrapDEKWithInviteCode(dek, code);
 
     const expiresAt = new Date(Date.now() + INVITE_TTL_HOURS * 60 * 60 * 1000).toISOString();
 
