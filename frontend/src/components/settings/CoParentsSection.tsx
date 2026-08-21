@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Baby, Copy, Check, Plus, Loader2, ShieldOff } from "lucide-react";
+import { Baby, Copy, Check, Plus, Loader2, ShieldOff, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,6 +41,8 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
     const [issuedCode, setIssuedCode] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
     const [revoking, setRevoking] = useState<CoParent | null>(null);
+    const [renaming, setRenaming] = useState<CoParent | null>(null);
+    const [renameValue, setRenameValue] = useState("");
 
 
     const demoMode = isDemoMode();
@@ -106,6 +108,7 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
 
             await createCoParentSpaceInvite({
                 spaceId,
+                householdId,
                 invitedEmail: inviteEmail,
                 createdBy: user.id,
                 code,
@@ -152,6 +155,21 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
         } finally {
             setBusy(false);
         }
+    };
+
+    const handleRename = async () => {
+        if (!renaming) return;
+        const name = renameValue.trim();
+        if (!name) return;
+        setBusy(true);
+        const { error } = await supabase.from("co_parents").update({ name }).eq("id", renaming.id);
+        setBusy(false);
+        if (error) {
+            toast({ title: "Error", description: "Could not rename.", variant: "destructive" });
+            return;
+        }
+        setRenaming(null);
+        refresh();
     };
 
     const handleRevoke = async () => {
@@ -231,6 +249,15 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
                                     </p>
                                 </div>
                                 <div className="shrink-0 flex items-center gap-1">
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => { setRenaming(cp); setRenameValue(cp.name); }}
+                                        aria-label="Rename co-parent"
+                                        className="h-8 w-8 text-muted"
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
                                     {!cp.spaceId && (
                                         <Button
                                             size="sm"
@@ -301,7 +328,7 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
                             <DialogHeader>
                                 <DialogTitle>Send this code to {inviting?.name}</DialogTitle>
                                 <DialogDescription>
-                                    It unlocks the shared space and is not stored anywhere — once you close this, it can't be shown again. Send it over a channel you trust. Expires in 72 hours.
+                                    Only a hash of this code is stored, so it genuinely cannot be shown again — close this and you would need to issue a new one. Send it over a channel you trust. Expires in 72 hours.
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="flex items-center gap-2">
@@ -347,11 +374,36 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
                 </DialogContent>
             </Dialog>
 
+            <Dialog open={!!renaming} onOpenChange={(o) => { if (!o && !busy) setRenaming(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Rename co-parent</DialogTitle>
+                        <DialogDescription>
+                            Only affects what you see. If they accept an invite later, a name you set here is kept rather than replaced.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <Label htmlFor="rename-coparent">Name</Label>
+                        <Input
+                            id="rename-coparent"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && !busy && handleRename()}
+                            autoFocus
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setRenaming(null)} disabled={busy}>Cancel</Button>
+                        <Button onClick={handleRename} disabled={busy || !renameValue.trim()}>Save</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <ConfirmDialog
                 open={!!revoking}
                 onOpenChange={(o) => { if (!o && !busy) setRevoking(null); }}
                 title={revoking ? `Revoke ${revoking.name}'s access?` : ""}
-                description="They lose access to the shared schedule and published costs. You can invite them again later."
+                description="They lose access to the shared schedule and published costs. The co-parent stays on your list with the same name, and everything shared with them keeps working — it just stops being shared with an account. You can invite them again later."
                 confirmLabel="Revoke"
                 busyLabel="Revoking…"
                 onConfirm={handleRevoke}

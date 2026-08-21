@@ -158,8 +158,9 @@ export type Database = {
           dek_salt: string | null
           encrypted_dek: string | null
           expires_at: string
+          household_id: string | null
           id: string
-          invite_code: string
+          invite_code_hash: string
           invited_email: string
           is_active: boolean
           space_id: string
@@ -172,8 +173,9 @@ export type Database = {
           dek_salt?: string | null
           encrypted_dek?: string | null
           expires_at: string
+          household_id?: string | null
           id?: string
-          invite_code: string
+          invite_code_hash: string
           invited_email: string
           is_active?: boolean
           space_id: string
@@ -186,14 +188,22 @@ export type Database = {
           dek_salt?: string | null
           encrypted_dek?: string | null
           expires_at?: string
+          household_id?: string | null
           id?: string
-          invite_code?: string
+          invite_code_hash?: string
           invited_email?: string
           is_active?: boolean
           space_id?: string
           status?: Database["public"]["Enums"]["invite_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "coparent_space_invites_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "coparent_space_invites_space_id_fkey"
             columns: ["space_id"]
@@ -1849,6 +1859,10 @@ export type Database = {
       lookup_coparent_invite: {
         Args: { invite_code_in: string }
         Returns: Json
+      }
+      normalize_space_invite_code_hash: {
+        Args: { code_in: string }
+        Returns: string
       }
       redeem_coparent_invite: {
         Args: { invite_code_in: string }
