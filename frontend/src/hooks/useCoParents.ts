@@ -12,7 +12,6 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface CoParentPendingInvite {
     id: string;
-    code: string;
     email: string;
     expiresAt: string;
 }
@@ -58,7 +57,7 @@ export function useCoParents(householdId?: string, currentUserId?: string) {
             spaceIds.length
                 ? supabase
                       .from('coparent_space_invites')
-                      .select('id, space_id, invite_code, invited_email, expires_at')
+                      .select('id, space_id, invited_email, expires_at')
                       .in('space_id', spaceIds)
                       .eq('is_active', true)
                       .gt('expires_at', new Date().toISOString())
@@ -75,7 +74,6 @@ export function useCoParents(householdId?: string, currentUserId?: string) {
         for (const inv of invitesRes.data ?? []) {
             invitesBySpace.set(inv.space_id, {
                 id: inv.id,
-                code: inv.invite_code,
                 email: inv.invited_email,
                 expiresAt: inv.expires_at,
             });

@@ -11,6 +11,9 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { Eye } from "lucide-react";
+import { useEncryption, spaceScope } from "@/contexts/EncryptionContext";
+import { publishCostClaim, withdrawFromOtherSpaces } from "@/services/coparentClaims";
 import {
     useEncryptedFields,
     incomeSourceFields,
@@ -58,7 +61,7 @@ interface IncomeFormDialogProps {
     mode: "add" | "edit";
     householdId: string;
     members: Array<{ user_id: string; profiles?: { full_name?: string; email?: string } }>;
-    coParents?: Array<{ id: string; name: string }>;
+    coParents?: Array<{ id: string; name: string; linked_user_id?: string | null; space_id?: string | null }>;
     financialMonthStart: number;
     initialValues?: InitialValues;
     onSuccess?: () => void;
@@ -83,6 +86,7 @@ export const IncomeFormDialog = ({
     financialMonthStart, initialValues, onSuccess,
 }: IncomeFormDialogProps) => {
     const { user } = useAuth();
+    const { encryptFor } = useEncryption();
     // Default to the current user, not whoever happens to be members[0].
     const defaultOwnerId = initialValues?.owner_id || user?.id || members[0]?.user_id || "";
     const [pristine, setPristine] = useState<InitialValues>(() => ({
@@ -102,6 +106,11 @@ export const IncomeFormDialog = ({
     }, [open, initialValues, defaultOwnerId]);
 
     const editingId = mode === "edit" ? initialValues?.id : undefined;
+    const selectedCoParent = coParents.find(cp => cp.id === form.co_parent_id);
+    // Sharing only reaches anyone once they hold the space key.
+    const publishesToCoParent = !!form.is_shared
+        && !!selectedCoParent?.space_id
+        && !!selectedCoParent?.linked_user_id;
     const canSave = !!form.category && !!form.provider?.trim() && parseFloat(String(form.budget ?? 0)) >= 0 && !!form.owner_id;
 
     const entityForm = useEntityForm({
@@ -158,6 +167,32 @@ export const IncomeFormDialog = ({
                     .from("monthly_incomes")
                     .upsert(monthlyEncrypted, { onConflict: "income_source_id,month", ignoreDuplicates: true });
             }
+
+            if (!createdId || !user) return;
+
+            // Shared income runs the other way from a shared cost: money I
+            // receive and we split is money I owe them a share of.
+            const spaceId = publishesToCoParent ? (selectedCoParent?.space_id as string) : null;
+            if (spaceId) {
+                await publishCostClaim({
+                    spaceId,
+                    householdId,
+                    userId: user.id,
+                    sourceKind: "income",
+                    sourceId: createdId,
+                    label: baseData.name || baseData.provider || "Shared income",
+                    amount: numericAmount,
+                    sharePercentage: baseData.share_percentage ?? 50,
+                    billingCycle: "monthly",
+                    encrypt: (plaintext) => encryptFor(spaceScope(spaceId), plaintext),
+                });
+            }
+            await withdrawFromOtherSpaces({
+                keepSpaceId: spaceId,
+                userId: user.id,
+                sourceKind: "income",
+                sourceId: createdId,
+            });
         },
         remove: editingId ? async () => {
             const { error } = await supabase.from("income_sources").delete().eq("id", editingId);
@@ -332,10 +367,24 @@ export const IncomeFormDialog = ({
                                             <SelectTrigger><SelectValue placeholder="Select co-parent" /></SelectTrigger>
                                             <SelectContent>
                                                 {coParents.map(cp => (
-                                                    <SelectItem key={cp.id} value={cp.id}>{cp.name}</SelectItem>
+                                                    <SelectItem key={cp.id} value={cp.id}>
+                                                        {cp.name}{cp.linked_user_id ? " · has an account" : ""}
+                                                    </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                        {publishesToCoParent ? (
+                                            <p className="text-sm text-accent-dk flex items-start gap-1.5">
+                                                <Eye className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                                                <span>
+                                                    {selectedCoParent?.name} will see this income and the split, and it counts towards what you owe them. Nothing else from your household.
+                                                </span>
+                                            </p>
+                                        ) : (
+                                            <p className="text-sm text-muted">
+                                                Only tracked on your side.{selectedCoParent?.name ? ` ${selectedCoParent.name} has no account, so nothing is shared.` : ""}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Your share (%)</Label>

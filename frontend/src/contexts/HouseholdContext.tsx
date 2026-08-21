@@ -36,6 +36,10 @@ export interface CoParent {
     id: string;
     name: string;
     household_id: string;
+    /** Set once they hold an account; until then this is just a label. */
+    linked_user_id?: string | null;
+    /** The co-parenting space backing them, if a schedule has been started. */
+    space_id?: string | null;
 }
 
 interface HouseholdContextType {

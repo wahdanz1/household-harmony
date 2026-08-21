@@ -7,6 +7,9 @@ import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEncryptedFields, insuranceFields } from "@/hooks/useEncryptedFields";
+import { Eye } from "lucide-react";
+import { useEncryption, spaceScope } from "@/contexts/EncryptionContext";
+import { publishCostClaim, withdrawFromOtherSpaces } from "@/services/coparentClaims";
 import { useUsedCategoryValues } from "@/hooks/useUsedCategoryValues";
 import { AttributionPicker, type AttributionValue } from "@/components/shared/AttributionPicker";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -71,16 +74,29 @@ export const InsuranceForm = ({
 }: InsuranceFormProps) => {
     const { user } = useAuth();
     const { encryptRecord } = useEncryptedFields(insuranceFields);
+    const { encryptFor } = useEncryption();
     const [coParents, setCoParents] = useState<any[]>([]);
+    const [subjectNames, setSubjectNames] = useState<Record<string, string>>({});
     const [pristine, setPristine] = useState<InitialValues>(() => ({ ...blank(), ...initialValues }));
     const [formData, setFormData] = useState<InitialValues>(pristine);
 
     useEffect(() => {
         const fetchCoParents = async () => {
-            const { data } = await supabase.from("co_parents").select("*").eq("household_id", householdId);
+            const { data } = await supabase
+                .from("co_parents")
+                .select("id, name, space_id, linked_user_id")
+                .eq("household_id", householdId);
             setCoParents(data || []);
         };
+        const fetchSubjects = async () => {
+            const { data } = await supabase
+                .from("subjects")
+                .select("id, name")
+                .eq("household_id", householdId);
+            setSubjectNames(Object.fromEntries((data ?? []).map(s => [s.id, s.name])));
+        };
         fetchCoParents();
+        fetchSubjects();
     }, [householdId]);
 
     useEffect(() => {
@@ -91,6 +107,12 @@ export const InsuranceForm = ({
     }, [initialValues, editingId]);
 
     const isEditing = !!editingId;
+    const selectedCoParent = coParents.find(cp => cp.id === formData.co_parent_id);
+    // A co-parent only "sees" anything once they hold the space key. Tagging an
+    // unlinked label is bookkeeping; this is disclosure, and has to look like it.
+    const publishesToCoParent = !!formData.is_shared
+        && !!selectedCoParent?.space_id
+        && !!selectedCoParent?.linked_user_id;
     const isRecurringNonMonthly = formData.billing_cycle && formData.billing_cycle !== "monthly";
     const canSave = !!formData.category
         && !!String(formData.budget ?? "").trim()
@@ -128,13 +150,45 @@ export const InsuranceForm = ({
                 created_by: user.id,
             };
             const data = await encryptRecord(baseData);
+            let insuranceId = editingId;
             if (editingId) {
                 const { error } = await supabase.from("insurances").update(data as any).eq("id", editingId);
                 if (error) throw error;
             } else {
-                const { error } = await supabase.from("insurances").insert(data as any);
+                const { data: inserted, error } = await supabase
+                    .from("insurances").insert(data as any).select("id").single();
                 if (error) throw error;
+                insuranceId = inserted?.id ?? null;
             }
+
+            if (!insuranceId) return;
+
+            // Publishing is deliberately part of saving: the co-parent should
+            // never be a step you can forget after changing an amount.
+            const spaceId = publishesToCoParent ? selectedCoParent?.space_id as string : null;
+            if (spaceId) {
+                await publishCostClaim({
+                    spaceId,
+                    householdId,
+                    userId: user.id,
+                    sourceKind: "insurance",
+                    sourceId: insuranceId,
+                    label: baseData.name || "Insurance",
+                    subject: baseData.subject_id ? subjectNames[baseData.subject_id] ?? null : null,
+                    amount: baseData.budget,
+                    sharePercentage: baseData.share_percentage,
+                    billingCycle: baseData.billing_cycle,
+                    encrypt: (plaintext) => encryptFor(spaceScope(spaceId), plaintext),
+                });
+            }
+            // Covers un-sharing and re-pointing at a different co-parent, either
+            // of which would otherwise leave the old one still seeing this.
+            await withdrawFromOtherSpaces({
+                keepSpaceId: spaceId,
+                userId: user.id,
+                sourceKind: "insurance",
+                sourceId: insuranceId,
+            });
         },
         remove: editingId ? async () => {
             const { error } = await supabase.from("insurances").delete().eq("id", editingId);
@@ -313,10 +367,24 @@ export const InsuranceForm = ({
                                     <SelectTrigger><SelectValue placeholder="Select co-parent" /></SelectTrigger>
                                     <SelectContent>
                                         {coParents.map((cp) => (
-                                            <SelectItem key={cp.id} value={cp.id}>{cp.name}</SelectItem>
+                                            <SelectItem key={cp.id} value={cp.id}>
+                                                {cp.name}{cp.linked_user_id ? " · has an account" : ""}
+                                            </SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                {publishesToCoParent ? (
+                                    <p className="text-sm text-accent-dk flex items-start gap-1.5">
+                                        <Eye className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                                        <span>
+                                            {selectedCoParent?.name} will see this insurance — its name, the full amount and the split. Nothing else from your household.
+                                        </span>
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-muted">
+                                        Only tracked on your side. {selectedCoParent?.name ? `${selectedCoParent.name} has no account, so nothing is shared.` : ""}
+                                    </p>
+                                )}
                             </div>
                             <div className="space-y-2">
                                 <Label>Your share (%)</Label>

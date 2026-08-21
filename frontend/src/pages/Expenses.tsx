@@ -12,6 +12,7 @@ import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
 import { Card } from "@/components/ui/card";
 import { Home } from "lucide-react";
 import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
+import { SharedWithYouCard } from "@/components/expenses/SharedWithYouCard";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { SubscriptionFormDialog } from "@/components/expenses/SubscriptionFormDialog";
 import { InsuranceFormDialog } from "@/components/expenses/InsuranceFormDialog";
@@ -680,6 +681,8 @@ const Expenses = () => {
               setEditingInsurance(insurance);
             }}
           />
+
+          <SharedWithYouCard currency={household?.currency || "SEK"} />
 
 
           {!isPastMonth && (

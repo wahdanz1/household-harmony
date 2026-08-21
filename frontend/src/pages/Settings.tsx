@@ -175,6 +175,7 @@ const Settings = () => {
               householdId={household.id}
               invites={invites}
               isOwner={userRole === "owner"}
+              sharedExpensesEnabled={household.enable_shared_expenses ?? true}
               onUpdate={fetchData}
             />
             <div className="grid gap-5 lg:grid-cols-2">

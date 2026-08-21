@@ -349,6 +349,24 @@ export function normalizeSpaceInviteCode(code: string): string {
     return code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 }
 
+/**
+ * Hash a space invite code for storage.
+ *
+ * The code derives the KEK that wraps the space DEK, so it must never be stored
+ * beside the wrapped key — that would hand a database reader both halves.
+ * Hashing here means the plaintext code never leaves this device at all.
+ *
+ * Must stay byte-identical to the database side:
+ *   encode(sha256(convert_to(upper(code), 'UTF8')), 'hex')
+ */
+export async function hashSpaceInviteCode(code: string): Promise<string> {
+    const canonical = normalizeSpaceInviteCode(code);
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+    return Array.from(new Uint8Array(digest))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+}
+
 export async function wrapDEKWithInviteCode(
     dek: CryptoKey,
     inviteCode: string,
