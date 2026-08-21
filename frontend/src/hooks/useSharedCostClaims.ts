@@ -236,6 +236,11 @@ export function useSharedCostClaims(spaceId?: string, userId?: string) {
     /**
      * What each side owes for a month. A month with a recorded amount uses it;
      * otherwise the standing arrangement stands in.
+     *
+     * Income runs the opposite way from a cost. If I pay an insurance we split,
+     * the other side owes me their share. If I *receive* money we split — a
+     * child benefit, say — I owe them theirs. Treating both the same would
+     * silently double the error, since it lands on the wrong side of the net.
      */
     const balanceForMonth = useCallback(
         (month: string) => {
@@ -245,8 +250,13 @@ export function useSharedCostClaims(spaceId?: string, userId?: string) {
                 const recorded = months.find(m => m.claimId === c.id && m.month === month);
                 const total = recorded?.amount ?? c.amount;
                 if (total === null || c.sharePercentage === null) continue;
+
                 const otherShare = (total * (100 - c.sharePercentage)) / 100;
-                if (c.isMine) theyOweMe += otherShare;
+                // Costs are owed to whoever published them; income is owed by them.
+                const owedToPublisher = c.sourceKind !== 'income';
+                const publisherIsMe = c.isMine;
+
+                if (owedToPublisher === publisherIsMe) theyOweMe += otherShare;
                 else iOweThem += otherShare;
             }
             return { theyOweMe, iOweThem, net: theyOweMe - iOweThem };
