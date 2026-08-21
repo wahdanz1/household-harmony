@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
 import { useEncryptedFields, monthlyIncomeFields, monthlyInsuranceFields, insuranceFields, incomeSourceFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
 import { billsInFinancialMonth } from "@/utils/billingEvents";
+import { useEncryption, spaceScope } from "@/contexts/EncryptionContext";
 
 export interface CoParentSettlement {
     incomeReceived: number;
@@ -12,17 +13,25 @@ export interface CoParentSettlement {
     theirShareOfInsurance: number;
     expensesYouPaid: number;
     expensesTheyPaid: number;
+    /** Costs the co-parent published to the shared space, your share of them. */
+    theirCostsYourShare: number;
+    /** Income the co-parent published, your share of it. */
+    theirIncomeYourShare: number;
+    /** True once the other side is in the space and publishing. */
+    isTwoSided: boolean;
     netAmount: number;
 }
 
 interface UseCoParentSettlementsArgs {
     householdId: string | undefined;
-    coParents: { id: string }[];
+    coParents: { id: string; space_id?: string | null }[];
+    userId?: string;
     financialMonthStart?: number;
 }
 
-export function useCoParentSettlements({ householdId, coParents, financialMonthStart = 25 }: UseCoParentSettlementsArgs) {
+export function useCoParentSettlements({ householdId, coParents, userId, financialMonthStart = 25 }: UseCoParentSettlementsArgs) {
     const [settlements, setSettlements] = useState<Record<string, CoParentSettlement>>({});
+    const { decryptFor, hasScopeKey } = useEncryption();
 
     const { decryptRecords: decryptIncomes } = useEncryptedFields(monthlyIncomeFields);
     const { decryptRecords: decryptIncomeSources } = useEncryptedFields(incomeSourceFields);
@@ -90,6 +99,49 @@ export function useCoParentSettlements({ householdId, coParents, financialMonthS
         const decryptedMonthlyIns = (await decryptInsurances(monthlyInsResult.data || [])) as any[];
         const decryptedExpenses = (await decryptShared(expensesResult.data || [])) as any[];
 
+        // Only claims the OTHER side published. Our own published claims mirror
+        // the insurances and income already counted above, so folding them in
+        // would count the same money twice.
+        const incomingBySpace = new Map<string, { kind: string; amount: number; share: number }[]>();
+        const spaceIds = coParents.map(cp => cp.space_id).filter((id): id is string => !!id);
+
+        for (const spaceId of spaceIds) {
+            const scope = spaceScope(spaceId);
+            if (!hasScopeKey(scope)) continue;
+
+            const [{ data: claimRows }, { data: monthRows }] = await Promise.all([
+                supabase
+                    .from("shared_cost_claims")
+                    .select("id, published_by, source_kind, encrypted_amount, encrypted_share_percentage")
+                    .eq("space_id", spaceId)
+                    .eq("is_active", true),
+                supabase
+                    .from("shared_cost_claim_months")
+                    .select("claim_id, month, encrypted_amount")
+                    .eq("space_id", spaceId)
+                    .eq("month", currentMonth),
+            ]);
+
+            const parsed: { kind: string; amount: number; share: number }[] = [];
+            for (const row of claimRows ?? []) {
+                if (row.published_by === userId) continue;
+                const recorded = (monthRows ?? []).find(m => m.claim_id === row.id);
+                const amountText = recorded?.encrypted_amount
+                    ? await decryptFor(scope, recorded.encrypted_amount)
+                    : row.encrypted_amount
+                        ? await decryptFor(scope, row.encrypted_amount)
+                        : null;
+                const shareText = row.encrypted_share_percentage
+                    ? await decryptFor(scope, row.encrypted_share_percentage)
+                    : null;
+                const amount = Number(amountText);
+                const share = Number(shareText);
+                if (!Number.isFinite(amount) || !Number.isFinite(share)) continue;
+                parsed.push({ kind: row.source_kind, amount, share });
+            }
+            incomingBySpace.set(spaceId, parsed);
+        }
+
         const next: Record<string, CoParentSettlement> = {};
 
         for (const coParent of coParents) {
@@ -122,9 +174,11 @@ export function useCoParentSettlements({ householdId, coParents, financialMonthS
                 const amount = parseFloat(
                     ((monthly?.actual_amount ?? monthly?.budget_snapshot ?? source.budget) || 0).toString(),
                 );
-                const sharePercentage = parseFloat((source.share_percentage || 0).toString());
+                // share_percentage is YOUR share — the form reads "You pay X%,
+                // they pay 100-X%" — so theirs is the remainder.
+                const yourShare = parseFloat((source.share_percentage || 0).toString());
                 insurancePaid += amount;
-                theirShareOfInsurance += amount * sharePercentage / 100;
+                theirShareOfInsurance += amount * (100 - yourShare) / 100;
             });
 
             let expensesYouPaid = 0;
@@ -135,8 +189,28 @@ export function useCoParentSettlements({ householdId, coParents, financialMonthS
                 else expensesTheyPaid += amount;
             });
 
+            const incoming = coParent.space_id ? incomingBySpace.get(coParent.space_id) ?? [] : [];
+            let theirCostsYourShare = 0;
+            let theirIncomeYourShare = 0;
+            for (const claim of incoming) {
+                // share is the publisher's own percentage; ours is the rest.
+                const ourPart = claim.amount * (100 - claim.share) / 100;
+                if (claim.kind === "income") theirIncomeYourShare += ourPart;
+                else theirCostsYourShare += ourPart;
+            }
+
             const amountOwedFromIncome = incomeReceived - yourShareOfIncome;
-            const netAmount = amountOwedFromIncome + theirShareOfInsurance + (expensesTheyPaid / 2) - (expensesYouPaid / 2);
+
+            // Positive means you owe them. You paid the insurance, so their
+            // share is owed to you and comes off what you owe — the same way
+            // an expense you paid does, immediately below.
+            const netAmount =
+                amountOwedFromIncome
+                - theirShareOfInsurance
+                + (expensesTheyPaid / 2)
+                - (expensesYouPaid / 2)
+                + theirCostsYourShare
+                - theirIncomeYourShare;
 
             next[coParent.id] = {
                 incomeReceived,
@@ -145,13 +219,16 @@ export function useCoParentSettlements({ householdId, coParents, financialMonthS
                 theirShareOfInsurance,
                 expensesYouPaid,
                 expensesTheyPaid,
+                theirCostsYourShare,
+                theirIncomeYourShare,
+                isTwoSided: incoming.length > 0,
                 netAmount,
             };
         }
 
         setSettlements(next);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [householdId, coParents, financialMonthStart]);
+    }, [householdId, coParents, userId, financialMonthStart, decryptFor, hasScopeKey]);
 
     useEffect(() => {
         refetch();
