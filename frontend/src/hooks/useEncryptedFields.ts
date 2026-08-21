@@ -6,7 +6,7 @@
  */
 
 import { useCallback } from 'react';
-import { useEncryption } from '@/contexts/EncryptionContext';
+import { useEncryption, HOUSEHOLD_SCOPE } from '@/contexts/EncryptionContext';
 
 interface EncryptedRecord {
     is_encrypted?: boolean;
@@ -28,9 +28,30 @@ interface EncryptionFieldConfig {
  *   { original: 'name', encrypted: 'encrypted_name' },
  *   { original: 'budget', encrypted: 'encrypted_budget' },
  * ]);
+ *
+ * Pass a scope to read and write rows belonging to a co-parenting space
+ * instead of the household. Records in one scope are unreadable in another,
+ * so the scope must match the table the record came from.
  */
-export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
-    const { encrypt, decrypt, isUnlocked } = useEncryption();
+export function useEncryptedFields(
+    fieldConfigs: EncryptionFieldConfig[],
+    scope: string = HOUSEHOLD_SCOPE,
+) {
+    const { encryptFor, decryptFor, hasScopeKey, isUnlocked } = useEncryption();
+
+    const encrypt = useCallback(
+        (plaintext: string) => encryptFor(scope, plaintext),
+        [encryptFor, scope],
+    );
+
+    const decrypt = useCallback(
+        (ciphertext: string) => decryptFor(scope, ciphertext),
+        [decryptFor, scope],
+    );
+
+    // The household vault gates on isUnlocked; a space additionally needs its
+    // own key loaded, which happens after the household vault opens.
+    const ready = isUnlocked && (scope === HOUSEHOLD_SCOPE || hasScopeKey(scope));
 
     /**
      * Encrypt a record before saving to database.
@@ -41,7 +62,7 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
     const encryptRecord = useCallback(async <T extends Record<string, any>>(
         record: T
     ): Promise<T & { is_encrypted: boolean }> => {
-        if (!isUnlocked) {
+        if (!ready) {
             console.warn('Cannot encrypt: vault is locked');
             return { ...record, is_encrypted: false };
         }
@@ -66,7 +87,7 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
 
         encryptedRecord.is_encrypted = true;
         return encryptedRecord;
-    }, [encrypt, isUnlocked, fieldConfigs]);
+    }, [encrypt, ready, fieldConfigs]);
 
     /**
      * Decrypt a single record after reading from database.
@@ -77,7 +98,7 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
         record: T
     ): Promise<T> => {
         // If not encrypted or vault is locked, return as-is
-        if (!record.is_encrypted || !isUnlocked) {
+        if (!record.is_encrypted || !ready) {
             return record;
         }
 
@@ -100,7 +121,7 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
         }
 
         return decryptedRecord;
-    }, [decrypt, isUnlocked, fieldConfigs]);
+    }, [decrypt, ready, fieldConfigs]);
 
     /**
      * Decrypt an array of records.
@@ -108,18 +129,18 @@ export function useEncryptedFields(fieldConfigs: EncryptionFieldConfig[]) {
     const decryptRecords = useCallback(async <T extends EncryptedRecord>(
         records: T[]
     ): Promise<T[]> => {
-        if (!isUnlocked) {
+        if (!ready) {
             // Return records as-is if vault is locked
             return records;
         }
 
         return Promise.all(records.map(record => decryptRecord(record)));
-    }, [decryptRecord, isUnlocked]);
+    }, [decryptRecord, ready]);
 
     /**
      * Check if encryption is available (vault unlocked).
      */
-    const canEncrypt = isUnlocked;
+    const canEncrypt = ready;
 
     return {
         encryptRecord,

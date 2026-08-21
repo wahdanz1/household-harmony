@@ -6,14 +6,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { SettingsCard } from "./SettingsCard";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { CoParentsSection } from "./CoParentsSection";
 
 interface MembersCardProps {
     members: any[];
     userRole: string;
+    householdId: string;
+    /** Co-parents ride on the shared-expenses feature flag. */
+    sharedExpensesEnabled: boolean;
     onUpdate: () => void;
 }
 
-export const MembersCard = ({ members, userRole, onUpdate }: MembersCardProps) => {
+export const MembersCard = ({ members, userRole, householdId, sharedExpensesEnabled, onUpdate }: MembersCardProps) => {
     const { user } = useAuth();
     const isOwner = userRole === "owner";
     const [pendingRemoval, setPendingRemoval] = useState<{ id: string; name: string } | null>(null);
@@ -82,6 +86,7 @@ export const MembersCard = ({ members, userRole, onUpdate }: MembersCardProps) =
                     );
                 })}
             </div>
+            <CoParentsSection householdId={householdId} enabled={sharedExpensesEnabled} />
             <ConfirmDialog
                 open={!!pendingRemoval}
                 onOpenChange={(open) => { if (!open && !removing) setPendingRemoval(null); }}

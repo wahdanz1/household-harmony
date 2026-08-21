@@ -305,6 +305,46 @@ function normalizeInviteCode(code: string): string {
     return code.trim().toUpperCase();
 }
 
+// Excludes I, L, O, 0 and 1 — these codes get read aloud and retyped.
+const SPACE_INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const SPACE_INVITE_LENGTH = 20;
+
+/**
+ * Invite code for a co-parenting space. Unlike a household invite code this is
+ * the secret that wraps the space DEK, so it must come from a CSPRNG and carry
+ * real entropy — 20 chars over a 31-symbol alphabet is ~99 bits.
+ *
+ * Returns the canonical, ungrouped form. This is the exact string the KEK is
+ * derived from; use formatSpaceInviteCode() when showing it to someone.
+ */
+export function generateSpaceInviteCode(): string {
+    const alphabet = SPACE_INVITE_ALPHABET;
+    // Largest multiple of the alphabet size that fits in a byte; values at or
+    // above it are discarded so every symbol stays equally likely.
+    const limit = 256 - (256 % alphabet.length);
+    const out: string[] = [];
+
+    while (out.length < SPACE_INVITE_LENGTH) {
+        for (const byte of generateRandomBytes(SPACE_INVITE_LENGTH)) {
+            if (byte >= limit) continue;
+            out.push(alphabet[byte % alphabet.length]);
+            if (out.length === SPACE_INVITE_LENGTH) break;
+        }
+    }
+
+    return out.join('');
+}
+
+/** Group into blocks of five for display. Never feed the result to the crypto. */
+export function formatSpaceInviteCode(code: string): string {
+    return normalizeSpaceInviteCode(code).replace(/(.{5})(?=.)/g, '$1-');
+}
+
+/** Canonical form: strips display grouping and any stray whitespace or case. */
+export function normalizeSpaceInviteCode(code: string): string {
+    return code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+}
+
 export async function wrapDEKWithInviteCode(
     dek: CryptoKey,
     inviteCode: string,

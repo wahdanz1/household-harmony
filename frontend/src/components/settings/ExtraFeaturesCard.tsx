@@ -46,7 +46,7 @@ export const ExtraFeaturesCard = ({ householdId, enableCreditCards, enableShared
                     title="Shared expenses"
                     value={
                         enableSharedExpenses
-                            ? <>Track expenses shared with co-parents. Manage in <strong className="font-semibold text-ink">Expenses → Shared</strong>.</>
+                            ? <>Track expenses shared with co-parents. Manage them under <strong className="font-semibold text-ink">Members</strong>.</>
                             : "Track expenses shared with co-parents."
                     }
                     control={
