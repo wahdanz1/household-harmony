@@ -877,6 +877,7 @@ export type Database = {
         Row: {
           actual_recorded_at: string | null
           budget_changed_at: string | null
+          co_parent_id: string | null
           created_at: string
           created_by: string
           electricity_grid: number | null
@@ -889,6 +890,7 @@ export type Database = {
           id: string
           inactivated_at: string | null
           is_encrypted: boolean | null
+          is_shared: boolean
           member_id: string | null
           month: string
           month_end: string | null
@@ -896,12 +898,14 @@ export type Database = {
           notes: string | null
           one_time_category: string | null
           one_time_name: string | null
+          share_percentage: number | null
           subject_id: string | null
           updated_at: string | null
         }
         Insert: {
           actual_recorded_at?: string | null
           budget_changed_at?: string | null
+          co_parent_id?: string | null
           created_at?: string
           created_by: string
           electricity_grid?: number | null
@@ -914,6 +918,7 @@ export type Database = {
           id?: string
           inactivated_at?: string | null
           is_encrypted?: boolean | null
+          is_shared?: boolean
           member_id?: string | null
           month: string
           month_end?: string | null
@@ -921,12 +926,14 @@ export type Database = {
           notes?: string | null
           one_time_category?: string | null
           one_time_name?: string | null
+          share_percentage?: number | null
           subject_id?: string | null
           updated_at?: string | null
         }
         Update: {
           actual_recorded_at?: string | null
           budget_changed_at?: string | null
+          co_parent_id?: string | null
           created_at?: string
           created_by?: string
           electricity_grid?: number | null
@@ -939,6 +946,7 @@ export type Database = {
           id?: string
           inactivated_at?: string | null
           is_encrypted?: boolean | null
+          is_shared?: boolean
           member_id?: string | null
           month?: string
           month_end?: string | null
@@ -946,10 +954,18 @@ export type Database = {
           notes?: string | null
           one_time_category?: string | null
           one_time_name?: string | null
+          share_percentage?: number | null
           subject_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "monthly_expenses_co_parent_id_fkey"
+            columns: ["co_parent_id"]
+            isOneToOne: false
+            referencedRelation: "co_parents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "monthly_expenses_created_by_fkey"
             columns: ["created_by"]
