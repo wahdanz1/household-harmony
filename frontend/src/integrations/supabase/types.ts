@@ -1614,6 +1614,56 @@ export type Database = {
           },
         ]
       }
+      shared_settlements: {
+        Row: {
+          created_at: string
+          encrypted_breakdown: string | null
+          encrypted_net_amount: string | null
+          encrypted_notes: string | null
+          id: string
+          is_encrypted: boolean
+          month: string
+          settled_at: string
+          settled_by: string
+          space_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_breakdown?: string | null
+          encrypted_net_amount?: string | null
+          encrypted_notes?: string | null
+          id?: string
+          is_encrypted?: boolean
+          month: string
+          settled_at?: string
+          settled_by: string
+          space_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_breakdown?: string | null
+          encrypted_net_amount?: string | null
+          encrypted_notes?: string | null
+          id?: string
+          is_encrypted?: boolean
+          month?: string
+          settled_at?: string
+          settled_by?: string
+          space_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_settlements_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "coparent_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subjects: {
         Row: {
           created_at: string
