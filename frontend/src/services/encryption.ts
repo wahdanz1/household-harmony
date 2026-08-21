@@ -310,8 +310,17 @@ function normalizeInviteCode(code: string): string {
 }
 
 // Excludes I, L, O, 0 and 1 — these codes get read aloud and retyped.
-const SPACE_INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+/** Co-parenting space invites: ~99 bits. */
 const SPACE_INVITE_LENGTH = 20;
+/**
+ * Household invites: ~79 bits.
+ *
+ * Length is a security parameter here, not a style choice. Only a hash of the
+ * code is stored, and hashing a short code protects nothing — the previous
+ * 8-character code was about 40 bits, which a GPU exhausts in roughly a minute.
+ */
+const HOUSEHOLD_INVITE_LENGTH = 16;
 
 /**
  * Invite code for a co-parenting space. Unlike a household invite code this is
@@ -319,33 +328,41 @@ const SPACE_INVITE_LENGTH = 20;
  * real entropy — 20 chars over a 31-symbol alphabet is ~99 bits.
  *
  * Returns the canonical, ungrouped form. This is the exact string the KEK is
- * derived from; use formatSpaceInviteCode() when showing it to someone.
+ * derived from; use formatInviteCode() when showing it to someone.
  */
-export function generateSpaceInviteCode(): string {
-    const alphabet = SPACE_INVITE_ALPHABET;
+export function generateInviteCode(length: number): string {
+    const alphabet = INVITE_ALPHABET;
     // Largest multiple of the alphabet size that fits in a byte; values at or
     // above it are discarded so every symbol stays equally likely.
     const limit = 256 - (256 % alphabet.length);
     const out: string[] = [];
 
-    while (out.length < SPACE_INVITE_LENGTH) {
-        for (const byte of generateRandomBytes(SPACE_INVITE_LENGTH)) {
+    while (out.length < length) {
+        for (const byte of generateRandomBytes(length)) {
             if (byte >= limit) continue;
             out.push(alphabet[byte % alphabet.length]);
-            if (out.length === SPACE_INVITE_LENGTH) break;
+            if (out.length === length) break;
         }
     }
 
     return out.join('');
 }
 
-/** Group into blocks of five for display. Never feed the result to the crypto. */
-export function formatSpaceInviteCode(code: string): string {
-    return normalizeSpaceInviteCode(code).replace(/(.{5})(?=.)/g, '$1-');
+export function generateSpaceInviteCode(): string {
+    return generateInviteCode(SPACE_INVITE_LENGTH);
+}
+
+export function generateHouseholdInviteCode(): string {
+    return generateInviteCode(HOUSEHOLD_INVITE_LENGTH);
+}
+
+/** Group into blocks of four for display. Never feed the result to the crypto. */
+export function formatInviteCode(code: string): string {
+    return canonicalInviteCode(code).replace(/(.{4})(?=.)/g, '$1-');
 }
 
 /** Canonical form: strips display grouping and any stray whitespace or case. */
-export function normalizeSpaceInviteCode(code: string): string {
+export function canonicalInviteCode(code: string): string {
     return code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 }
 
@@ -356,11 +373,11 @@ export function normalizeSpaceInviteCode(code: string): string {
  * beside the wrapped key — that would hand a database reader both halves.
  * Hashing here means the plaintext code never leaves this device at all.
  *
- * Must stay byte-identical to the database side:
- *   encode(sha256(convert_to(upper(code), 'UTF8')), 'hex')
+ * Must stay byte-identical to public.hash_invite_code in the database. A
+ * divergence makes every invite silently unredeemable.
  */
-export async function hashSpaceInviteCode(code: string): Promise<string> {
-    const canonical = normalizeSpaceInviteCode(code);
+export async function hashInviteCode(code: string): Promise<string> {
+    const canonical = canonicalInviteCode(code);
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
     return Array.from(new Uint8Array(digest))
         .map(b => b.toString(16).padStart(2, '0'))
