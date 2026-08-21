@@ -87,6 +87,46 @@ export function toDayCoverage(
     return out;
 }
 
+/**
+ * Generate a repeating handover pattern — the Friday-to-Friday rhythm that most
+ * of a co-parenting schedule actually is, with exceptions edited in afterwards.
+ *
+ * Steps in whole local days and re-applies the wall-clock time each step, so a
+ * 17:00 handover stays 17:00 across a DST change rather than drifting to 16:00
+ * or 18:00 as fixed-millisecond arithmetic would.
+ */
+export function repeatPattern(params: {
+    /** Day the first generated handover falls on. Its time comes from `time`. */
+    from: Date;
+    /** Weeks between handovers. 1 means every week. */
+    everyWeeks: number;
+    /** How many handovers to generate. */
+    count: number;
+    /** Side the first generated handover gives the kids to; alternates after. */
+    startSide: ScheduleSide;
+    time: { hours: number; minutes: number };
+}): { at: Date; toSide: ScheduleSide }[] {
+    const { from, everyWeeks, count, startSide, time } = params;
+    if (everyWeeks < 1 || count < 1) return [];
+
+    const out: { at: Date; toSide: ScheduleSide }[] = [];
+    const cursor = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+
+    for (let i = 0; i < count; i++) {
+        const at = new Date(cursor);
+        at.setHours(time.hours, time.minutes, 0, 0);
+        out.push({
+            at,
+            toSide: i % 2 === 0
+                ? startSide
+                : startSide === 'owner' ? 'coparent' : 'owner',
+        });
+        cursor.setDate(cursor.getDate() + everyWeeks * 7);
+    }
+
+    return out;
+}
+
 /** Side holding the kids at `when`, or null if that is before the schedule starts. */
 export function sideAt(handovers: Handover[], when: Date): ScheduleSide | null {
     let side: ScheduleSide | null = null;

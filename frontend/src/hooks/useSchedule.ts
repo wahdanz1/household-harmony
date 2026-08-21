@@ -15,6 +15,22 @@ import { toBlocks, sideAt, type Handover, type ScheduleSide } from '@/utils/sche
 export type { Handover, ScheduleSide, ScheduleBlock, DayCoverage } from '@/utils/schedule';
 export { toBlocks, toDayCoverage, sideAt, dayKey } from '@/utils/schedule';
 
+export interface ScheduleChange {
+    id: string;
+    action: 'created' | 'moved' | 'deleted';
+    actorUserId: string;
+    summary: string | null;
+    createdAt: Date;
+}
+
+interface ChangeRow {
+    id: string;
+    action: 'created' | 'moved' | 'deleted';
+    actor_user_id: string;
+    encrypted_summary: string | null;
+    created_at: string;
+}
+
 interface HandoverRow {
     id: string;
     at: string;
@@ -27,6 +43,7 @@ interface HandoverRow {
 export function useSchedule(spaceId?: string) {
     const { decryptFor, encryptFor, hasScopeKey } = useEncryption();
     const [handovers, setHandovers] = useState<Handover[]>([]);
+    const [changes, setChanges] = useState<ScheduleChange[]>([]);
     const [loading, setLoading] = useState(true);
 
     const scope = spaceId ? spaceScope(spaceId) : null;
@@ -35,6 +52,7 @@ export function useSchedule(spaceId?: string) {
     const refresh = useCallback(async () => {
         if (!spaceId || !scope) {
             setHandovers([]);
+            setChanges([]);
             setLoading(false);
             return;
         }
@@ -65,6 +83,29 @@ export function useSchedule(spaceId?: string) {
         );
 
         setHandovers(decrypted);
+
+        const { data: changeData } = await supabase
+            .from('schedule_changes')
+            .select('id, action, actor_user_id, encrypted_summary, created_at')
+            .eq('space_id', spaceId)
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        const changeRows = (changeData ?? []) as ChangeRow[];
+        setChanges(
+            await Promise.all(
+                changeRows.map(async row => ({
+                    id: row.id,
+                    action: row.action,
+                    actorUserId: row.actor_user_id,
+                    summary: row.encrypted_summary
+                        ? await decryptFor(scope, row.encrypted_summary)
+                        : null,
+                    createdAt: new Date(row.created_at),
+                })),
+            ),
+        );
+
         setLoading(false);
     }, [spaceId, scope, decryptFor]);
 
@@ -115,13 +156,48 @@ export function useSchedule(spaceId?: string) {
         [spaceId, scope, encryptFor, logChange, refresh],
     );
 
+    /**
+     * Insert many handovers at once, for extending a repeating pattern.
+     * Instants already taken are skipped rather than failing the whole batch —
+     * the point is to fill in around whatever is already agreed.
+     */
+    const addHandovers = useCallback(
+        async (items: { at: Date; toSide: ScheduleSide }[], userId: string) => {
+            if (!spaceId || !scope) return { error: 'No space selected.', added: 0 };
+
+            const taken = new Set(handovers.map(h => h.at.getTime()));
+            const fresh = items.filter(i => !taken.has(i.at.getTime()));
+            if (!fresh.length) return { added: 0, skipped: items.length };
+
+            const { error } = await supabase.from('schedule_handovers').insert(
+                fresh.map(i => ({
+                    space_id: spaceId,
+                    at: i.at.toISOString(),
+                    to_side: i.toSide,
+                    created_by: userId,
+                })),
+            );
+
+            if (error) return { error: 'Could not add the handovers.', added: 0 };
+
+            await logChange(
+                'created',
+                `Repeated the pattern: ${fresh.length} handovers through ${fresh[fresh.length - 1].at.toLocaleDateString()}`,
+                userId,
+            );
+            await refresh();
+            return { added: fresh.length, skipped: items.length - fresh.length };
+        },
+        [spaceId, scope, handovers, logChange, refresh],
+    );
+
     const moveHandover = useCallback(
-        async (id: string, at: Date, userId: string) => {
+        async (id: string, at: Date, userId: string, toSide?: ScheduleSide) => {
             if (!spaceId) return { error: 'No space selected.' };
 
             const { error } = await supabase
                 .from('schedule_handovers')
-                .update({ at: at.toISOString() })
+                .update(toSide ? { at: at.toISOString(), to_side: toSide } : { at: at.toISOString() })
                 .eq('id', id);
 
             if (error) {
@@ -172,6 +248,8 @@ export function useSchedule(spaceId?: string) {
 
     return {
         handovers,
+        changes,
+        addHandovers,
         blocks,
         currentSide,
         nextHandover,

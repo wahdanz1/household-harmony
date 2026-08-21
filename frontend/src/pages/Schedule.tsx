@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { addMonths, endOfMonth, format, startOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isToday } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, Palette } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Trash2, CalendarDays, Palette, Repeat, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,7 @@ import { useHousehold } from "@/contexts/HouseholdContext";
 import { supabase } from "@/integrations/supabase/client";
 import { createSpaceForCoParent } from "@/services/coparentSpaces";
 import { useSchedule } from "@/hooks/useSchedule";
-import { toDayCoverage, dayKey, type ScheduleSide } from "@/utils/schedule";
+import { toDayCoverage, dayKey, repeatPattern, type ScheduleSide, type Handover } from "@/utils/schedule";
 import { SCHEDULE_COLORS, scheduleColor } from "@/constants/scheduleColors";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +62,22 @@ const Schedule = () => {
     const [addSide, setAddSide] = useState<ScheduleSide>("owner");
     const [busy, setBusy] = useState(false);
 
-    const { handovers, currentSide, nextHandover, addHandover, removeHandover } = useSchedule(space?.id);
+    const {
+        handovers, changes, nextHandover,
+        addHandover, addHandovers, moveHandover, removeHandover,
+    } = useSchedule(space?.id);
+
+    const [editing, setEditing] = useState<Handover | null>(null);
+    const [editDate, setEditDate] = useState("");
+    const [editTime, setEditTime] = useState("17:00");
+    const [editSide, setEditSide] = useState<ScheduleSide>("owner");
+
+    const [repeatOpen, setRepeatOpen] = useState(false);
+    const [repeatFrom, setRepeatFrom] = useState("");
+    const [repeatEvery, setRepeatEvery] = useState("1");
+    const [repeatCount, setRepeatCount] = useState("12");
+    const [repeatTime, setRepeatTime] = useState("17:00");
+    const [repeatSide, setRepeatSide] = useState<ScheduleSide>("owner");
 
     const gridStart = useMemo(() => startOfWeek(startOfMonth(month), { weekStartsOn: 1 }), [month]);
     const gridEnd = useMemo(() => endOfWeek(endOfMonth(month), { weekStartsOn: 1 }), [month]);
@@ -171,6 +186,70 @@ const Schedule = () => {
         setAdding(null);
     };
 
+    const openEdit = (h: Handover) => {
+        setEditing(h);
+        setEditDate(format(h.at, "yyyy-MM-dd"));
+        setEditTime(format(h.at, "HH:mm"));
+        setEditSide(h.toSide);
+    };
+
+    const submitEdit = async () => {
+        if (!editing || !user) return;
+        const [hh, mm] = editTime.split(":").map(Number);
+        const [y, mo, d] = editDate.split("-").map(Number);
+        const at = new Date(y, (mo ?? 1) - 1, d ?? 1, hh ?? 17, mm ?? 0, 0, 0);
+
+        setBusy(true);
+        const { error } = await moveHandover(editing.id, at, user.id, editSide);
+        setBusy(false);
+        if (error) {
+            toast({ title: "Could not move handover", description: error, variant: "destructive" });
+            return;
+        }
+        setEditing(null);
+    };
+
+    const openRepeat = () => {
+        // Continue from where the schedule leaves off, flipping sides, so the
+        // common case is just picking how far ahead to go.
+        const last = handovers[handovers.length - 1];
+        const start = last ? new Date(last.at) : new Date();
+        if (last) start.setDate(start.getDate() + 7);
+        setRepeatFrom(format(start, "yyyy-MM-dd"));
+        setRepeatTime(last ? format(last.at, "HH:mm") : (space?.defaultHandoverTime?.slice(0, 5) ?? "17:00"));
+        setRepeatEvery("1");
+        setRepeatCount("12");
+        setRepeatSide(last ? (last.toSide === "owner" ? "coparent" : "owner") : "owner");
+        setRepeatOpen(true);
+    };
+
+    const submitRepeat = async () => {
+        if (!user) return;
+        const [y, mo, d] = repeatFrom.split("-").map(Number);
+        const [hh, mm] = repeatTime.split(":").map(Number);
+        const items = repeatPattern({
+            from: new Date(y, (mo ?? 1) - 1, d ?? 1),
+            everyWeeks: Number(repeatEvery) || 1,
+            count: Number(repeatCount) || 0,
+            startSide: repeatSide,
+            time: { hours: hh ?? 17, minutes: mm ?? 0 },
+        });
+        if (!items.length) return;
+
+        setBusy(true);
+        const { error, added, skipped } = await addHandovers(items, user.id);
+        setBusy(false);
+        if (error) {
+            toast({ title: "Could not repeat the pattern", description: error, variant: "destructive" });
+            return;
+        }
+        toast({
+            title: `Added ${added} handovers`,
+            description: skipped ? `${skipped} skipped — a handover already existed at that time.` : undefined,
+        });
+        setRepeatOpen(false);
+    };
+
     const handleDelete = async (id: string) => {
         if (!user) return;
         const { error } = await removeHandover(id, user.id);
@@ -212,6 +291,10 @@ const Schedule = () => {
                 eyebrow={format(month, "MMMM yyyy")}
                 eyebrowRight={
                     <div className="flex gap-1 -my-1">
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-accent-dk hover:text-accent-dk hover:bg-accent-tint" onClick={openRepeat}>
+                            <Repeat className="h-3.5 w-3.5 mr-1.5" />
+                            Repeat
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setMonth(addMonths(month, -1))} aria-label="Previous month">
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
@@ -279,7 +362,11 @@ const Schedule = () => {
                     <div className="divide-y divide-line-2">
                         {upcoming.map(h => (
                             <div key={h.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                                <div className="min-w-0">
+                                <button
+                                    type="button"
+                                    onClick={() => openEdit(h)}
+                                    className="min-w-0 flex-1 text-left"
+                                >
                                     <p className="font-semibold text-ink leading-tight">
                                         {format(h.at, "EEE d MMM, HH:mm")}
                                     </p>
@@ -287,7 +374,7 @@ const Schedule = () => {
                                         To {label(h.toSide).toLowerCase()}
                                         {h.note ? ` · ${h.note}` : ""}
                                     </p>
-                                </div>
+                                </button>
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -302,6 +389,104 @@ const Schedule = () => {
                     </div>
                 )}
             </SettingsCard>
+
+            {changes.length > 0 && (
+                <SettingsCard eyebrow="Recent changes" contentClassName="p-0">
+                    <div className="divide-y divide-line-2">
+                        {changes.slice(0, 6).map(c => (
+                            <div key={c.id} className="px-5 py-2.5 flex items-start gap-2.5">
+                                <History className="h-3.5 w-3.5 text-muted mt-0.5 shrink-0" />
+                                <div className="min-w-0">
+                                    <p className="text-sm text-ink leading-snug">
+                                        {c.summary ?? c.action}
+                                    </p>
+                                    <p className="text-xs text-muted mt-0.5">
+                                        {c.actorUserId === user?.id ? "You" : "Your co-parent"}
+                                        {" · "}
+                                        {format(c.createdAt, "d MMM, HH:mm")}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </SettingsCard>
+            )}
+
+            <Dialog open={repeatOpen} onOpenChange={(o) => { if (!busy) setRepeatOpen(o); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Repeat the pattern</DialogTitle>
+                        <DialogDescription>
+                            Fills the calendar forward, alternating sides. Existing handovers are left alone, so exceptions you have already agreed stay put.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                                <Label htmlFor="repeat-from">Starting</Label>
+                                <Input id="repeat-from" type="date" value={repeatFrom} onChange={(e) => setRepeatFrom(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="repeat-time">At</Label>
+                                <Input id="repeat-time" type="time" value={repeatTime} onChange={(e) => setRepeatTime(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="repeat-every">Every (weeks)</Label>
+                                <Input id="repeat-every" type="number" min={1} max={8} value={repeatEvery} onChange={(e) => setRepeatEvery(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="repeat-count">How many</Label>
+                                <Input id="repeat-count" type="number" min={1} max={104} value={repeatCount} onChange={(e) => setRepeatCount(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>First one gives the kids to</Label>
+                            <div className="flex gap-2">
+                                <Button type="button" variant={repeatSide === space?.mySide ? "default" : "outline"} onClick={() => space && setRepeatSide(space.mySide)} className="flex-1">You</Button>
+                                <Button type="button" variant={repeatSide !== space?.mySide ? "default" : "outline"} onClick={() => space && setRepeatSide(space.mySide === "owner" ? "coparent" : "owner")} className="flex-1">{label("owner") === "You" ? (space?.name ?? "Co-parent") : "Co-parent"}</Button>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setRepeatOpen(false)} disabled={busy}>Cancel</Button>
+                        <Button onClick={submitRepeat} disabled={busy}>Add handovers</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!editing} onOpenChange={(o) => { if (!o && !busy) setEditing(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Move handover</DialogTitle>
+                        <DialogDescription>
+                            Both surrounding periods stretch or shrink to meet the new time.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-date">Date</Label>
+                                <Input id="edit-date" type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-time">Time</Label>
+                                <Input id="edit-time" type="time" value={editTime} onChange={(e) => setEditTime(e.target.value)} />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Kids go to</Label>
+                            <div className="flex gap-2">
+                                <Button type="button" variant={editSide === space?.mySide ? "default" : "outline"} onClick={() => space && setEditSide(space.mySide)} className="flex-1">You</Button>
+                                <Button type="button" variant={editSide !== space?.mySide ? "default" : "outline"} onClick={() => space && setEditSide(space.mySide === "owner" ? "coparent" : "owner")} className="flex-1">{label("owner") === "You" ? (space?.name ?? "Co-parent") : "Co-parent"}</Button>
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setEditing(null)} disabled={busy}>Cancel</Button>
+                        <Button onClick={submitEdit} disabled={busy}>Save</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={colorsOpen} onOpenChange={setColorsOpen}>
                 <DialogContent>
