@@ -14,7 +14,7 @@ import { PLACEHOLDERS } from "@/constants/ui";
 import { SettingsBadge } from "./SettingsCard";
 import { useCoParents, CoParent } from "@/hooks/useCoParents";
 import { createSpaceForCoParent, createCoParentSpaceInvite } from "@/services/coparentSpaces";
-import { generateSpaceInviteCode, formatSpaceInviteCode } from "@/services/encryption";
+import { generateSpaceInviteCode, formatInviteCode } from "@/services/encryption";
 
 interface CoParentsSectionProps {
     householdId: string;
@@ -192,7 +192,7 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
     };
 
     const copyCode = (code: string) => {
-        navigator.clipboard.writeText(formatSpaceInviteCode(code));
+        navigator.clipboard.writeText(formatInviteCode(code));
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -333,7 +333,7 @@ export const CoParentsSection = ({ householdId, enabled }: CoParentsSectionProps
                             </DialogHeader>
                             <div className="flex items-center gap-2">
                                 <code className="flex-1 font-mono font-semibold text-ink text-center py-3 rounded bg-surface-2 tracking-wider">
-                                    {formatSpaceInviteCode(issuedCode)}
+                                    {formatInviteCode(issuedCode)}
                                 </code>
                                 <Button variant="ghost" size="icon" onClick={() => copyCode(issuedCode)} aria-label="Copy code">
                                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}

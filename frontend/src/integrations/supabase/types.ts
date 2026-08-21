@@ -494,7 +494,7 @@ export type Database = {
           expires_at: string
           household_id: string
           id: string
-          invite_code: string
+          invite_code_hash: string
           invited_email: string
           is_active: boolean | null
           status: Database["public"]["Enums"]["invite_status"]
@@ -508,7 +508,7 @@ export type Database = {
           expires_at: string
           household_id: string
           id?: string
-          invite_code: string
+          invite_code_hash: string
           invited_email: string
           is_active?: boolean | null
           status?: Database["public"]["Enums"]["invite_status"]
@@ -522,7 +522,7 @@ export type Database = {
           expires_at?: string
           household_id?: string
           id?: string
-          invite_code?: string
+          invite_code_hash?: string
           invited_email?: string
           is_active?: boolean | null
           status?: Database["public"]["Enums"]["invite_status"]
@@ -1947,6 +1947,7 @@ export type Database = {
         Args: { successor_user_id_in: string }
         Returns: undefined
       }
+      hash_invite_code: { Args: { code_in: string }; Returns: string }
       household_has_any_vault_keys: {
         Args: { household_id_in: string }
         Returns: boolean
@@ -1990,6 +1991,7 @@ export type Database = {
         Args: { member_id_in: string }
         Returns: undefined
       }
+      sweep_expired_invite_wraps: { Args: never; Returns: number }
       sweep_pending_exits: { Args: never; Returns: number }
     }
     Enums: {

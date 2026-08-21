@@ -18,8 +18,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import {
     generateDEK,
-    normalizeSpaceInviteCode,
-    hashSpaceInviteCode,
+    canonicalInviteCode,
+    hashInviteCode,
     unwrapDEKWithInviteCode,
     decryptDEK,
     rewrapDEKWithPassword,
@@ -182,7 +182,7 @@ export async function createCoParentSpaceInvite(params: {
 
     // Only the hash is stored: the code itself derives the key that unwraps the
     // space DEK, so keeping it in the same row would defeat the encryption.
-    const codeHash = await hashSpaceInviteCode(code);
+    const codeHash = await hashInviteCode(code);
 
     // Retire any outstanding invite for the same person so an older code can't
     // still be redeemed once a new one is issued.
@@ -273,7 +273,7 @@ export async function lookupCoParentInvite(
     code: string,
 ): Promise<CoParentSpaceInvitePreview | null> {
     const { data, error } = await supabase.rpc('lookup_coparent_invite', {
-        invite_code_in: normalizeSpaceInviteCode(code),
+        invite_code_in: canonicalInviteCode(code),
     });
 
     if (error || !data) return null;
@@ -299,7 +299,7 @@ export async function redeemCoParentInvite(params: {
     wrapForSelf: WrapForSelf;
 }): Promise<{ spaceId: string; dek: CryptoKey }> {
     const { userId, wrapForSelf } = params;
-    const code = normalizeSpaceInviteCode(params.code);
+    const code = canonicalInviteCode(params.code);
 
     const { data, error } = await supabase.rpc('redeem_coparent_invite', {
         invite_code_in: code,

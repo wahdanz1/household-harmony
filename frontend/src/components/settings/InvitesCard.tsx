@@ -15,11 +15,10 @@ import { SettingsCard, SettingsBadge } from "./SettingsCard";
 import { useCoParents } from "@/hooks/useCoParents";
 import { useEncryption as useEncryptionCtx, spaceScope } from "@/contexts/EncryptionContext";
 import { inviteNewCoParent } from "@/services/coparentSpaces";
-import { generateSpaceInviteCode, formatSpaceInviteCode } from "@/services/encryption";
+import { generateSpaceInviteCode, generateHouseholdInviteCode, formatInviteCode, hashInviteCode } from "@/services/encryption";
 
 interface Invite {
     id: string;
-    invite_code: string;
     invited_email: string | null;
     status: string;
     expires_at: string;
@@ -41,6 +40,7 @@ export const InvitesCard = ({ householdId, invites, isOwner, sharedExpensesEnabl
     const { wrapDEKForInvite, isUnlocked } = useEncryption();
     const { wrapKeyForSelf, wrapSpaceDEKForInvite, loadScopeKey } = useEncryptionCtx();
     const { coParents, refresh: refreshCoParents } = useCoParents(householdId, user?.id);
+    const [issuedMemberCode, setIssuedMemberCode] = useState<string | null>(null);
     const [showCoParentDialog, setShowCoParentDialog] = useState(false);
     const [coParentEmail, setCoParentEmail] = useState("");
     const [issuedCode, setIssuedCode] = useState<string | null>(null);
@@ -53,17 +53,6 @@ export const InvitesCard = ({ householdId, invites, isOwner, sharedExpensesEnabl
         // Non-owners don't manage invites. Render nothing — saves a card from showing.
         return null;
     }
-
-    const generateInviteCode = () => {
-        const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-        const bytes = new Uint8Array(8);
-        crypto.getRandomValues(bytes);
-        let out = "";
-        for (let i = 0; i < bytes.length; i++) {
-            out += ALPHABET[bytes[i] % ALPHABET.length];
-        }
-        return out;
-    };
 
     const handleGenerateInvite = async () => {
         if (!user) return;
@@ -78,7 +67,7 @@ export const InvitesCard = ({ householdId, invites, isOwner, sharedExpensesEnabl
         }
 
         setIsGenerating(true);
-        const inviteCode = generateInviteCode();
+        const inviteCode = generateHouseholdInviteCode();
         const expiresAt = new Date();
         expiresAt.setHours(expiresAt.getHours() + 24);
 
@@ -89,9 +78,12 @@ export const InvitesCard = ({ householdId, invites, isOwner, sharedExpensesEnabl
             return;
         }
 
+        // Only the hash is stored. The code derives the KEK that unwraps the
+        // household DEK, so keeping it in the same row would hand a database
+        // reader everything the encryption is supposed to withhold.
         const { error } = await supabase.from("household_invites").insert({
             household_id: householdId,
-            invite_code: inviteCode,
+            invite_code_hash: await hashInviteCode(inviteCode),
             invited_email: inviteEmail,
             created_by: user.id,
             expires_at: expiresAt.toISOString(),
@@ -106,9 +98,7 @@ export const InvitesCard = ({ householdId, invites, isOwner, sharedExpensesEnabl
             toast({ title: "Error", description: "Failed to generate invite", variant: "destructive" });
             return;
         }
-        toast({ title: "Invite created", description: `Invite generated for ${inviteEmail}` });
-        setShowEmailDialog(false);
-        setInviteEmail("");
+        setIssuedMemberCode(inviteCode);
         onUpdate();
     };
 
@@ -223,11 +213,7 @@ export const InvitesCard = ({ householdId, invites, isOwner, sharedExpensesEnabl
                                     )}
                                     <span className="text-xs text-muted">expires {format(new Date(invite.expires_at), "PPP")}</span>
                                 </div>
-                                <code className="font-mono font-semibold text-ink shrink-0">{invite.invite_code}</code>
                                 <div className="flex gap-1 shrink-0">
-                                    <Button variant="ghost" size="icon" onClick={() => copyInviteCode(invite.invite_code)} aria-label="Copy code" className="h-8 w-8">
-                                        {copiedCode === invite.invite_code ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                                    </Button>
                                     <Button variant="ghost" size="icon" onClick={() => handleDeleteInvite(invite.id)} aria-label="Delete invite" className="h-8 w-8 text-muted hover:text-danger">
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -266,10 +252,10 @@ export const InvitesCard = ({ householdId, invites, isOwner, sharedExpensesEnabl
                             </DialogHeader>
                             <div className="flex items-center gap-2">
                                 <code className="flex-1 font-mono font-semibold text-ink text-center py-3 rounded bg-surface-2 tracking-wider">
-                                    {formatSpaceInviteCode(issuedCode)}
+                                    {formatInviteCode(issuedCode)}
                                 </code>
-                                <Button variant="ghost" size="icon" onClick={() => copyInviteCode(formatSpaceInviteCode(issuedCode))} aria-label="Copy code">
-                                    {copiedCode === formatSpaceInviteCode(issuedCode) ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                <Button variant="ghost" size="icon" onClick={() => copyInviteCode(formatInviteCode(issuedCode))} aria-label="Copy code">
+                                    {copiedCode === formatInviteCode(issuedCode) ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                                 </Button>
                             </div>
                             <DialogFooter>
@@ -307,12 +293,41 @@ export const InvitesCard = ({ householdId, invites, isOwner, sharedExpensesEnabl
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
+            <Dialog
+                open={showEmailDialog}
+                onOpenChange={(o) => {
+                    if (isGenerating) return;
+                    setShowEmailDialog(o);
+                    if (!o) { setInviteEmail(""); setIssuedMemberCode(null); }
+                }}
+            >
                 <DialogContent>
+                    {issuedMemberCode ? (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle>Send this code to them</DialogTitle>
+                                <DialogDescription>
+                                    Only a hash is stored, so it cannot be shown again — close this and you would need to issue a new one. It unlocks your household's data, so send it over a channel you trust. Expires in 24 hours.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="flex items-center gap-2">
+                                <code className="flex-1 font-mono font-semibold text-ink text-center py-3 rounded bg-surface-2 tracking-wider">
+                                    {formatInviteCode(issuedMemberCode)}
+                                </code>
+                                <Button variant="ghost" size="icon" onClick={() => copyInviteCode(formatInviteCode(issuedMemberCode))} aria-label="Copy code">
+                                    {copiedCode === formatInviteCode(issuedMemberCode) ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={() => { setShowEmailDialog(false); setInviteEmail(""); setIssuedMemberCode(null); }}>Done</Button>
+                            </DialogFooter>
+                        </>
+                    ) : (
+                    <>
                     <DialogHeader>
                         <DialogTitle>Invite a member</DialogTitle>
                         <DialogDescription>
-                            Generates an 8-character code that expires in 24 hours.
+                            Generates a one-time code that expires in 24 hours. A member sees everything in the household.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2">
@@ -333,6 +348,8 @@ export const InvitesCard = ({ householdId, invites, isOwner, sharedExpensesEnabl
                             {isGenerating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating…</> : "Generate invite"}
                         </Button>
                     </DialogFooter>
+                    </>
+                    )}
                 </DialogContent>
             </Dialog>
         </>
