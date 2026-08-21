@@ -107,24 +107,30 @@ export type Database = {
           created_at: string
           household_id: string
           id: string
+          linked_user_id: string | null
           name: string
           notes: string | null
+          space_id: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           household_id: string
           id?: string
+          linked_user_id?: string | null
           name: string
           notes?: string | null
+          space_id?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           household_id?: string
           id?: string
+          linked_user_id?: string | null
           name?: string
           notes?: string | null
+          space_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -135,7 +141,161 @@ export type Database = {
             referencedRelation: "households"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "co_parents_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "coparent_spaces"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      coparent_space_invites: {
+        Row: {
+          created_at: string
+          created_by: string
+          dek_iv: string | null
+          dek_salt: string | null
+          encrypted_dek: string | null
+          expires_at: string
+          id: string
+          invite_code: string
+          invited_email: string
+          is_active: boolean
+          space_id: string
+          status: Database["public"]["Enums"]["invite_status"]
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          dek_iv?: string | null
+          dek_salt?: string | null
+          encrypted_dek?: string | null
+          expires_at: string
+          id?: string
+          invite_code: string
+          invited_email: string
+          is_active?: boolean
+          space_id: string
+          status?: Database["public"]["Enums"]["invite_status"]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          dek_iv?: string | null
+          dek_salt?: string | null
+          encrypted_dek?: string | null
+          expires_at?: string
+          id?: string
+          invite_code?: string
+          invited_email?: string
+          is_active?: boolean
+          space_id?: string
+          status?: Database["public"]["Enums"]["invite_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coparent_space_invites_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "coparent_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coparent_space_members: {
+        Row: {
+          joined_at: string
+          role: string
+          space_id: string
+          user_id: string
+        }
+        Insert: {
+          joined_at?: string
+          role?: string
+          space_id: string
+          user_id: string
+        }
+        Update: {
+          joined_at?: string
+          role?: string
+          space_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coparent_space_members_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "coparent_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coparent_space_vault_keys: {
+        Row: {
+          created_at: string
+          dek_iv: string
+          dek_salt: string
+          encrypted_dek: string
+          encryption_version: number
+          space_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dek_iv: string
+          dek_salt: string
+          encrypted_dek: string
+          encryption_version?: number
+          space_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dek_iv?: string
+          dek_salt?: string
+          encrypted_dek?: string
+          encryption_version?: number
+          space_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coparent_space_vault_keys_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "coparent_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coparent_spaces: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       credit_cards: {
         Row: {
@@ -1580,6 +1740,14 @@ export type Database = {
         Args: { _household_id: string; _user_id: string }
         Returns: boolean
       }
+      is_coparent_space_member: {
+        Args: { _space_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_coparent_space_owner: {
+        Args: { _space_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_email_whitelisted: { Args: { email_in: string }; Returns: boolean }
       is_household_member: {
         Args: { _household_id: string; _user_id: string }
@@ -1590,6 +1758,14 @@ export type Database = {
         Returns: boolean
       }
       lookup_active_invite: { Args: { invite_code_in: string }; Returns: Json }
+      lookup_coparent_invite: {
+        Args: { invite_code_in: string }
+        Returns: Json
+      }
+      redeem_coparent_invite: {
+        Args: { invite_code_in: string }
+        Returns: Json
+      }
       redeem_invite: { Args: { invite_code_in: string }; Returns: Json }
       request_member_exit: {
         Args: { member_id_in: string }
