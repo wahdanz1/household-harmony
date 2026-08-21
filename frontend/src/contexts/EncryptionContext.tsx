@@ -21,6 +21,17 @@ interface EncryptionContextValue {
     encrypt: (plaintext: string) => Promise<string | null>;
     decrypt: (ciphertext: string) => Promise<string | null>;
 
+    /** Encrypt with the key held for `scope`. Null when no such key is loaded. */
+    encryptFor: (scope: string, plaintext: string) => Promise<string | null>;
+    /** Decrypt with the key held for `scope`. Null when no such key is loaded. */
+    decryptFor: (scope: string, ciphertext: string) => Promise<string | null>;
+    /** Whether a key is currently held for `scope`. */
+    hasScopeKey: (scope: string) => boolean;
+    /** Hold a key for `scope` until the vault locks. */
+    loadScopeKey: (scope: string, key: CryptoKey) => void;
+    /** Drop the key held for `scope`. */
+    dropScopeKey: (scope: string) => void;
+
     initializeEncryption: (password: string, userId: string, householdId: string) => Promise<boolean>;
     unlockWithPassword: (password: string, userId: string) => Promise<boolean>;
     setupVaultFromInvite: (params: SetupVaultFromInviteParams) => Promise<boolean>;
@@ -71,6 +82,13 @@ const EncryptionContext = createContext<EncryptionContextValue | null>(null);
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000;
 const LOCK_WARNING_TIME = 60 * 1000;
 
+/** The active household's DEK. Every existing encrypt/decrypt call uses this. */
+export const HOUSEHOLD_SCOPE = 'household';
+/** DEK of a household the user has been soft-removed from, for the exit dialog. */
+export const PENDING_EXIT_SCOPE = 'pending-exit';
+/** Key scope for a co-parenting space shared with someone outside the household. */
+export const spaceScope = (spaceId: string) => `space:${spaceId}`;
+
 interface EncryptionProviderProps {
     children: React.ReactNode;
 }
@@ -94,12 +112,14 @@ async function resolveActiveHouseholdId(userId: string): Promise<string | null> 
 }
 
 export function EncryptionProvider({ children }: EncryptionProviderProps) {
-    const dekRef = useRef<CryptoKey | null>(null);
-    // The user the in-memory DEK belongs to. Lets the auth-change listener
-    // distinguish "stale DEK from a different user" (lock) from "DEK just set
+    // Every key this session holds, keyed by scope. The active household's DEK
+    // lives under HOUSEHOLD_SCOPE; a co-parenting space adds its own alongside
+    // it. Nothing in here may outlive lockVault().
+    const keyringRef = useRef<Map<string, CryptoKey>>(new Map());
+    // The user the in-memory keys belong to. Lets the auth-change listener
+    // distinguish "stale keys from a different user" (lock) from "keys just set
     // up for the user we're transitioning into" (don't lock).
     const dekUserIdRef = useRef<string | null>(null);
-    const pendingExitDekRef = useRef<CryptoKey | null>(null);
     const [pendingExitHouseholdId, setPendingExitHouseholdId] = useState<string | null>(null);
     const [recoveryCodeDialogOpen, setRecoveryCodeDialogOpen] = useState(false);
     const [isUnlocked, setIsUnlocked] = useState(false);
@@ -123,9 +143,8 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             const nextId = session?.user?.id ?? null;
             if (dekUserIdRef.current && dekUserIdRef.current !== nextId) {
-                dekRef.current = null;
+                keyringRef.current.clear();
                 dekUserIdRef.current = null;
-                pendingExitDekRef.current = null;
                 setPendingExitHouseholdId(null);
                 setIsUnlocked(false);
             }
@@ -161,7 +180,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
                 if (vault?.encrypted_dek) {
                     const dek = await unlockFn(demoPassword, vault.encrypted_dek, vault.dek_salt, vault.dek_iv);
-                    dekRef.current = dek;
+                    keyringRef.current.set(HOUSEHOLD_SCOPE, dek);
                     dekUserIdRef.current = userId;
                     setIsUnlocked(true);
                 }
@@ -225,9 +244,8 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
 
     const lockVault = useCallback(() => {
-        dekRef.current = null;
+        keyringRef.current.clear();
         dekUserIdRef.current = null;
-        pendingExitDekRef.current = null;
         setPendingExitHouseholdId(null);
         setIsUnlocked(false);
         setShowLockWarning(false);
@@ -236,9 +254,10 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     }, []);
 
     const decryptFromPendingExit = useCallback(async (ciphertext: string): Promise<string | null> => {
-        if (!pendingExitDekRef.current) return null;
+        const dek = keyringRef.current.get(PENDING_EXIT_SCOPE);
+        if (!dek) return null;
         try {
-            return await decryptValue(ciphertext, pendingExitDekRef.current);
+            return await decryptValue(ciphertext, dek);
         } catch (err) {
             console.error('Failed to decrypt pending-exit ciphertext:', err);
             return null;
@@ -246,40 +265,62 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     }, []);
 
     const clearPendingExitDEK = useCallback(() => {
-        pendingExitDekRef.current = null;
+        keyringRef.current.delete(PENDING_EXIT_SCOPE);
         setPendingExitHouseholdId(null);
     }, []);
 
     const markPendingExit = useCallback((householdId: string, dek: CryptoKey) => {
-        pendingExitDekRef.current = dek;
+        keyringRef.current.set(PENDING_EXIT_SCOPE, dek);
         setPendingExitHouseholdId(householdId);
     }, []);
 
-    const encrypt = useCallback(async (plaintext: string): Promise<string | null> => {
-        if (!dekRef.current) {
-            console.warn('Encryption attempted while vault is locked');
+    const hasScopeKey = useCallback((scope: string): boolean => keyringRef.current.has(scope), []);
+
+    const loadScopeKey = useCallback((scope: string, key: CryptoKey) => {
+        keyringRef.current.set(scope, key);
+    }, []);
+
+    const dropScopeKey = useCallback((scope: string) => {
+        keyringRef.current.delete(scope);
+    }, []);
+
+    const encryptFor = useCallback(async (scope: string, plaintext: string): Promise<string | null> => {
+        const key = keyringRef.current.get(scope);
+        if (!key) {
+            console.warn(`Encryption attempted without a key for scope "${scope}"`);
             return null;
         }
         try {
-            return await encryptValue(plaintext, dekRef.current);
+            return await encryptValue(plaintext, key);
         } catch (error) {
             console.error('Encryption failed:', error);
             return null;
         }
     }, []);
 
-    const decrypt = useCallback(async (ciphertext: string): Promise<string | null> => {
-        if (!dekRef.current) {
-            console.warn('Decryption attempted while vault is locked');
+    const decryptFor = useCallback(async (scope: string, ciphertext: string): Promise<string | null> => {
+        const key = keyringRef.current.get(scope);
+        if (!key) {
+            console.warn(`Decryption attempted without a key for scope "${scope}"`);
             return null;
         }
         try {
-            return await decryptValue(ciphertext, dekRef.current);
+            return await decryptValue(ciphertext, key);
         } catch (error) {
             console.error('Decryption failed:', error);
             return null;
         }
     }, []);
+
+    const encrypt = useCallback(
+        (plaintext: string) => encryptFor(HOUSEHOLD_SCOPE, plaintext),
+        [encryptFor],
+    );
+
+    const decrypt = useCallback(
+        (ciphertext: string) => decryptFor(HOUSEHOLD_SCOPE, ciphertext),
+        [decryptFor],
+    );
 
     const initializeEncryption = useCallback(async (
         password: string,
@@ -306,7 +347,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 return false;
             }
 
-            dekRef.current = dek;
+            keyringRef.current.set(HOUSEHOLD_SCOPE, dek);
             dekUserIdRef.current = userId;
             setIsUnlocked(true);
             resetInactivityTimer();
@@ -364,7 +405,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                     vault.dek_salt,
                     vault.dek_iv,
                 );
-                dekRef.current = dek;
+                keyringRef.current.set(HOUSEHOLD_SCOPE, dek);
                 dekUserIdRef.current = userId;
                 setIsUnlocked(true);
                 resetInactivityTimer();
@@ -399,7 +440,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                             pendingVault.dek_salt,
                             pendingVault.dek_iv,
                         );
-                        pendingExitDekRef.current = pendingDek;
+                        keyringRef.current.set(PENDING_EXIT_SCOPE, pendingDek);
                         setPendingExitHouseholdId(pendingMembership.household_id);
                     } catch (err) {
                         console.error('Failed to unlock pending-exit vault:', err);
@@ -450,7 +491,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 return false;
             }
 
-            dekRef.current = dek;
+            keyringRef.current.set(HOUSEHOLD_SCOPE, dek);
             dekUserIdRef.current = userId;
             setIsUnlocked(true);
             resetInactivityTimer();
@@ -512,7 +553,7 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
                 return false;
             }
 
-            dekRef.current = dek;
+            keyringRef.current.set(HOUSEHOLD_SCOPE, dek);
             dekUserIdRef.current = userId;
             setIsUnlocked(true);
 
@@ -526,13 +567,14 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     }, []);
 
     const prepareRecoveryCode = useCallback(async (): Promise<PreparedRecoverySlot | null> => {
-        if (!dekRef.current) {
+        const dek = keyringRef.current.get(HOUSEHOLD_SCOPE);
+        if (!dek) {
             console.warn('Cannot prepare recovery code: vault is locked');
             return null;
         }
         try {
             const code = await generateRecoveryCode();
-            const wrapped = await wrapDEKWithRecoveryCode(dekRef.current, code);
+            const wrapped = await wrapDEKWithRecoveryCode(dek, code);
             return { code, ...wrapped };
         } catch (err) {
             console.error('Failed to prepare recovery code:', err);
@@ -570,12 +612,13 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
     }, []);
 
     const wrapDEKForInvite = useCallback(async (inviteCode: string) => {
-        if (!dekRef.current) {
+        const dek = keyringRef.current.get(HOUSEHOLD_SCOPE);
+        if (!dek) {
             console.warn('Cannot wrap DEK for invite: vault is locked');
             return null;
         }
         try {
-            return await wrapDEKWithInviteCode(dekRef.current, inviteCode);
+            return await wrapDEKWithInviteCode(dek, inviteCode);
         } catch (err) {
             console.error('Failed to wrap DEK with invite code:', err);
             return null;
@@ -601,6 +644,11 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
         isLoading,
         encrypt,
         decrypt,
+        encryptFor,
+        decryptFor,
+        hasScopeKey,
+        loadScopeKey,
+        dropScopeKey,
         initializeEncryption,
         unlockWithPassword,
         setupVaultFromInvite,
