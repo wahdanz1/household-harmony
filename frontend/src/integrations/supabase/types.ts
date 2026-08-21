@@ -1427,6 +1427,123 @@ export type Database = {
           },
         ]
       }
+      shared_cost_claim_months: {
+        Row: {
+          claim_id: string
+          created_at: string
+          encrypted_amount: string | null
+          id: string
+          is_encrypted: boolean
+          month: string
+          space_id: string
+          updated_at: string
+        }
+        Insert: {
+          claim_id: string
+          created_at?: string
+          encrypted_amount?: string | null
+          id?: string
+          is_encrypted?: boolean
+          month: string
+          space_id: string
+          updated_at?: string
+        }
+        Update: {
+          claim_id?: string
+          created_at?: string
+          encrypted_amount?: string | null
+          id?: string
+          is_encrypted?: boolean
+          month?: string
+          space_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_cost_claim_months_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "shared_cost_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_cost_claim_months_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "coparent_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shared_cost_claims: {
+        Row: {
+          billing_cycle: string | null
+          created_at: string
+          encrypted_amount: string | null
+          encrypted_label: string | null
+          encrypted_share_percentage: string | null
+          encrypted_subject: string | null
+          household_id: string
+          id: string
+          is_active: boolean
+          is_encrypted: boolean
+          published_by: string
+          source_id: string | null
+          source_kind: Database["public"]["Enums"]["shared_cost_source"]
+          space_id: string
+          updated_at: string
+        }
+        Insert: {
+          billing_cycle?: string | null
+          created_at?: string
+          encrypted_amount?: string | null
+          encrypted_label?: string | null
+          encrypted_share_percentage?: string | null
+          encrypted_subject?: string | null
+          household_id: string
+          id?: string
+          is_active?: boolean
+          is_encrypted?: boolean
+          published_by: string
+          source_id?: string | null
+          source_kind: Database["public"]["Enums"]["shared_cost_source"]
+          space_id: string
+          updated_at?: string
+        }
+        Update: {
+          billing_cycle?: string | null
+          created_at?: string
+          encrypted_amount?: string | null
+          encrypted_label?: string | null
+          encrypted_share_percentage?: string | null
+          encrypted_subject?: string | null
+          household_id?: string
+          id?: string
+          is_active?: boolean
+          is_encrypted?: boolean
+          published_by?: string
+          source_id?: string | null
+          source_kind?: Database["public"]["Enums"]["shared_cost_source"]
+          space_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_cost_claims_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_cost_claims_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "coparent_spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shared_expenses: {
         Row: {
           co_parent_id: string | null
@@ -1932,6 +2049,7 @@ export type Database = {
         | "inheritance"
         | "other"
       schedule_side: "owner" | "coparent"
+      shared_cost_source: "insurance" | "income" | "expense"
       subscription_category_enum:
         | "streaming"
         | "software"
@@ -2141,6 +2259,7 @@ export const Constants = {
         "other",
       ],
       schedule_side: ["owner", "coparent"],
+      shared_cost_source: ["insurance", "income", "expense"],
       subscription_category_enum: [
         "streaming",
         "software",
