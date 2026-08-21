@@ -1,9 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Moon, Repeat, Shield, Check, Plus, Zap } from "lucide-react";
+import { Moon, Repeat, Shield, Check, Plus, Zap } from "lucide-react";
 import { MonthPickerPopover } from "@/components/shared/MonthPickerPopover";
 import { Money, fmtKr } from "@/components/ui/money";
 import { CatIcon } from "@/components/ui/cat-icon";
@@ -11,7 +10,6 @@ import { AllTabBlockView } from "@/components/expenses/AllTabBlockView";
 import { EmptyStateCard } from "@/components/shared/EmptyStateCard";
 import { Card } from "@/components/ui/card";
 import { Home } from "lucide-react";
-import { SharedExpensesTab } from "@/components/expenses/SharedExpensesTab";
 import { SharedWithYouCard } from "@/components/expenses/SharedWithYouCard";
 import { ExpenseFormDialog } from "@/components/expenses/ExpenseFormDialog";
 import { SubscriptionFormDialog } from "@/components/expenses/SubscriptionFormDialog";
@@ -52,7 +50,6 @@ const Expenses = () => {
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [insurances, setInsurances] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("all");
   const [addingExpense, setAddingExpense] = useState(false);
   const [addTemporaryDialogOpen, setAddTemporaryDialogOpen] = useState(false);
   const [addSubscriptionOpen, setAddSubscriptionOpen] = useState(false);
@@ -363,8 +360,6 @@ const Expenses = () => {
   );
 
   const hasAnyCategory = expenseCategories.length > 0 || subscriptions.length > 0 || insurances.length > 0;
-  const showCoparentTab = !!household?.enable_shared_expenses || coParents.length > 0;
-  const showTabsList = showCoparentTab;
 
   if (loading) {
     return (
@@ -413,21 +408,7 @@ const Expenses = () => {
         </Card>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {showTabsList && (
-          <TabsList>
-            <TabsTrigger value="all" className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" />
-              <span className="hidden sm:inline">All</span>
-            </TabsTrigger>
-            <TabsTrigger value="coparent" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Shared</span>
-            </TabsTrigger>
-          </TabsList>
-        )}
-
-        <TabsContent value="all" className="mt-5 space-y-5">
+      <div className="mt-5 space-y-5">
           {!hasAnyCategory ? (
             <EmptyStateCard
               icon={Home}
@@ -583,6 +564,9 @@ const Expenses = () => {
                     amount: monthly.budget_snapshot != null ? Number(monthly.budget_snapshot) : "",
                     category: monthly.one_time_category ?? "",
                     notes: monthly.notes ?? "",
+                    is_shared: !!monthly.is_shared,
+                    co_parent_id: monthly.co_parent_id ?? null,
+                    share_percentage: monthly.share_percentage ?? null,
                     attribution: monthly.member_id
                       ? { kind: "member", id: monthly.member_id }
                       : monthly.subject_id
@@ -710,19 +694,8 @@ const Expenses = () => {
           )}
           </>
           )}
-        </TabsContent>
+      </div>
 
-        {showCoparentTab && (
-          <TabsContent value="coparent" className="mt-5">
-            <SharedExpensesTab
-              householdId={household?.id}
-              currency={household?.currency || "SEK"}
-              monthStart={monthStart}
-              monthEnd={monthEnd}
-            />
-          </TabsContent>
-        )}
-      </Tabs>
 
       {household && (
         <TemporaryExpenseFormDialog

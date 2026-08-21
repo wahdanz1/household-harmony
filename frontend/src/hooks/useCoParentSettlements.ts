@@ -2,9 +2,17 @@ import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentFinancialMonth, getFinancialMonthRange } from "@/utils/dateUtils";
-import { useEncryptedFields, monthlyIncomeFields, monthlyInsuranceFields, insuranceFields, incomeSourceFields, sharedExpenseFields } from "@/hooks/useEncryptedFields";
+import { useEncryptedFields, monthlyIncomeFields, monthlyInsuranceFields, insuranceFields, incomeSourceFields, sharedExpenseFields, monthlyExpenseFields } from "@/hooks/useEncryptedFields";
 import { billsInFinancialMonth } from "@/utils/billingEvents";
 import { useEncryption, spaceScope } from "@/contexts/EncryptionContext";
+
+/** A one-off expense flagged as shared, after decryption. */
+interface SharedOneOffRow {
+    co_parent_id: string | null;
+    share_percentage: number | null;
+    budget_snapshot?: number | string | null;
+    actual_amount?: number | string | null;
+}
 
 export interface CoParentSettlement {
     incomeReceived: number;
@@ -13,6 +21,9 @@ export interface CoParentSettlement {
     theirShareOfInsurance: number;
     expensesYouPaid: number;
     expensesTheyPaid: number;
+    /** One-off costs you paid and split, and the part they owe you. */
+    oneOffsYouPaid: number;
+    theirShareOfOneOffs: number;
     /** Costs the co-parent published to the shared space, your share of them. */
     theirCostsYourShare: number;
     /** Income the co-parent published, your share of it. */
@@ -38,6 +49,7 @@ export function useCoParentSettlements({ householdId, coParents, userId, financi
     const { decryptRecords: decryptInsurances } = useEncryptedFields(monthlyInsuranceFields);
     const { decryptRecords: decryptInsuranceSources } = useEncryptedFields(insuranceFields);
     const { decryptRecords: decryptShared } = useEncryptedFields(sharedExpenseFields);
+    const { decryptRecords: decryptMonthlyExpenses } = useEncryptedFields(monthlyExpenseFields);
 
     const refetch = useCallback(async () => {
         if (!householdId || coParents.length === 0) {
@@ -51,7 +63,7 @@ export function useCoParentSettlements({ householdId, coParents, userId, financi
         const monthEndStr = format(monthEnd, "yyyy-MM-dd");
         const coParentIds = coParents.map(cp => cp.id);
 
-        const [incSourcesResult, monthlyIncResult, insSourcesResult, monthlyInsResult, expensesResult] = await Promise.all([
+        const [incSourcesResult, monthlyIncResult, insSourcesResult, monthlyInsResult, expensesResult, oneOffsResult] = await Promise.all([
             // Shared income sources are the truth for shared-ness; monthly_incomes
             // only overrides the per-month amount (mirrors the insurance handling).
             supabase
@@ -84,10 +96,20 @@ export function useCoParentSettlements({ householdId, coParents, userId, financi
                 .eq("household_id", householdId)
                 .gte("month_end", monthStartStr)
                 .lte("month_start", monthEndStr),
+            // Legacy: the retired co-parent tab wrote here. Still counted so past
+            // months keep their figures; nothing new is written to it.
             supabase
                 .from("shared_expenses")
                 .select("encrypted_amount, paid_by, is_encrypted, co_parent_id")
                 .eq("household_id", householdId)
+                .in("co_parent_id", coParentIds)
+                .gte("month_end", monthStartStr)
+                .lte("month_start", monthEndStr),
+            supabase
+                .from("monthly_expenses")
+                .select("encrypted_budget_snapshot, encrypted_actual_amount, is_encrypted, co_parent_id, share_percentage")
+                .eq("household_id", householdId)
+                .eq("is_shared", true)
                 .in("co_parent_id", coParentIds)
                 .gte("month_end", monthStartStr)
                 .lte("month_start", monthEndStr),
@@ -98,6 +120,7 @@ export function useCoParentSettlements({ householdId, coParents, userId, financi
         const decryptedInsSources = (await decryptInsuranceSources(insSourcesResult.data || [])) as any[];
         const decryptedMonthlyIns = (await decryptInsurances(monthlyInsResult.data || [])) as any[];
         const decryptedExpenses = (await decryptShared(expensesResult.data || [])) as any[];
+        const decryptedOneOffs = (await decryptMonthlyExpenses(oneOffsResult.data || [])) as unknown as SharedOneOffRow[];
 
         // Only claims the OTHER side published. Our own published claims mirror
         // the insurances and income already counted above, so folding them in
@@ -181,6 +204,21 @@ export function useCoParentSettlements({ householdId, coParents, userId, financi
                 theirShareOfInsurance += amount * (100 - yourShare) / 100;
             });
 
+            // One-off costs you paid and split. Their part is owed to you, exactly
+            // like an insurance you paid.
+            let oneOffsYouPaid = 0;
+            let theirShareOfOneOffs = 0;
+            const oneOffsForCoParent = decryptedOneOffs.filter(
+                (r: SharedOneOffRow) => r.co_parent_id === coParent.id,
+            );
+            for (const row of oneOffsForCoParent) {
+                const amount = Number(row.actual_amount ?? row.budget_snapshot ?? 0);
+                const yourShare = Number(row.share_percentage ?? 50);
+                if (!Number.isFinite(amount) || !Number.isFinite(yourShare)) continue;
+                oneOffsYouPaid += amount;
+                theirShareOfOneOffs += amount * (100 - yourShare) / 100;
+            }
+
             let expensesYouPaid = 0;
             let expensesTheyPaid = 0;
             sharedExpenses.forEach((exp) => {
@@ -209,6 +247,7 @@ export function useCoParentSettlements({ householdId, coParents, userId, financi
                 - theirShareOfInsurance
                 + (expensesTheyPaid / 2)
                 - (expensesYouPaid / 2)
+                - theirShareOfOneOffs
                 + theirCostsYourShare
                 - theirIncomeYourShare;
 
@@ -219,6 +258,8 @@ export function useCoParentSettlements({ householdId, coParents, userId, financi
                 theirShareOfInsurance,
                 expensesYouPaid,
                 expensesTheyPaid,
+                oneOffsYouPaid,
+                theirShareOfOneOffs,
                 theirCostsYourShare,
                 theirIncomeYourShare,
                 isTwoSided: incoming.length > 0,
