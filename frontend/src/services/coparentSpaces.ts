@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
     generateDEK,
     normalizeSpaceInviteCode,
+    hashSpaceInviteCode,
     unwrapDEKWithInviteCode,
     decryptDEK,
     rewrapDEKWithPassword,
@@ -168,15 +169,20 @@ export async function createSpaceForCoParent(params: {
  */
 export async function createCoParentSpaceInvite(params: {
     spaceId: string;
+    householdId: string;
     invitedEmail: string;
     createdBy: string;
     code: string;
     wrapped: { encryptedDEK: string; salt: string; iv: string };
 }): Promise<{ code: string; expiresAt: string }> {
-    const { spaceId, invitedEmail, createdBy, code, wrapped } = params;
+    const { spaceId, householdId, invitedEmail, createdBy, code, wrapped } = params;
     const email = invitedEmail.trim().toLowerCase();
 
     const expiresAt = new Date(Date.now() + INVITE_TTL_HOURS * 60 * 60 * 1000).toISOString();
+
+    // Only the hash is stored: the code itself derives the key that unwraps the
+    // space DEK, so keeping it in the same row would defeat the encryption.
+    const codeHash = await hashSpaceInviteCode(code);
 
     // Retire any outstanding invite for the same person so an older code can't
     // still be redeemed once a new one is issued.
@@ -191,7 +197,8 @@ export async function createCoParentSpaceInvite(params: {
         .from('coparent_space_invites')
         .insert({
             space_id: spaceId,
-            invite_code: code,
+            household_id: householdId,
+            invite_code_hash: codeHash,
             invited_email: email,
             created_by: createdBy,
             encrypted_dek: wrapped.encryptedDEK,
@@ -205,6 +212,57 @@ export async function createCoParentSpaceInvite(params: {
     }
 
     return { code, expiresAt };
+}
+
+/** Placeholder until the invitee accepts and their first name replaces it. */
+export const PLACEHOLDER_COPARENT_NAME = 'Other parent';
+
+/**
+ * Invite someone who is not tracked as a co-parent yet: creates the label, the
+ * space, and the invite in one step. The label is named generically because the
+ * real name arrives with the acceptance.
+ */
+export async function inviteNewCoParent(params: {
+    householdId: string;
+    userId: string;
+    invitedEmail: string;
+    wrapForSelf: WrapForSelf;
+    loadKey: (spaceId: string, dek: CryptoKey) => void;
+    wrapForInvite: (spaceId: string, code: string) =>
+        Promise<{ encryptedDEK: string; salt: string; iv: string } | null>;
+    generateCode: () => string;
+}): Promise<{ code: string; coParentId: string }> {
+    const { householdId, userId, invitedEmail, wrapForSelf, loadKey, wrapForInvite, generateCode } = params;
+
+    const { data: row, error } = await supabase
+        .from('co_parents')
+        .insert({ household_id: householdId, name: PLACEHOLDER_COPARENT_NAME })
+        .select('id')
+        .single();
+    if (error || !row) throw new Error('Could not create the co-parent.');
+
+    const { spaceId, dek } = await createSpaceForCoParent({
+        coParentId: row.id,
+        name: PLACEHOLDER_COPARENT_NAME,
+        userId,
+        wrapForSelf,
+    });
+    loadKey(spaceId, dek);
+
+    const code = generateCode();
+    const wrapped = await wrapForInvite(spaceId, code);
+    if (!wrapped) throw new Error('Could not prepare the shared key. Try unlocking again.');
+
+    await createCoParentSpaceInvite({
+        spaceId,
+        householdId,
+        invitedEmail,
+        createdBy: userId,
+        code,
+        wrapped,
+    });
+
+    return { code, coParentId: row.id };
 }
 
 /**
