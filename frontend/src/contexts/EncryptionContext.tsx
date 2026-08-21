@@ -12,6 +12,7 @@ import {
     unwrapDEKWithInviteCode,
     rewrapDEKWithPassword,
 } from '@/services/encryption';
+import { loadCoParentSpaceKeys, rewrapCoParentSpaceKeys } from '@/services/coparentSpaces';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 
@@ -414,6 +415,18 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
 
             if (!unlocked) return false;
 
+            // Co-parenting space keys are wrapped under the same password, so
+            // this is the one moment they can be unwrapped without asking for
+            // it again. A space that fails to open must not fail the unlock.
+            try {
+                const spaceKeys = await loadCoParentSpaceKeys({ userId, password });
+                for (const { spaceId, dek } of spaceKeys) {
+                    keyringRef.current.set(spaceScope(spaceId), dek);
+                }
+            } catch (err) {
+                console.error('Failed to load co-parenting space keys:', err);
+            }
+
             // Pending-exit detection runs regardless of which unlock path fired
             // — a stranded user who just bootstrapped their fresh household
             // still needs the bring-items dialog to surface for the household
@@ -495,6 +508,18 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             dekUserIdRef.current = userId;
             setIsUnlocked(true);
             resetInactivityTimer();
+
+            // Someone switching households keeps their spaces; load them here
+            // too, while the password is still in hand.
+            try {
+                const spaceKeys = await loadCoParentSpaceKeys({ userId, password });
+                for (const { spaceId, dek: spaceDek } of spaceKeys) {
+                    keyringRef.current.set(spaceScope(spaceId), spaceDek);
+                }
+            } catch (err) {
+                console.error('Failed to load co-parenting space keys:', err);
+            }
+
             return true;
         } catch (error) {
             console.error('Failed to set up vault from invite:', error);
@@ -551,6 +576,25 @@ export function EncryptionProvider({ children }: EncryptionProviderProps) {
             if (updateError) {
                 console.error('Failed to update encryption keys:', updateError);
                 return false;
+            }
+
+            // Space keys are wrapped under the same password, so they have to
+            // move with it or every space becomes unreadable at the next
+            // unlock. Runs after the household wrap lands: a space that fails
+            // is recoverable by re-inviting, a lost household wrap is not.
+            const { failed } = await rewrapCoParentSpaceKeys({
+                userId,
+                oldPassword,
+                newPassword,
+            });
+            if (failed.length) {
+                console.error('Co-parenting space keys left on the old password:', failed);
+                toast({
+                    title: 'Some shared spaces need re-linking',
+                    description:
+                        'Your password changed but a co-parenting space key did not move with it. Re-invite the co-parent to restore access.',
+                    variant: 'destructive',
+                });
             }
 
             keyringRef.current.set(HOUSEHOLD_SCOPE, dek);
