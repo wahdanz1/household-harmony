@@ -98,7 +98,7 @@ const Overview = () => {
   const [hasPriorMonthData, setHasPriorMonthData] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [openSettlementCoParentId, setOpenSettlementCoParentId] = useState<string | null>(null);
-  const { settlements, refetch: refetchSettlements } = useCoParentSettlements({ householdId: household?.id, coParents, financialMonthStart });
+  const { settlements, refetch: refetchSettlements } = useCoParentSettlements({ householdId: household?.id, coParents, userId: user?.id, financialMonthStart });
   const { spaces: coParentSpaces } = useCoParentSpaceContext(user?.id);
   const primarySpace = coParentSpaces[0];
   const { currentSide: scheduleSide, nextHandover } = useSchedule(primarySpace?.id);
