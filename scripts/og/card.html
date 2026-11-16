@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; }
+  body {
+    font-family: "DM Sans", system-ui, sans-serif;
+    background:
+      radial-gradient(680px 680px at 80% 52%, rgba(84,196,112,0.20), transparent 68%),
+      linear-gradient(135deg, #0a0f0d 0%, #0e1512 56%, #0b1310 100%);
+    color: #f4f7f5;
+    overflow: hidden;
+    position: relative;
+    -webkit-font-smoothing: antialiased;
+  }
+  .grain { position: absolute; inset: 0; opacity: 0.5;
+    background: radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.04), transparent),
+               radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.03), transparent); }
+  .wrap { position: relative; height: 100%; display: flex; align-items: center; }
+
+  .left { width: 660px; padding: 0 0 0 84px; }
+  .brand { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
+  .brand svg { width: 46px; height: 46px; }
+  .brand .name { font-size: 27px; font-weight: 600; letter-spacing: -0.01em; color: #eef2f0; }
+
+  .headline {
+    font-size: 60px; font-weight: 700; line-height: 1.04; letter-spacing: -0.025em;
+    color: #f6f9f7; max-width: 560px;
+  }
+  .headline .accent { color: #54c470; }
+
+  .bullets { margin-top: 34px; display: flex; flex-direction: column; gap: 14px; }
+  .bullet { display: flex; align-items: center; gap: 12px; font-size: 21px; font-weight: 500; color: #aab6b0; }
+  .bullet .dot { width: 7px; height: 7px; border-radius: 50%; background: #54c470; flex: none; }
+
+  .right { flex: 1; height: 100%; position: relative; }
+  .phone {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 358px;
+    border-radius: 34px;
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 0 50px 90px -20px rgba(0,0,0,0.65), 0 0 0 8px rgba(255,255,255,0.015);
+    display: block;
+  }
+</style>
+</head>
+<body>
+  <div class="grain"></div>
+  <div class="wrap">
+    <div class="left">
+      <div class="brand">
+        <svg viewBox="0 0 210 200" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#54c470" d="M 4.99999,50.910736 V 250.91073 H 43.522092 V 183.99324 L 105,148.5 l 61.4769,35.49324 v 66.91749 h 38.52309 V 50.910736 H 166.4769 V 139.51196 L 105,104.01772 43.522092,139.51196 V 50.910736 Z" transform="translate(-5,-50.91074)"/>
+        </svg>
+        <span class="name">Household Harmony</span>
+      </div>
+      <div class="headline">Your shared monthly budget, <span class="accent">encrypted.</span></div>
+      <div class="bullets">
+        <div class="bullet"><span class="dot"></span> Per-row budgets &amp; monthly review</div>
+        <div class="bullet"><span class="dot"></span> PDF invoice imports</div>
+        <div class="bullet"><span class="dot"></span> End-to-end encrypted &mdash; only you hold the key</div>
+      </div>
+    </div>
+    <div class="right">
+      <img class="phone" src="./mobile-screenshot.png" alt="" />
+    </div>
+  </div>
+</body>
+</html>
