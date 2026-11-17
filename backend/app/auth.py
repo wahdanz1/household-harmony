@@ -2,9 +2,9 @@
 
 from typing import Annotated
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from pydantic import BaseModel
 
 from app.config import settings
@@ -35,7 +35,7 @@ def get_current_user(
             algorithms=["HS256"],
             audience="authenticated",
         )
-    except JWTError:
+    except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",

@@ -3,10 +3,10 @@
 import time
 from unittest.mock import MagicMock, patch
 
+import jwt
 import pytest
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
-from jose import jwt
 
 from app.auth import (
     AuthenticatedUser,
@@ -16,7 +16,7 @@ from app.auth import (
 )
 
 
-JWT_SECRET = "test-secret-do-not-use-in-prod"
+JWT_SECRET = "test-secret-do-not-use-in-prod-padded-to-32b"
 
 
 def _make_token(payload: dict, secret: str = JWT_SECRET, algorithm: str = "HS256") -> str:
@@ -71,7 +71,7 @@ class TestGetCurrentUser:
         assert exc.value.status_code == 401
 
     def test_wrong_secret_rejected(self):
-        token = _make_token({}, secret="some-other-secret")
+        token = _make_token({}, secret="some-other-secret-also-at-least-32-bytes")
         with pytest.raises(HTTPException) as exc:
             get_current_user(_creds(token))
         assert exc.value.status_code == 401
@@ -89,7 +89,7 @@ class TestGetCurrentUser:
         assert exc.value.status_code == 401
 
     def test_alg_none_rejected(self):
-        unsigned = jwt.encode({"sub": "attacker", "aud": "authenticated"}, "", algorithm="HS256")
+        unsigned = jwt.encode({"sub": "attacker", "aud": "authenticated"}, None, algorithm="none")
         header, payload, _ = unsigned.split(".")
         with pytest.raises(HTTPException) as exc:
             get_current_user(_creds(f"{header}.{payload}."))
