@@ -62,7 +62,7 @@ Household Harmony is a household budgeting application built for Swedish househo
 - **Recharts** for overview visualizations
 
 ### Backend
-- **FastAPI** (Python 3.11+) for async API
+- **FastAPI** (Python 3.14) for async API
 - **uv** for dependency management
 - **Pydantic v2** for request/response validation
 - **cryptography** library for backend encryption (demo data seeding, API key storage)
@@ -109,7 +109,7 @@ Database migrations and schema are not included in this public repository.
 
 ### Prerequisites
 - Node.js 18+ and npm
-- Python 3.11+
+- Python 3.14, managed by uv (pinned in `backend/.python-version`)
 - [uv](https://github.com/astral-sh/uv) (Python package manager)
 - Supabase project with configured schema (not included)
 
