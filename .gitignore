@@ -259,8 +259,12 @@ SECURITY_AUDIT.md
 # Design reference prototype (Claude Design handoff — local only)
 design-reference/
 
-# Local-only scripts (seed data with personal/test content)
-scripts/
+# Local-only scripts (seed data with personal/test content). Anchored, with the OG-card generator
+# tracked; its phone screenshot shows budget figures, so it stays local.
+/scripts/*
+!/scripts/og/
+/scripts/og/mobile-screenshot.png
+/scripts/og/node_modules/
 
 # Database backups
 backups/
